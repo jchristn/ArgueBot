@@ -5,7 +5,7 @@
 <h1 align="center">ArgueBot</h1>
 
 <p align="center">
-  <strong>Let two AI agents argue so you don't have to guess.</strong>
+  <strong>Let Claude Code and Codex debate a topic so you don't have to guess.</strong>
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@ When they reach genuine consensus, you know the answer has survived adversarial 
  You                    Orchestrator              Claude Code       Codex
   |                         |                         |               |
   |--- prompt ------------->|                         |               |
-  |                         |--- opening prompt ----->|               |
+  |                         |--- opening prompt ----->| (or Codex)    |
   |<-- streaming response --|<-- streamed response ---|               |
   |                         |                         |               |
   |  (intervention window)  |                         |               |
