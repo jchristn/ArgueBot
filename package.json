@@ -1,0 +1,25 @@
+{
+  "name": "arguebot",
+  "version": "0.1.0",
+  "description": "Claude Code vs Codex debate orchestrator",
+  "type": "module",
+  "bin": {
+    "arguebot": "./dist/index.js"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "execa": "^9.5.2",
+    "ora": "^8.1.1",
+    "strip-ansi": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
