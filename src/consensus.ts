@@ -5,7 +5,7 @@
  * like "I agree on one point" does NOT count.
  */
 
-const CONSENSUS_PATTERN = /\bWE HAVE CONSENSUS\b/i;
+const CONSENSUS_PATTERN = /^\s*WE HAVE CONSENSUS\b/im;
 
 export interface ConsensusResult {
   reached: boolean;
