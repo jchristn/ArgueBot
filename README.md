@@ -90,8 +90,10 @@ npm start
 Or with options:
 
 ```bash
-npx tsx src/index.ts --rounds 8 --timeout 15
+npm start -- --rounds 8 --timeout 15
 ```
+
+> **Note:** The `--` after `npm start` is required so npm passes the flags to ArgueBot instead of consuming them itself.
 
 ### Example Session
 
@@ -160,6 +162,12 @@ blue than to the even-more-scattered violet.
 | `--first claude\|codex` | Which agent opens | prompted |
 | `--summary claude\|codex` | Which agent handles summary | prompted |
 | `--help` | Show help | |
+
+**Example:**
+
+```bash
+npm start -- --rounds 8 --agent-timeout 600 --first claude
+```
 
 ## Commands
 
