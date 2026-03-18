@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import * as readline from "node:readline";
 import type { AgentName, DebateState, DebateTurn } from "./types.js";
+import { readTextInput } from "./input.js";
 
 const COLORS = {
   claude: chalk.blue,
@@ -80,17 +81,28 @@ export function printStatus(state: DebateState, speaker?: AgentName): void {
   }
 }
 
-export function askUser(prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
+export async function askUser(
+  prompt: string,
+  options: { multiline?: boolean } = {},
+): Promise<string> {
+  if (!options.multiline) {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      rl.question(COLORS.user(prompt), (answer) => {
+        rl.close();
+        resolve(answer);
+      });
     });
-    rl.question(COLORS.user(prompt), (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
+  }
+
+  const result = await readTextInput({
+    prompt,
+    multiline: options.multiline ?? false,
   });
+  return result ?? "";
 }
 
 /**
@@ -99,70 +111,10 @@ export function askUser(prompt: string): Promise<string> {
  * expires, returns null (meaning "continue without intervention").
  */
 export function waitForIntervention(timeoutMs: number): Promise<string | null> {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    let timerHandle: ReturnType<typeof setInterval>;
-    let remaining = Math.ceil(timeoutMs / 1000);
-    let userIsTyping = false;
-    let resolved = false;
-
-    const clearLine = () => {
-      process.stdout.write("\r\x1b[K");
-    };
-
-    const showCountdown = () => {
-      if (!userIsTyping) {
-        clearLine();
-        process.stdout.write(
-          COLORS.system(`Continue in ${remaining}s... `) +
-            chalk.dim("(type to intervene, Enter to skip) "),
-        );
-      }
-    };
-
-    const onKeypress = () => {
-      if (!userIsTyping && !resolved) {
-        userIsTyping = true;
-        clearInterval(timerHandle);
-        clearLine();
-        process.stdout.write(COLORS.user("You > "));
-      }
-    };
-
-    if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
-    }
-    process.stdin.on("data", onKeypress);
-
-    showCountdown();
-
-    timerHandle = setInterval(() => {
-      remaining--;
-      if (remaining <= 0 && !userIsTyping) {
-        resolved = true;
-        clearInterval(timerHandle);
-        clearLine();
-        process.stdin.removeListener("data", onKeypress);
-        rl.close();
-        resolve(null);
-        return;
-      }
-      showCountdown();
-    }, 1000);
-
-    rl.on("line", (line) => {
-      if (resolved) return;
-      resolved = true;
-      clearInterval(timerHandle);
-      process.stdin.removeListener("data", onKeypress);
-      rl.close();
-      const input = line.trim();
-      resolve(input.length > 0 ? input : null);
-    });
+  return readTextInput({
+    prompt: "You > ",
+    multiline: true,
+    timeoutMs,
   });
 }
 

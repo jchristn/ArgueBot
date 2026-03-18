@@ -65,6 +65,8 @@ When they reach genuine consensus, you know the answer has survived adversarial 
 
 Responses stream in real-time so you're never staring at a blank screen.
 
+Prompt input is multiline. When a prompt opens, use `ENTER` to add a newline and `ESC` then `ENTER` to submit the buffer exactly as typed.
+
 ## Getting Started
 
 ### Prerequisites
@@ -105,7 +107,9 @@ Choose who goes first: [c]laude / code[x] > c
 Max rounds (default 5) > 3
 Which agent for summary? [c]laude / code[x] > x
 
-Your prompt > Debate why the sky is blue and come to a consensus.
+Enter the prompt you wish to send to the first agent to begin. ENTER = newline, ESC then ENTER = submit.
+> Debate why the sky is blue
+  and come to a consensus.
 
 [Round 1/3]
 
@@ -116,7 +120,9 @@ strongly off nitrogen and oxygen molecules, following a 1/lambda^4
 relationship. Although violet scatters even more than blue, our eyes
 are more sensitive to blue and the Sun emits more blue than violet...
 
-Continue in 8s... (type to intervene, Enter to skip)
+Continue in 8s... (type to intervene)
+ENTER = newline, ESC then ENTER = submit.
+You > /steer "Challenge whether vision matters to the explanation."
 
 Codex >
 I'd push back on calling Rayleigh scattering a complete explanation.
@@ -125,7 +131,9 @@ also need the solar emission spectrum and human photopic response to
 get from "short wavelengths scatter more" to "the sky looks blue."
 Without those, a 1/lambda^4 law alone could yield violet, not blue...
 
-Continue in 8s... (type to intervene, Enter to skip)
+Continue in 8s... (type to intervene)
+ENTER = newline, ESC then ENTER = submit.
+You >
 
 [Round 2/3]
 
@@ -144,6 +152,7 @@ than violet. All three factors are necessary for the complete answer.
 
 >>> Consensus reached! <<<
 
+ENTER = newline, ESC then ENTER = submit.
 Follow-up > Summarize in one sentence.
 
 Codex >
@@ -171,11 +180,11 @@ npm start -- --rounds 8 --agent-timeout 600 --first claude
 
 ## Commands
 
-During the debate, a countdown window appears between turns. You can type any of these:
+During the debate, a countdown window appears between turns. If you start typing, the timer stops and the multiline editor opens. Use `ENTER` for newline and `ESC` then `ENTER` to submit.
 
 | Command | Effect |
 |---------|--------|
-| *(Enter or wait)* | Continue to next turn |
+| *(wait without typing)* | Continue to next turn |
 | *(any text)* | Inject a moderator note into the transcript |
 | `/steer "focus on X"` | Add a directive to the next agent's prompt |
 | `/pause` | Pause the debate (resume with `/resume`) |
@@ -184,7 +193,7 @@ During the debate, a countdown window appears between turns. You can type any of
 | `/reset` | Scrap the debate and start over |
 | `/help` | Show command list |
 
-During follow-up Q&A:
+During follow-up Q&A, prompts use the same multiline controls: `ENTER` adds a newline and `ESC` then `ENTER` submits.
 
 | Command | Effect |
 |---------|--------|

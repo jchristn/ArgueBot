@@ -199,7 +199,14 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
   }
 
   console.log();
-  const userPrompt = await ui.askUser("Your prompt > ");
+  ui.printSystemMessage("");
+  ui.printSystemMessage(
+    "Enter the prompt you wish to send to the first agent to begin. ENTER = newline, ESC then ENTER = submit.",
+  );
+  ui.printSystemMessage("");
+  const userPrompt = await ui.askUser("> ", {
+    multiline: true,
+  });
   if (!userPrompt) {
     ui.printSystemMessage("No prompt provided. Exiting.");
     return;
@@ -281,7 +288,9 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
   console.log();
 
   while (true) {
-    const followUp = await ui.askUser("Follow-up > ");
+    const followUp = await ui.askUser("Follow-up > ", {
+      multiline: true,
+    });
 
     if (!followUp || followUp === "/done") {
       break;
