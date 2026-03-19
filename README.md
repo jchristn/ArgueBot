@@ -109,7 +109,7 @@ ArgueBot v0.1 -- Multi-Agent Debate
 Choose who goes first [default claude]: [c]laude / code[x] / [g]emini > c
 Choose the opposing agent [default codex]: [c]laude / code[x] / [g]emini > x
 Max rounds (default 5) > 3
-Which agent for summary [default claude]: [claude] / [codex] > x
+Which agent for summary [default claude]: [c]laude / code[x] > x
 
 Enter the prompt you wish to send to the first agent to begin. ENTER = newline, ESC then ENTER = submit.
 > Debate why the sky is blue

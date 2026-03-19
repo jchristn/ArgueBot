@@ -25,6 +25,17 @@ function isAgentChoice(input: string): input is AgentName {
   return input === "claude" || input === "codex" || input === "gemini";
 }
 
+function formatAgentOption(agent: AgentName): string {
+  switch (agent) {
+    case "claude":
+      return "[c]laude";
+    case "codex":
+      return "code[x]";
+    case "gemini":
+      return "[g]emini";
+  }
+}
+
 async function chooseAgent(
   prompt: string,
   defaultAgent: AgentName,
@@ -259,7 +270,7 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
       : config.firstAgent;
   if (configOverrides.summaryAgent === undefined) {
     config.summaryAgent = await chooseAgent(
-      `Which agent for summary [default ${summaryDefault}]: [${config.firstAgent}] / [${config.secondAgent}] > `,
+      `Which agent for summary [default ${summaryDefault}]: ${formatAgentOption(config.firstAgent)} / ${formatAgentOption(config.secondAgent)} > `,
       summaryDefault,
       [config.firstAgent, config.secondAgent],
     );
