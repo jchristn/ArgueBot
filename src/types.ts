@@ -1,4 +1,4 @@
-export type AgentName = "claude" | "codex";
+export type AgentName = "claude" | "codex" | "gemini";
 
 export interface DebateTurn {
   round: number;
@@ -23,7 +23,9 @@ export interface DebateConfig {
   maxRounds: number;
   interventionTimeoutMs: number;
   agentTimeoutMs: number;
+  yoloMode: boolean;
   firstAgent: AgentName;
+  secondAgent: AgentName;
   summaryAgent: AgentName;
 }
 
@@ -43,6 +45,8 @@ export const DEFAULT_CONFIG: DebateConfig = {
   maxRounds: 5,
   interventionTimeoutMs: 10_000,
   agentTimeoutMs: 300_000,
+  yoloMode: false,
   firstAgent: "claude",
+  secondAgent: "codex",
   summaryAgent: "claude",
 };

@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { runDebate } from "./orchestrator.js";
-import type { DebateConfig } from "./types.js";
+import type { AgentName, DebateConfig } from "./types.js";
+
+function isAgentName(value: string | undefined): value is AgentName {
+  return value === "claude" || value === "codex" || value === "gemini";
+}
 
 function parseArgs(): Partial<DebateConfig> {
   const args = process.argv.slice(2);
@@ -18,19 +22,27 @@ function parseArgs(): Partial<DebateConfig> {
       case "--agent-timeout":
         config.agentTimeoutMs = parseInt(args[++i], 10) * 1000;
         break;
+      case "--yolo":
+        config.yoloMode = true;
+        break;
       case "--first":
-        if (args[i + 1] === "codex" || args[i + 1] === "claude") {
-          config.firstAgent = args[++i] as "claude" | "codex";
+        if (isAgentName(args[i + 1])) {
+          config.firstAgent = args[++i] as AgentName;
+        }
+        break;
+      case "--second":
+        if (isAgentName(args[i + 1])) {
+          config.secondAgent = args[++i] as AgentName;
         }
         break;
       case "--summary":
-        if (args[i + 1] === "codex" || args[i + 1] === "claude") {
-          config.summaryAgent = args[++i] as "claude" | "codex";
+        if (isAgentName(args[i + 1])) {
+          config.summaryAgent = args[++i] as AgentName;
         }
         break;
       case "--help":
         console.log(`
-arguebot - Claude Code vs Codex debate orchestrator
+arguebot - multi-agent debate orchestrator
 
 Usage: npx tsx src/index.ts [options]
 
@@ -38,8 +50,10 @@ Options:
   --rounds N            Max debate rounds (default: 5, prompted at startup)
   --timeout N           Intervention window in seconds (default: 10)
   --agent-timeout N     Agent response timeout in seconds (default: 300)
-  --first claude|codex  Which agent goes first
-  --summary claude|codex  Which agent handles follow-up/summary
+  --yolo                Enable dangerous/no-confirmation mode for agent CLIs
+  --first claude|codex|gemini   Which agent goes first
+  --second claude|codex|gemini  Which agent is the other debater
+  --summary claude|codex|gemini Which agent handles follow-up/summary
   --help                Show this help
 `);
         process.exit(0);

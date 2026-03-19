@@ -6,8 +6,52 @@ import type { AgentName, DebateConfig, DebateSession, DebateTurn } from "./types
 import { DEFAULT_CONFIG } from "./types.js";
 import * as ui from "./ui.js";
 
-function otherAgent(agent: AgentName): AgentName {
-  return agent === "claude" ? "codex" : "claude";
+function agentLabel(agent: AgentName): string {
+  switch (agent) {
+    case "claude":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "gemini":
+      return "Gemini";
+  }
+}
+
+function opponentFor(config: DebateConfig, agent: AgentName): AgentName {
+  return agent === config.firstAgent ? config.secondAgent : config.firstAgent;
+}
+
+function isAgentChoice(input: string): input is AgentName {
+  return input === "claude" || input === "codex" || input === "gemini";
+}
+
+async function chooseAgent(
+  prompt: string,
+  defaultAgent: AgentName,
+  allowedAgents: AgentName[],
+): Promise<AgentName> {
+  const answer = await ui.askUser(prompt);
+  const normalized = answer.trim().toLowerCase();
+
+  if (normalized.length === 0) {
+    return defaultAgent;
+  }
+
+  if (normalized === "c" && allowedAgents.includes("claude")) {
+    return "claude";
+  }
+  if (normalized === "x" && allowedAgents.includes("codex")) {
+    return "codex";
+  }
+  if (normalized === "g" && allowedAgents.includes("gemini")) {
+    return "gemini";
+  }
+  if (isAgentChoice(normalized) && allowedAgents.includes(normalized)) {
+    return normalized;
+  }
+
+  ui.printSystemMessage(`Unrecognized choice "${answer}". Using ${agentLabel(defaultAgent)}.`);
+  return defaultAgent;
 }
 
 function createSession(userPrompt: string, config: DebateConfig): DebateSession {
@@ -67,14 +111,13 @@ async function runAgentTurn(
 
   let prompt: string;
   if (isOpening) {
-    prompt = buildOpeningPrompt(session.userPrompt, agent);
+    prompt = buildOpeningPrompt(session.userPrompt, agent, opponentFor(session.config, agent));
   } else {
     prompt = buildRebuttalPrompt(
       session.userPrompt,
       session.transcript,
       agent,
-      session.currentRound,
-      session.config.maxRounds,
+      opponentFor(session.config, agent),
       session.steerDirective,
     );
     session.steerDirective = null;
@@ -83,10 +126,12 @@ async function runAgentTurn(
   // Print the agent header, then stream content directly to stdout
   ui.printAgentHeader(agent);
 
-  let streamedContent = "";
-  const result = await callAgent(agent, prompt, session.config.agentTimeoutMs, (chunk) => {
-    process.stdout.write(chunk);
-    streamedContent += chunk;
+  const result = await callAgent(agent, prompt, {
+    timeoutMs: session.config.agentTimeoutMs,
+    yoloMode: session.config.yoloMode,
+    onChunk: (chunk) => {
+      process.stdout.write(chunk);
+    },
   });
 
   if (result.error) {
@@ -167,14 +212,33 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
 
   ui.printBanner();
 
+  if (config.firstAgent === config.secondAgent) {
+    config.secondAgent = config.firstAgent === "claude" ? "codex" : "claude";
+  }
+
   // Choose first agent
-  const agentChoice = await ui.askUser(
-    "Choose who goes first: [c]laude / code[x] > ",
-  );
-  if (agentChoice.toLowerCase().startsWith("x")) {
-    config.firstAgent = "codex";
-  } else {
-    config.firstAgent = "claude";
+  if (configOverrides.firstAgent === undefined) {
+    config.firstAgent = await chooseAgent(
+      `Choose who goes first [default ${config.firstAgent}]: [c]laude / code[x] / [g]emini > `,
+      config.firstAgent,
+      ["claude", "codex", "gemini"],
+    );
+  }
+
+  // Choose second agent
+  const secondDefault =
+    config.secondAgent !== config.firstAgent
+      ? config.secondAgent
+      : (["claude", "codex", "gemini"].find((agent) => agent !== config.firstAgent) as AgentName);
+  if (configOverrides.secondAgent === undefined) {
+    config.secondAgent = await chooseAgent(
+      `Choose the opposing agent [default ${secondDefault}]: [c]laude / code[x] / [g]emini > `,
+      secondDefault,
+      (["claude", "codex", "gemini"] as AgentName[]).filter((agent) => agent !== config.firstAgent),
+    );
+  } else if (config.secondAgent === config.firstAgent) {
+    ui.printSystemMessage("Second agent matched the first agent. Falling back to a different debater.");
+    config.secondAgent = secondDefault;
   }
 
   // Choose max rounds
@@ -189,13 +253,19 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
   }
 
   // Choose summary agent
-  const summaryChoice = await ui.askUser(
-    "Which agent for summary? [c]laude / code[x] > ",
-  );
-  if (summaryChoice.toLowerCase().startsWith("x")) {
-    config.summaryAgent = "codex";
-  } else {
-    config.summaryAgent = "claude";
+  const summaryDefault =
+    config.summaryAgent === config.firstAgent || config.summaryAgent === config.secondAgent
+      ? config.summaryAgent
+      : config.firstAgent;
+  if (configOverrides.summaryAgent === undefined) {
+    config.summaryAgent = await chooseAgent(
+      `Which agent for summary [default ${summaryDefault}]: [${config.firstAgent}] / [${config.secondAgent}] > `,
+      summaryDefault,
+      [config.firstAgent, config.secondAgent],
+    );
+  } else if (config.summaryAgent !== config.firstAgent && config.summaryAgent !== config.secondAgent) {
+    ui.printSystemMessage("Summary agent was not one of the selected debaters. Falling back to the first agent.");
+    config.summaryAgent = config.firstAgent;
   }
 
   console.log();
@@ -248,7 +318,7 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
     }
 
     // Agent B turn
-    const agentB = otherAgent(agentA);
+    const agentB = opponentFor(config, agentA);
     const turnBOk = await runAgentTurn(session, agentB, false);
 
     if (turnBOk) {
@@ -321,8 +391,12 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
       respondingAgent,
     );
 
-    const result = await callAgent(respondingAgent, prompt, session.config.agentTimeoutMs, (chunk) => {
-      process.stdout.write(chunk);
+    const result = await callAgent(respondingAgent, prompt, {
+      timeoutMs: session.config.agentTimeoutMs,
+      yoloMode: session.config.yoloMode,
+      onChunk: (chunk) => {
+        process.stdout.write(chunk);
+      },
     });
 
     if (result.error) {

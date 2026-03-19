@@ -6,6 +6,7 @@ import { readTextInput } from "./input.js";
 const COLORS = {
   claude: chalk.blue,
   codex: chalk.yellow,
+  gemini: chalk.magenta,
   user: chalk.green,
   system: chalk.gray,
   error: chalk.red,
@@ -15,13 +16,14 @@ const COLORS = {
 const LABELS: Record<string, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  gemini: "Gemini",
   user: "You",
   system: "System",
 };
 
 export function printBanner(): void {
   console.log();
-  console.log(COLORS.highlight("ArgueBot v0.1 -- Claude Code vs Codex Debate"));
+  console.log(COLORS.highlight("ArgueBot v0.1 -- Multi-Agent Debate"));
   console.log(COLORS.system("─".repeat(47)));
   console.log();
 }

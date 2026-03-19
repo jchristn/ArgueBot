@@ -5,7 +5,7 @@
 <h1 align="center">ArgueBot</h1>
 
 <p align="center">
-  <strong>Let Claude Code and Codex debate a topic so you don't have to guess.</strong>
+  <strong>Let Claude Code, Codex, or Gemini debate a topic so you don't have to guess.</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 You ask an AI a question and get a confident answer. But is it the *right* answer? A single model gives you a single perspective. It won't challenge its own assumptions, probe its own blind spots, or stress-test its own reasoning.
 
-ArgueBot fixes this by pitting **Claude Code** against **OpenAI Codex** in a structured debate. You pose a question, pick who opens, and watch two frontier models argue it out -- surfacing trade-offs, catching weak assumptions, and forcing each other to defend their positions with concrete reasoning.
+ArgueBot fixes this by pitting two frontier coding agents against each other in a structured debate. You pose a question, pick who opens, and watch them argue it out -- surfacing trade-offs, catching weak assumptions, and forcing each other to defend their positions with concrete reasoning.
 
 When they reach genuine consensus, you know the answer has survived adversarial scrutiny. When they don't, you get a clear map of the disagreements and trade-offs -- which is often more valuable than a single confident answer.
 
@@ -37,10 +37,10 @@ When they reach genuine consensus, you know the answer has survived adversarial 
 ## How It Works
 
 ```
- You                    Orchestrator              Claude Code       Codex
+ You                    Orchestrator               Agent A          Agent B
   |                         |                         |               |
   |--- prompt ------------->|                         |               |
-  |                         |--- opening prompt ----->| (or Codex)    |
+  |                         |--- opening prompt ----->|               |
   |<-- streaming response --|<-- streamed response ---|               |
   |                         |                         |               |
   |  (intervention window)  |                         |               |
@@ -53,7 +53,7 @@ When they reach genuine consensus, you know the answer has survived adversarial 
   |                         |<--- "WE HAVE CONSENSUS" |               |
   |<-- consensus reached! --|                         |               |
   |                         |                         |               |
-  |--- follow-up question ->|--- summary prompt ----->| (or Codex)    |
+  |--- follow-up question ->|--- summary prompt ----->| (or Agent B)  |
   |<-- streaming answer ----|<-- streamed answer -----|               |
 ```
 
@@ -74,6 +74,7 @@ Prompt input is multiline. When a prompt opens, use `ENTER` to add a newline and
 - [Node.js](https://nodejs.org/) 18+
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
 - [Codex CLI](https://github.com/openai/codex) installed and authenticated
+- [Gemini CLI](https://google-gemini.github.io/gemini-cli/) installed and authenticated if you want Gemini as one of the debaters
 
 ### Install
 
@@ -93,6 +94,8 @@ Or with options:
 
 ```bash
 npm start -- --rounds 8 --timeout 15
+
+npm start -- --first gemini --second codex --summary gemini --yolo
 ```
 
 > **Note:** The `--` after `npm start` is required so npm passes the flags to ArgueBot instead of consuming them itself.
@@ -100,12 +103,13 @@ npm start -- --rounds 8 --timeout 15
 ### Example Session
 
 ```
-ArgueBot v0.1 -- Claude Code vs Codex Debate
+ArgueBot v0.1 -- Multi-Agent Debate
 ───────────────────────────────────────────────
 
-Choose who goes first: [c]laude / code[x] > c
+Choose who goes first [default claude]: [c]laude / code[x] / [g]emini > c
+Choose the opposing agent [default codex]: [c]laude / code[x] / [g]emini > x
 Max rounds (default 5) > 3
-Which agent for summary? [c]laude / code[x] > x
+Which agent for summary [default claude]: [claude] / [codex] > x
 
 Enter the prompt you wish to send to the first agent to begin. ENTER = newline, ESC then ENTER = submit.
 > Debate why the sky is blue
@@ -168,14 +172,16 @@ blue than to the even-more-scattered violet.
 | `--rounds N` | Max debate rounds | `5` (prompted) |
 | `--timeout N` | Intervention window (seconds) | `10` |
 | `--agent-timeout N` | Agent response timeout (seconds) | `300` |
-| `--first claude\|codex` | Which agent opens | prompted |
-| `--summary claude\|codex` | Which agent handles summary | prompted |
+| `--yolo` | Enable dangerous/no-confirmation mode for supported agent CLIs | `false` |
+| `--first claude\|codex\|gemini` | Which agent opens | prompted |
+| `--second claude\|codex\|gemini` | Which agent is the other debater | prompted |
+| `--summary claude\|codex\|gemini` | Which agent handles summary | prompted |
 | `--help` | Show help | |
 
 **Example:**
 
 ```bash
-npm start -- --rounds 8 --agent-timeout 600 --first claude
+npm start -- --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini --yolo
 ```
 
 ## Commands

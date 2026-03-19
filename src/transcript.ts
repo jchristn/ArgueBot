@@ -5,6 +5,7 @@ import type { AgentName, DebateTurn } from "./types.js";
 const LABELS: Record<string, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  gemini: "Gemini",
   user: "Moderator (User)",
 };
 

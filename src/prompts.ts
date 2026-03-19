@@ -1,11 +1,14 @@
 import type { AgentName, DebateTurn } from "./types.js";
 
 function agentLabel(agent: AgentName): string {
-  return agent === "claude" ? "Claude Code" : "Codex";
-}
-
-function otherAgent(agent: AgentName): AgentName {
-  return agent === "claude" ? "codex" : "claude";
+  switch (agent) {
+    case "claude":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "gemini":
+      return "Gemini";
+  }
 }
 
 function formatTranscript(transcript: DebateTurn[]): string {
@@ -23,8 +26,12 @@ function formatTranscript(transcript: DebateTurn[]): string {
 const CONSENSUS_INSTRUCTIONS = `
 CONSENSUS RULE: When -- and ONLY when -- you genuinely believe you and your opponent have reached full agreement on the substantive position, write the exact phrase "WE HAVE CONSENSUS" on its own line, followed by a clear summary of the agreed position. Do NOT use this phrase if you still have unresolved objections. Partial agreement ("I agree on one point but...") is NOT consensus. The debate continues until one of you writes "WE HAVE CONSENSUS" and means it.`.trim();
 
-export function buildOpeningPrompt(userPrompt: string, agent: AgentName): string {
-  return `You are ${agentLabel(agent)}, participating in a structured technical debate with ${agentLabel(otherAgent(agent))}.
+export function buildOpeningPrompt(
+  userPrompt: string,
+  agent: AgentName,
+  opponent: AgentName,
+): string {
+  return `You are ${agentLabel(agent)}, participating in a structured technical debate with ${agentLabel(opponent)}.
 
 A user has asked the following question:
 
@@ -45,8 +52,7 @@ export function buildRebuttalPrompt(
   userPrompt: string,
   transcript: DebateTurn[],
   agent: AgentName,
-  round: number,
-  maxRounds: number,
+  opponent: AgentName,
   steerDirective: string | null,
 ): string {
   const formatted = formatTranscript(transcript);
@@ -55,7 +61,7 @@ export function buildRebuttalPrompt(
     ? `\n\nIMPORTANT DIRECTIVE FROM THE USER: ${steerDirective}`
     : "";
 
-  return `You are ${agentLabel(agent)}, participating in a structured technical debate with ${agentLabel(otherAgent(agent))}.
+  return `You are ${agentLabel(agent)}, participating in a structured technical debate with ${agentLabel(opponent)}.
 
 The original question is:
 "${userPrompt}"
@@ -64,7 +70,7 @@ Here is the debate so far:
 
 ${formatted}
 
-Respond to ${agentLabel(otherAgent(agent))}'s most recent argument.
+Respond to ${agentLabel(opponent)}'s most recent argument.
 - If you disagree, explain WHY with concrete technical reasons and propose an alternative.
 - If you partially agree, acknowledge the strong points but push back on weaknesses.
 - Do not repeat arguments already made. Add new information or concede points where warranted.
