@@ -1,4 +1,4 @@
-import { callAgent } from "./agents.js";
+import { callAgent, validateAgentSetup } from "./agents.js";
 import { checkConsensus } from "./consensus.js";
 import { buildFinalQueryPrompt, buildOpeningPrompt, buildRebuttalPrompt } from "./prompts.js";
 import { saveTranscript } from "./transcript.js";
@@ -277,6 +277,18 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
   } else if (config.summaryAgent !== config.firstAgent && config.summaryAgent !== config.secondAgent) {
     ui.printSystemMessage("Summary agent was not one of the selected debaters. Falling back to the first agent.");
     config.summaryAgent = config.firstAgent;
+  }
+
+  const setupErrors = [...new Set([config.firstAgent, config.secondAgent, config.summaryAgent])]
+    .map((agent) => validateAgentSetup(agent))
+    .filter((message): message is string => message !== null);
+
+  if (setupErrors.length > 0) {
+    for (const message of setupErrors) {
+      ui.printError(message);
+    }
+    ui.printSystemMessage("Fix the missing configuration and run ArgueBot again.");
+    return;
   }
 
   console.log();

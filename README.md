@@ -84,6 +84,65 @@ cd arguebot
 npm install
 ```
 
+### Configure API Keys
+
+ArgueBot now loads a local `.env` file automatically at startup and passes those
+variables through to the agent CLIs it spawns.
+
+Create `.env` in the project root with the providers you plan to use:
+
+```bash
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+GEMINI_API_KEY=your_gemini_key
+```
+
+If you already exported these in your shell, that also works. A local `.env`
+is the simplest way to make provider auth deterministic inside ArgueBot.
+
+### Provider Auth Notes
+
+ArgueBot runs all three CLIs in non-interactive headless mode:
+
+- Claude uses `claude -p - --output-format text`
+- Codex uses `codex exec ... -`
+- Gemini uses `gemini --prompt "" --output-format text`
+
+That matters because each CLI may use a different auth path in headless mode
+than in the interactive terminal UI.
+
+#### Claude
+
+- Claude can work either from `ANTHROPIC_API_KEY` or from its stored Claude
+  Code login.
+- ArgueBot checks for `ANTHROPIC_API_KEY` first, then falls back to Claude's
+  local credentials under `~/.claude/.credentials.json`.
+- If Claude works directly in your terminal but not under ArgueBot, make sure
+  the same user profile is launching both processes and that `claude auth`
+  completed for that profile.
+
+#### Codex
+
+- Codex can work either from `OPENAI_API_KEY` or from its stored `codex login`
+  credentials.
+- ArgueBot checks for `OPENAI_API_KEY` first, then falls back to Codex's local
+  credentials under `~/.codex/auth.json`.
+- If you want the most predictable setup, put `OPENAI_API_KEY` in `.env` even
+  if `codex login` already works interactively.
+
+#### Gemini
+
+- Gemini CLI has multiple auth modes, and the selected mode affects headless
+  behavior.
+- If `~/.gemini/settings.json` has `security.auth.selectedType` set to
+  `gemini-api-key`, Gemini will require `GEMINI_API_KEY` in the environment at
+  runtime. A prior `/auth` inside the interactive Gemini UI does not replace
+  that env var requirement.
+- If you want Gemini to work without exporting `GEMINI_API_KEY`, run
+  `gemini`, then `/auth`, and switch the selected auth mode to Google login.
+- If you use Vertex AI mode instead, set either `GOOGLE_API_KEY` or both
+  `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
+
 ### Run
 
 ```bash

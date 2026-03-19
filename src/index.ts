@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "dotenv/config";
 import { runDebate } from "./orchestrator.js";
 import type { AgentName, DebateConfig } from "./types.js";
 
