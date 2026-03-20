@@ -49,6 +49,16 @@ export function printTurn(turn: DebateTurn): void {
   console.log();
 }
 
+export function printUserMessage(content: string, promptLabel = "You >"): void {
+  console.log();
+  console.log(COLORS.user(promptLabel));
+  console.log();
+  for (const line of content.split("\n")) {
+    console.log(line);
+  }
+  console.log();
+}
+
 export function printRoundHeader(round: number, maxRounds?: number): void {
   if (maxRounds && isFinite(maxRounds)) {
     console.log(COLORS.system(`[Round ${round}/${maxRounds}]`));

@@ -210,6 +210,7 @@ async function handleInterventionWindow(session: DebateSession): Promise<"contin
 
     case "inject":
       addTurn(session, "user", parsed.value!, "moderator");
+      ui.printUserMessage(parsed.value!, "You >");
       ui.printSystemMessage("Moderator note injected into transcript.");
       return "continue";
 
@@ -304,6 +305,7 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
     ui.printSystemMessage("No prompt provided. Exiting.");
     return;
   }
+  ui.printUserMessage(userPrompt);
 
   const session = createSession(userPrompt, config);
   console.log();
@@ -403,6 +405,8 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
       ui.printTranscriptSummary(session.transcript);
       continue;
     }
+
+    ui.printUserMessage(followUp, "Follow-up >");
 
     const respondingAgent = config.summaryAgent;
     ui.printAgentHeader(respondingAgent);
