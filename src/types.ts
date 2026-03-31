@@ -24,6 +24,7 @@ export interface DebateConfig {
   interventionTimeoutMs: number;
   agentTimeoutMs: number;
   yoloMode: boolean;
+  verbose: boolean;
   firstAgent: AgentName;
   secondAgent: AgentName;
   summaryAgent: AgentName;
@@ -46,6 +47,7 @@ export const DEFAULT_CONFIG: DebateConfig = {
   interventionTimeoutMs: 10_000,
   agentTimeoutMs: 300_000,
   yoloMode: false,
+  verbose: false,
   firstAgent: "claude",
   secondAgent: "codex",
   summaryAgent: "claude",

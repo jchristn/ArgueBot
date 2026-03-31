@@ -26,6 +26,10 @@ function parseArgs(): Partial<DebateConfig> {
       case "--yolo":
         config.yoloMode = true;
         break;
+      case "-v":
+      case "--verbose":
+        config.verbose = true;
+        break;
       case "--first":
         if (isAgentName(args[i + 1])) {
           config.firstAgent = args[++i] as AgentName;
@@ -52,6 +56,7 @@ Options:
   --timeout N           Intervention window in seconds (default: 10)
   --agent-timeout N     Agent response timeout in seconds (default: 300)
   --yolo                Enable dangerous/no-confirmation mode for agent CLIs
+  -v, --verbose         Show low-level agent status/event messages
   --first claude|codex|gemini   Which agent goes first
   --second claude|codex|gemini  Which agent is the other debater
   --summary claude|codex|gemini Which agent handles follow-up/summary

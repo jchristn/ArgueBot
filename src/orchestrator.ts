@@ -136,12 +136,25 @@ async function runAgentTurn(
 
   // Print the agent header, then stream content directly to stdout
   ui.printAgentHeader(agent);
+  let streamHasVisibleText = false;
 
   const result = await callAgent(agent, prompt, {
     timeoutMs: session.config.agentTimeoutMs,
     yoloMode: session.config.yoloMode,
-    onChunk: (chunk) => {
-      process.stdout.write(chunk);
+    onEvent: (event) => {
+      if (event.type === "delta") {
+        process.stdout.write(event.text);
+        streamHasVisibleText = true;
+        return;
+      }
+
+      if (streamHasVisibleText) {
+        console.log();
+        streamHasVisibleText = false;
+      }
+      if (session.config.verbose) {
+        ui.printAgentStatus(agent, event.text);
+      }
     },
   });
 
@@ -410,6 +423,7 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
 
     const respondingAgent = config.summaryAgent;
     ui.printAgentHeader(respondingAgent);
+    let streamHasVisibleText = false;
 
     const prompt = buildFinalQueryPrompt(
       session.userPrompt,
@@ -421,8 +435,20 @@ export async function runDebate(configOverrides: Partial<DebateConfig> = {}): Pr
     const result = await callAgent(respondingAgent, prompt, {
       timeoutMs: session.config.agentTimeoutMs,
       yoloMode: session.config.yoloMode,
-      onChunk: (chunk) => {
-        process.stdout.write(chunk);
+      onEvent: (event) => {
+        if (event.type === "delta") {
+          process.stdout.write(event.text);
+          streamHasVisibleText = true;
+          return;
+        }
+
+        if (streamHasVisibleText) {
+          console.log();
+          streamHasVisibleText = false;
+        }
+        if (session.config.verbose) {
+          ui.printAgentStatus(respondingAgent, event.text);
+        }
       },
     });
 

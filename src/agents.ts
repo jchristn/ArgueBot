@@ -11,15 +11,21 @@ export interface AgentResult {
   error: string | null;
 }
 
+export interface AgentStreamEvent {
+  type: "delta" | "status";
+  text: string;
+}
+
 interface CallAgentOptions {
   timeoutMs?: number;
   yoloMode?: boolean;
-  onChunk?: (text: string) => void;
+  onEvent?: (event: AgentStreamEvent) => void;
 }
 
 interface AgentCommand {
   cmd: string;
   args: string[];
+  streamFormat: "text" | "jsonl";
 }
 
 interface GeminiAuthDiagnostics {
@@ -153,9 +159,12 @@ function buildAgentCommand(agent: AgentName, yoloMode: boolean): AgentCommand {
           "-p",
           "-",
           ...(yoloMode ? ["--dangerously-skip-permissions"] : []),
+          "--verbose",
           "--output-format",
-          "text",
+          "stream-json",
+          "--include-partial-messages",
         ],
+        streamFormat: "jsonl",
       };
 
     case "codex":
@@ -167,8 +176,10 @@ function buildAgentCommand(agent: AgentName, yoloMode: boolean): AgentCommand {
           "--skip-git-repo-check",
           "--color",
           "never",
+          "--json",
           "-",
         ],
+        streamFormat: "jsonl",
       };
 
     case "gemini":
@@ -178,9 +189,10 @@ function buildAgentCommand(agent: AgentName, yoloMode: boolean): AgentCommand {
           "--prompt",
           "",
           "--output-format",
-          "text",
+          "stream-json",
           ...(yoloMode ? ["--yolo"] : []),
         ],
+        streamFormat: "jsonl",
       };
   }
 }
@@ -195,39 +207,409 @@ function buildFallbackAgentCommand(agent: AgentName, yoloMode: boolean): AgentCo
         "--skip-git-repo-check",
         "--color",
         "never",
+        "--json",
         "-",
       ],
+      streamFormat: "jsonl",
     };
   }
 
   return null;
 }
 
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\r/g, "");
+}
+
+function appendUniqueText(target: string, text: string): string {
+  if (!text) {
+    return target;
+  }
+
+  if (!target) {
+    return text;
+  }
+
+  if (target.endsWith(text)) {
+    return target;
+  }
+
+  return target + text;
+}
+
+function sanitizeLine(text: string): string {
+  return stripAnsi(normalizeWhitespace(text)).trim();
+}
+
+function readNestedString(value: unknown, path: string[]): string | null {
+  let current: unknown = value;
+  for (const segment of path) {
+    if (!current || typeof current !== "object" || !(segment in current)) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return typeof current === "string" && current.length > 0 ? current : null;
+}
+
+function readTextFromContentBlocks(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const text = value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return "";
+      }
+
+      const record = item as Record<string, unknown>;
+      if (typeof record.text === "string") {
+        return record.text;
+      }
+      if (record.type === "output_text" && typeof record.text === "string") {
+        return record.text;
+      }
+
+      return "";
+    })
+    .join("");
+
+  return text.length > 0 ? text : null;
+}
+
+function normalizeClaudeEvent(event: Record<string, unknown>): AgentStreamEvent[] {
+  const type = typeof event.type === "string" ? event.type : "";
+  const subtype = typeof event.subtype === "string" ? event.subtype : "";
+  const innerEvent =
+    event.event && typeof event.event === "object" ? (event.event as Record<string, unknown>) : null;
+  const innerType = innerEvent && typeof innerEvent.type === "string" ? innerEvent.type : "";
+  const events: AgentStreamEvent[] = [];
+
+  const deltaText =
+    readNestedString(event, ["result"]) ??
+    readNestedString(innerEvent, ["delta", "text"]) ??
+    readNestedString(innerEvent, ["content_block", "text"]) ??
+    readNestedString(event, ["delta", "text"]) ??
+    readNestedString(event, ["content_block", "text"]) ??
+    readNestedString(event, ["message", "content", "0", "text"]) ??
+    readNestedString(innerEvent, ["message", "content", "0", "text"]) ??
+    readTextFromContentBlocks(event.message && typeof event.message === "object"
+      ? (event.message as Record<string, unknown>).content
+      : undefined) ??
+    readTextFromContentBlocks(innerEvent && innerEvent.message && typeof innerEvent.message === "object"
+      ? (innerEvent.message as Record<string, unknown>).content
+      : undefined);
+  if (deltaText) {
+    events.push({ type: "delta", text: deltaText });
+  }
+
+  const statusText =
+    readNestedString(event, ["error", "message"]) ??
+    readNestedString(event, ["result", "error"]) ??
+    readNestedString(innerEvent, ["error", "message"]) ??
+    readNestedString(event, ["message"]) ??
+    readNestedString(event, ["status"]);
+
+  if (statusText && !deltaText) {
+    events.push({ type: "status", text: `${type}${subtype ? `:${subtype}` : ""} ${statusText}`.trim() });
+  } else if (!deltaText) {
+    const statusLabel =
+      [type, subtype || innerType].filter(Boolean).join(":") ||
+      innerType;
+    if (statusLabel) {
+      events.push({ type: "status", text: statusLabel });
+    }
+  }
+
+  return events;
+}
+
+function normalizeCodexEvent(event: Record<string, unknown>): AgentStreamEvent[] {
+  const type = typeof event.type === "string" ? event.type : "";
+  const events: AgentStreamEvent[] = [];
+
+  const deltaText =
+    readNestedString(event, ["result"]) ??
+    readNestedString(event, ["delta"]) ??
+    readNestedString(event, ["text"]) ??
+    readNestedString(event, ["content"]) ??
+    readNestedString(event, ["item", "text"]) ??
+    readNestedString(event, ["item", "content", "0", "text"]) ??
+    readNestedString(event, ["message", "delta"]) ??
+    readNestedString(event, ["message", "content", "0", "text"]) ??
+    readTextFromContentBlocks(event.content) ??
+    readTextFromContentBlocks(event.item && typeof event.item === "object"
+      ? (event.item as Record<string, unknown>).content
+      : undefined);
+
+  if (deltaText) {
+    events.push({ type: "delta", text: deltaText });
+  }
+
+  const statusText =
+    readNestedString(event, ["message"]) ??
+    readNestedString(event, ["status"]) ??
+    readNestedString(event, ["error", "message"]) ??
+    readNestedString(event, ["tool_name"]) ??
+    readNestedString(event, ["item", "type"]);
+
+  if (statusText && !deltaText) {
+    events.push({ type: "status", text: `${type} ${statusText}`.trim() });
+  } else if (!deltaText && type) {
+    events.push({ type: "status", text: type });
+  }
+
+  return events;
+}
+
+function normalizeGeminiEvent(event: Record<string, unknown>): AgentStreamEvent[] {
+  const type = typeof event.type === "string" ? event.type : "";
+  const events: AgentStreamEvent[] = [];
+
+  const deltaText =
+    readNestedString(event, ["content"]) ??
+    readNestedString(event, ["text"]) ??
+    readNestedString(event, ["delta"]) ??
+    readNestedString(event, ["message", "text"]) ??
+    readNestedString(event, ["candidate", "content", "parts", "0", "text"]) ??
+    readTextFromContentBlocks(event.content);
+
+  if (deltaText) {
+    events.push({ type: "delta", text: deltaText });
+  }
+
+  const statusText =
+    readNestedString(event, ["status"]) ??
+    readNestedString(event, ["message"]) ??
+    readNestedString(event, ["error", "message"]);
+
+  if (statusText && !deltaText) {
+    events.push({ type: "status", text: `${type} ${statusText}`.trim() });
+  } else if (!deltaText && type) {
+    events.push({ type: "status", text: type });
+  }
+
+  return events;
+}
+
+function normalizeJsonEvent(agent: AgentName, line: string): AgentStreamEvent[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    const text = sanitizeLine(line);
+    return text ? [{ type: "delta", text }] : [];
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    const text = sanitizeLine(String(parsed));
+    return text ? [{ type: "delta", text }] : [];
+  }
+
+  const event = parsed as Record<string, unknown>;
+  switch (agent) {
+    case "claude":
+      return normalizeClaudeEvent(event);
+    case "codex":
+      return normalizeCodexEvent(event);
+    case "gemini":
+      return normalizeGeminiEvent(event);
+  }
+}
+
+function looksLikeLowSignalStatus(text: string): boolean {
+  return (
+    /^[a-z_]+(?:[.:][a-z_]+)+$/i.test(text) ||
+    /^\d{4}-\d{2}-\d{2}t.*\b(error|warn|info)\b/i.test(text) ||
+    /^(mcp|loaded cached credentials|scheduling mcp context refresh|executing mcp context refresh|mcp context refresh complete)/i.test(
+      text,
+    )
+  );
+}
+
 async function runAgentCommand(
+  agent: AgentName,
   command: AgentCommand,
   prompt: string,
   timeoutMs: number,
-  onChunk?: (text: string) => void,
+  onEvent?: (event: AgentStreamEvent) => void,
 ): Promise<{ content: string; durationMs: number }> {
   const start = Date.now();
   const subprocess = execa(command.cmd, command.args, {
-    timeout: timeoutMs,
     env: { ...process.env, NO_COLOR: "1" },
     buffer: true,
     input: prompt,
   });
 
   let accumulated = "";
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+  let lastErrorStatus = "";
+  let timeoutHandle: NodeJS.Timeout | null = null;
+  let forceKillHandle: NodeJS.Timeout | null = null;
+
+  const clearAgentTimeout = (): void => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = null;
+    }
+    if (forceKillHandle) {
+      clearTimeout(forceKillHandle);
+      forceKillHandle = null;
+    }
+  };
+
+  const resetAgentTimeout = (): void => {
+    clearAgentTimeout();
+    timeoutHandle = setTimeout(() => {
+      subprocess.kill("SIGTERM");
+      forceKillHandle = setTimeout(() => {
+        subprocess.kill("SIGKILL");
+      }, 1_000);
+    }, timeoutMs);
+  };
+
+  const emit = (event: AgentStreamEvent): void => {
+    const text = normalizeWhitespace(event.text);
+    if (!text) {
+      return;
+    }
+
+    if (event.type === "delta") {
+      accumulated = appendUniqueText(accumulated, text);
+      resetAgentTimeout();
+    }
+
+    if (event.type === "status" && /\berror\b/i.test(text)) {
+      lastErrorStatus = text;
+    }
+
+    onEvent?.({ type: event.type, text });
+  };
+
+  const flushStdout = (flushPartial: boolean): void => {
+    if (!stdoutBuffer) {
+      return;
+    }
+
+    const newlinePattern = /\r?\n/g;
+    let startIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = newlinePattern.exec(stdoutBuffer)) !== null) {
+      const line = stdoutBuffer.slice(startIndex, match.index);
+      startIndex = match.index + match[0].length;
+
+      if (command.streamFormat === "jsonl") {
+        const normalizedEvents = normalizeJsonEvent(agent, line);
+        if (normalizedEvents.length > 0) {
+          for (const event of normalizedEvents) {
+            emit(event);
+          }
+        } else {
+          const text = sanitizeLine(line);
+          if (text) {
+            emit({
+              type: looksLikeLowSignalStatus(text) ? "status" : "delta",
+              text: looksLikeLowSignalStatus(text) ? text : text + "\n",
+            });
+          }
+        }
+      } else {
+        emit({ type: "delta", text: line + "\n" });
+      }
+    }
+
+    stdoutBuffer = stdoutBuffer.slice(startIndex);
+
+    if (flushPartial && stdoutBuffer.length > 0) {
+      if (command.streamFormat === "jsonl") {
+        const normalizedEvents = normalizeJsonEvent(agent, stdoutBuffer);
+        if (normalizedEvents.length > 0) {
+          for (const event of normalizedEvents) {
+            emit(event);
+          }
+        } else {
+          const text = sanitizeLine(stdoutBuffer);
+          if (text) {
+            emit({
+              type: looksLikeLowSignalStatus(text) ? "status" : "delta",
+              text: looksLikeLowSignalStatus(text) ? text : text + "\n",
+            });
+          }
+        }
+      } else {
+        emit({ type: "delta", text: stdoutBuffer });
+      }
+      stdoutBuffer = "";
+    }
+  };
+
+  const flushStderr = (flushPartial: boolean): void => {
+    if (!stderrBuffer) {
+      return;
+    }
+
+    const newlinePattern = /\r?\n/g;
+    let startIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = newlinePattern.exec(stderrBuffer)) !== null) {
+      const line = sanitizeLine(stderrBuffer.slice(startIndex, match.index));
+      startIndex = match.index + match[0].length;
+      if (line) {
+        emit({ type: "status", text: line });
+      }
+    }
+
+    stderrBuffer = stderrBuffer.slice(startIndex);
+
+    if (flushPartial) {
+      const line = sanitizeLine(stderrBuffer);
+      if (line) {
+        emit({ type: "status", text: line });
+      }
+      stderrBuffer = "";
+    }
+  };
 
   if (subprocess.stdout) {
     subprocess.stdout.on("data", (chunk: Buffer) => {
-      const text = stripAnsi(chunk.toString());
-      accumulated += text;
-      onChunk?.(text);
+      stdoutBuffer += stripAnsi(chunk.toString());
+      flushStdout(false);
     });
   }
 
-  await subprocess;
+  if (subprocess.stderr) {
+    subprocess.stderr.on("data", (chunk: Buffer) => {
+      stderrBuffer += chunk.toString();
+      flushStderr(false);
+    });
+  }
+
+  resetAgentTimeout();
+
+  try {
+    await subprocess;
+    flushStdout(true);
+    flushStderr(true);
+  } catch (err: unknown) {
+    clearAgentTimeout();
+    const message = err instanceof Error ? err.message : String(err);
+    if (/timed out|terminated|killed/i.test(message) && !accumulated.trim()) {
+      throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s without receiving content.`);
+    }
+    throw err;
+  } finally {
+    clearAgentTimeout();
+  }
+
+  if (!accumulated.trim() && lastErrorStatus) {
+    throw new Error(lastErrorStatus);
+  }
 
   return {
     content: accumulated.trim(),
@@ -251,7 +633,7 @@ export async function callAgent(
   const start = Date.now();
   const timeoutMs = options.timeoutMs ?? 300_000;
   const yoloMode = options.yoloMode ?? false;
-  const onChunk = options.onChunk;
+  const onEvent = options.onEvent;
   const setupError = validateAgentSetup(agent);
 
   if (setupError) {
@@ -264,10 +646,11 @@ export async function callAgent(
 
   try {
     const result = await runAgentCommand(
+      agent,
       buildAgentCommand(agent, yoloMode),
       prompt,
       timeoutMs,
-      onChunk,
+      onEvent,
     );
 
     return {
@@ -317,10 +700,11 @@ export async function callAgent(
       if (shouldRetry) {
         try {
           const result = await runAgentCommand(
+            agent,
             fallbackCommand,
             prompt,
             timeoutMs,
-            onChunk,
+            onEvent,
           );
 
           return {

@@ -35,6 +35,12 @@ export function printAgentHeader(agent: AgentName): void {
   console.log(colorFn(`${label} >`));
 }
 
+export function printAgentStatus(agent: AgentName, message: string): void {
+  const colorFn = COLORS[agent];
+  const label = LABELS[agent];
+  console.log(chalk.dim(`[${colorFn(label)}] ${message}`));
+}
+
 export function printTurn(turn: DebateTurn): void {
   const colorFn = COLORS[turn.speaker] ?? COLORS.system;
   const label = LABELS[turn.speaker] ?? turn.speaker;
