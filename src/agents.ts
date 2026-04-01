@@ -237,6 +237,29 @@ function appendUniqueText(target: string, text: string): string {
   return target + text;
 }
 
+function extractNovelText(existing: string, incoming: string): string {
+  if (!incoming) {
+    return "";
+  }
+
+  if (!existing) {
+    return incoming;
+  }
+
+  if (existing.endsWith(incoming) || existing.includes(incoming)) {
+    return "";
+  }
+
+  const maxOverlap = Math.min(existing.length, incoming.length);
+  for (let overlapLength = maxOverlap; overlapLength > 0; overlapLength -= 1) {
+    if (existing.slice(-overlapLength) === incoming.slice(0, overlapLength)) {
+      return incoming.slice(overlapLength);
+    }
+  }
+
+  return incoming;
+}
+
 function sanitizeLine(text: string): string {
   return stripAnsi(normalizeWhitespace(text)).trim();
 }
@@ -479,8 +502,14 @@ async function runAgentCommand(
     }
 
     if (event.type === "delta") {
-      accumulated = appendUniqueText(accumulated, text);
       resetAgentTimeout();
+      const novelText = extractNovelText(accumulated, text);
+      if (!novelText) {
+        return;
+      }
+      accumulated = appendUniqueText(accumulated, novelText);
+      onEvent?.({ type: event.type, text: novelText });
+      return;
     }
 
     if (event.type === "status" && /\berror\b/i.test(text)) {
