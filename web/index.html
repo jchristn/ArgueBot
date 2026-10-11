@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ArgueBot</title>
+    <link rel="icon" href="/icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" title="Start a new debate">
+        <img src="/icon.png" alt="" width="28" height="28" />
+        <span>ArgueBot</span>
+      </a>
+      <div class="topbar-debate" id="topbar-debate" hidden>
+        <div class="topbar-participants" id="topbar-participants"></div>
+        <div class="round-indicator" id="round-indicator"></div>
+        <div class="phase-pill" id="phase-pill"></div>
+      </div>
+      <div class="topbar-actions" id="topbar-actions" hidden>
+        <a class="btn btn-ghost" id="download-transcript" href="#" download>Download transcript</a>
+        <a class="btn btn-ghost" href="/">New debate</a>
+      </div>
+    </header>
+
+    <!-- Setup -->
+    <main id="setup-view" class="setup" hidden>
+      <section class="setup-card">
+        <h1>Start a debate</h1>
+        <p class="lede">Pick who's arguing, give them a topic, and watch them work toward consensus. You can step in between turns, or cut in at any time.</p>
+
+        <h2>1. Who's debating?</h2>
+        <p class="hint">Choose two or three agents. They speak in the order you select them.</p>
+        <div class="agent-grid" id="agent-grid"></div>
+
+        <h2>2. What's the topic?</h2>
+        <textarea id="topic" rows="5" placeholder="e.g. Should we split our monolith's billing module into its own service now, or wait until after the Q3 launch?"></textarea>
+        <p class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to start</p>
+
+        <details class="settings">
+          <summary>Settings</summary>
+          <div class="settings-grid">
+            <label>
+              <span>Max rounds</span>
+              <input type="number" id="max-rounds" min="1" max="50" />
+            </label>
+            <label>
+              <span>Pause between turns (seconds)</span>
+              <input type="number" id="intervention-seconds" min="0" max="600" />
+            </label>
+            <label>
+              <span>Agent timeout (seconds)</span>
+              <input type="number" id="agent-timeout-seconds" min="10" max="3600" />
+            </label>
+            <label>
+              <span>Follow-up / summary agent</span>
+              <select id="summary-agent"></select>
+            </label>
+            <label class="span-2">
+              <span>Working directory the agents run in</span>
+              <input type="text" id="cwd" spellcheck="false" />
+            </label>
+            <label class="checkbox span-2">
+              <input type="checkbox" id="yolo" />
+              <span><strong>YOLO mode</strong> — let agent CLIs run tools without confirmation. Only use in a directory you don't mind them changing.</span>
+            </label>
+          </div>
+        </details>
+
+        <div class="setup-error" id="setup-error" hidden></div>
+        <button class="btn btn-primary btn-large" id="start-button" disabled>Start debate</button>
+      </section>
+
+      <section class="recent" id="recent" hidden>
+        <h2>Debates on this server</h2>
+        <ul id="recent-list"></ul>
+      </section>
+    </main>
+
+    <!-- Debate -->
+    <main id="debate-view" class="debate" hidden>
+      <div class="feed" id="feed"></div>
+
+      <div class="dock">
+        <div class="control-bar" id="control-bar">
+          <div class="control-status" id="control-status"></div>
+          <div class="control-buttons" id="control-buttons"></div>
+          <div class="countdown" id="countdown"><div class="countdown-fill" id="countdown-fill"></div></div>
+        </div>
+        <div class="queued" id="queued" hidden></div>
+        <form class="composer" id="composer">
+          <div class="composer-mode" id="composer-mode">
+            <button type="button" class="mode active" data-mode="note" title="Added to the transcript for every agent to see">Note</button>
+            <button type="button" class="mode" data-mode="steer" title="A private directive for the next speaker only">Steer</button>
+          </div>
+          <select id="followup-agent" class="followup-agent" hidden title="Who answers"></select>
+          <textarea id="composer-input" rows="1" placeholder="Type to step in…"></textarea>
+          <button type="submit" class="btn btn-primary" id="composer-send">Send</button>
+        </form>
+        <div class="composer-hint" id="composer-hint"></div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

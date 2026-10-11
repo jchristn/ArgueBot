@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execa } from "execa";
@@ -14,12 +15,20 @@ export interface AgentResult {
 export interface AgentStreamEvent {
   type: "delta" | "status";
   text: string;
+  /**
+   * True when the text is a full copy of a message (e.g. Claude's final
+   * `result`) rather than an incremental token delta. Snapshots are only
+   * appended where they add text that the deltas did not already stream.
+   */
+  snapshot?: boolean;
 }
 
 interface CallAgentOptions {
   timeoutMs?: number;
   yoloMode?: boolean;
   onEvent?: (event: AgentStreamEvent) => void;
+  signal?: AbortSignal;
+  cwd?: string;
 }
 
 interface AgentCommand {
@@ -53,6 +62,30 @@ function getGeminiAuthDiagnostics(): GeminiAuthDiagnostics {
   };
 }
 
+let claudeKeychainLogin = false;
+
+/**
+ * On macOS, Claude Code stores its login in the Keychain rather than in
+ * ~/.claude/.credentials.json. Only the item's existence is checked; the
+ * secret itself is never read.
+ */
+function hasClaudeKeychainLogin(): boolean {
+  if (process.platform !== "darwin") {
+    return false;
+  }
+
+  if (!claudeKeychainLogin) {
+    try {
+      execFileSync("security", ["find-generic-password", "-s", "Claude Code-credentials"], { stdio: "ignore" });
+      claudeKeychainLogin = true;
+    } catch {
+      // Not logged in (or not via the Keychain); checked again next time.
+    }
+  }
+
+  return claudeKeychainLogin;
+}
+
 function getClaudeSetupError(): string | null {
   if (process.env.ANTHROPIC_API_KEY) {
     return null;
@@ -70,7 +103,7 @@ function getClaudeSetupError(): string | null {
     credentials?.claudeAiOauth?.accessToken && credentials.claudeAiOauth.refreshToken,
   );
 
-  if (hasOauthCredentials) {
+  if (hasOauthCredentials || hasClaudeKeychainLogin()) {
     return null;
   }
 
@@ -142,6 +175,17 @@ export function validateAgentSetup(agent: AgentName): string | null {
   }
 }
 
+/**
+ * Returns true when the agent's CLI binary can be found on PATH.
+ */
+export function isAgentInstalled(agent: AgentName): boolean {
+  const command = buildAgentCommand(agent, false).cmd;
+  const extensions = process.platform === "win32" ? ["", ".cmd", ".exe"] : [""];
+  const dirs = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+
+  return dirs.some((dir) => extensions.some((ext) => existsSync(path.join(dir, command + ext))));
+}
+
 function resolveGeminiCommand(): string {
   return process.platform === "win32" ? "gemini.cmd" : "gemini";
 }
@@ -172,7 +216,7 @@ function buildAgentCommand(agent: AgentName, yoloMode: boolean): AgentCommand {
         cmd: resolveCodexCommand(),
         args: [
           "exec",
-          ...(yoloMode ? ["--yolo"] : ["--full-auto"]),
+          ...(yoloMode ? ["--yolo"] : ["--sandbox", "workspace-write"]),
           "--skip-git-repo-check",
           "--color",
           "never",
@@ -219,22 +263,6 @@ function buildFallbackAgentCommand(agent: AgentName, yoloMode: boolean): AgentCo
 
 function normalizeWhitespace(text: string): string {
   return text.replace(/\r/g, "");
-}
-
-function appendUniqueText(target: string, text: string): string {
-  if (!text) {
-    return target;
-  }
-
-  if (!target) {
-    return text;
-  }
-
-  if (target.endsWith(text)) {
-    return target;
-  }
-
-  return target + text;
 }
 
 function extractNovelText(existing: string, incoming: string): string {
@@ -310,11 +338,13 @@ function normalizeClaudeEvent(event: Record<string, unknown>): AgentStreamEvent[
   const innerType = innerEvent && typeof innerEvent.type === "string" ? innerEvent.type : "";
   const events: AgentStreamEvent[] = [];
 
-  const deltaText =
-    readNestedString(event, ["result"]) ??
+  const streamedText =
     readNestedString(innerEvent, ["delta", "text"]) ??
+    readNestedString(event, ["delta", "text"]);
+  const deltaText =
+    streamedText ??
+    readNestedString(event, ["result"]) ??
     readNestedString(innerEvent, ["content_block", "text"]) ??
-    readNestedString(event, ["delta", "text"]) ??
     readNestedString(event, ["content_block", "text"]) ??
     readNestedString(event, ["message", "content", "0", "text"]) ??
     readNestedString(innerEvent, ["message", "content", "0", "text"]) ??
@@ -325,7 +355,7 @@ function normalizeClaudeEvent(event: Record<string, unknown>): AgentStreamEvent[
       ? (innerEvent.message as Record<string, unknown>).content
       : undefined);
   if (deltaText) {
-    events.push({ type: "delta", text: deltaText });
+    events.push({ type: "delta", text: deltaText, snapshot: !streamedText });
   }
 
   const statusText =
@@ -353,14 +383,16 @@ function normalizeCodexEvent(event: Record<string, unknown>): AgentStreamEvent[]
   const type = typeof event.type === "string" ? event.type : "";
   const events: AgentStreamEvent[] = [];
 
-  const deltaText =
-    readNestedString(event, ["result"]) ??
+  const streamedText =
     readNestedString(event, ["delta"]) ??
+    readNestedString(event, ["message", "delta"]);
+  const deltaText =
+    streamedText ??
+    readNestedString(event, ["result"]) ??
     readNestedString(event, ["text"]) ??
     readNestedString(event, ["content"]) ??
     readNestedString(event, ["item", "text"]) ??
     readNestedString(event, ["item", "content", "0", "text"]) ??
-    readNestedString(event, ["message", "delta"]) ??
     readNestedString(event, ["message", "content", "0", "text"]) ??
     readTextFromContentBlocks(event.content) ??
     readTextFromContentBlocks(event.item && typeof event.item === "object"
@@ -368,7 +400,7 @@ function normalizeCodexEvent(event: Record<string, unknown>): AgentStreamEvent[]
       : undefined);
 
   if (deltaText) {
-    events.push({ type: "delta", text: deltaText });
+    events.push({ type: "delta", text: deltaText, snapshot: !streamedText });
   }
 
   const statusText =
@@ -398,9 +430,10 @@ function normalizeGeminiEvent(event: Record<string, unknown>): AgentStreamEvent[
     readNestedString(event, ["message", "text"]) ??
     readNestedString(event, ["candidate", "content", "parts", "0", "text"]) ??
     readTextFromContentBlocks(event.content);
+  const isStreamed = event.delta === true || typeof event.delta === "string";
 
   if (deltaText) {
-    events.push({ type: "delta", text: deltaText });
+    events.push({ type: "delta", text: deltaText, snapshot: !isStreamed });
   }
 
   const statusText =
@@ -459,12 +492,16 @@ async function runAgentCommand(
   prompt: string,
   timeoutMs: number,
   onEvent?: (event: AgentStreamEvent) => void,
+  signal?: AbortSignal,
+  cwd?: string,
 ): Promise<{ content: string; durationMs: number }> {
   const start = Date.now();
   const subprocess = execa(command.cmd, command.args, {
     env: { ...process.env, NO_COLOR: "1" },
     buffer: true,
     input: prompt,
+    ...(signal ? { cancelSignal: signal } : {}),
+    ...(cwd ? { cwd } : {}),
   });
 
   let accumulated = "";
@@ -503,11 +540,16 @@ async function runAgentCommand(
 
     if (event.type === "delta") {
       resetAgentTimeout();
-      const novelText = extractNovelText(accumulated, text);
+      let novelText = event.snapshot ? extractNovelText(accumulated, text) : text;
       if (!novelText) {
         return;
       }
-      accumulated = appendUniqueText(accumulated, novelText);
+      // A snapshot with no overlap is a separate message (e.g. Codex's
+      // preamble, then its answer), so keep them as separate paragraphs.
+      if (event.snapshot && novelText === text && accumulated && !accumulated.endsWith("\n\n")) {
+        novelText = (accumulated.endsWith("\n") ? "\n" : "\n\n") + novelText;
+      }
+      accumulated += novelText;
       onEvent?.({ type: event.type, text: novelText });
       return;
     }
@@ -663,6 +705,7 @@ export async function callAgent(
   const timeoutMs = options.timeoutMs ?? 300_000;
   const yoloMode = options.yoloMode ?? false;
   const onEvent = options.onEvent;
+  const { signal, cwd } = options;
   const setupError = validateAgentSetup(agent);
 
   if (setupError) {
@@ -680,6 +723,8 @@ export async function callAgent(
       prompt,
       timeoutMs,
       onEvent,
+      signal,
+      cwd,
     );
 
     return {
@@ -689,6 +734,14 @@ export async function callAgent(
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+
+    if (signal?.aborted) {
+      return {
+        content: "",
+        durationMs: Date.now() - start,
+        error: `Agent "${agent}" was interrupted.`,
+      };
+    }
 
     if (
       agent === "claude" &&
@@ -734,6 +787,8 @@ export async function callAgent(
             prompt,
             timeoutMs,
             onEvent,
+            signal,
+            cwd,
           );
 
           return {

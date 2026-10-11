@@ -224,6 +224,44 @@ the Sun emits enough blue light, and human eyes are more sensitive to
 blue than to the even-more-scattered violet.
 ```
 
+## Web UI
+
+Prefer a browser? ArgueBot also ships a local web interface:
+
+```bash
+./go.sh        # macOS / Linux
+go.bat         # Windows
+```
+
+Then open <http://127.0.0.1:4317>. Both scripts install dependencies on first run and start the web UI on localhost (`127.0.0.1`). They pass extra flags through, so `./go.sh --port 8080` works. `npm run web` does the same if you prefer.
+
+1. **Pick the debaters** -- choose two or three agents. They speak in the order you select them. Agents whose CLI is missing or not authenticated are shown but can't be selected.
+2. **Enter a topic** -- and optionally adjust rounds, the pause between turns, the follow-up agent, the working directory the agents run in, and YOLO mode.
+3. **Watch them argue** -- responses stream in live. After every turn a countdown gives you a chance to step in; start typing and the countdown holds until you send or clear your message.
+4. **Shape the conversation** at any time:
+
+| Control | Effect |
+|---------|--------|
+| **Note** (composer) | Adds a moderator note to the transcript that every agent sees. Sent while an agent is speaking, it's queued until that turn finishes. |
+| **Steer** (composer) | A private directive for the next speaker only (same as `/steer`). |
+| **Cut in** | Stops the current speaker immediately and pauses so you can write. Whatever they had said so far stays in the transcript, marked as interrupted. |
+| **Pause / Resume** | Pauses before the next turn. Sending a note while paused also resumes. |
+| **+2 rounds** | Raises the round limit. When a debate runs out of rounds, **Keep debating** continues it. |
+| **End debate** | Stops the debate and moves on to follow-up questions. |
+
+The composer also accepts the CLI commands `/steer`, `/pause`, `/resume`, `/stop`, `/extend N`, and `/save`.
+
+When the debate ends, ask follow-up questions and pick which participant answers each one. **Download transcript** exports the debate as Markdown. Debates live in server memory, so reloading the page reconnects you, but restarting the server clears them.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--port N` / `ARGUEBOT_PORT` | Port to listen on | `4317` |
+| `--host HOST` / `ARGUEBOT_HOST` | Interface to bind | `127.0.0.1` |
+
+> **Security:** The web UI has no login. Anyone who can reach it can run agent CLIs on your machine, so it binds to localhost by default. It also rejects cross-origin requests and requests with foreign `Host` headers, so other websites you visit can't drive it.
+
+With three agents, each round gives every participant one turn, and the consensus rule asks them to declare consensus only when *all* participants agree.
+
 ## CLI Options
 
 | Flag | Description | Default |
@@ -279,6 +317,13 @@ src/
   ui.ts             Terminal UI -- colors, countdown timer, input handling
   transcript.ts     Markdown transcript export
   types.ts          Shared TypeScript types and defaults
+  web/
+    server.ts       Web UI HTTP server (REST actions + Server-Sent Events)
+    session.ts      UI-agnostic debate session engine used by the web UI
+web/
+  index.html        Web UI markup
+  app.js            Web UI client (no build step)
+  styles.css        Web UI styles
 ```
 
 ## Bugs and Issues

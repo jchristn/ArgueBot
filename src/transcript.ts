@@ -26,6 +26,7 @@ export function formatTranscriptMarkdown(
   lines.push("");
 
   let lastRound = -1;
+  let finalHeadingWritten = false;
   for (const turn of transcript) {
     if (turn.round !== lastRound) {
       lastRound = turn.round;
@@ -35,7 +36,8 @@ export function formatTranscriptMarkdown(
       }
     }
 
-    if (turn.type === "final") {
+    if (turn.type === "final" && !finalHeadingWritten) {
+      finalHeadingWritten = true;
       lines.push("## Final Q&A");
       lines.push("");
     }
