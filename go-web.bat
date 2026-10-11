@@ -1,6 +1,6 @@
 @echo off
 rem Start the ArgueBot web UI on a localhost listener.
-rem Usage: go.bat [--port N]
+rem Usage: go-web.bat [--port N]
 setlocal
 cd /d "%~dp0"
 

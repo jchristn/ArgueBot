@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start the ArgueBot web UI on a localhost listener.
-# Usage: ./go.sh [--port N]
+# Usage: ./go-web.sh [--port N]
 set -euo pipefail
 
 cd "$(dirname "$0")"

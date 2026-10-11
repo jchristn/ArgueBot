@@ -146,8 +146,11 @@ than in the interactive terminal UI.
 ### Run
 
 ```bash
-npm start
+./go-terminal.sh     # macOS / Linux
+go-terminal.bat      # Windows
 ```
+
+These install dependencies on first run and start ArgueBot in your terminal, passing any flags through (e.g. `./go-terminal.sh --rounds 8`). You can also run `npm start` directly.
 
 Or with options:
 
@@ -229,11 +232,11 @@ blue than to the even-more-scattered violet.
 Prefer a browser? ArgueBot also ships a local web interface:
 
 ```bash
-./go.sh        # macOS / Linux
-go.bat         # Windows
+./go-web.sh    # macOS / Linux
+go-web.bat     # Windows
 ```
 
-Then open <http://127.0.0.1:4317>. Both scripts install dependencies on first run and start the web UI on localhost (`127.0.0.1`). They pass extra flags through, so `./go.sh --port 8080` works. `npm run web` does the same if you prefer.
+Then open <http://127.0.0.1:4317>. Both scripts install dependencies on first run and start the web UI on localhost (`127.0.0.1`). They pass extra flags through, so `./go-web.sh --port 8080` works. `npm run web` does the same if you prefer.
 
 1. **Pick the debaters** -- choose two or three agents. They speak in the order you select them. Agents whose CLI is missing or not authenticated are shown but can't be selected.
 2. **Enter a topic** -- and optionally adjust rounds, the pause between turns, the follow-up agent, the working directory the agents run in, and YOLO mode.
