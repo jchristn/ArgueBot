@@ -3,6 +3,7 @@
 import "dotenv/config";
 import { readFile, stat } from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isAgentInstalled, validateAgentSetup } from "../agents.js";
@@ -337,7 +338,57 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, option
   throw new HttpError(404, "Not found.");
 }
 
+const SIGNAL_DESCRIPTIONS: Partial<Record<NodeJS.Signals, string>> = {
+  SIGINT: "interrupted (Ctrl+C)",
+  SIGTERM: "terminated by another process (e.g. kill or pkill)",
+  SIGHUP: "the controlling terminal was closed",
+};
+
+function logExit(message: string, detail?: unknown): void {
+  console.error(`\n[${new Date().toLocaleString()}] ${message}`);
+  if (detail !== undefined) {
+    console.error(detail);
+  }
+}
+
+/**
+ * Make sure the terminal always says why the server stopped. SIGKILL cannot
+ * be intercepted, so a silent exit with no message means the process was
+ * force-killed (kill -9) or the OS ran out of memory.
+ */
+function installExitLogging(): void {
+  let reported = false;
+  const report = (message: string, detail?: unknown): void => {
+    if (!reported) {
+      reported = true;
+      logExit(message, detail);
+    }
+  };
+
+  for (const signal of Object.keys(SIGNAL_DESCRIPTIONS) as NodeJS.Signals[]) {
+    process.once(signal, () => {
+      report(`ArgueBot stopping (pid ${process.pid}): received ${signal}, ${SIGNAL_DESCRIPTIONS[signal]}.`);
+      process.exit(128 + os.constants.signals[signal]);
+    });
+  }
+
+  process.on("uncaughtException", (err) => {
+    report(`ArgueBot stopping (pid ${process.pid}): uncaught exception.`, err);
+    process.exit(1);
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    report(`ArgueBot stopping (pid ${process.pid}): unhandled promise rejection.`, reason);
+    process.exit(1);
+  });
+
+  process.on("exit", (code) => {
+    report(`ArgueBot stopped (pid ${process.pid}) with exit code ${code}.`);
+  });
+}
+
 function main(): void {
+  installExitLogging();
   const options = parseArgs();
 
   const server = http.createServer((req, res) => {
@@ -355,9 +406,20 @@ function main(): void {
     });
   });
 
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      logExit(
+        `ArgueBot could not start: port ${options.port} is already in use (another ArgueBot may be running). Use --port to pick a different one.`,
+      );
+    } else {
+      logExit("ArgueBot could not start the web server.", err);
+    }
+    process.exit(1);
+  });
+
   server.listen(options.port, options.host, () => {
     const displayHost = options.host.includes(":") ? `[${options.host}]` : options.host;
-    console.log(`ArgueBot web UI running at http://${displayHost}:${options.port}`);
+    console.log(`ArgueBot web UI running at http://${displayHost}:${options.port} (pid ${process.pid})`);
     if (!LOOPBACK_HOSTS.has(options.host)) {
       console.warn("Warning: bound to a non-loopback interface with no authentication.");
     }
