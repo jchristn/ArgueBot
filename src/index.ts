@@ -2,49 +2,21 @@
 
 import "dotenv/config";
 import { runDebate } from "./orchestrator.js";
-import type { AgentName, DebateConfig } from "./types.js";
-
-function isAgentName(value: string | undefined): value is AgentName {
-  return value === "claude" || value === "codex" || value === "gemini";
-}
+import { parseDebateFlag } from "./args.js";
+import type { DebateConfig } from "./types.js";
 
 function parseArgs(): Partial<DebateConfig> {
   const args = process.argv.slice(2);
   const config: Partial<DebateConfig> = {};
 
   for (let i = 0; i < args.length; i++) {
+    const consumed = parseDebateFlag(args, i, config);
+    if (consumed >= 0) {
+      i = consumed;
+      continue;
+    }
+
     switch (args[i]) {
-      case "--rounds":
-        config.maxRounds = parseInt(args[++i], 10);
-        break;
-      case "--timeout":
-        config.interventionTimeoutMs = parseInt(args[++i], 10) * 1000;
-        break;
-      case "--agent-timeout":
-        config.agentTimeoutMs = parseInt(args[++i], 10) * 1000;
-        break;
-      case "--yolo":
-        config.yoloMode = true;
-        break;
-      case "-v":
-      case "--verbose":
-        config.verbose = true;
-        break;
-      case "--first":
-        if (isAgentName(args[i + 1])) {
-          config.firstAgent = args[++i] as AgentName;
-        }
-        break;
-      case "--second":
-        if (isAgentName(args[i + 1])) {
-          config.secondAgent = args[++i] as AgentName;
-        }
-        break;
-      case "--summary":
-        if (isAgentName(args[i + 1])) {
-          config.summaryAgent = args[++i] as AgentName;
-        }
-        break;
       case "--help":
         console.log(`
 arguebot - multi-agent debate orchestrator

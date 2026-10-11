@@ -7,7 +7,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isAgentInstalled, validateAgentSetup } from "../agents.js";
-import type { AgentName } from "../types.js";
+import { isAgentName, parseDebateFlag } from "../args.js";
+import type { AgentName, DebateConfig } from "../types.js";
 import { DEFAULT_CONFIG } from "../types.js";
 import { DebateSession, type SessionAction, type SessionEvent } from "./session.js";
 
@@ -34,6 +35,8 @@ const sessions = new Map<string, DebateSession>();
 interface ServerOptions {
   host: string;
   port: number;
+  /** Debate flags given on the command line; they prefill the setup form. */
+  debateFlags: Partial<DebateConfig>;
 }
 
 class HttpError extends Error {
@@ -50,9 +53,16 @@ function parseArgs(): ServerOptions {
   const options: ServerOptions = {
     host: process.env.ARGUEBOT_HOST ?? "127.0.0.1",
     port: parseInt(process.env.ARGUEBOT_PORT ?? "4317", 10),
+    debateFlags: {},
   };
 
   for (let i = 0; i < args.length; i++) {
+    const consumed = parseDebateFlag(args, i, options.debateFlags);
+    if (consumed >= 0) {
+      i = consumed;
+      continue;
+    }
+
     switch (args[i]) {
       case "--port":
         options.port = parseInt(args[++i], 10);
@@ -71,6 +81,16 @@ Options:
   --host HOST   Interface to bind (default: 127.0.0.1, env ARGUEBOT_HOST)
   --help        Show this help
 
+Debate defaults (prefill the setup form; every one can be changed in the browser):
+  --rounds N            Max debate rounds (default: 5)
+  --timeout N           Pause between turns in seconds (default: 10)
+  --agent-timeout N     Agent response timeout in seconds (default: 300)
+  --yolo                Enable dangerous/no-confirmation mode for agent CLIs
+  -v, --verbose         Show low-level agent status/event messages
+  --first claude|codex|gemini   Which agent speaks first
+  --second claude|codex|gemini  Which agent speaks second
+  --summary claude|codex|gemini Which agent answers follow-up questions
+
 There is no authentication. Anyone who can reach the server can run agent
 CLIs on this machine, so keep it bound to localhost unless you trust the network.
 `);
@@ -78,11 +98,13 @@ CLIs on this machine, so keep it bound to localhost unless you trust the network
     }
   }
 
-  return options;
-}
+  for (const [key, value] of Object.entries(options.debateFlags)) {
+    if (typeof value === "number" && !Number.isFinite(value)) {
+      delete options.debateFlags[key as keyof DebateConfig];
+    }
+  }
 
-function isAgentName(value: unknown): value is AgentName {
-  return value === "claude" || value === "codex" || value === "gemini";
+  return options;
 }
 
 function sendJson(res: http.ServerResponse, statusCode: number, body: unknown): void {
@@ -196,6 +218,7 @@ async function createSession(body: Record<string, unknown>): Promise<DebateSessi
       readNumber(body.interventionSeconds, DEFAULT_CONFIG.interventionTimeoutMs / 1000, 0, 600) * 1000,
     agentTimeoutMs: readNumber(body.agentTimeoutSeconds, DEFAULT_CONFIG.agentTimeoutMs / 1000, 10, 3600) * 1000,
     yoloMode: body.yolo === true,
+    verbose: body.verbose === true,
   });
 
   sessions.set(id, session);
@@ -277,7 +300,12 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, option
   }
 
   if (method === "GET" && pathname === "/api/agents") {
-    sendJson(res, 200, { agents: listAgents(), cwd: process.cwd(), defaults: DEFAULT_CONFIG });
+    sendJson(res, 200, {
+      agents: listAgents(),
+      cwd: process.cwd(),
+      defaults: { ...DEFAULT_CONFIG, ...options.debateFlags },
+      cliFlags: options.debateFlags,
+    });
     return;
   }
 

@@ -38,23 +38,24 @@
         <textarea id="topic" rows="5" placeholder="e.g. Should we split our monolith's billing module into its own service now, or wait until after the Q3 launch?"></textarea>
         <p class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to start</p>
 
-        <details class="settings">
-          <summary>Settings</summary>
+        <details class="settings" open>
+          <summary>3. Settings</summary>
+          <p class="hint">The same options as the terminal flags. Your choices are remembered in this browser; flags passed when starting the server (e.g. <code>./go-web.sh --rounds 8</code>) take precedence.</p>
           <div class="settings-grid">
             <label>
-              <span>Max rounds</span>
+              <span>Max rounds <code>--rounds</code></span>
               <input type="number" id="max-rounds" min="1" max="50" />
             </label>
             <label>
-              <span>Pause between turns (seconds)</span>
+              <span>Pause between turns, seconds <code>--timeout</code></span>
               <input type="number" id="intervention-seconds" min="0" max="600" />
             </label>
             <label>
-              <span>Agent timeout (seconds)</span>
+              <span>Agent response timeout, seconds <code>--agent-timeout</code></span>
               <input type="number" id="agent-timeout-seconds" min="10" max="3600" />
             </label>
             <label>
-              <span>Follow-up / summary agent</span>
+              <span>Follow-up / summary agent <code>--summary</code></span>
               <select id="summary-agent"></select>
             </label>
             <label class="span-2">
@@ -63,9 +64,14 @@
             </label>
             <label class="checkbox span-2">
               <input type="checkbox" id="yolo" />
-              <span><strong>YOLO mode</strong> — let agent CLIs run tools without confirmation. Only use in a directory you don't mind them changing.</span>
+              <span><strong>YOLO mode</strong> <code>--yolo</code> — let agent CLIs run tools without confirmation. Only use in a directory you don't mind them changing.</span>
+            </label>
+            <label class="checkbox span-2">
+              <input type="checkbox" id="verbose" />
+              <span><strong>Verbose</strong> <code>--verbose</code> — show low-level agent status and event messages in the feed.</span>
             </label>
           </div>
+          <button type="button" class="btn btn-ghost" id="reset-settings">Reset to defaults</button>
         </details>
 
         <div class="setup-error" id="setup-error" hidden></div>

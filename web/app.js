@@ -209,6 +209,7 @@ function renderMarkdown(source) {
 const setup = {
   agents: [],
   selected: [],
+  server: null,
 };
 
 function loadSettings() {
@@ -305,26 +306,48 @@ async function showSetup() {
   }
 
   setup.agents = data.agents;
-  const readyNames = data.agents.filter(isAgentReady).map((agent) => agent.name);
-  setup.selected = (settings.participants || []).filter((name) => readyNames.includes(name));
-  if (setup.selected.length < 2) {
-    setup.selected = readyNames.slice(0, 2);
-  }
-
-  $("max-rounds").value = settings.maxRounds ?? data.defaults.maxRounds;
-  $("intervention-seconds").value = settings.interventionSeconds ?? data.defaults.interventionTimeoutMs / 1000;
-  $("agent-timeout-seconds").value = settings.agentTimeoutSeconds ?? data.defaults.agentTimeoutMs / 1000;
-  $("cwd").value = settings.cwd || data.cwd;
-  $("yolo").checked = Boolean(settings.yolo);
-
-  renderAgentGrid();
-  if (settings.summaryAgent && setup.selected.includes(settings.summaryAgent)) {
-    $("summary-agent").value = settings.summaryAgent;
-  }
+  setup.server = data;
+  applySettings(settings);
 
   renderRecent();
   $("topic").focus();
 }
+
+/**
+ * Fill the settings form. Flags passed when the server was started win over
+ * settings saved in this browser, which win over the built-in defaults.
+ */
+function applySettings(settings) {
+  const { defaults, cliFlags, cwd } = setup.server;
+  const readyNames = setup.agents.filter(isAgentReady).map((agent) => agent.name);
+  const flagged = [cliFlags.firstAgent, cliFlags.secondAgent].filter(Boolean);
+  const preferred = flagged.length > 0 ? flagged : settings.participants || [];
+  setup.selected = [...new Set(preferred)].filter((name) => readyNames.includes(name));
+  if (setup.selected.length < 2) {
+    setup.selected = [...new Set([...setup.selected, ...readyNames])].slice(0, 2);
+  }
+
+  const seconds = (ms) => (ms === undefined ? undefined : ms / 1000);
+  $("max-rounds").value = cliFlags.maxRounds ?? settings.maxRounds ?? defaults.maxRounds;
+  $("intervention-seconds").value =
+    seconds(cliFlags.interventionTimeoutMs) ?? settings.interventionSeconds ?? seconds(defaults.interventionTimeoutMs);
+  $("agent-timeout-seconds").value =
+    seconds(cliFlags.agentTimeoutMs) ?? settings.agentTimeoutSeconds ?? seconds(defaults.agentTimeoutMs);
+  $("cwd").value = settings.cwd || cwd;
+  $("yolo").checked = cliFlags.yoloMode ?? settings.yolo ?? defaults.yoloMode;
+  $("verbose").checked = cliFlags.verbose ?? settings.verbose ?? defaults.verbose;
+
+  renderAgentGrid();
+  const summaryAgent = cliFlags.summaryAgent ?? settings.summaryAgent;
+  if (summaryAgent && setup.selected.includes(summaryAgent)) {
+    $("summary-agent").value = summaryAgent;
+  }
+}
+
+$("reset-settings").addEventListener("click", () => {
+  localStorage.removeItem(SETTINGS_KEY);
+  applySettings({});
+});
 
 async function startDebate() {
   const button = $("start-button");
@@ -338,6 +361,7 @@ async function startDebate() {
     summaryAgent: $("summary-agent").value,
     cwd: $("cwd").value.trim(),
     yolo: $("yolo").checked,
+    verbose: $("verbose").checked,
   };
 
   button.disabled = true;

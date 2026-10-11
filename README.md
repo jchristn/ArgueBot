@@ -12,7 +12,8 @@
   <a href="#why-arguebot">Why</a> &middot;
   <a href="#how-it-works">How It Works</a> &middot;
   <a href="#getting-started">Getting Started</a> &middot;
-  <a href="#commands">Commands</a> &middot;
+  <a href="#terminal-ui-tui">Terminal UI</a> &middot;
+  <a href="#web-gui">Web GUI</a> &middot;
   <a href="#license">License</a>
 </p>
 
@@ -65,7 +66,20 @@ When they reach genuine consensus, you know the answer has survived adversarial 
 
 Responses stream in real-time so you're never staring at a blank screen.
 
-Prompt input is multiline. When a prompt opens, use `ENTER` to add a newline and `ESC` then `ENTER` to submit the buffer exactly as typed.
+## Two Ways to Run
+
+ArgueBot has two interfaces: a **terminal UI (TUI)** and a **web GUI** in your browser. Both run the same debate engine, prompts, and consensus rules -- pick whichever you prefer. Complete [Getting Started](#getting-started) first, then launch either one.
+
+| | **Terminal UI (TUI)** | **Web GUI** |
+|---|---|---|
+| Start (macOS / Linux) | `./go-terminal.sh` | `./go-web.sh`, then open <http://127.0.0.1:4317> |
+| Start (Windows) | `go-terminal.bat` | `go-web.bat`, then open <http://127.0.0.1:4317> |
+| Start (npm) | `npm start` | `npm run web` |
+| Debaters | Two | Two or three |
+| Settings | Command-line flags and startup prompts | Settings panel on the setup page (flags also accepted as defaults) |
+| Details | [Terminal UI](#terminal-ui-tui) | [Web GUI](#web-gui) |
+
+Both launch scripts install dependencies on first run and pass any extra flags through, so `./go-terminal.sh --rounds 8` and `./go-web.sh --rounds 8 --port 8080` both work.
 
 ## Getting Started
 
@@ -143,24 +157,40 @@ than in the interactive terminal UI.
 - If you use Vertex AI mode instead, set either `GOOGLE_API_KEY` or both
   `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
 
-### Run
+## Terminal UI (TUI)
+
+### Start the TUI
 
 ```bash
 ./go-terminal.sh     # macOS / Linux
 go-terminal.bat      # Windows
+npm start            # any platform
 ```
 
-These install dependencies on first run and start ArgueBot in your terminal, passing any flags through (e.g. `./go-terminal.sh --rounds 8`). You can also run `npm start` directly.
-
-Or with options:
+ArgueBot runs in your terminal and prompts for anything you didn't pass as a flag: who goes first, the opposing agent, max rounds, the summary agent, and your opening prompt. To skip the prompts, pass flags:
 
 ```bash
-npm start -- --rounds 8 --timeout 15
-
+./go-terminal.sh --rounds 8 --timeout 15
 npm start -- --first gemini --second codex --summary gemini --yolo
 ```
 
-> **Note:** The `--` after `npm start` is required so npm passes the flags to ArgueBot instead of consuming them itself.
+> **Note:** The `--` after `npm start` is required so npm passes the flags to ArgueBot instead of consuming them itself. The `go-terminal` scripts don't need it.
+
+Prompt input is multiline. When a prompt opens, use `ENTER` to add a newline and `ESC` then `ENTER` to submit the buffer exactly as typed.
+
+### TUI Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--rounds N` | Max debate rounds | `5` (prompted) |
+| `--timeout N` | Intervention window between turns (seconds) | `10` |
+| `--agent-timeout N` | Agent response timeout (seconds) | `300` |
+| `--yolo` | Enable dangerous/no-confirmation mode for supported agent CLIs | `false` |
+| `-v`, `--verbose` | Show low-level agent status/event messages | `false` |
+| `--first claude\|codex\|gemini` | Which agent opens | prompted |
+| `--second claude\|codex\|gemini` | Which agent is the other debater | prompted |
+| `--summary claude\|codex\|gemini` | Which agent handles summary | prompted |
+| `--help` | Show help | |
 
 ### Example Session
 
@@ -227,64 +257,7 @@ the Sun emits enough blue light, and human eyes are more sensitive to
 blue than to the even-more-scattered violet.
 ```
 
-## Web UI
-
-Prefer a browser? ArgueBot also ships a local web interface:
-
-```bash
-./go-web.sh    # macOS / Linux
-go-web.bat     # Windows
-```
-
-Then open <http://127.0.0.1:4317>. Both scripts install dependencies on first run and start the web UI on localhost (`127.0.0.1`). They pass extra flags through, so `./go-web.sh --port 8080` works. `npm run web` does the same if you prefer.
-
-1. **Pick the debaters** -- choose two or three agents. They speak in the order you select them. Agents whose CLI is missing or not authenticated are shown but can't be selected.
-2. **Enter a topic** -- and optionally adjust rounds, the pause between turns, the follow-up agent, the working directory the agents run in, and YOLO mode.
-3. **Watch them argue** -- responses stream in live. After every turn a countdown gives you a chance to step in; start typing and the countdown holds until you send or clear your message.
-4. **Shape the conversation** at any time:
-
-| Control | Effect |
-|---------|--------|
-| **Note** (composer) | Adds a moderator note to the transcript that every agent sees. Sent while an agent is speaking, it's queued until that turn finishes. |
-| **Steer** (composer) | A private directive for the next speaker only (same as `/steer`). |
-| **Cut in** | Stops the current speaker immediately and pauses so you can write. Whatever they had said so far stays in the transcript, marked as interrupted. |
-| **Pause / Resume** | Pauses before the next turn. Sending a note while paused also resumes. |
-| **+2 rounds** | Raises the round limit. When a debate runs out of rounds, **Keep debating** continues it. |
-| **End debate** | Stops the debate and moves on to follow-up questions. |
-
-The composer also accepts the CLI commands `/steer`, `/pause`, `/resume`, `/stop`, `/extend N`, and `/save`.
-
-When the debate ends, ask follow-up questions and pick which participant answers each one. **Download transcript** exports the debate as Markdown. Debates live in server memory, so reloading the page reconnects you, but restarting the server clears them.
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--port N` / `ARGUEBOT_PORT` | Port to listen on | `4317` |
-| `--host HOST` / `ARGUEBOT_HOST` | Interface to bind | `127.0.0.1` |
-
-> **Security:** The web UI has no login. Anyone who can reach it can run agent CLIs on your machine, so it binds to localhost by default. It also rejects cross-origin requests and requests with foreign `Host` headers, so other websites you visit can't drive it.
-
-With three agents, each round gives every participant one turn, and the consensus rule asks them to declare consensus only when *all* participants agree.
-
-## CLI Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--rounds N` | Max debate rounds | `5` (prompted) |
-| `--timeout N` | Intervention window (seconds) | `10` |
-| `--agent-timeout N` | Agent response timeout (seconds) | `300` |
-| `--yolo` | Enable dangerous/no-confirmation mode for supported agent CLIs | `false` |
-| `--first claude\|codex\|gemini` | Which agent opens | prompted |
-| `--second claude\|codex\|gemini` | Which agent is the other debater | prompted |
-| `--summary claude\|codex\|gemini` | Which agent handles summary | prompted |
-| `--help` | Show help | |
-
-**Example:**
-
-```bash
-npm start -- --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini --yolo
-```
-
-## Commands
+### TUI Commands
 
 During the debate, a countdown window appears between turns. If you start typing, the timer stops and the multiline editor opens. Use `ENTER` for newline and `ESC` then `ENTER` to submit.
 
@@ -308,25 +281,93 @@ During follow-up Q&A, prompts use the same multiline controls: `ENTER` adds a ne
 | `/transcript` | Show a summary of all turns |
 | `/done` | Exit |
 
+## Web GUI
+
+### Start the Web GUI
+
+```bash
+./go-web.sh          # macOS / Linux
+go-web.bat           # Windows
+npm run web          # any platform
+```
+
+Then open <http://127.0.0.1:4317> in your browser. The server listens on localhost only; leave the terminal running while you use it, and press `Ctrl+C` there to stop it.
+
+### Web GUI Settings
+
+Everything you can set with a TUI flag can be set in the browser. The setup page has a **Settings** panel:
+
+| Setting | Equivalent flag | Default |
+|---------|-----------------|---------|
+| Debaters and speaking order (click agents in order) | `--first`, `--second` | first two ready agents |
+| Max rounds | `--rounds N` | `5` |
+| Pause between turns (seconds) | `--timeout N` | `10` |
+| Agent response timeout (seconds) | `--agent-timeout N` | `300` |
+| Follow-up / summary agent | `--summary AGENT` | first debater |
+| Working directory the agents run in | *(web only)* | directory the server was started in |
+| YOLO mode | `--yolo` | off |
+| Verbose (show agent status/event messages in the feed) | `-v`, `--verbose` | off |
+
+Your choices are remembered in the browser for next time; **Reset to defaults** clears them. You can also pass any of these flags when starting the server to prefill the form, and they take precedence over remembered choices:
+
+```bash
+./go-web.sh --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini
+npm run web -- --timeout 20 --verbose
+```
+
+Server-only options:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--port N` / `ARGUEBOT_PORT` | Port to listen on | `4317` |
+| `--host HOST` / `ARGUEBOT_HOST` | Interface to bind | `127.0.0.1` |
+| `--help` | Show help | |
+
+> **Security:** The web GUI has no login. Anyone who can reach it can run agent CLIs on your machine, so it binds to localhost by default. It also rejects cross-origin requests and requests with foreign `Host` headers, so other websites you visit can't drive it.
+
+### Using the Web GUI
+
+1. **Pick the debaters** -- choose two or three agents. They speak in the order you select them. Agents whose CLI is missing or not authenticated are shown but can't be selected.
+2. **Enter a topic** -- and adjust any settings. `Cmd`/`Ctrl` + `Enter` starts the debate.
+3. **Watch them argue** -- responses stream in live. After every turn a countdown gives you a chance to step in; start typing and the countdown holds until you send or clear your message.
+4. **Shape the conversation** at any time:
+
+| Control | Effect |
+|---------|--------|
+| **Note** (composer) | Adds a moderator note to the transcript that every agent sees. Sent while an agent is speaking, it's queued until that turn finishes. |
+| **Steer** (composer) | A private directive for the next speaker only (same as `/steer`). |
+| **Cut in** | Stops the current speaker immediately and pauses so you can write. Whatever they had said so far stays in the transcript, marked as interrupted. |
+| **Pause / Resume** | Pauses before the next turn. Sending a note while paused also resumes. |
+| **+2 rounds** | Raises the round limit. When a debate runs out of rounds, **Keep debating** continues it. |
+| **End debate** | Stops the debate and moves on to follow-up questions. |
+
+The composer also accepts the TUI commands `/steer`, `/pause`, `/resume`, `/stop`, `/extend N`, and `/save`.
+
+When the debate ends, ask follow-up questions and pick which participant answers each one. **Download transcript** exports the debate as Markdown. Debates live in server memory, so reloading the page reconnects you, but restarting the server clears them.
+
+With three agents, each round gives every participant one turn, and the consensus rule asks them to declare consensus only when *all* participants agree.
+
 ## Project Structure
 
 ```
 src/
-  index.ts          Entry point and CLI arg parsing
-  orchestrator.ts   Debate state machine and main loop
+  index.ts          Terminal UI entry point
+  args.ts           Debate flag parsing shared by the terminal and web UIs
+  orchestrator.ts   Terminal UI debate state machine and main loop
   agents.ts         Agent driver -- spawns CLI subprocesses with streaming
   prompts.ts        Prompt templates for opening, rebuttal, and summary
   consensus.ts      Consensus detection (looks for "WE HAVE CONSENSUS")
-  ui.ts             Terminal UI -- colors, countdown timer, input handling
+  ui.ts             Terminal UI -- colors, countdown timer, output helpers
+  input.ts          Terminal UI multiline input editor
   transcript.ts     Markdown transcript export
   types.ts          Shared TypeScript types and defaults
   web/
-    server.ts       Web UI HTTP server (REST actions + Server-Sent Events)
-    session.ts      UI-agnostic debate session engine used by the web UI
+    server.ts       Web GUI entry point -- HTTP server (REST actions + Server-Sent Events)
+    session.ts      UI-agnostic debate session engine used by the web GUI
 web/
-  index.html        Web UI markup
-  app.js            Web UI client (no build step)
-  styles.css        Web UI styles
+  index.html        Web GUI markup
+  app.js            Web GUI client (no build step)
+  styles.css        Web GUI styles
 ```
 
 ## Bugs and Issues

@@ -11,6 +11,7 @@ export interface WebDebateConfig {
   interventionTimeoutMs: number;
   agentTimeoutMs: number;
   yoloMode: boolean;
+  verbose: boolean;
   summaryAgent: AgentName;
   cwd: string;
 }
@@ -447,6 +448,8 @@ export class DebateSession extends EventEmitter {
         if (event.type === "delta") {
           turn.content += event.text;
           this.send({ type: "delta", id: turn.id, text: event.text });
+        } else if (this.config.verbose) {
+          this.notice("info", `${agent}: ${event.text}`);
         }
       },
     });

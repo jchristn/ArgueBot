@@ -379,6 +379,21 @@ textarea:focus {
   margin-top: 3px;
 }
 
+.settings code {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+  font-variant-ligatures: none;
+}
+
+.settings .hint {
+  margin-top: 10px;
+}
+
+#reset-settings {
+  margin: 8px 0 4px;
+}
+
 .setup-error {
   margin: 18px 0 0;
   padding: 10px 14px;
