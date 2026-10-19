@@ -47,6 +47,10 @@ namespace Test.Shared
                     app.Start(); app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame()!);
                     if (!screen.Contains("You", StringComparison.Ordinal) || !screen.Contains("Claude", StringComparison.Ordinal) || !screen.Contains("Interrupted", StringComparison.Ordinal) || !screen.Contains("[red] stays literal", StringComparison.Ordinal) || !screen.Contains("Ctrl+L", StringComparison.Ordinal) || screen.Contains("completed", StringComparison.Ordinal) || screen.Contains("user | note", StringComparison.Ordinal) || screen.Contains("trade-offs.Keep", StringComparison.Ordinal)) throw new InvalidDataException("Transcript lost readable headings, original content or exceptional-state notices.");
+                    string[] transcriptRows = screen.Split('\n');
+                    int userRow = Array.FindIndex(transcriptRows, row => row.Trim() == "You");
+                    int agentRow = Array.FindIndex(transcriptRows, row => row.Trim() == "Claude");
+                    if (userRow < 0 || agentRow < 0 || !transcriptRows[userRow + 1].Contains("Compare the two approaches", StringComparison.Ordinal) || !transcriptRows[agentRow + 1].Contains("First, consider", StringComparison.Ordinal)) throw new InvalidDataException("Message headings must be immediately followed by their content.");
                     if (!TranscriptFormatter.Heading(new Message { Kind = "steer" }).Contains("Private directive", StringComparison.Ordinal)) throw new InvalidDataException("Private directive label disappeared.");
                     await SaveEvidenceAsync("transcript-" + theme.Name, screen, token).ConfigureAwait(false);
                     app.Stop();

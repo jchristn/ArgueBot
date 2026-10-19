@@ -17,7 +17,7 @@ namespace ArgueBot.Tui
             else if (message.Kind != "note" && message.Kind != "answer") parts.Add(Label(message.Kind));
             if (message.CreatedUtc != default) parts.Add(message.CreatedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture));
             if (message.State != "completed") parts.Add(message.State == "streaming" ? "Responding..." : Label(message.State));
-            return string.Join("  ·  ", parts);
+            return string.Join(" - ", parts);
         }
         private static string Label(string value)
         {
@@ -34,7 +34,6 @@ namespace ArgueBot.Tui
                 first = false;
                 CellStyle headingStyle = message.Speaker == "user" ? theme.Accent : theme.Info;
                 pane.WriteLine(Text.From(Heading(message), headingStyle).Bold());
-                pane.WriteLine();
                 foreach (string line in message.Content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n')) pane.WriteLine(Text.From(line, theme.Text));
                 if (message.ContentTruncated)
                 {
