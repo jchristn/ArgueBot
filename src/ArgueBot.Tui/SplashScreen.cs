@@ -54,17 +54,20 @@ namespace ArgueBot.Tui
             int maximumHeight = Math.Max(0, surface.Size.Height - 2);
             if (width < 8 || maximumHeight < 5) return;
             List<string> lines = new List<string>();
-            bool fullLogo = width >= 52 && maximumHeight >= 18;
+            bool fullLogo = width >= 52 && maximumHeight >= 21;
             if (fullLogo) lines.AddRange(_Lines);
             else lines.Add("arguebot");
             lines.Add("");
             string version = typeof(SplashScreen).Assembly.GetName().Version?.ToString(3) ?? "0.1.0";
             lines.Add("v" + version + " - (c) 2026 Joel Christner");
             lines.Add("MIT License");
+            lines.Add("");
             lines.Add("Let your agents debate. Find better answers.");
+            lines.Add("");
             lines.Add("https://github.com/jchristn/ArgueBot");
+            lines.Add("");
             lines.Add("Ctrl+E: configure agents / harnesses | F1: help");
-            int height = Math.Min(lines.Count + 5, maximumHeight);
+            int height = Math.Min(lines.Count + 6, maximumHeight);
             int left = (surface.Size.Width - width) / 2;
             int top = (surface.Size.Height - height) / 2;
             Rect box = new Rect(left, top, width, height);
@@ -72,7 +75,7 @@ namespace ArgueBot.Tui
             surface.DrawBox(box, _Style.WithForeground(Color.FromPalette(6)), "arguebot");
             int logoWidth = 0;
             foreach (string line in _Lines) logoWidth = Math.Max(logoWidth, line.Length);
-            for (int index = 0; index < lines.Count && index < height - 4; index++)
+            for (int index = 0; index < lines.Count && index < height - 6; index++)
             {
                 string line = lines[index];
                 int available = width - 4;
@@ -81,7 +84,7 @@ namespace ArgueBot.Tui
                 surface.DrawText(left + Math.Max(2, (width - contentWidth) / 2), top + 2 + index, line, _Style);
             }
             string hint = _Hint.Substring(0, Math.Min(_Hint.Length, width - 4));
-            surface.DrawText(left + (width - hint.Length) / 2, top + height - 2, hint, _Style);
+            surface.DrawText(left + (width - hint.Length) / 2, top + height - 3, hint, _Style);
         }
     }
 }
