@@ -22,6 +22,8 @@ dotnet run --project src/ArgueBot.Cli -c Release -f net10.0 -- --home .run/home 
 dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417
 ```
 
+The C# TUI displays an ASCII logo at startup. Press any key to dismiss the splash immediately, or wait three seconds for it to close automatically.
+
 Local clients exchange the protected `.run/home/runtime/pairing-code` for a revocable session. Every exchange rotates the code. When --server is omitted, local clients start or attach to the service for their selected home. --no-start requires it to be running. Explicit --server addresses attach without starting processes. Use `service start|status|restart|stop` in the console to manage it. Stopping and restarting require an administrator session. For a remote client, set `ARGUEBOT_TOKEN` from an authorized session; the current replacement server is deliberately loopback-only. Never paste real tokens into committed commands or URLs.
 
 CLI `participants add --file profile.json` accepts a profile with name, kind (`cli` or `rest`), protocol provider, executable/ordered arguments or REST endpoint/model, optional workingDirectory, and secretEnvironmentVariable. Prompt content goes over stdin for CLI runners. `.cmd` and `.bat` wrappers are rejected; configure the underlying executable or script host. REST profiles currently support Ollama, OpenAI-compatible, Anthropic and Gemini completion APIs through PolyPrompt. Automatic REST tool execution is disabled.

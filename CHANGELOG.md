@@ -4,6 +4,8 @@
 
 ### In progress
 
+- The C# TUI opens with an ASCII ArgueBot splash logo. Any key dismisses it immediately; otherwise it closes after three seconds.
+
 - Scoped user-role assignment APIs and console lifecycle, shared GUID/name/built-in resolution, protected identity/assignment checks, exact resource scope and bounded tenant inheritance. Creation/reactivation enforce the 256-active-assignment limit. Complete domain enforcement and remaining editors are still in progress.
 
 - Tenant permission-definition APIs and console commands, plus revision-checked role-permission replacement and active/inactive mapping inspection. Explicit denies, independent activity, protected definitions, stable historical mapping IDs and atomic audit events are covered on both databases. Remaining editors, assignments and complete route enforcement are in progress.
