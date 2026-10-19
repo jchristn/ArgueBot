@@ -1,15 +1,15 @@
 namespace ArgueBot.Server
 {
-    using System;
     using System.Diagnostics;
     using System.IO;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using Microsoft.Extensions.Logging;
     using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Database.Sqlite;
+    using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Security;
     using ArgueBot.Core.Services;
@@ -17,9 +17,9 @@ namespace ArgueBot.Server
     using ArgueBot.Server.Routes;
     using ArgueBot.Server.Services;
     using Radiant;
-    using WatsonWebserver;
-    using WatsonWebserver.Core;
     using WatsonWebserver.Core.OpenApi;
+    using WatsonWebserver.Core;
+    using WatsonWebserver;
 
     internal sealed class ArgueBotServer
     {
@@ -38,6 +38,7 @@ namespace ArgueBot.Server
                 string homeId = LocalHomeIdentity.Ensure(paths);
                 using (CancellationTokenRegistration ownership = database.OwnershipToken.Register(() => wake.Cancel()))
                 await using (BackupManager backups = new BackupManager(database, paths))
+                await using (EventMaintenance maintenance = new EventMaintenance(database, settings, telemetry.CreateLogger("ArgueBot.Retention"), wake.Token))
                 {
                     await backups.InitializeAsync(token).ConfigureAwait(false);
                     SessionMethods sessions = new SessionMethods(database, new TokenProtector(paths));

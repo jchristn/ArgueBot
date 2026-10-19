@@ -15,6 +15,18 @@ namespace ArgueBot.Server
         public int? StreamBatchCharacters { get; set; }
         /// <summary>Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value.</summary>
         public int? StreamCommitMilliseconds { get; set; }
+        /// <summary>Optional background replay retention toggle. Omission preserves its configured value.</summary>
+        public bool? EventRetentionEnabled { get; set; }
+        /// <summary>Optional replay age target, one through 3650 days.</summary>
+        public int? EventRetentionDays { get; set; }
+        /// <summary>Optional retained event bound per conversation, one through 1000000.</summary>
+        public int? EventMaxPerConversation { get; set; }
+        /// <summary>Optional retention interval, five through 3600 seconds.</summary>
+        public int? EventMaintenanceSeconds { get; set; }
+        /// <summary>Optional maintenance metadata batch size, one through one thousand.</summary>
+        public int? EventRetentionBatchSize { get; set; }
+        /// <summary>Optional default replay size, one through one thousand.</summary>
+        public int? EventReplayPageSize { get; set; }
         /// <summary>Optional Unicode code-point limit per message preview, 128 through 16384. Omission preserves its configured value.</summary>
         public int? HistoryPreviewCodePoints { get; set; }
         /// <summary>Optional context character budget, 1024 through 16777216. Omission preserves its configured value.</summary>

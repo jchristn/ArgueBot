@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Database
 {
-    using System;
     using System.Collections.Generic;
-    using System.Data;
     using System.Data.Common;
+    using System.Data;
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
@@ -161,7 +161,7 @@ namespace ArgueBot.Core.Database
         {
             if (!context.IsAuthenticated) throw new DomainException(401, "unauthenticated", "Authentication required.");
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT * FROM conversations WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
+            using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Conversation not found.");
@@ -179,7 +179,7 @@ namespace ArgueBot.Core.Database
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
             {
                 result.TotalCount = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COUNT(*) FROM conversations WHERE " + filter, token, values).ConfigureAwait(false), CultureInfo.InvariantCulture);
-                using (DbCommand command = Command(connection, null, "SELECT * FROM conversations WHERE " + filter + " ORDER BY pinned DESC,updated_utc DESC,id DESC LIMIT @limit OFFSET @offset", values))
+                using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE " + filter + " ORDER BY pinned DESC,updated_utc DESC,id DESC LIMIT @limit OFFSET @offset", values))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Items.Add(ReadConversation(reader)); }
             }
@@ -391,17 +391,73 @@ namespace ArgueBot.Core.Database
         }
 
         /// <summary>Read durable ordered events after a cursor, bounded to 1000 per call.</summary>
-        public async Task<List<DurableEvent>> ReadEventsAsync(RequestContext context, string conversationId, long after = 0, CancellationToken token = default)
+        public async Task<List<DurableEvent>> ReadEventsAsync(RequestContext context, string conversationId, long after = 0, int pageSize = 1000, CancellationToken token = default)
         {
             await ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            if (after < 0 || pageSize < 1 || pageSize > 1000) throw new DomainException(400, "invalid_cursor", "Use a nonnegative event cursor and a replay size from one through one thousand.");
             List<DurableEvent> events = new List<DurableEvent>();
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT * FROM events WHERE tenant_id=@tenant AND conversation_id=@id AND sequence_number>@after ORDER BY sequence_number LIMIT 1000", P("tenant", context.TenantId, "id", conversationId, "after", after)))
-            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
-                while (await reader.ReadAsync(token).ConfigureAwait(false)) events.Add(new DurableEvent { ConversationId = conversationId, Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Kind = S(reader, "kind"), EntityId = S(reader, "entity_id"), Text = S(reader, "text"), TextOffset = Convert.ToInt64(reader["text_offset"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) });
+                long minimum; long maximum;
+                using (DbCommand bounds = Command(connection, null, "SELECT COALESCE(MIN(sequence_number),0),COALESCE(MAX(sequence_number),0) FROM events WHERE tenant_id=@tenant AND conversation_id=@id", P("tenant", context.TenantId, "id", conversationId)))
+                using (DbDataReader reader = await bounds.ExecuteReaderAsync(token).ConfigureAwait(false))
+                { await reader.ReadAsync(token).ConfigureAwait(false); minimum = Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture); maximum = Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture); }
+                if (after > maximum) throw new DomainException(400, "invalid_cursor", "The event cursor is ahead of this conversation. Refresh its snapshot.");
+                if (after != 0 && after < minimum - 1) throw EventHistoryGap();
+                using (DbCommand command = Command(connection, null, "SELECT * FROM events WHERE tenant_id=@tenant AND conversation_id=@id AND sequence_number>@after ORDER BY sequence_number LIMIT @limit", P("tenant", context.TenantId, "id", conversationId, "after", after, "limit", pageSize)))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    long expected = after == 0 ? 0 : after + 1;
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                    {
+                        long sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture);
+                        if (expected == 0) expected = sequence;
+                        if (sequence != expected) throw EventHistoryGap();
+                        expected++;
+                        events.Add(new DurableEvent { ConversationId = conversationId, Sequence = sequence, Kind = S(reader, "kind"), EntityId = S(reader, "entity_id"), Text = S(reader, "text"), TextOffset = Convert.ToInt64(reader["text_offset"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) });
+                    }
+                }
             }
             return events;
+        }
+
+        private DomainException EventHistoryGap()
+        {
+            ProductTelemetry.ReplayGaps.Add(1, new KeyValuePair<string, object?>("provider", _Settings.Type.ToString()));
+            return new DomainException(409, "event_history_gap", "The event cursor expired. Capture the current conversation event head, reload snapshots, then reconnect after that head.");
+        }
+        /// <summary>Prune contiguous replay prefixes in bounded metadata batches. Always retain the latest event so a later commit cannot reuse an old sequence.</summary>
+        public async Task<long> PruneEventsAsync(DateTime cutoffUtc, int maxEventsPerConversation, int batchSize = 100, CancellationToken token = default)
+        {
+            if (cutoffUtc.Kind != DateTimeKind.Utc) throw new ArgumentException("Use a UTC retention cutoff.", nameof(cutoffUtc));
+            if (maxEventsPerConversation < 1 || maxEventsPerConversation > 1000000 || batchSize < 1 || batchSize > 1000) throw new ArgumentOutOfRangeException(nameof(maxEventsPerConversation));
+            string cursor = ""; long removed = 0;
+            while (true)
+            {
+                Dictionary<string, string> scopes = new Dictionary<string, string>(StringComparer.Ordinal);
+                using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+                using (DbCommand command = Command(connection, null, "SELECT conversation_id,tenant_id FROM events WHERE conversation_id>@cursor GROUP BY conversation_id,tenant_id HAVING COUNT(*)>@maximum OR (COUNT(*)>1 AND MIN(created_utc)<@cutoff) ORDER BY conversation_id LIMIT @limit", P("cursor", cursor, "limit", batchSize, "maximum", maxEventsPerConversation, "cutoff", cutoffUtc.ToString("O", CultureInfo.InvariantCulture))))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                { while (await reader.ReadAsync(token).ConfigureAwait(false)) { cursor = reader.GetString(0); scopes.Add(cursor, reader.GetString(1)); } }
+                foreach (KeyValuePair<string, string> scope in scopes)
+                {
+                    await WriteAsync(async (connection, transaction) =>
+                    {
+                        Dictionary<string, object?> values = P("tenant", scope.Value, "conversation", scope.Key, "cutoff", cutoffUtc.ToString("O", CultureInfo.InvariantCulture), "count", maxEventsPerConversation);
+                        const string where = "tenant_id=@tenant AND conversation_id=@conversation";
+                        long maximum = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COALESCE(MAX(sequence_number),0) FROM events WHERE " + where, token, values).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                        long age = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COALESCE(MAX(sequence_number),0) FROM events WHERE " + where + " AND created_utc<@cutoff", token, values).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                        object? counted = await ScalarAsync(connection, transaction, "SELECT sequence_number FROM events WHERE " + where + " ORDER BY sequence_number DESC LIMIT 1 OFFSET @count", token, values).ConfigureAwait(false);
+                        long through = Math.Min(maximum - 1, Math.Max(age, counted == null ? 0 : Convert.ToInt64(counted, CultureInfo.InvariantCulture)));
+                        if (through <= 0) return;
+                        values.Add("through", through);
+                        removed += await ExecuteAsync(connection, transaction, "DELETE FROM events WHERE " + where + " AND sequence_number<=@through", token, values).ConfigureAwait(false);
+                    }, token).ConfigureAwait(false);
+                }
+                if (scopes.Count < batchSize) break;
+            }
+            if (removed != 0) ProductTelemetry.EventsPruned.Add(removed, new KeyValuePair<string, object?>("provider", _Settings.Type.ToString()));
+            return removed;
         }
 
         /// <summary>Protect an existing schema with a logical snapshot before applying ordered upgrades.</summary>
@@ -527,7 +583,7 @@ namespace ArgueBot.Core.Database
 
         private static Conversation ReadConversation(DbDataReader reader)
         {
-            return new Conversation { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Title = S(reader, "title"), Pinned = Convert.ToInt64(reader["pinned"], CultureInfo.InvariantCulture) != 0, Archived = Convert.ToInt64(reader["archived"], CultureInfo.InvariantCulture) != 0, Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
+            return new Conversation { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Title = S(reader, "title"), Pinned = Convert.ToInt64(reader["pinned"], CultureInfo.InvariantCulture) != 0, Archived = Convert.ToInt64(reader["archived"], CultureInfo.InvariantCulture) != 0, Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), LastEventSequence = Convert.ToInt64(reader["event_head"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
         }
         internal static string S(DbDataReader reader, string name) { return reader.GetString(reader.GetOrdinal(name)); }
         internal static string? N(DbDataReader reader, string name) { return reader.IsDBNull(reader.GetOrdinal(name)) ? null : S(reader, name); }

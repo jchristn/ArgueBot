@@ -67,7 +67,7 @@ jobs:
         working-directory: dashboard
         run: npm run test:e2e
       - name: Generated API artifact drift
-        run: node scripts/generate-api.mjs && git diff --exit-code -- REST_API.md assets/postman
+        run: node scripts/generate-api.mjs && git diff --exit-code -- REST_API.md assets/postman assets/transport.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,19 +1,20 @@
 namespace ArgueBot.Server.Routes
 {
-    using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Globalization;
     using System.Text.Json;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Implementations;
+    using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
-    using WatsonWebserver;
-    using WatsonWebserver.Core;
     using WatsonWebserver.Core.OpenApi;
+    using WatsonWebserver.Core;
+    using WatsonWebserver;
 
     internal sealed class ConversationRoutes
     {
@@ -59,10 +60,11 @@ namespace ArgueBot.Server.Routes
             }), openApiMetadata: OpenApiRouteMetadata.Create("Append idempotent public note", "Messages"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/events", http => Api.GuardAsync(http, async () =>
             {
-                long after = long.TryParse(http.Request.Query.Elements["after"], out long parsed) ? parsed : 0;
+                long after = long.Parse(http.Request.Query.Elements["after"] ?? "0", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? _Settings.EventReplayPageSize.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
                 if ((http.Request.Headers["Accept"] ?? "").Contains("text/event-stream", StringComparison.Ordinal))
-                    await StreamAsync(http, after).ConfigureAwait(false);
-                else await Api.SendAsync(http, await _Database.ReadEventsAsync(Api.Context(http), Api.Parameter(http, "conversationId"), after, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+                    await StreamAsync(http, after, size).ConfigureAwait(false);
+                else await Api.SendAsync(http, await _Database.ReadEventsAsync(Api.Context(http), Api.Parameter(http, "conversationId"), after, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Read durable event page after cursor", "Events"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Runs.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("List conversation runs", "Runs"));
@@ -82,7 +84,7 @@ namespace ArgueBot.Server.Routes
                 await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Apply moderator command", "Runs"));
         }
-        private async Task StreamAsync(HttpContextBase http, long after)
+        private async Task StreamAsync(HttpContextBase http, long after, int pageSize)
         {
             string conversationId = Api.Parameter(http, "conversationId");
             string resume = http.Request.Headers["Last-Event-ID"] ?? "";
@@ -92,27 +94,28 @@ namespace ArgueBot.Server.Routes
                 if (cursor.Length != 2 || cursor[0] != conversationId || !long.TryParse(cursor[1], out after) || after < 0)
                     throw new DomainException(400, "invalid_cursor", "Resume cursor must belong to this conversation.");
             }
-            await _Database.ReadConversationAsync(Api.Context(http), conversationId, http.Token).ConfigureAwait(false);
+            List<DurableEvent>? pending = await _Database.ReadEventsAsync(Api.Context(http), conversationId, after, pageSize, http.Token).ConfigureAwait(false);
             http.Response.StatusCode = 200; http.Response.ContentType = "text/event-stream";
             http.Response.ChunkedTransfer = false; http.Response.ServerSentEvents = true;
-            DateTime deadline = DateTime.UtcNow.AddSeconds(30); DateTime heartbeat = DateTime.MinValue;
-            while (!http.Token.IsCancellationRequested && DateTime.UtcNow < deadline)
+            long started = Stopwatch.GetTimestamp(); long heartbeat = started; bool firstHeartbeat = true;
+            while (!http.Token.IsCancellationRequested && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(ServiceProtocol.EventConnectionSeconds))
             {
                 RequestContext? current = await _Sessions.AuthenticateAsync(Api.SessionToken(http), http.Token).ConfigureAwait(false);
                 if (current == null)
                 {
                     await http.Response.SendEvent(new ServerSentEvent { Event = "session_revoked", Data = "{}" }, true, http.Token).ConfigureAwait(false); return;
                 }
-                List<DurableEvent> events = await _Database.ReadEventsAsync(current, conversationId, after, http.Token).ConfigureAwait(false);
+                List<DurableEvent> events = pending ?? await _Database.ReadEventsAsync(current, conversationId, after, pageSize, http.Token).ConfigureAwait(false);
+                pending = null;
                 foreach (DurableEvent entry in events)
                 {
                     bool sent = await http.Response.SendEvent(new ServerSentEvent { Id = conversationId + ":" + entry.Sequence.ToString(CultureInfo.InvariantCulture), Event = "change", Data = JsonSerializer.Serialize(entry, Api.Json) }, false, http.Token).ConfigureAwait(false);
                     if (!sent) return; after = entry.Sequence;
                 }
-                if (DateTime.UtcNow >= heartbeat)
+                if (firstHeartbeat || Stopwatch.GetElapsedTime(heartbeat) >= TimeSpan.FromSeconds(ServiceProtocol.EventHeartbeatSeconds))
                 {
                     if (!await http.Response.SendEvent(new ServerSentEvent { Event = "heartbeat", Data = "{}" }, false, http.Token).ConfigureAwait(false)) return;
-                    heartbeat = DateTime.UtcNow.AddSeconds(5);
+                    heartbeat = Stopwatch.GetTimestamp(); firstHeartbeat = false;
                 }
                 await Task.Delay(200, http.Token).ConfigureAwait(false);
             }

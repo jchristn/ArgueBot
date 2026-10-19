@@ -1,16 +1,16 @@
 namespace Test.Shared
 {
-    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Net;
     using System.Net.Http;
     using System.Net.Sockets;
+    using System.Net;
     using System.Text.Json;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Client;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
@@ -62,7 +62,17 @@ namespace Test.Shared
             finally
             {
                 if (service != null) { if (!service.HasExited) service.Kill(true); await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); service.Dispose(); }
-                if (Directory.Exists(home)) Directory.Delete(home, true);
+                await DeleteStoppedHomeAsync(home).ConfigureAwait(false);
+            }
+        }
+        private static async Task DeleteStoppedHomeAsync(string home)
+        {
+            // Windows file scanners can briefly retain a handle after the child process exits.
+            // Keep the cleanup bounded and propagate the final failure rather than hiding it.
+            for (int retry = 0; Directory.Exists(home); retry++)
+            {
+                try { Directory.Delete(home, true); return; }
+                catch (IOException) when (retry < 20) { await Task.Delay(100).ConfigureAwait(false); }
             }
         }
         private static async Task<BackupOperation> AwaitRecoveryAsync(ArgueBotClient client, string id, CancellationToken token)
@@ -88,7 +98,7 @@ namespace Test.Shared
                 TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
                 listener.Start(); port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
                 ArgueBotPaths paths = new ArgueBotPaths(home);
-                await new ServiceSettings { Port = port }.SaveAsync(paths, token).ConfigureAwait(false);
+                await new ServiceSettings { Port = port, EventMaxPerConversation = 10, EventMaintenanceSeconds = 5 }.SaveAsync(paths, token).ConfigureAwait(false);
                 Task<string> first = LocalServiceConnector.ConnectAsync(home, token: token);
                 Task<string> second = LocalServiceConnector.ConnectAsync(home, token: token);
                 string[] endpoints = await Task.WhenAll(first, second).ConfigureAwait(false);
@@ -183,7 +193,7 @@ namespace Test.Shared
                     if (!service.HasExited) service.Kill(true);
                     await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); service.Dispose();
                 }
-                if (Directory.Exists(home)) Directory.Delete(home, true);
+                await DeleteStoppedHomeAsync(home).ConfigureAwait(false);
             }
         }
     }

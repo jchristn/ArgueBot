@@ -1,18 +1,18 @@
 namespace ArgueBot.Client
 {
-    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
-    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
+    using System.Net.Http;
     using System.Runtime.CompilerServices;
     using System.Security.Cryptography;
-    using System.Text.Json;
     using System.Text.Json.Serialization;
-    using System.Threading;
+    using System.Text.Json;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
@@ -149,6 +149,54 @@ namespace ArgueBot.Client
         /// <summary>Update title/pin/archive using its current revision.</summary>
         public Task<Conversation> UpdateConversationAsync(Conversation conversation, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
+        /// <summary>Read one authenticated SSE connection after a committed cursor. Frames are bounded to 1048576 UTF-16 characters, idle reads to fifteen seconds, and identifiers/order are validated. Reconnect after normal completion using the last yielded sequence; expired cursors require a fresh head followed by snapshots. Enumeration cancellation/disposal closes the HTTP body.</summary>
+        public async IAsyncEnumerable<DurableEvent> WatchEventsAsync(string id, long after = 0, [EnumeratorCancellation] CancellationToken token = default)
+        {
+            if (after < 0) throw new ArgumentOutOfRangeException(nameof(after));
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, Root(id) + "/events"))
+            {
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+                request.Headers.Add("Last-Event-ID", id + ":" + after.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                using (HttpResponseMessage response = await _Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service endpoint explicitly.");
+                        ApiError? error;
+                        try { error = await response.Content.ReadFromJsonAsync<ApiError>(_Json, token).ConfigureAwait(false); }
+                        catch (JsonException) { error = null; }
+                        throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? "The service refused the event stream.");
+                    }
+                    if (response.Content.Headers.ContentType?.MediaType != "text/event-stream") throw new DomainException(502, "invalid_event", "The service did not return an event stream.");
+                    using (Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false))
+                    {
+                        long sequence = after;
+                        await foreach (EventFrame frame in EventFrameReader.ReadAsync(stream, token).ConfigureAwait(false))
+                        {
+                            if (frame.Name == "session_revoked") throw new DomainException(401, "unauthenticated", "The session was revoked. Sign in again.");
+                            if (frame.Name == "error")
+                            {
+                                ApiError error = ParseFrame<ApiError>(frame.Data);
+                                if (string.IsNullOrWhiteSpace(error.Code)) throw new DomainException(502, "invalid_event", "The error frame omitted its failure code.");
+                                throw new DomainException(error.Code == "event_history_gap" || error.Code == "invalid_cursor" ? 409 : 503, error.Code, error.Message);
+                            }
+                            if (frame.Name != "change") continue;
+                            DurableEvent change = ParseFrame<DurableEvent>(frame.Data);
+                            if (change.ConversationId != id || change.Sequence < 1 || frame.Id != id + ":" + change.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture)) throw new DomainException(502, "invalid_event", "The event identifier does not match its conversation or sequence.");
+                            if (change.Sequence <= sequence) continue;
+                            if (sequence > 0 && change.Sequence != sequence + 1) throw new DomainException(409, "event_history_gap", "Committed replay has a gap. Refresh snapshots before reconnecting.");
+                            sequence = change.Sequence; yield return change;
+                        }
+                    }
+                }
+            }
+        }
+        private T ParseFrame<T>(string data)
+        {
+            try { return JsonSerializer.Deserialize<T>(data, _Json) ?? throw new JsonException(); }
+            catch (Exception exception) when (exception is JsonException || exception is ArgumentException)
+            { throw new DomainException(502, "invalid_event", "The event payload does not match its documented contract."); }
+        }
         /// <summary>Read bounded history previews. A supplied sequence freezes membership; streaming text can still advance. Tail selects the latest page.</summary>
         public Task<MessagePage> MessagePageAsync(string id, int pageNumber = 1, int pageSize = 25, long? throughSequence = null, bool tail = false, CancellationToken token = default)
         {

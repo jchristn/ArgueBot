@@ -9,7 +9,7 @@ describe("shared controls", () => {
     const button = screen.getByRole("button", { name: "Download transcript" });
     expect(button).toHaveAttribute(
       "title",
-      "Download the visible conversation as a Markdown transcript",
+      "Download the complete selected conversation as a Markdown transcript",
     );
     expect(button.textContent.trim()).toBe("");
   });

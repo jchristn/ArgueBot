@@ -142,6 +142,7 @@ Success: **200**, response: `List<DurableEvent>`.
 | --- | --- | --- | --- |
 | conversationId | path | true | Identifier in the authenticated ownership scope. |
 | after | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | Accept | header | false | Protocol control. |
 | Last-Event-ID | header | false | SSE cursor formatted conversationId:sequence; foreign conversation cursors fail. |
 
@@ -706,6 +707,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | id | string | Stable conversation identifier. |
+| lastEventSequence | integer | Latest committed event sequence observed before this conversation read. Capture it before loading snapshots, then replay after it to cover concurrent changes. |
 | tenantId | string | Owning tenant. |
 | userId | string | Owning user. |
 | title | string | Display title. |
@@ -964,6 +966,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
 | streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
 | streamCommitMilliseconds | integer | Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000. |
+| eventRetentionEnabled | boolean | Enable background pruning of replay-event prefixes. Transcript and audit history are retained independently. Default true. |
+| eventRetentionDays | integer | Replay age target in days, default thirty, range one through 3650. The latest event is always retained to preserve monotonic sequencing. |
+| eventMaxPerConversation | integer | Maximum retained replay events per conversation, default 10000, range one through 1000000. |
+| eventMaintenanceSeconds | integer | Background retention interval in seconds, default sixty, range five through 3600. |
+| eventRetentionBatchSize | integer | Conversation metadata batch bound for retention, default one hundred, range one through one thousand. |
+| eventReplayPageSize | integer | Default events per replay read, default one thousand, range one through one thousand. |
 | historyPreviewCodePoints | integer | Maximum Unicode code points in each message preview returned by paged history. Default 4096, range 128 through 16384. Full message reads remain explicit. |
 | contextMaxCharacters | integer | Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history. |
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
@@ -1017,6 +1025,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
 | streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |
 | streamCommitMilliseconds | integer (nullable) | Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value. |
+| eventRetentionEnabled | boolean (nullable) | Optional background replay retention toggle. Omission preserves its configured value. |
+| eventRetentionDays | integer (nullable) | Optional replay age target, one through 3650 days. |
+| eventMaxPerConversation | integer (nullable) | Optional retained event bound per conversation, one through 1000000. |
+| eventMaintenanceSeconds | integer (nullable) | Optional retention interval, five through 3600 seconds. |
+| eventRetentionBatchSize | integer (nullable) | Optional maintenance metadata batch size, one through one thousand. |
+| eventReplayPageSize | integer (nullable) | Optional default replay size, one through one thousand. |
 | historyPreviewCodePoints | integer (nullable) | Optional Unicode code-point limit per message preview, 128 through 16384. Omission preserves its configured value. |
 | contextMaxCharacters | integer (nullable) | Optional context character budget, 1024 through 16777216. Omission preserves its configured value. |
 | contextMaxMessages | integer (nullable) | Optional selected context message bound, one through 10000. Omission preserves its configured value. |
@@ -1043,6 +1057,6 @@ The append-only audit route permits tenant administrators to inspect their own t
 
 ## Streaming and recovery
 
-Send `Accept: text/event-stream` and the same bearer header to the event route. Each committed change has an ID `conversationId:sequence`. Save the last processed ID and pass it in `Last-Event-ID` on reconnect. Heartbeats carry no application changes. Connections recycle after thirty seconds; `session_revoked` terminates access. Clients may use paged JSON events and snapshots when streaming is unavailable. Changes are read from committed storage, so replay and live delivery share one order. Clients must deduplicate IDs and refresh entity snapshots rather than append a repeated full message. Event pruning and explicit retention-gap snapshots remain an open implementation gate.
+Send `Accept: text/event-stream` and the same bearer header to the event route. Each committed change has an ID `conversationId:sequence`. Save the last processed ID and pass it in `Last-Event-ID` on reconnect. Heartbeats carry no application changes. Connections recycle after thirty seconds; `session_revoked` terminates access. Clients may use paged JSON events and snapshots when streaming is unavailable. Changes are read from committed storage, so replay and live delivery share one order. Clients must deduplicate IDs and refresh entity snapshots rather than append a repeated full message. Replay retention prunes only contiguous prefixes, preserving the latest sequence anchor. A nonzero expired cursor returns event_history_gap (HTTP 409 before streaming, or an error frame after headers). Capture lastEventSequence from the conversation, reload snapshots, then reconnect after that head. Transcripts and audit records are retained independently. Frames are bounded by the generated transport metadata in assets/transport.json.
 
 Closing a client does not stop accepted work. Service shutdown and crashes leave uncertain generations interrupted and their runs paused. Resume/retry is explicit. Historical participant snapshots survive profile edits/deletion. CLI and REST runs have separate capabilities; REST tool execution is disabled.

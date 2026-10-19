@@ -1,11 +1,12 @@
 namespace Test.Shared
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Threading;
+    using System.Text;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Models;
@@ -18,9 +19,47 @@ namespace Test.Shared
         /// <summary>Shared attempt descriptors run through every test adapter.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new[] { new TestSuiteDescriptor("Attempts", "Generation provenance", new[] { new TestCaseDescriptor("Attempts", "ContextBudget", "Over-budget history pauses before any external invocation or answer acceptance", ContextBudgetAsync), new TestCaseDescriptor("Attempts", "FinalPause", "Pause after a final answer finishes cleanly and exhausted legacy runs resume without another invocation", FinalPauseAsync), new TestCaseDescriptor("Attempts", "Storage", "Atomic attempt completion, private context, budgets, crash reconciliation and terminal retries", StorageAsync), new TestCaseDescriptor("Attempts", "DirectiveRetry", "Interrupted directives survive explicit retry and frozen prompts survive conversation rename", DirectiveRetryAsync) }) }; }
+            get { return new[] { new TestSuiteDescriptor("Attempts", "Generation provenance", new[] { new TestCaseDescriptor("Attempts", "ChunkBounds", "Large callbacks split into bounded Unicode-safe replay fragments", ChunkBoundsAsync), new TestCaseDescriptor("Attempts", "InvalidUnicode", "Invalid final Unicode records a failed attempt and retains its valid committed prefix", InvalidUnicodeAsync), new TestCaseDescriptor("Attempts", "ContextBudget", "Over-budget history pauses before any external invocation or answer acceptance", ContextBudgetAsync), new TestCaseDescriptor("Attempts", "FinalPause", "Pause after a final answer finishes cleanly and exhausted legacy runs resume without another invocation", FinalPauseAsync), new TestCaseDescriptor("Attempts", "Storage", "Atomic attempt completion, private context, budgets, crash reconciliation and terminal retries", StorageAsync), new TestCaseDescriptor("Attempts", "DirectiveRetry", "Interrupted directives survive explicit retry and frozen prompts survive conversation rename", DirectiveRetryAsync) }) }; }
         }
         private static RequestContext Owner() { return new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" }; }
+        private static Task ChunkBoundsAsync(CancellationToken token) { return ChunkAsync(false, token); }
+        private static Task InvalidUnicodeAsync(CancellationToken token) { return ChunkAsync(true, token); }
+        private static async Task ChunkAsync(bool invalid, CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-chunks-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false); RequestContext owner = Owner();
+                    RunnerProfile profile = await database.Profiles.CreateAsync(owner, new RunnerProfile { Name = "Chunk fixture", Executable = "fixture-not-executed" }, token).ConfigureAwait(false);
+                    foreach (int size in invalid ? new[] { 257 } : new[] { 1, 257 })
+                    {
+                        string output = invalid ? "Valid retained prefix. " + '\ud83d' : size == 1 ? "議論🙂🙂" : string.Concat(Enumerable.Repeat("議論🙂", 5000));
+                        Conversation conversation = await database.CreateConversationAsync(owner, "Single callback fixture", token).ConfigureAwait(false);
+                        await using (ConversationEngine engine = new ConversationEngine(database, new SingleChunkRunner(output), streamBatchCharacters: size))
+                        {
+                            DebateRun run = await engine.StartAsync(owner, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Single callback", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = "chunk-fixture" }, token).ConfigureAwait(false);
+                            await WaitForAsync(database, owner, run, invalid ? "paused" : "completed", token).ConfigureAwait(false);
+                            Message answer = (await database.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false)).Single(message => message.Speaker == profile.Name);
+                            GenerationAttempt attempt = (await database.Attempts.EnumerateAsync(owner, conversation.Id, run.Id, token: token).ConfigureAwait(false)).Items.Single();
+                            if (invalid)
+                            {
+                                if (answer.Content != "Valid retained prefix. " || answer.State != "failed" || attempt.State != "failed" || attempt.ErrorCode != "invalid_runner_text") throw new InvalidDataException("Invalid Unicode stranded a streaming attempt or lost its committed prefix.");
+                            }
+                            else
+                            {
+                                List<DurableEvent> events = await database.ReadEventsAsync(owner, conversation.Id, token: token).ConfigureAwait(false);
+                                List<DurableEvent> deltas = events.Where(change => change.Kind == "delta").ToList();
+                                if (answer.Content != output || string.Concat(deltas.Select(change => change.Text)) != output || deltas.Any(change => change.Text.Length > size + (size == 1 ? 1 : 0))) throw new InvalidDataException("A large callback bypassed commit bounds or changed replay text.");
+                                foreach (DurableEvent delta in deltas) new UTF8Encoding(false, true).GetByteCount(delta.Text);
+                            }
+                        }
+                    }
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
         private static async Task ContextBudgetAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-context-budget-" + Guid.NewGuid().ToString("N"));

@@ -156,9 +156,16 @@ function WorkspaceContent({ id }) {
       clearTimeout(timer);
       timer = setTimeout(reload, 100);
     };
+    const bootstrap = async () => {
+      const head = await api.conversation(id);
+      cursor = id + ":" + head.lastEventSequence;
+      await reload();
+    };
     const watch = async () => {
+      let needsSnapshot = true;
       while (!controller.signal.aborted) {
         try {
+          if (needsSnapshot) { await bootstrap(); needsSnapshot = false; }
           setConnection("common.connected");
           await api.events(
             id,
@@ -172,6 +179,7 @@ function WorkspaceContent({ id }) {
         } catch (failure) {
           if (controller.signal.aborted) break;
           setConnection("common.reconnecting");
+          if (["event_history_gap", "invalid_cursor", "invalid_event", "event_frame_too_large"].includes(failure.code)) needsSnapshot = true;
           if (failure.status === 401) {
             notify(failure);
             break;

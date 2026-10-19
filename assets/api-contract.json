@@ -162,7 +162,8 @@
       "public": false,
       "example": null,
       "query": [
-        "after"
+        "after",
+        "pageSize"
       ],
       "execute": false,
       "save": null

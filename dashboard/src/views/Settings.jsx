@@ -15,6 +15,12 @@ function SettingsForm({ snapshot, onSave }) {
     contextMaxCharacters: snapshot.settings.contextMaxCharacters,
     contextMaxMessages: snapshot.settings.contextMaxMessages,
     historyPreviewCodePoints: snapshot.settings.historyPreviewCodePoints,
+    eventRetentionEnabled: snapshot.settings.eventRetentionEnabled,
+    eventRetentionDays: snapshot.settings.eventRetentionDays,
+    eventMaxPerConversation: snapshot.settings.eventMaxPerConversation,
+    eventMaintenanceSeconds: snapshot.settings.eventMaintenanceSeconds,
+    eventRetentionBatchSize: snapshot.settings.eventRetentionBatchSize,
+    eventReplayPageSize: snapshot.settings.eventReplayPageSize,
     databaseType: snapshot.settings.database.type,
     connectionEnvironmentVariable:
       snapshot.settings.database.connectionEnvironmentVariable,
@@ -120,6 +126,16 @@ function SettingsForm({ snapshot, onSave }) {
           )}
         </Field>
       </div>
+      <fieldset title={t("settings.replay.help")}>
+        <legend>{t("settings.replay")}</legend>
+        <label className="checkbox-label" title={t("settings.eventEnabled.help")}>
+          <input type="checkbox" title={t("settings.eventEnabled.help")} checked={value.eventRetentionEnabled} onChange={(event) => change("eventRetentionEnabled", event.target.checked)} />
+          {t("settings.eventEnabled")}
+        </label>
+        <div className="form-grid">
+          {[["eventRetentionDays", "settings.eventDays", 1, 3650], ["eventMaxPerConversation", "settings.eventCount", 1, 1000000], ["eventMaintenanceSeconds", "settings.eventInterval", 5, 3600], ["eventRetentionBatchSize", "settings.eventBatch", 1, 1000], ["eventReplayPageSize", "settings.eventPage", 1, 1000]].map(([name, label, min, max]) => <Field key={name} label={label}>{(props) => <input {...props} type="number" min={min} max={max} value={value[name]} onChange={(event) => change(name, Number(event.target.value))} />}</Field>)}
+        </div>
+      </fieldset>
       <label className="checkbox-label" title={t("settings.cli.help")}>
         <input
           type="checkbox"

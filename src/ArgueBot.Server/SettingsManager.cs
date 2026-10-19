@@ -1,11 +1,11 @@
 namespace ArgueBot.Server
 {
-    using System;
     using System.IO;
     using System.Security.Cryptography;
     using System.Text.Json;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Services;
 
@@ -33,6 +33,12 @@ namespace ArgueBot.Server
                 settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.AllowCli = update.AllowCli;
                 if (update.StreamBatchCharacters.HasValue) settings.StreamBatchCharacters = update.StreamBatchCharacters.Value;
                 if (update.StreamCommitMilliseconds.HasValue) settings.StreamCommitMilliseconds = update.StreamCommitMilliseconds.Value;
+                if (update.EventRetentionEnabled.HasValue) settings.EventRetentionEnabled = update.EventRetentionEnabled.Value;
+                if (update.EventRetentionDays.HasValue) settings.EventRetentionDays = update.EventRetentionDays.Value;
+                if (update.EventMaxPerConversation.HasValue) settings.EventMaxPerConversation = update.EventMaxPerConversation.Value;
+                if (update.EventMaintenanceSeconds.HasValue) settings.EventMaintenanceSeconds = update.EventMaintenanceSeconds.Value;
+                if (update.EventRetentionBatchSize.HasValue) settings.EventRetentionBatchSize = update.EventRetentionBatchSize.Value;
+                if (update.EventReplayPageSize.HasValue) settings.EventReplayPageSize = update.EventReplayPageSize.Value;
                 if (update.HistoryPreviewCodePoints.HasValue) settings.HistoryPreviewCodePoints = update.HistoryPreviewCodePoints.Value;
                 if (update.ContextMaxCharacters.HasValue) settings.ContextMaxCharacters = update.ContextMaxCharacters.Value;
                 if (update.ContextMaxMessages.HasValue) settings.ContextMaxMessages = update.ContextMaxMessages.Value;

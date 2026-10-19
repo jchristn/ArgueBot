@@ -414,3 +414,40 @@ test("page long history, read complete text and export beyond the visible page",
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "../.run/screenshots/message-pages-390.png", fullPage: true });
 });
+
+test("reload snapshots after an expired event cursor before resuming live updates", async ({ page }) => {
+  await enroll(page);
+  const calls = [];
+  let refused = false;
+  let resumed = false;
+  let resumedCursor = "";
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (/\/v1\.0\/api\/conversations\/[^/]+$/.test(url.pathname) && request.method() === "GET") calls.push("snapshot");
+  });
+  await page.route(/\/v1\.0\/api\/conversations\/[^/]+\/events(?:\?.*)?$/, async (route) => {
+    calls.push("events");
+    if (!refused) {
+      refused = true;
+      await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ code: "event_history_gap", message: "The replay cursor expired." }) });
+    } else {
+      resumed = true;
+      resumedCursor = route.request().headers()["last-event-id"];
+      await route.continue();
+    }
+  });
+  await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Question or title" }).fill("Replay snapshot recovery fixture");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => resumed).toBe(true);
+  const first = calls.indexOf("events");
+  const second = calls.indexOf("events", first + 1);
+  expect(calls.slice(first + 1, second).filter((kind) => kind === "snapshot").length).toBeGreaterThanOrEqual(2);
+  const id = new URL(page.url()).pathname.split("/").at(-1);
+  expect(resumedCursor).toBe(id + ":1");
+  await page.evaluate(async (conversation) => {
+    const response = await fetch(`/v1.0/api/conversations/${conversation}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text: "Committed after replay recovery", idempotencyKey: "replay-recovery-note" }) });
+    if (!response.ok) throw new Error("Replay recovery fixture append failed.");
+  }, id);
+  await expect(page.getByText("Committed after replay recovery", { exact: true })).toBeVisible();
+});

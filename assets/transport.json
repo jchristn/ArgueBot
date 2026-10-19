@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "maxEventFrameCharacters": 1048576,
+  "eventIdleSeconds": 15,
+  "heartbeatSeconds": 5,
+  "connectionSeconds": 30
+}

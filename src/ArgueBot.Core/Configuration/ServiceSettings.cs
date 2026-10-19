@@ -1,11 +1,11 @@
 namespace ArgueBot.Core.Configuration
 {
-    using System;
     using System.IO;
-    using System.Text.Json;
     using System.Text.Json.Serialization;
-    using System.Threading;
+    using System.Text.Json;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
@@ -31,6 +31,18 @@ namespace ArgueBot.Core.Configuration
         public int StreamBatchCharacters { get; set; } = 4096;
         /// <summary>Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000.</summary>
         public int StreamCommitMilliseconds { get; set; } = 250;
+        /// <summary>Enable background pruning of replay-event prefixes. Transcript and audit history are retained independently. Default true.</summary>
+        public bool EventRetentionEnabled { get; set; } = true;
+        /// <summary>Replay age target in days, default thirty, range one through 3650. The latest event is always retained to preserve monotonic sequencing.</summary>
+        public int EventRetentionDays { get; set; } = 30;
+        /// <summary>Maximum retained replay events per conversation, default 10000, range one through 1000000.</summary>
+        public int EventMaxPerConversation { get; set; } = 10000;
+        /// <summary>Background retention interval in seconds, default sixty, range five through 3600.</summary>
+        public int EventMaintenanceSeconds { get; set; } = 60;
+        /// <summary>Conversation metadata batch bound for retention, default one hundred, range one through one thousand.</summary>
+        public int EventRetentionBatchSize { get; set; } = 100;
+        /// <summary>Default events per replay read, default one thousand, range one through one thousand.</summary>
+        public int EventReplayPageSize { get; set; } = 1000;
         /// <summary>Maximum Unicode code points in each message preview returned by paged history. Default 4096, range 128 through 16384. Full message reads remain explicit.</summary>
         public int HistoryPreviewCodePoints { get; set; } = 4096;
         /// <summary>Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history.</summary>
@@ -78,6 +90,11 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (EventRetentionDays < 1 || EventRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(EventRetentionDays));
+            if (EventMaxPerConversation < 1 || EventMaxPerConversation > 1000000) throw new ArgumentOutOfRangeException(nameof(EventMaxPerConversation));
+            if (EventMaintenanceSeconds < 5 || EventMaintenanceSeconds > 3600) throw new ArgumentOutOfRangeException(nameof(EventMaintenanceSeconds));
+            if (EventRetentionBatchSize < 1 || EventRetentionBatchSize > 1000) throw new ArgumentOutOfRangeException(nameof(EventRetentionBatchSize));
+            if (EventReplayPageSize < 1 || EventReplayPageSize > 1000) throw new ArgumentOutOfRangeException(nameof(EventReplayPageSize));
             if (HistoryPreviewCodePoints < 128 || HistoryPreviewCodePoints > 16384) throw new ArgumentOutOfRangeException(nameof(HistoryPreviewCodePoints));
             if (ContextMaxCharacters < 1024 || ContextMaxCharacters > 16777216) throw new ArgumentOutOfRangeException(nameof(ContextMaxCharacters));
             if (ContextMaxMessages < 1 || ContextMaxMessages > 10000) throw new ArgumentOutOfRangeException(nameof(ContextMaxMessages));

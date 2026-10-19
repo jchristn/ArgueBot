@@ -1,7 +1,7 @@
 namespace ArgueBot.Core.Observability
 {
-    using System.Diagnostics;
     using System.Diagnostics.Metrics;
+    using System.Diagnostics;
 
     /// <summary>Dependency-free application instrumentation. Only bounded operation/outcome dimensions belong on metrics.</summary>
     public static class ProductTelemetry
@@ -20,6 +20,10 @@ namespace ArgueBot.Core.Observability
         public static readonly Histogram<double> GenerationDuration = Meter.CreateHistogram<double>("arguebot.runner.duration", "s");
         /// <summary>Observed time to first answer text in seconds.</summary>
         public static readonly Histogram<double> FirstTextDuration = Meter.CreateHistogram<double>("arguebot.runner.first_text.duration", "s");
+        /// <summary>Replay cursors requiring fresh snapshots, with bounded provider labels.</summary>
+        public static readonly Counter<long> ReplayGaps = Meter.CreateCounter<long>("arguebot.replay.gaps");
+        /// <summary>Committed replay events removed by retention. Domain transcript and audit data are unaffected.</summary>
+        public static readonly Counter<long> EventsPruned = Meter.CreateCounter<long>("arguebot.replay.events_pruned");
         /// <summary>Accepted run starts.</summary>
         public static readonly Counter<long> Runs = Meter.CreateCounter<long>("arguebot.runs.started");
     }

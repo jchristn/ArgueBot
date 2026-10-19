@@ -1,4 +1,11 @@
 {
+  "x-arguebot-transport": {
+    "version": 2,
+    "maxEventFrameCharacters": 1048576,
+    "eventIdleSeconds": 15,
+    "heartbeatSeconds": 5,
+    "connectionSeconds": 30
+  },
   "openapi": "3.0.3",
   "info": {
     "title": "ArgueBot API",
@@ -1276,6 +1283,18 @@
               "type": "integer",
               "minimum": 0,
               "format": "int64"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 1000
             },
             "description": "Backend filter; date/time values use UTC ISO 8601."
           },
@@ -5383,6 +5402,11 @@
             "type": "string",
             "description": "Stable conversation identifier."
           },
+          "lastEventSequence": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Latest committed event sequence observed before this conversation read. Capture it before loading snapshots, then replay after it to cover concurrent changes."
+          },
           "tenantId": {
             "type": "string",
             "description": "Owning tenant."
@@ -6165,6 +6189,50 @@
             "maximum": 5000,
             "default": 250
           },
+          "eventRetentionEnabled": {
+            "type": "boolean",
+            "description": "Enable background pruning of replay-event prefixes. Transcript and audit history are retained independently. Default true."
+          },
+          "eventRetentionDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Replay age target in days, default thirty, range one through 3650. The latest event is always retained to preserve monotonic sequencing.",
+            "minimum": 1,
+            "maximum": 3650,
+            "default": 30
+          },
+          "eventMaxPerConversation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum retained replay events per conversation, default 10000, range one through 1000000.",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 10000
+          },
+          "eventMaintenanceSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Background retention interval in seconds, default sixty, range five through 3600.",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 60
+          },
+          "eventRetentionBatchSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Conversation metadata batch bound for retention, default one hundred, range one through one thousand.",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "eventReplayPageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Default events per replay read, default one thousand, range one through one thousand.",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1000
+          },
           "historyPreviewCodePoints": {
             "type": "integer",
             "format": "int32",
@@ -6290,6 +6358,51 @@
             "description": "Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value.",
             "minimum": 10,
             "maximum": 5000
+          },
+          "eventRetentionEnabled": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Optional background replay retention toggle. Omission preserves its configured value."
+          },
+          "eventRetentionDays": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional replay age target, one through 3650 days.",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "eventMaxPerConversation": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional retained event bound per conversation, one through 1000000.",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "eventMaintenanceSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional retention interval, five through 3600 seconds.",
+            "minimum": 5,
+            "maximum": 3600
+          },
+          "eventRetentionBatchSize": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional maintenance metadata batch size, one through one thousand.",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "eventReplayPageSize": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional default replay size, one through one thousand.",
+            "minimum": 1,
+            "maximum": 1000
           },
           "historyPreviewCodePoints": {
             "type": "integer",

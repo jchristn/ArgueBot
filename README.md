@@ -391,3 +391,5 @@ When filing a bug, include:
 [MIT](LICENSE.md) -- see [LICENSE.md](LICENSE.md) for details.
 
 Replacement backup and restore workflows, including current limitations, are documented in [docs/RECOVERY.md](docs/RECOVERY.md).
+
+The replacement service supports configurable event replay retention without deleting transcript history. Expired event cursors require a snapshot refresh; the dashboard recovers automatically and the native client exposes typed stream errors. See [execution and recovery](docs/EXECUTION.md) and [operations](docs/OPERATIONS.md).

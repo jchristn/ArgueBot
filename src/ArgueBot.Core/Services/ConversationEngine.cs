@@ -1,15 +1,15 @@
 namespace ArgueBot.Core.Services
 {
-    using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
     using System.Text.RegularExpressions;
-    using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
+    using System.Threading;
+    using System;
     using Microsoft.Extensions.Logging.Abstractions;
+    using Microsoft.Extensions.Logging;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Observability;
@@ -170,20 +170,22 @@ namespace ArgueBot.Core.Services
                         long generationStarted = _Clock.GetTimestamp();
                         string? failure = null;
                         string answerState = "completed";
-                        await using (MessageStreamWriter stream = new MessageStreamWriter(_Database, context, answer, _StreamBatchCharacters, _StreamCommitInterval, _Clock))
+                        MessageStreamWriter stream = new MessageStreamWriter(_Database, context, answer, _StreamBatchCharacters, _StreamCommitInterval, _Clock);
+                        await using (stream)
                         using (CancellationTokenRegistration streamFailure = stream.FaultToken.Register(() => worker.Generation?.Cancel()))
                         {
                         try
                         {
                             await _Database.Attempts.MarkStreamingAsync(context, attempt, worker.Generation.Token).ConfigureAwait(false);
                             await _Runner.GenerateAsync(profile, prompt, contextMessages, stream.AppendAsync, worker.Generation.Token).ConfigureAwait(false);
-                            if (stream.Failed) throw new DomainException(503, "stream_persistence_failed", "Stream persistence failed.");
+                            if (stream.Failed) throw new DomainException(503, stream.FailureCode, "Stream persistence failed.");
                             answerState = "completed";
                         }
-                        catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = "stream_persistence_failed"; }
+                        catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
                         catch (Exception ex) when (ex is not OutOfMemoryException)
                         { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
                         }
+                        if (stream.Failed) { answerState = "failed"; failure = stream.FailureCode; }
                         answer.State = answerState;
                         attempt.ErrorCode = failure ?? "";
                         attempt.DurationMilliseconds = Math.Max(0, (long)_Clock.GetElapsedTime(generationStarted).TotalMilliseconds);

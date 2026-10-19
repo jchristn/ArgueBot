@@ -1,15 +1,15 @@
 namespace Test.Shared
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Sqlite;
+    using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using Npgsql;
@@ -167,6 +167,7 @@ namespace Test.Shared
                     await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
                     await AttemptStorageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     await MessagePageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
+                    await ReplayChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     RequestContext context = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true };
                     BackupEntry archiveRecord = await database.Backups.CreateAsync(context, "Provider recovery 議論", true, false, token).ConfigureAwait(false);
                     try

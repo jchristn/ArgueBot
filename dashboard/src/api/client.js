@@ -1,4 +1,5 @@
 import i18n from "../i18n/index.js";
+import transport from "../../../assets/transport.json";
 export class ApiError extends Error {
   constructor(status, data) {
     super(data.message || `HTTP ${status}`);
@@ -269,42 +270,47 @@ export class ApiClient {
         await response.json().catch(() => ({})),
       );
     const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
     let pending = "";
+    let carriageReturn = false;
+    let last = cursor.startsWith(id + ":") ? Number(cursor.slice(id.length + 1)) : 0;
+    const invalid = (code = "invalid_event", status = 502) => new ApiError(status, { code, message: i18n.t("events.refresh") });
     try {
       while (!signal.aborted) {
         const { done, value } = await reader.read();
-        if (done) break;
-        pending += decoder
-          .decode(value, { stream: true })
-          .replace(/\r\n/g, "\n");
+        if (done) { try { decoder.decode(); } catch { throw invalid(); } break; }
+        let decoded;
+        try { decoded = decoder.decode(value, { stream: true }); } catch { throw invalid(); }
+        if (decoded.length) {
+          const omitLineFeed = carriageReturn && decoded.startsWith("\n");
+          carriageReturn = decoded.endsWith("\r");
+          pending += (omitLineFeed ? decoded.slice(1) : decoded).replace(/\r\n|\r/g, "\n");
+        }
         let boundary;
         while ((boundary = pending.indexOf("\n\n")) >= 0) {
-          const frame = pending.slice(0, boundary);
-          pending = pending.slice(boundary + 2);
+          if (boundary > transport.maxEventFrameCharacters) throw invalid("event_frame_too_large");
+          const frame = pending.slice(0, boundary); pending = pending.slice(boundary + 2);
           const fields = frame.split("\n");
-          const event = fields
-            .find((line) => line.startsWith("event:"))
-            ?.slice(6)
-            .trim();
-          if (event === "session_revoked")
-            throw new ApiError(401, {
-              message: "Session revoked",
-              code: "unauthenticated",
-            });
-          if (event !== "change") continue;
-          const eventId = fields
-            .find((line) => line.startsWith("id:"))
-            ?.slice(3)
-            .trim();
-          const data = fields
-            .filter((line) => line.startsWith("data:"))
-            .map((line) => line.slice(5).trimStart())
-            .join("\n");
-          onEvent(JSON.parse(data), eventId);
+          const event = fields.find((line) => line.startsWith("event:"))?.slice(6).trim();
+          if (event === "session_revoked") throw new ApiError(401, { message: i18n.t("events.revoked"), code: "unauthenticated" });
+          if (event !== "change" && event !== "error") continue;
+          const raw = fields.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
+          let data;
+          try { data = JSON.parse(raw); } catch { throw invalid(); }
+          if (event === "error") {
+            if (!data || typeof data.code !== "string") throw invalid();
+            throw new ApiError(data.code === "event_history_gap" || data.code === "invalid_cursor" ? 409 : 503, data);
+          }
+          const eventId = fields.find((line) => line.startsWith("id:"))?.slice(3).trim();
+          if (!data || data.conversationId !== id || !Number.isSafeInteger(data.sequence) || data.sequence < 1 || eventId !== id + ":" + data.sequence) throw invalid();
+          if (data.sequence <= last) continue;
+          if (last > 0 && data.sequence !== last + 1) throw invalid("event_history_gap", 409);
+          last = data.sequence; onEvent(data, eventId);
         }
+        if (pending.length > transport.maxEventFrameCharacters) throw invalid("event_frame_too_large");
       }
     } finally {
+      try { await reader.cancel(); } catch { /* The transport can already be aborted. */ }
       reader.releaseLock();
     }
   }

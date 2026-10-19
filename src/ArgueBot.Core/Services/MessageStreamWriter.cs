@@ -1,9 +1,9 @@
 namespace ArgueBot.Core.Services
 {
-    using System;
     using System.Text;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
 
@@ -22,6 +22,8 @@ namespace ArgueBot.Core.Services
         private readonly StringBuilder _Content;
         private readonly Task _Timer;
         private int _Failed;
+        private string _FailureCode = "stream_persistence_failed";
+        internal string FailureCode { get { return Volatile.Read(ref _FailureCode); } }
         internal CancellationToken FaultToken { get { return _Fault.Token; } }
         internal bool Failed { get { return Volatile.Read(ref _Failed) != 0; } }
         internal MessageStreamWriter(DatabaseDriverBase database, RequestContext context, Message message, int characters, TimeSpan interval, TimeProvider clock)
@@ -35,8 +37,13 @@ namespace ArgueBot.Core.Services
             try
             {
                 if (Failed) throw new DomainException(503, "stream_persistence_failed", "Stream persistence failed. The run requires explicit recovery.");
-                _Pending.Append(delta); _Content.Append(delta);
-                if (_Pending.Length >= _Characters) await FlushAsync(token).ConfigureAwait(false);
+                for (int offset = 0; offset < delta.Length;)
+                {
+                    token.ThrowIfCancellationRequested();
+                    int count = Math.Min(delta.Length - offset, Math.Max(1, _Characters - _Pending.Length));
+                    _Pending.Append(delta, offset, count); _Content.Append(delta, offset, count); offset += count;
+                    if (_Pending.Length >= _Characters) await FlushAsync(token).ConfigureAwait(false);
+                }
             }
             finally { _Gate.Release(); }
         }
@@ -54,30 +61,34 @@ namespace ArgueBot.Core.Services
             }
             catch (OperationCanceledException) when (_Stop.IsCancellationRequested) { }
             catch (Exception exception) when (exception is not OutOfMemoryException)
-            { Interlocked.Exchange(ref _Failed, 1); _Fault.Cancel(); }
+            { MarkFault(exception is DomainException domain ? domain.Code : "stream_persistence_failed"); }
         }
         private async Task FlushAsync(CancellationToken token, bool final = false)
         {
             if (_Pending.Length == 0) return;
             int characters = _Pending.Length;
-            if (char.IsHighSurrogate(_Pending[characters - 1]))
+            bool incomplete = char.IsHighSurrogate(_Pending[characters - 1]);
+            if (incomplete) characters--;
+            if (characters > 0)
             {
-                if (final) throw new DomainException(502, "invalid_runner_text", "The runner ended with an incomplete Unicode character.");
-                characters--;
+                string delta = _Pending.ToString(0, characters);
+                try { new UTF8Encoding(false, true).GetByteCount(delta); }
+                catch (EncoderFallbackException) { throw new DomainException(502, "invalid_runner_text", "The runner emitted invalid Unicode text."); }
+                _Message.Content = _Content.ToString(0, _Content.Length - (_Pending.Length - characters));
+                await _Database.UpdateMessageAsync(_Context, _Message, delta, token).ConfigureAwait(false);
+                _Pending.Remove(0, characters);
             }
-            if (characters == 0) return;
-            string delta = _Pending.ToString(0, characters);
-            try { new UTF8Encoding(false, true).GetByteCount(delta); }
-            catch (EncoderFallbackException) { throw new DomainException(502, "invalid_runner_text", "The runner emitted invalid Unicode text."); }
-            _Message.Content = _Content.ToString(0, _Content.Length - (_Pending.Length - characters));
-            await _Database.UpdateMessageAsync(_Context, _Message, delta, token).ConfigureAwait(false);
-            _Pending.Remove(0, characters);
+            if (final && incomplete) throw new DomainException(502, "invalid_runner_text", "The runner ended with an incomplete Unicode character.");
         }
+        private void MarkFault(string code)
+        { Volatile.Write(ref _FailureCode, code); Interlocked.Exchange(ref _Failed, 1); _Fault.Cancel(); }
         public async ValueTask DisposeAsync()
         {
             _Stop.Cancel(); await _Timer.ConfigureAwait(false);
             await _Gate.WaitAsync().ConfigureAwait(false);
             try { await FlushAsync(CancellationToken.None, true).ConfigureAwait(false); }
+            catch (DomainException exception) when (exception.Code == "invalid_runner_text")
+            { MarkFault(exception.Code); _Pending.Clear(); _Content.Clear(); _Content.Append(_Message.Content); }
             finally { _Gate.Release(); _Gate.Dispose(); _Stop.Dispose(); _Fault.Dispose(); }
         }
     }
