@@ -48,6 +48,20 @@ try {
   check(command(['participants','list']).some(item=>item.id===profile.id), 'Participant listing lost the edited profile.');
   command(['participants','delete',profile.id]);
   check(!command(['participants','list']).some(item=>item.id===profile.id), 'Participant deletion retained its reusable record.');
+  const fixture = path.join(root, 'src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll');
+  const debaters = ['A', 'B'].map(name => command(['participants','add','-'], {name:`CLI attempt fixture ${name}`,kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain']}));
+  const conversation = command(['conversations','create','CLI attempt provenance fixture']);
+  const run = command(['debate','start',conversation.id,'-'], {participantIds:debaters.map(item=>item.id),maxRounds:1,interventionSeconds:0,idempotencyKey:'cli-fixture-run'});
+  let runs;
+  for(let attempt=0;attempt<100;attempt++) {
+    runs = command(['debate','status',conversation.id]);
+    if(runs[0].state==='completed') break;
+    if(['paused','failed'].includes(runs[0].state)) throw new Error(`CLI fixture debate stopped: ${runs[0].outcome}`);
+    await delay(50);
+  }
+  check(runs[0].state==='completed', 'CLI fixture debate did not complete.');
+  const attempts = command(['debate','attempts',conversation.id,run.id]);
+  check(attempts.totalCount===2 && attempts.items.every(item=>item.state==='completed' && item.promptDigest.length===64), 'CLI attempt inspection lost external execution provenance.');
   const accepted = command(['backups','create','-'], {name:'CLI recovery fixture'});
   await completed(accepted.id);
   const artifacts = command(['backups','list']);

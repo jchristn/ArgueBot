@@ -60,6 +60,12 @@ namespace ArgueBot.Server.Routes
             { await Api.SendAsync(http, await _Engine.StartAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Body<CreateRunRequest>(http), http.Token).ConfigureAwait(false), 202).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Start durable debate run", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs/{runId}", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Runs.ReadAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read run checkpoint", "Runs"));
+            server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs/{runId}/attempts", http => Api.GuardAsync(http, async () =>
+            {
+                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
+                await Api.SendAsync(http, await _Database.Attempts.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+            }), openApiMetadata: OpenApiRouteMetadata.Create("Inspect durable generation attempts and exact selected context identifiers", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, root + "/runs/{runId}/actions", http => Api.GuardAsync(http, async () =>
             {
                 await _Engine.ApplyAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), Api.Body<CommandRequest>(http), http.Request.Headers["x-client-id"] ?? "default", http.Token).ConfigureAwait(false);

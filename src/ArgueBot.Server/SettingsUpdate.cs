@@ -15,6 +15,10 @@ namespace ArgueBot.Server
         public int? StreamBatchCharacters { get; set; }
         /// <summary>Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value.</summary>
         public int? StreamCommitMilliseconds { get; set; }
+        /// <summary>Optional context character budget, 1024 through 16777216. Omission preserves its configured value.</summary>
+        public int? ContextMaxCharacters { get; set; }
+        /// <summary>Optional selected context message bound, one through 10000. Omission preserves its configured value.</summary>
+        public int? ContextMaxMessages { get; set; }
         /// <summary>Allow local shell-out execution after restart.</summary>
         public bool AllowCli { get; set; }
         /// <summary>Selected persistence provider.</summary>

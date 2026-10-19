@@ -1,7 +1,7 @@
 // Contract source: PolyPrompt's documented Ollama /api/chat NDJSON protocol.
 // Answers only the completion path exercised by ArgueBot; no tools execute.
 const http = require('http');
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   const path = new URL(req.url, 'http://127.0.0.1').pathname;
   if (req.method !== 'POST' || path !== '/api/chat') {
     res.writeHead(501, { 'Content-Type': 'application/json' });
@@ -26,4 +26,5 @@ http.createServer((req, res) => {
     if (body.model === 'broken-stream') return res.end();
     res.end(JSON.stringify({ model: body.model, message: { role: 'assistant', content: 'answer.' }, done: true, done_reason: 'stop', prompt_eval_count: 10, eval_count: 2 }) + '\n');
   });
-}).listen(Number(process.env.PORT), '127.0.0.1');
+});
+server.listen(Number(process.env.PORT), '127.0.0.1', () => process.stdout.write(JSON.stringify({ port: server.address().port }) + '\n'));

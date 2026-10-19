@@ -4623,6 +4623,148 @@
           }
         }
       }
+    },
+    "/v1.0/api/conversations/{conversationId}/runs/{runId}/attempts": {
+      "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_runs_runId_attempts",
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Page durable generation attempts with frozen participant, prompt and context provenance",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful page durable generation attempts with frozen participant, prompt and context provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4681,6 +4823,33 @@
           "requestId": {
             "type": "string",
             "description": "Correlation identifier."
+          }
+        }
+      },
+      "AttemptPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenerationAttempt"
+            },
+            "description": "Matching durable attempts."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching records."
           }
         }
       },
@@ -5147,6 +5316,10 @@
       "DebateRun": {
         "type": "object",
         "properties": {
+          "question": {
+            "type": "string",
+            "description": "Original conversation title frozen when this run was created. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration."
+          },
           "mode": {
             "type": "string",
             "description": "Run purpose derived from its immutable participant count."
@@ -5248,6 +5421,89 @@
             "type": "string",
             "format": "date-time",
             "description": "Creation time in UTC."
+          }
+        }
+      },
+      "GenerationAttempt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Attempt identifier."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Containing conversation."
+          },
+          "runId": {
+            "type": "string",
+            "description": "Containing run."
+          },
+          "messageId": {
+            "type": "string",
+            "description": "Answer message, preserved even if generation is interrupted."
+          },
+          "participantId": {
+            "type": "string",
+            "description": "Immutable participant snapshot identifier."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Monotonic attempt number within this run."
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Debate round at attempt acceptance."
+          },
+          "speakerIndex": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordered participant position at acceptance."
+          },
+          "state": {
+            "type": "string",
+            "description": "Pending, streaming, completed, interrupted or failed. Acceptance precedes external invocation; interruption never proves the external operation did not run."
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "Safe failure code without upstream response content."
+          },
+          "promptVersion": {
+            "type": "string",
+            "description": "Version of the deterministic system prompt template."
+          },
+          "promptDigest": {
+            "type": "string",
+            "description": "SHA-256 of the exact UTF-8 system prompt."
+          },
+          "contextCharacters": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Exact UTF-16 character count of system prompt plus selected message content; this is not a token estimate."
+          },
+          "durationMilliseconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Monotonic elapsed generation and durable stream flush time, zero if unavailable after a crash."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acceptance time in UTC."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last lifecycle change in UTC."
+          },
+          "contextMessageIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Exact ordered source messages selected for this attempt, including any one-recipient directives."
           }
         }
       },
@@ -5661,6 +5917,16 @@
             "format": "int32",
             "description": "Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000."
           },
+          "contextMaxCharacters": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history."
+          },
+          "contextMaxMessages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum selected messages per generation attempt. Default 1000, range one through 10000."
+          },
           "maxConcurrentRuns": {
             "type": "integer",
             "format": "int32",
@@ -5758,6 +6024,18 @@
             "format": "int32",
             "nullable": true,
             "description": "Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value."
+          },
+          "contextMaxCharacters": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional context character budget, 1024 through 16777216. Omission preserves its configured value."
+          },
+          "contextMaxMessages": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional selected context message bound, one through 10000. Omission preserves its configured value."
           },
           "allowCli": {
             "type": "boolean",

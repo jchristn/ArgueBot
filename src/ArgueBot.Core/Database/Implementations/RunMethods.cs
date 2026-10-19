@@ -26,7 +26,7 @@ namespace ArgueBot.Core.Database.Implementations
         public async Task<DebateRun> CreateAsync(RequestContext context, string conversationId, CreateRunRequest request, CancellationToken token = default)
         {
             RequireWrite(context);
-            await _Database.ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            Conversation conversation = await _Database.ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
             bool followup = request.Mode == "followup";
             if (request.Mode != "debate" && !followup) throw new DomainException(400, "invalid_mode", "Run mode must be debate or followup.");
             if (followup && (string.IsNullOrWhiteSpace(request.Question) || request.Question.Length > 1048576)) throw new DomainException(400, "invalid_question", "Provide a follow-up question up to one MiB.");
@@ -67,7 +67,7 @@ namespace ArgueBot.Core.Database.Implementations
                 }
                 long busy = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM runs WHERE tenant_id=@tenant AND conversation_id=@id AND state NOT IN ('completed','cancelled','failed')", token, P("tenant", context.TenantId, "id", conversationId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 if (busy != 0) throw new DomainException(409, "active_run", "A run is already active or paused in this conversation.");
-                await ExecuteAsync(connection, transaction, "INSERT INTO runs(id,tenant_id,conversation_id,state,max_rounds,intervention_seconds,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,'queued',@rounds,@seconds,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "conversation", conversationId, "rounds", request.MaxRounds, "seconds", request.InterventionSeconds)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO runs(id,tenant_id,conversation_id,question,state,max_rounds,intervention_seconds,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@question,'queued',@rounds,@seconds,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "conversation", conversationId, "question", conversation.Title, "rounds", request.MaxRounds, "seconds", request.InterventionSeconds)).ConfigureAwait(false);
                 for (int index = 0; index < participants.Count; index++)
                 {
                     await ProfileMethods.InsertAsync(connection, transaction, context, participants[index], true, token).ConfigureAwait(false);
@@ -111,7 +111,7 @@ namespace ArgueBot.Core.Database.Implementations
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 {
                     if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Run not found.");
-                    run = new DebateRun { Id = runId, ConversationId = conversationId, State = S(reader, "state"), Outcome = S(reader, "outcome"), Round = reader.GetInt32(reader.GetOrdinal("round")), SpeakerIndex = reader.GetInt32(reader.GetOrdinal("speaker_index")), MaxRounds = reader.GetInt32(reader.GetOrdinal("max_rounds")), InterventionSeconds = reader.GetInt32(reader.GetOrdinal("intervention_seconds")), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
+                    run = new DebateRun { Id = runId, ConversationId = conversationId, Question = S(reader, "question"), State = S(reader, "state"), Outcome = S(reader, "outcome"), Round = reader.GetInt32(reader.GetOrdinal("round")), SpeakerIndex = reader.GetInt32(reader.GetOrdinal("speaker_index")), MaxRounds = reader.GetInt32(reader.GetOrdinal("max_rounds")), InterventionSeconds = reader.GetInt32(reader.GetOrdinal("intervention_seconds")), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
                 }
                 using (DbCommand command = Command(connection, null, "SELECT p.* FROM profiles p JOIN run_participants r ON p.id=r.profile_id AND p.tenant_id=r.tenant_id WHERE r.tenant_id=@tenant AND r.run_id=@run ORDER BY r.position", P("tenant", context.TenantId, "run", runId)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
@@ -159,12 +159,16 @@ namespace ArgueBot.Core.Database.Implementations
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 if (request != null && await ReceiptAsync(connection, transaction, context, run.ConversationId, run.Id, request, token).ConfigureAwait(false)) return;
-                int changed = await ExecuteAsync(connection, transaction, "UPDATE runs SET state=@state,outcome=@outcome,round=@round,speaker_index=@speaker,max_rounds=@max,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND conversation_id=@conversation AND revision=@revision", token, P("state", run.State, "outcome", run.Outcome, "round", run.Round, "speaker", run.SpeakerIndex, "max", run.MaxRounds, "tenant", context.TenantId, "id", run.Id, "conversation", run.ConversationId, "revision", run.Revision)).ConfigureAwait(false);
-                if (changed == 0) throw new DomainException(409, "revision_conflict", "Run changed. Reload before applying another action.");
-                await EventAsync(connection, transaction, context.TenantId, run.ConversationId, "run_status", run.Id, run.State, token).ConfigureAwait(false);
+                await SaveCheckpointAsync(connection, transaction, context, run, token).ConfigureAwait(false);
                 if (request != null) await ExecuteAsync(connection, transaction, "INSERT INTO command_receipts(id,tenant_id,user_id,conversation_id,command_key,digest,result_id,created_utc,updated_utc) VALUES(@id,@tenant,@user,@conversation,@key,@digest,@result,@now,@now)", token, P("id", Ids.New("cmd_"), "tenant", context.TenantId, "user", context.UserId, "conversation", run.ConversationId, "key", request.IdempotencyKey, "digest", CommandDigest(run.Id, request), "result", run.Id)).ConfigureAwait(false);
-                run.Revision++;
             }, token).ConfigureAwait(false);
+        }
+        internal static async Task SaveCheckpointAsync(DbConnection connection, DbTransaction transaction, RequestContext context, DebateRun run, CancellationToken token)
+        {
+            int changed = await ExecuteAsync(connection, transaction, "UPDATE runs SET state=@state,outcome=@outcome,round=@round,speaker_index=@speaker,max_rounds=@max,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND conversation_id=@conversation AND revision=@revision", token, P("state", run.State, "outcome", run.Outcome, "round", run.Round, "speaker", run.SpeakerIndex, "max", run.MaxRounds, "tenant", context.TenantId, "id", run.Id, "conversation", run.ConversationId, "revision", run.Revision)).ConfigureAwait(false);
+            if (changed == 0) throw new DomainException(409, "revision_conflict", "Run changed. Reload before applying another action.");
+            await EventAsync(connection, transaction, context.TenantId, run.ConversationId, "run_status", run.Id, run.State, token).ConfigureAwait(false);
+            run.Revision++;
         }
     }
 }

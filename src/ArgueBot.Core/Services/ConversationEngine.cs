@@ -24,18 +24,23 @@ namespace ArgueBot.Core.Services
         private readonly TimeProvider _Clock;
         private readonly int _StreamBatchCharacters;
         private readonly TimeSpan _StreamCommitInterval;
+        private readonly int _ContextMaxCharacters;
+        private readonly int _ContextMaxMessages;
         private readonly CancellationTokenSource _Lifetime = new CancellationTokenSource();
         private readonly SemaphoreSlim _Capacity;
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _Gates = new ConcurrentDictionary<string, SemaphoreSlim>();
         private readonly ConcurrentDictionary<string, ExecutionWorker> _Workers = new ConcurrentDictionary<string, ExecutionWorker>();
 
-        /// <summary>Create an engine with bounded concurrency, injectable time and bounded stream commit batches. Defaults: four runs, 4096 characters or 250 milliseconds per commit.</summary>
-        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null, TimeProvider? clock = null, int streamBatchCharacters = 4096, int streamCommitMilliseconds = 250)
+        /// <summary>Create an engine with bounded concurrency, injectable time and bounded stream commit batches. Defaults: four runs, 4096 characters or 250 milliseconds per commit, and context bounded to 262144 UTF-16 characters plus 1000 messages. Oversized context is refused before invocation.</summary>
+        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null, TimeProvider? clock = null, int streamBatchCharacters = 4096, int streamCommitMilliseconds = 250, int contextMaxCharacters = 262144, int contextMaxMessages = 1000)
         {
             ArgumentNullException.ThrowIfNull(database); ArgumentNullException.ThrowIfNull(runner);
             if (capacity < 1 || capacity > 64) throw new ArgumentOutOfRangeException(nameof(capacity));
             if (streamBatchCharacters < 1 || streamBatchCharacters > 65536) throw new ArgumentOutOfRangeException(nameof(streamBatchCharacters));
             if (streamCommitMilliseconds < 10 || streamCommitMilliseconds > 5000) throw new ArgumentOutOfRangeException(nameof(streamCommitMilliseconds));
+            if (contextMaxCharacters < 1024 || contextMaxCharacters > 16777216) throw new ArgumentOutOfRangeException(nameof(contextMaxCharacters));
+            if (contextMaxMessages < 1 || contextMaxMessages > 10000) throw new ArgumentOutOfRangeException(nameof(contextMaxMessages));
+            _ContextMaxCharacters = contextMaxCharacters; _ContextMaxMessages = contextMaxMessages;
             _Clock = clock ?? TimeProvider.System; _StreamBatchCharacters = streamBatchCharacters; _StreamCommitInterval = TimeSpan.FromMilliseconds(streamCommitMilliseconds);
             _Logger = logger ?? NullLogger.Instance;
             _Database = database; _Runner = runner; _Capacity = new SemaphoreSlim(capacity, capacity);
@@ -138,30 +143,30 @@ namespace ArgueBot.Core.Services
                 try
                 {
                     await _Capacity.WaitAsync(token).ConfigureAwait(false); entered = true;
-                    Conversation conversation = await _Database.ReadConversationAsync(context, run.ConversationId, token).ConfigureAwait(false);
-                    while (run.Round <= run.MaxRounds)
+                    while (true)
                     {
                         SemaphoreSlim gate = Gate(run.ConversationId); await gate.WaitAsync(token).ConfigureAwait(false);
                         RunnerProfile profile;
                         List<Message> contextMessages;
                         Message answer;
+                        GenerationAttempt attempt;
+                        string prompt;
                         try
                         {
                             run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             if (worker.PauseAfterTurn || run.State == "paused" || run.State == "completed" || run.State == "cancelled" || run.State == "failed") return;
+                            if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             profile = run.Participants[run.SpeakerIndex];
                             contextMessages = (await _Database.ReadMessagesAsync(context, run.ConversationId, token).ConfigureAwait(false)).Where(message => message.State == "completed" && (message.RecipientId == null || message.RecipientId == profile.Id)).ToList();
-                            foreach (Message directive in contextMessages.Where(message => message.RecipientId != null))
-                            {
-                                directive.State = "consumed";
-                                await _Database.UpdateMessageAsync(context, directive, "", token).ConfigureAwait(false);
-                            }
-                            run.State = "agent_turn"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false);
-                            answer = await _Database.AppendMessageAsync(context, new Message { ConversationId = run.ConversationId, RunId = run.Id, Speaker = profile.Name, Kind = run.Mode == "followup" ? "final" : run.Round == 1 && run.SpeakerIndex == 0 ? "opening" : "rebuttal", State = "streaming" }, token: token).ConfigureAwait(false);
+                            prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + run.Question + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
+                            if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + run.Question;
+                            GenerationWork work = await _Database.Attempts.BeginAsync(context, run, contextMessages, prompt, _ContextMaxCharacters, _ContextMaxMessages, token).ConfigureAwait(false);
+                            answer = work.Answer; attempt = work.Attempt;
                             worker.Generation = CancellationTokenSource.CreateLinkedTokenSource(token);
                         }
                         finally { gate.Release(); }
+                        long generationStarted = _Clock.GetTimestamp();
                         string? failure = null;
                         string answerState = "completed";
                         await using (MessageStreamWriter stream = new MessageStreamWriter(_Database, context, answer, _StreamBatchCharacters, _StreamCommitInterval, _Clock))
@@ -169,8 +174,7 @@ namespace ArgueBot.Core.Services
                         {
                         try
                         {
-                            string prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + conversation.Title + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
-                            if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + conversation.Title;
+                            await _Database.Attempts.MarkStreamingAsync(context, attempt, worker.Generation.Token).ConfigureAwait(false);
                             await _Runner.GenerateAsync(profile, prompt, contextMessages, stream.AppendAsync, worker.Generation.Token).ConfigureAwait(false);
                             if (stream.Failed) throw new DomainException(503, "stream_persistence_failed", "Stream persistence failed.");
                             answerState = "completed";
@@ -180,13 +184,14 @@ namespace ArgueBot.Core.Services
                         { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
                         }
                         answer.State = answerState;
+                        attempt.ErrorCode = failure ?? "";
+                        attempt.DurationMilliseconds = Math.Max(0, (long)_Clock.GetElapsedTime(generationStarted).TotalMilliseconds);
                         if (failure != null) _Logger.LogWarning("Generation failed {RunId} {Outcome}", run.Id, failure);
                         else _Logger.LogInformation("Generation finished {RunId} {State}", run.Id, answer.State);
                         await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                         try
                         {
                             worker.Generation?.Dispose(); worker.Generation = null;
-                            await _Database.UpdateMessageAsync(context, answer, "", CancellationToken.None).ConfigureAwait(false);
                             run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, CancellationToken.None).ConfigureAwait(false);
                             if (answer.State == "completed")
                             {
@@ -194,12 +199,12 @@ namespace ArgueBot.Core.Services
                                 if (run.SpeakerIndex == run.Participants.Count) { run.SpeakerIndex = 0; run.Round++; }
                             }
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; }
-                            else if (token.IsCancellationRequested || worker.PauseAfterTurn || answer.State == "interrupted") { run.State = "paused"; run.Outcome = "interrupted"; }
+                            else if (answer.State == "completed" && run.Mode == "debate" && Regex.IsMatch(answer.Content, @"^\s*WE HAVE CONSENSUS\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)) { run.State = "completed"; run.Outcome = "consensus"; }
+                            else if (answer.State == "completed" && run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; }
                             else if (failure != null) { run.State = "paused"; run.Outcome = failure; }
-                            else if (run.Mode == "debate" && Regex.IsMatch(answer.Content, @"^\s*WE HAVE CONSENSUS\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)) { run.State = "completed"; run.Outcome = "consensus"; }
-                            else if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; }
+                            else if (token.IsCancellationRequested || worker.PauseAfterTurn || answer.State == "interrupted") { run.State = "paused"; run.Outcome = answer.State == "interrupted" ? "interrupted" : "paused"; }
                             else run.State = "window";
-                            await _Database.Runs.SaveAsync(context, run, CancellationToken.None).ConfigureAwait(false);
+                            await _Database.Attempts.CompleteAsync(context, run, attempt, answer, CancellationToken.None).ConfigureAwait(false);
                             if (run.State != "window") return;
                         }
                         finally { gate.Release(); }
@@ -221,7 +226,7 @@ namespace ArgueBot.Core.Services
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    try { run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, CancellationToken.None).ConfigureAwait(false); run.State = "paused"; run.Outcome = "execution_error"; await _Database.Runs.SaveAsync(context, run, CancellationToken.None).ConfigureAwait(false); }
+                    try { run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, CancellationToken.None).ConfigureAwait(false); run.State = "paused"; run.Outcome = ex is DomainException domain ? domain.Code : "execution_error"; await _Database.Runs.SaveAsync(context, run, CancellationToken.None).ConfigureAwait(false); }
                     catch (Exception storage) when (storage is not OutOfMemoryException) { /* Startup reconciliation handles an unavailable store. */ }
                 }
                 finally { if (entered) _Capacity.Release(); _Logger.LogInformation("Worker detached {RunId}", run.Id); }

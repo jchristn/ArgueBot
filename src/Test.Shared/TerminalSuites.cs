@@ -24,7 +24,31 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task AttemptDetailsAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Light, Theme.Dark })
+            {
+                HeadlessBackend backend = new HeadlessBackend(60, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    GenerationAttempt attempt = new GenerationAttempt { Id = "att_fixture", PromptVersion = "debate-v1", PromptDigest = new string('a', 64), State = "interrupted", ContextMessageIds = Enumerable.Range(1, 40).Select(index => "msg_fixture_" + index).ToList() };
+                    AttemptDetails details = new AttemptDetails(attempt, new DebateRun { Question = "Immutable question 議論" });
+                    FormDialog<GenerationAttempt> dialog = new FormDialog<GenerationAttempt>("Generation provenance", details.Form, () => attempt, readOnly: true);
+                    Task<GenerationAttempt?> result = app.ShowAsync<GenerationAttempt>(dialog);
+                    dialog.HandlePaste("attempted edit");
+                    if (((TextField)details.Form.GetField(0)).Value != attempt.Id || ((TextField)details.Form.GetField(9)).Value != "msg_fixture_1" || ((TextField)details.Form.GetField(details.Form.FieldCount - 1)).Value != "msg_fixture_40") throw new InvalidDataException("Attempt provenance became editable or lost source ordering.");
+                    for (int index = 0; index < details.Form.FieldCount + 1; index++) { backend.FeedKey("tab"); app.PumpInputOnce(); }
+                    app.RenderOnce(); string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("msg_fixture_40", StringComparison.Ordinal) || !screen.Contains("Close", StringComparison.Ordinal)) throw new InvalidDataException("Long provenance did not scroll to its final source and close controls.");
+                    await SaveEvidenceAsync("attempt-" + theme.Name, screen, token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); app.PumpInputOnce(); app.PumpInputOnce();
+                    if (await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false) != null) throw new InvalidDataException("Read-only provenance inspection returned a mutation.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task AuditDetailsAsync(CancellationToken token)
         {

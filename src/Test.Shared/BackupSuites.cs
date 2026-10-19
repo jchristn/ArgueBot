@@ -219,10 +219,11 @@ namespace Test.Shared
                 foreach (string line in await File.ReadAllLinesAsync(source, token).ConfigureAwait(false))
                 {
                     BackupRecord record = JsonSerializer.Deserialize<BackupRecord>(line)!;
+                    if (record.Table == "generation_attempts" || record.Table == "attempt_context") continue;
                     if (record.Kind == "header") record.SchemaVersion = 4;
                     if (record.Kind == "table")
                     {
-                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset" || column.Key == "target_provider" || column.Key == "target_connection_env" || column.Key == "retained_staging_home" || (record.Table == "audit_events" && new[] { "session_id", "auth_scheme", "correlation_id", "resource_type", "resource_id", "error_code" }.Contains(column.Key))).Select(column => column.Value).OrderByDescending(index => index).ToList();
+                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => (record.Table == "runs" && column.Key == "question") || column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset" || column.Key == "target_provider" || column.Key == "target_connection_env" || column.Key == "retained_staging_home" || (record.Table == "audit_events" && new[] { "session_id", "auth_scheme", "correlation_id", "resource_type", "resource_id", "error_code" }.Contains(column.Key))).Select(column => column.Value).OrderByDescending(index => index).ToList();
                         foreach (int index in removed) record.Columns.RemoveAt(index);
                     }
                     if (record.Kind == "row") foreach (int index in removed) record.Values.RemoveAt(index);

@@ -320,3 +320,53 @@ test("inspect immutable security accounting and filter empty results", async ({ 
   await page.getByRole("searchbox", { name: "Operation code" }).fill("no-such-security-operation");
   await expect(page.getByText("No security events match this operation.")).toBeVisible();
 });
+
+test("run a real PolyPrompt fixture debate and inspect durable attempt context", async ({ page }) => {
+  const { startProviderFixture } = await import("./provider-fixture.js");
+  const fixture = await startProviderFixture();
+  try {
+    await enroll(page);
+    const profiles = await page.evaluate(async (endpoint) => {
+      const result = [];
+      for (const name of ["Attempt browser A " + crypto.randomUUID(), "Attempt browser B " + crypto.randomUUID()]) {
+        const response = await fetch("/v1.0/api/participants", { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ name, kind: "rest", provider: "ollama", endpoint, model: "fixture", timeoutSeconds: 5 }) });
+        if (!response.ok) throw new Error("Provider fixture profile setup failed.");
+        result.push(await response.json());
+      }
+      return result;
+    }, fixture.endpoint);
+    await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
+    await page.getByRole("textbox", { name: "Question or title" }).fill("Attempt browser immutable question");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("textbox", { name: "Your message" }).fill("Use this exact source note for the fixture debate.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByText("Use this exact source note for the fixture debate.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Start another debate", exact: true }).click();
+    const start = page.getByRole("dialog");
+    for (const profile of profiles) await start.getByLabel(profile.name, { exact: false }).check();
+    await start.getByRole("spinbutton", { name: "Maximum rounds" }).fill("1");
+    await start.getByRole("spinbutton", { name: "Pause between turns (seconds)" }).fill("0");
+    await start.getByRole("button", { name: "Start debate", exact: true }).click();
+    await expect(page.getByText("Fixture answer.", { exact: true })).toHaveCount(2);
+    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
+    const inspector = page.getByRole("dialog");
+    await expect(inspector.getByRole("button", { name: "Inspect attempt", exact: true })).toHaveCount(2);
+    await inspector.getByRole("button", { name: "Inspect attempt", exact: true }).first().click();
+    await expect(inspector).toContainText("debate-v1");
+    await expect(inspector).toContainText("Use this exact source note for the fixture debate.");
+    await expect(inspector).toContainText("Attempt browser immutable question");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await inspector.locator(".inspector-section").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "../.run/screenshots/attempt-context-390-light.png", fullPage: true });
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
+    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Inspect attempt", exact: true }).first().click();
+    await page.getByRole("dialog").locator(".inspector-section").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "../.run/screenshots/attempt-context-390-dark.png", fullPage: true });
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Inspect attempt", exact: true })).toHaveCount(2);
+  } finally { await fixture.stop(); }
+});

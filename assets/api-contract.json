@@ -614,6 +614,23 @@
       ],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/conversations/{conversationId}/runs/{runId}/attempts",
+      "group": "Runs",
+      "summary": "Page durable generation attempts with frozen participant, prompt and context provenance",
+      "response": "AttemptPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
     }
   ]
 }

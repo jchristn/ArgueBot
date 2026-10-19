@@ -1,0 +1,23 @@
+# Execution and recovery
+
+The service owns runs and external invocations after clients disconnect. A run freezes its original question and participant configurations. Renaming a conversation or editing a reusable profile does not rewrite an accepted run's question or historical runner settings. Runs created before schema 9 receive the best available conversation title during migration; an earlier title changed before that upgrade cannot be reconstructed. Historical invocations are not fabricated into attempt records.
+
+Schema 9 records each generation attempt separately from its answer message. Acceptance commits a pending attempt, new streaming answer, exact ordered source message identifiers, system-prompt version and SHA-256 digest, and the agent-turn checkpoint together. A separate streaming checkpoint precedes the actual CLI/REST call. Neither checkpoint proves whether an external operation ran if the process crashes at that boundary.
+
+Successful completion atomically finalizes the answer and attempt, advances the speaker/run checkpoint, and consumes directives delivered to the intended participant. A failed or interrupted attempt keeps those directives eligible for an explicit retry. Other participants never receive their text as model context. Partial answers remain in history and are excluded from subsequent model context. An exact terminal checkpoint retry does not advance a speaker twice.
+
+Startup marks pending/streaming attempts interrupted and pauses uncertain runs. It never replays a harness or completion request automatically. Resume is explicit and can repeat external work or incur provider costs. If finalization could not reach storage, restart and reconcile before retrying an unfinished attempt. The service exposes this condition as `uncertain_attempt`.
+
+A pause requested during the final answer cannot strand an exhausted run: once that answer completes, the run records its completed outcome. Resuming an older exhausted checkpoint finishes it without another invocation. An explicit stop still takes precedence.
+
+Inspect attempts through the workspace's Generation attempts control, Ctrl+G in the TUI, or:
+
+```sh
+dotnet run --project src/ArgueBot.Cli -c Release -- debate attempts CONVERSATION RUN
+```
+
+The web and terminal inspectors offer historical runs, paging, refresh, prompt provenance and ordered source identifiers. The web also shows source previews from the loaded transcript. The CLI returns the complete typed page as JSON. Elapsed milliseconds cover generation and durable stream flushing using monotonic time; zero means unavailable or below clock resolution. These are diagnostic values, not benchmark claims.
+
+Context budgets count the exact UTF-16 characters in the system prompt plus selected message content and separately bound message count. Defaults are 262144 characters and 1000 messages. `ContextMaxCharacters` accepts 1024 through 16777216; `ContextMaxMessages` accepts one through 10000. Save them in Settings or the service configuration and restart to apply. Over-budget work pauses with `context_budget_exceeded` before creating an attempt or invoking a model. No transcript text is silently dropped.
+
+Current context selection uses completed conversation messages and eligible unconsumed recipient directives. Character limits are not model token estimates and do not guarantee a provider accepts the prompt. Explicit user-selected context, model-specific token accounting, cancellable summarization with provenance, provider-reported usage and detailed harness exit metadata remain open plan gates.

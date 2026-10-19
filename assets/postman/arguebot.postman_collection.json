@@ -729,6 +729,41 @@
               }
             }
           ]
+        },
+        {
+          "name": "Page durable generation attempts with frozen participant, prompt and context provenance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/attempts",
+            "description": "Requires an active bearer session. Read permission required. Page durable generation attempts with frozen participant, prompt and context provenance"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

@@ -1,11 +1,11 @@
 namespace ArgueBot.Core.Configuration
 {
-    using System.IO;
-    using System.Text.Json.Serialization;
-    using System.Text.Json;
-    using System.Threading.Tasks;
-    using System.Threading;
     using System;
+    using System.IO;
+    using System.Text.Json;
+    using System.Text.Json.Serialization;
+    using System.Threading;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
@@ -31,6 +31,10 @@ namespace ArgueBot.Core.Configuration
         public int StreamBatchCharacters { get; set; } = 4096;
         /// <summary>Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000.</summary>
         public int StreamCommitMilliseconds { get; set; } = 250;
+        /// <summary>Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history.</summary>
+        public int ContextMaxCharacters { get; set; } = 262144;
+        /// <summary>Maximum selected messages per generation attempt. Default 1000, range one through 10000.</summary>
+        public int ContextMaxMessages { get; set; } = 1000;
         /// <summary>Default maximum concurrent conversations.</summary>
         public int MaxConcurrentRuns { get; set; } = 4;
         /// <summary>Whether shell-out runners may execute. Default true for local mode only.</summary>
@@ -72,6 +76,8 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (ContextMaxCharacters < 1024 || ContextMaxCharacters > 16777216) throw new ArgumentOutOfRangeException(nameof(ContextMaxCharacters));
+            if (ContextMaxMessages < 1 || ContextMaxMessages > 10000) throw new ArgumentOutOfRangeException(nameof(ContextMaxMessages));
             if (StreamBatchCharacters < 1 || StreamBatchCharacters > 65536) throw new ArgumentOutOfRangeException(nameof(StreamBatchCharacters));
             if (StreamCommitMilliseconds < 10 || StreamCommitMilliseconds > 5000) throw new ArgumentOutOfRangeException(nameof(StreamCommitMilliseconds));
             if (MaxConcurrentRuns < 1 || MaxConcurrentRuns > 64) throw new ArgumentOutOfRangeException(nameof(MaxConcurrentRuns));

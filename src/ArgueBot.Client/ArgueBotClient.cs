@@ -54,6 +54,9 @@ namespace ArgueBot.Client
                 }
             }
         }
+        /// <summary>Read a bounded newest-first page of generation attempts, including the exact ordered source message identifiers.</summary>
+        public Task<AttemptPage> AttemptsAsync(string conversationId, string runId, int pageNumber = 1, int pageSize = 25, CancellationToken token = default)
+        { return SendAsync<AttemptPage>(HttpMethod.Get, "v1.0/api/conversations/" + Uri.EscapeDataString(conversationId) + "/runs/" + Uri.EscapeDataString(runId) + "/attempts?pageNumber=" + pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&pageSize=" + pageSize.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
         /// <summary>Reuse an owner-protected CLI session for the proven local home, revalidating current privileges on every invocation. Expired/revoked tokens trigger fresh enrollment. Call during startup before issuing concurrent requests; it mutates authentication headers.</summary>
         public async Task PairLocalCachedAsync(string home, CancellationToken token = default)
         {

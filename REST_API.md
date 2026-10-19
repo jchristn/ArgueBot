@@ -4,7 +4,7 @@ The replacement service owns persistent conversations, execution and configurati
 
 Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. Password/credential exchange is not yet enabled by this local-only host.
 
-List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
+List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Schema 9 also records pending/streaming/terminal generation attempts, prompt hashes and exact ordered source identifiers. Answer finalization, successful directive consumption and speaker advance commit together. Inspect the run attempts route; over-budget context pauses before invocation without dropping transcript text. See `docs/EXECUTION.md`. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
 Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new home beneath the service home and leaves the recovered service stopped. SQLite creates a new file; PostgreSQL requires an explicitly provisioned empty database through restoreConnectionEnvironmentVariable. Existing homes and nonempty destination databases are refused. If an external restore commits but reconciliation or publication fails, retainedStagingHome identifies protected operator recovery state. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
 
@@ -502,6 +502,19 @@ Success: **200**, response: `AuditPage`.
 | pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 
+## GET /v1.0/api/conversations/{conversationId}/runs/{runId}/attempts
+
+Page durable generation attempts with frozen participant, prompt and context provenance. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `AttemptPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| runId | path | true | Identifier in the authenticated ownership scope. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -533,6 +546,17 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | code | string | Stable error code. |
 | message | string | Safe explanation. |
 | requestId | string | Correlation identifier. |
+
+### AttemptPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Matching durable attempts. |
+| pageNumber | integer | One-based page. |
+| pageSize | integer | Page size. |
+| totalCount | integer | Total matching records. |
 
 ### AuditEntry
 
@@ -706,6 +730,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 | Field | Type | Meaning |
 | --- | --- | --- |
+| question | string | Original conversation title frozen when this run was created. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration. |
 | mode | string | Run purpose derived from its immutable participant count. |
 | id | string | Stable execution identifier. |
 | conversationId | string | Containing conversation. |
@@ -740,6 +765,30 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | text | string | Optional text delta or safe detail. |
 | textOffset | integer | UTF-16 code-unit offset for this committed text fragment within its message. Legacy events before schema 6 use zero and require snapshot reconciliation. |
 | createdUtc | string | Creation time in UTC. |
+
+### GenerationAttempt
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Attempt identifier. |
+| conversationId | string | Containing conversation. |
+| runId | string | Containing run. |
+| messageId | string | Answer message, preserved even if generation is interrupted. |
+| participantId | string | Immutable participant snapshot identifier. |
+| number | integer | Monotonic attempt number within this run. |
+| round | integer | Debate round at attempt acceptance. |
+| speakerIndex | integer | Ordered participant position at acceptance. |
+| state | string | Pending, streaming, completed, interrupted or failed. Acceptance precedes external invocation; interruption never proves the external operation did not run. |
+| errorCode | string | Safe failure code without upstream response content. |
+| promptVersion | string | Version of the deterministic system prompt template. |
+| promptDigest | string | SHA-256 of the exact UTF-8 system prompt. |
+| contextCharacters | integer | Exact UTF-16 character count of system prompt plus selected message content; this is not a token estimate. |
+| durationMilliseconds | integer | Monotonic elapsed generation and durable stream flush time, zero if unavailable after a crash. |
+| createdUtc | string | Acceptance time in UTC. |
+| updatedUtc | string | Last lifecycle change in UTC. |
+| contextMessageIds | array | Exact ordered source messages selected for this attempt, including any one-recipient directives. |
 
 ### HealthResponse
 
@@ -885,6 +934,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
 | streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
 | streamCommitMilliseconds | integer | Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000. |
+| contextMaxCharacters | integer | Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history. |
+| contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
 | allowCli | boolean | Whether shell-out runners may execute. Default true for local mode only. |
 
@@ -935,6 +986,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
 | streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |
 | streamCommitMilliseconds | integer (nullable) | Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value. |
+| contextMaxCharacters | integer (nullable) | Optional context character budget, 1024 through 16777216. Omission preserves its configured value. |
+| contextMaxMessages | integer (nullable) | Optional selected context message bound, one through 10000. Omission preserves its configured value. |
 | allowCli | boolean | Allow local shell-out execution after restart. |
 | databaseType | DatabaseTypeEnum | Selected persistence provider. |
 | connectionEnvironmentVariable | string | Server environment reference for the connection string. |

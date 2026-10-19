@@ -43,6 +43,8 @@ namespace ArgueBot.Core.Database
         public IBackupMethods Backups { get; }
         /// <summary>Append-only security accounting and scoped inspection.</summary>
         public IAuditMethods Audit { get; }
+        /// <summary>Service-owned generation checkpoints and exact context provenance.</summary>
+        public IAttemptMethods Attempts { get; }
         /// <summary>Effective running storage provider.</summary>
         public DatabaseTypeEnum ProviderType { get { return _Settings.Type; } }
 
@@ -57,6 +59,7 @@ namespace ArgueBot.Core.Database
             History = new HistoryMethods(this);
             Backups = new BackupMethods(this);
             Audit = new AuditMethods(this);
+            Attempts = new AttemptMethods(this);
         }
 
         /// <summary>Initialize idempotently and reconcile interrupted generations. Never downgrade a future schema.</summary>
@@ -131,6 +134,7 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO users(id,tenant_id,name,role,is_admin,is_tenant_admin,protected,created_utc,updated_utc) VALUES('usr_local','ten_local','Local owner','admin',1,1,1,@now,@now)", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
+                        await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }

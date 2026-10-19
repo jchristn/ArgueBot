@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
+import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
 function StartDialog({ profiles, onStart, onClose }) {
   const { t } = useTranslation();
@@ -118,6 +119,7 @@ function WorkspaceContent({ id }) {
   const [mode, setMode] = useState("note");
   const [recipient, setRecipient] = useState("");
   const [starting, setStarting] = useState(false);
+  const [attemptsOpen, setAttemptsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [connection, setConnection] = useState("common.connected");
   const feed = useRef();
@@ -256,6 +258,7 @@ function WorkspaceContent({ id }) {
   if (!data) return <p>{t("common.loading")}</p>;
   return (
     <div className="workspace">
+      {attemptsOpen && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} onClose={() => setAttemptsOpen(false)} />}
       <header className="workspace-heading">
         <div>
           <p className="eyebrow">{t("debate.title")}</p>
@@ -306,7 +309,9 @@ function WorkspaceContent({ id }) {
             >
               {run.participants.map((profile) => profile.name).join(" · ")}
             </span>
+            {run.outcome && <span className="muted" role="status" title={t("debate.outcome.help")}>{t(`outcome.${run.outcome}`, { defaultValue: run.outcome })}</span>}
             <div className="run-controls">
+              <Button label="attempts.title" onClick={() => setAttemptsOpen(true)} />
               {active && (
                 <>
                   {run.state === "paused" ? (

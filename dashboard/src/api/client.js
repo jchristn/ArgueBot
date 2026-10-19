@@ -86,6 +86,9 @@ export class ApiClient {
   runs(id) {
     return this.request(this.root(id) + "/runs");
   }
+  attempts(id, runId, pageNumber = 1, pageSize = 25) {
+    return this.request(this.root(id) + "/runs/" + encodeURIComponent(runId) + "/attempts?" + new URLSearchParams({ pageNumber, pageSize }));
+  }
   startRun(id, request) {
     return this.request(this.root(id) + "/runs", {
       method: "POST",

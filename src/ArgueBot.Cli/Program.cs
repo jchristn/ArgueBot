@@ -117,9 +117,14 @@ namespace ArgueBot.Cli
                     Require(words, 3);
                     if (operation == "start")
                     {
-                        Require(words, 5);
-                        Print(await client.StartAsync(words[2], new CreateRunRequest { ParticipantIds = words.Skip(3).ToList(), IdempotencyKey = Guid.NewGuid().ToString("N") }, token).ConfigureAwait(false));
+                        Require(words, 4);
+                        CreateRunRequest request;
+                        if (words[3] == "-" || words[3] == "--file") request = JsonSerializer.Deserialize<CreateRunRequest>(await TextAsync(words, 3, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a run request JSON object.");
+                        else { Require(words, 5); request = new CreateRunRequest { ParticipantIds = words.Skip(3).ToList() }; }
+                        if (request.IdempotencyKey.Length == 0) request.IdempotencyKey = Guid.NewGuid().ToString("N");
+                        Print(await client.StartAsync(words[2], request, token).ConfigureAwait(false));
                     }
+                    else if (operation == "attempts") { Require(words, 4); Print(await client.AttemptsAsync(words[2], words[3], words.Count > 4 ? int.Parse(words[4], System.Globalization.CultureInfo.InvariantCulture) : 1, token: token).ConfigureAwait(false)); }
                     else if (operation == "status") Print(await client.RunsAsync(words[2], token).ConfigureAwait(false));
                     else
                     {
@@ -164,7 +169,9 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   participants update ID JSON|-|--file PATH
   participants delete ID
   message send ID TEXT|-|--file PATH
+  debate attempts CONVERSATION RUN [PAGE]   Inspect execution/context provenance.
   debate start CONVERSATION PROFILE PROFILE [PROFILE]
+  debate start CONVERSATION -|--file PATH   Supply a typed run request JSON.
   debate status CONVERSATION
   debate pause|resume|interrupt|stop|extend CONVERSATION RUN
 Local clients exchange the protected home pairing code. Remote clients use

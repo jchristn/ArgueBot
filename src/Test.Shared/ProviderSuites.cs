@@ -165,6 +165,7 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
+                    await AttemptStorageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     RequestContext context = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true };
                     BackupEntry archiveRecord = await database.Backups.CreateAsync(context, "Provider recovery 議論", true, false, token).ConfigureAwait(false);
                     try

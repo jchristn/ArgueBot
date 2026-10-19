@@ -12,6 +12,10 @@ namespace ArgueBot.Core.Models
         private string _Outcome = "";
         private List<RunnerProfile> _Participants = new List<RunnerProfile>();
 
+        private string _Question = "";
+        /// <summary>Original conversation title frozen when this run was created. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration.</summary>
+        public string Question { get { return _Question; } set { ArgumentNullException.ThrowIfNull(value); _Question = value; } }
+
         /// <summary>Run purpose derived from its immutable participant count.</summary>
         public string Mode { get { return Participants.Count == 1 ? "followup" : "debate"; } }
 
