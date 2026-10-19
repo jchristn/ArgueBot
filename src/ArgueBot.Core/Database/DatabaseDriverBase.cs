@@ -159,7 +159,7 @@ namespace ArgueBot.Core.Database
         /// <summary>Read an owned conversation. Foreign resources return not found.</summary>
         public async Task<Conversation> ReadConversationAsync(RequestContext context, string id, CancellationToken token = default)
         {
-            if (!context.IsAuthenticated) throw new DomainException(401, "unauthenticated", "Authentication required.");
+            RequireAuthenticated(context);
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
             using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
@@ -172,6 +172,7 @@ namespace ArgueBot.Core.Database
         /// <summary>Search all owned history using escaped literal substring matching and bounded pagination.</summary>
         public async Task<Page> EnumerateConversationsAsync(RequestContext context, string search = "", bool archived = false, int page = 1, int size = 25, CancellationToken token = default)
         {
+            RequireAuthenticated(context);
             if (page < 1 || size < 1 || size > 100) throw new DomainException(400, "invalid_page", "Page must be positive and page size between 1 and 100.");
             string filter = "tenant_id=@tenant AND user_id=@user AND archived=@archived AND (instr(lower(title),lower(@search))>0 OR id IN (SELECT conversation_id FROM messages WHERE tenant_id=@tenant AND instr(lower(content),lower(@search))>0))";
             Dictionary<string, object?> values = P("tenant", context.TenantId, "user", context.UserId, "archived", archived ? 1 : 0, "search", search, "limit", size, "offset", checked((long)(page - 1) * size));
@@ -510,10 +511,17 @@ namespace ArgueBot.Core.Database
             }, token);
         }
 
+        /// <summary>Require a validated principal with exactly one nonempty tenant and user binding before accessing domain data.</summary>
+        public static void RequireAuthenticated(RequestContext context)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            if (!context.IsAuthenticated || string.IsNullOrWhiteSpace(context.TenantId) || string.IsNullOrWhiteSpace(context.UserId)) throw new DomainException(401, "unauthenticated", "A tenant-bound authenticated principal is required.");
+        }
+
         /// <summary>Reject unauthenticated or read-only mutation requests.</summary>
         public static void RequireWrite(RequestContext context)
         {
-            if (!context.IsAuthenticated) throw new DomainException(401, "unauthenticated", "Authentication required.");
+            RequireAuthenticated(context);
             if (context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
 

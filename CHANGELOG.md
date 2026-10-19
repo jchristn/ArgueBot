@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Domain conversation/profile reads now reject unauthenticated or unbound principals even when called outside HTTP, with shared checks on both supported databases.
+
 - Configurable incremental event retention, bounded replay pages, typed cursor recovery and native event streaming. Dashboard reconnects refresh snapshots after expired cursors. Large stream callbacks are bounded and malformed Unicode preserves the valid prefix before failing the attempt.
 
 - Shared C# conversation runtime, durable application home and configurable runner architecture. The existing TypeScript entry points remain supported during migration. See IMPROVEMENTS.md for delivery gates and verified progress.

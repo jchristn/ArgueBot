@@ -14,6 +14,7 @@ namespace Test.Shared
     {
         internal static async Task RunAsync(DatabaseDriverBase database, RequestContext owner, CancellationToken token)
         {
+            await PrincipalBoundaryChecks.RunAsync(database, owner, token).ConfigureAwait(false);
             Conversation conversation = await database.CreateConversationAsync(owner, "Replay retention fixture", token).ConfigureAwait(false);
             try
             {

@@ -32,6 +32,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>List enabled or disabled current profiles. Historical snapshots remain private to their runs.</summary>
         public async Task<List<RunnerProfile>> EnumerateAsync(RequestContext context, CancellationToken token = default)
         {
+            RequireAuthenticated(context);
             List<RunnerProfile> profiles = new List<RunnerProfile>();
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
@@ -46,6 +47,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Read a profile in the caller's ownership scope.</summary>
         public async Task<RunnerProfile> ReadAsync(RequestContext context, string id, CancellationToken token = default)
         {
+            RequireAuthenticated(context);
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
                 RunnerProfile profile;
