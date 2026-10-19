@@ -576,6 +576,24 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/backup-operations",
+      "group": "Backups",
+      "summary": "Page durable recovery jobs",
+      "response": "BackupOperationPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "backupId",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
     }
   ]
 }

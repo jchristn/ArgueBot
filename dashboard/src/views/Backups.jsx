@@ -21,6 +21,14 @@ export default function Backups() {
   const { data, error, loading, reload } = useData(JSON.stringify(filter), () =>
     api.backups(filter),
   );
+  const [jobFilter, setJobFilter] = useState({ pageNumber: 1, pageSize: 25 });
+  const {
+    data: jobs,
+    error: jobsError,
+    reload: reloadJobs,
+  } = useData(JSON.stringify(jobFilter), () =>
+    api.recoveryOperations(jobFilter),
+  );
   const [dialog, setDialog] = useState(null);
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -37,7 +45,10 @@ export default function Backups() {
         const result = await api.recoveryOperation(operation.id);
         if (!disposed) {
           setOperation(result);
-          if (!["queued", "running"].includes(result.state)) reload();
+          if (!["queued", "running"].includes(result.state)) {
+            reload();
+            reloadJobs();
+          }
         }
       } catch (error) {
         if (!disposed) setFailure(error);
@@ -47,7 +58,7 @@ export default function Backups() {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [operation, api, reload]);
+  }, [operation, api, reload, reloadJobs]);
   const close = () => {
     setDialog(null);
     setPassword("");
@@ -190,6 +201,54 @@ export default function Backups() {
           onChange={(next) => setFilter({ ...filter, ...next })}
         />
       )}
+      <section className="page-section">
+        <header className="page-heading">
+          <h2>{t("backups.jobs")}</h2>
+          <Button label="common.refresh" onClick={reloadJobs} />
+        </header>
+        {jobsError && <ErrorPanel error={jobsError} retry={reloadJobs} />}
+        {jobs?.items.length === 0 && <p>{t("backups.noJobs")}</p>}
+        {jobs?.items.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {["operation", "status", "artifact", "actions"].map((key) => (
+                    <th key={key} title={t(`backups.${key}.help`)}>
+                      {t(`backups.${key}`)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.items.map((job) => (
+                  <tr key={job.id}>
+                    <td title={job.id}>{job.kind}</td>
+                    <td title={t("backups.operation.help")}>{job.state}</td>
+                    <td>
+                      <code title={t("backups.artifact.help")}>
+                        {job.backupId}
+                      </code>
+                    </td>
+                    <td>
+                      <Button
+                        label="backups.viewOperation"
+                        onClick={() => setOperation(job)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {jobs && (
+          <Pagination
+            page={jobs}
+            onChange={(next) => setJobFilter({ ...jobFilter, ...next })}
+          />
+        )}
+      </section>
       {dialog && (
         <Modal title={`backups.${dialog.kind}`} onClose={close}>
           <form
@@ -201,6 +260,10 @@ export default function Backups() {
                 if (dialog.kind === "delete") {
                   await api.deleteBackup(dialog.artifact.id);
                   reload();
+                  reloadJobs();
+                  setOperation((current) =>
+                    current?.backupId === dialog.artifact.id ? null : current,
+                  );
                 } else
                   setOperation(
                     await api.recovery(dialog.kind, dialog.artifact?.id, {

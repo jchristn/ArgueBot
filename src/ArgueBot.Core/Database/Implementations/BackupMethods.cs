@@ -1,11 +1,11 @@
 namespace ArgueBot.Core.Database.Implementations
 {
+    using System;
     using System.Collections.Generic;
     using System.Data.Common;
     using System.Globalization;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
@@ -78,6 +78,27 @@ namespace ArgueBot.Core.Database.Implementations
                 await AuditAsync(connection, transaction, context, "backup." + kind, "queued", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadOperationAsync(context, id, token).ConfigureAwait(false);
+        }
+        /// <summary>Page persisted recovery jobs, optionally for one artifact. Includes completed and interrupted jobs after client or service restart.</summary>
+        public async Task<BackupOperationPage> EnumerateOperationsAsync(RequestContext context, string backupId = "", int page = 1, int size = 25, CancellationToken token = default)
+        {
+            RequireAdmin(context); ArgumentNullException.ThrowIfNull(backupId);
+            if (page < 1 || size < 1 || size > 100 || backupId.Length > 64) throw new DomainException(400, "invalid_page", "Use a positive page, page size one through 100 and an artifact identifier up to 64 characters.");
+            BackupOperationPage result = new BackupOperationPage { PageNumber = page, PageSize = size };
+            List<string> ids = new List<string>();
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            {
+                result.TotalCount = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COUNT(*) FROM backup_operations WHERE (@backup='' OR backup_id=@backup)", token, P("backup", backupId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                using (DbCommand command = Command(connection, null, "SELECT id FROM backup_operations WHERE (@backup='' OR backup_id=@backup) ORDER BY created_utc DESC,id DESC LIMIT @limit OFFSET @offset", P("backup", backupId, "limit", size, "offset", checked((long)(page - 1) * size))))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                { while (await reader.ReadAsync(token).ConfigureAwait(false)) ids.Add(reader.GetString(0)); }
+            }
+            foreach (string id in ids)
+            {
+                try { result.Items.Add(await ReadOperationAsync(context, id, token).ConfigureAwait(false)); }
+                catch (DomainException exception) when (exception.StatusCode == 404) { /* A concurrently deleted idle artifact removed this operation. */ }
+            }
+            return result;
         }
         /// <summary>Read a durable operation and the names of missing credential references.</summary>
         public async Task<BackupOperation> ReadOperationAsync(RequestContext context, string id, CancellationToken token = default)

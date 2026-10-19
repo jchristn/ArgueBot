@@ -474,6 +474,18 @@ Success: **200**, response: `BackupOperation`.
 | --- | --- | --- | --- |
 | operationId | path | true | Identifier in the authenticated ownership scope. |
 
+## GET /v1.0/api/backup-operations
+
+Page durable recovery jobs. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `BackupOperationPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -539,6 +551,17 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | missingReferences | array | Credential names missing during restore. |
 | createdUtc | string | UTC acceptance time. |
 | updatedUtc | string | UTC last status change. |
+
+### BackupOperationPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Matching items in stable newest-first order. |
+| totalCount | integer | Matching total independent of page size. |
+| pageNumber | integer | One-based page. |
+| pageSize | integer | Items per page. |
 
 ### BackupPage
 

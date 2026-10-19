@@ -1,7 +1,7 @@
 namespace ArgueBot.Core.Database.Interfaces
 {
-    using System.Threading.Tasks;
     using System.Threading;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Models;
 
     /// <summary>System-administrator recovery inventory and durable administrative operation boundary.</summary>
@@ -17,6 +17,8 @@ namespace ArgueBot.Core.Database.Interfaces
         Task SetStatusAsync(RequestContext context, string id, string status, long bytes = 0, string digest = "", CancellationToken token = default);
         /// <summary>Accept a durable create, verify or restore operation without persisting its passphrase.</summary>
         Task<BackupOperation> CreateOperationAsync(RequestContext context, string backupId, string kind, string targetHome = "", int port = 0, CancellationToken token = default);
+        /// <summary>Page durable administrative recovery jobs, optionally filtered to one artifact.</summary>
+        Task<BackupOperationPage> EnumerateOperationsAsync(RequestContext context, string backupId = "", int page = 1, int size = 25, CancellationToken token = default);
         /// <summary>Read a durable operation and the names of missing credential references.</summary>
         Task<BackupOperation> ReadOperationAsync(RequestContext context, string id, CancellationToken token = default);
         /// <summary>Checkpoint a service-owned recovery task and its nonsecret credential diagnostics.</summary>

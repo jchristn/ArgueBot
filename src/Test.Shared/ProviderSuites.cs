@@ -87,6 +87,8 @@ namespace Test.Shared
                         operation.State = "completed"; operation.MissingReferences.Add("ARGUEBOT_FIXTURE_MISSING");
                         await database.Backups.SaveOperationAsync(context, operation, token).ConfigureAwait(false);
                         operation = await database.Backups.ReadOperationAsync(context, operation.Id, token).ConfigureAwait(false);
+                        BackupOperationPage jobs = await database.Backups.EnumerateOperationsAsync(context, archiveRecord.Id, token: token).ConfigureAwait(false);
+                        if (jobs.TotalCount != 1 || jobs.Items.Single().Id != operation.Id) throw new InvalidDataException("Provider operation paging lost a durable job.");
                         await database.Backups.SetStatusAsync(context, archiveRecord.Id, "ready", 2147483650L, new string('a', 64), token).ConfigureAwait(false);
                         BackupPage records = await database.Backups.EnumerateAsync(context, "Provider recovery 議論", token: token).ConfigureAwait(false);
                         if (records.TotalCount != 1 || records.Items.Single().Bytes != 2147483650L || operation.MissingReferences.Single() != "ARGUEBOT_FIXTURE_MISSING") throw new InvalidDataException("Provider corrupted recovery metadata, large sizes or operation references.");

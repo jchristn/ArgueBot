@@ -104,6 +104,11 @@ export class ApiClient {
   backups(filter = {}) {
     return this.request("/v1.0/api/backups?" + new URLSearchParams(filter));
   }
+  recoveryOperations(filter = {}) {
+    return this.request(
+      "/v1.0/api/backup-operations?" + new URLSearchParams(filter),
+    );
+  }
   recoveryOperation(id) {
     return this.request(
       "/v1.0/api/backup-operations/" + encodeURIComponent(id),

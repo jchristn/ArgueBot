@@ -1,12 +1,12 @@
 namespace ArgueBot.Cli
 {
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Text.Json;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Client;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Models;
@@ -57,6 +57,7 @@ namespace ArgueBot.Cli
                 {
                     string root = "v1.0/api/backups";
                     if (operation == "list") Print(await client.SendAsync<BackupPage>(System.Net.Http.HttpMethod.Get, root, token: token).ConfigureAwait(false));
+                    else if (operation == "operations") Print(await client.SendAsync<BackupOperationPage>(System.Net.Http.HttpMethod.Get, "v1.0/api/backup-operations" + (words.Count > 2 ? "?backupId=" + Uri.EscapeDataString(words[2]) : ""), token: token).ConfigureAwait(false));
                     else if (operation == "status") { Require(words, 3); Print(await client.SendAsync<BackupOperation>(System.Net.Http.HttpMethod.Get, "v1.0/api/backup-operations/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
                     else if (operation == "download") { Require(words, 4); await client.DownloadBackupAsync(words[2], words[3], token).ConfigureAwait(false); Print(new Acknowledgement()); }
                     else if (operation == "delete") { Require(words, 3); Print(await client.SendAsync<DeletionResponse>(System.Net.Http.HttpMethod.Delete, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
@@ -87,6 +88,14 @@ namespace ArgueBot.Cli
                 else if (command == "participants")
                 {
                     if (operation == "list") Print(await client.ParticipantsAsync(token).ConfigureAwait(false));
+                    else if (operation == "delete") { Require(words, 3); Print(await client.SendAsync<DeletionResponse>(System.Net.Http.HttpMethod.Delete, "v1.0/api/participants/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "update")
+                    {
+                        Require(words, 3);
+                        string json = await TextAsync(words, 3, token).ConfigureAwait(false);
+                        RunnerProfile profile = JsonSerializer.Deserialize<RunnerProfile>(json, _Json) ?? throw new ArgumentException("Supply a participant JSON object.");
+                        Print(await client.SendAsync<RunnerProfile>(System.Net.Http.HttpMethod.Put, "v1.0/api/participants/" + Uri.EscapeDataString(words[2]), profile, token).ConfigureAwait(false));
+                    }
                     else if (operation == "add")
                     {
                         string json = await TextAsync(words, 2, token).ConfigureAwait(false);
@@ -139,11 +148,14 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   backups list
   backups create JSON|-|--file PATH
   backups verify|restore BACKUP JSON|-|--file PATH
+  backups operations [BACKUP]       List durable recovery jobs.
   backups status OPERATION
   backups download BACKUP PATH       Publish a complete archive to a new file.
   backups delete BACKUP
   participants list
   participants add JSON|-|--file PATH
+  participants update ID JSON|-|--file PATH
+  participants delete ID
   message send ID TEXT|-|--file PATH
   debate start CONVERSATION PROFILE PROFILE [PROFILE]
   debate status CONVERSATION

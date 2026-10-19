@@ -8,14 +8,14 @@ namespace Test.Shared
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
-    using ArgueBot.Tui;
     using ArgueBot.Core.Models;
+    using ArgueBot.Tui;
     using TUIKit;
-    using TUIKit.Widgets;
     using TUIKit.Hosting;
     using TUIKit.Terminal;
     using TUIKit.Testing;
     using TUIKit.Theming;
+    using TUIKit.Widgets;
     using Touchstone.Core;
 
     /// <summary>Headless tests render and drive the actual terminal application shell.</summary>
@@ -24,7 +24,40 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task SaveEvidenceAsync(string name, string content, CancellationToken token)
+        {
+            string? folder = Environment.GetEnvironmentVariable("ARGUEBOT_TUI_EVIDENCE_DIR");
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            Directory.CreateDirectory(folder);
+            await File.WriteAllTextAsync(Path.Combine(folder, name + ".txt"), content, token).ConfigureAwait(false);
+        }
+        private static async Task RecoveryFormsAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Light, Theme.Dark })
+            {
+                HeadlessBackend backend = new HeadlessBackend(70, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    RecoveryEditor editor = new RecoveryEditor("restore", true);
+                    FormDialog<BackupRequest> dialog = new FormDialog<BackupRequest>("Restore archive", editor.Form, editor.Extract);
+                    Task<BackupRequest?> result = app.ShowAsync<BackupRequest>(dialog);
+                    ((TextField)editor.Form.GetField(0)).Value = "fixture-recovery-passphrase";
+                    ((TextField)editor.Form.GetField(1)).Value = "../unsafe-home";
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce(); app.RenderOnce();
+                    if (dialog.IsClosed) throw new InvalidDataException("The restore form accepted a traversing destination.");
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (screen.Contains("fixture-recovery-passphrase", StringComparison.Ordinal)) throw new InvalidDataException("The recovery form rendered a plaintext passphrase.");
+                    await SaveEvidenceAsync("recovery-" + theme.Name, screen, token).ConfigureAwait(false);
+                    ((TextField)editor.Form.GetField(1)).Value = "recovered_fixture";
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    BackupRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (request?.DestinationName != "recovered_fixture" || request.Password != "fixture-recovery-passphrase" || request.Port != 4537) throw new InvalidDataException("The recovery form changed its explicit destination, passphrase or port.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task ParticipantFormsAsync(CancellationToken token)
         {
@@ -43,7 +76,13 @@ namespace Test.Shared
                     Task<RunnerProfile?> outcome = app.ShowAsync<RunnerProfile>(dialog);
                     app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame() ?? throw new InvalidDataException("Participant dialog frame was missing."));
+                    await SaveEvidenceAsync("participants-" + width + "-" + theme.Name, screen, token).ConfigureAwait(false);
                     if (!screen.Contains("Edit participant", StringComparison.Ordinal) || !screen.Contains("Name", StringComparison.Ordinal)) throw new InvalidDataException("The participant form did not render its title and fields.");
+                    editor.Form.SetFocusedField(editor.Form.FieldCount - 1);
+                    backend.FeedKey("tab"); app.PumpInputOnce(); app.RenderOnce();
+                    string bottom = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!bottom.Contains("Save", StringComparison.Ordinal) || !bottom.Contains("Cancel", StringComparison.Ordinal)) throw new InvalidDataException("Tab could not scroll the participant form's action buttons into view.");
+                    await SaveEvidenceAsync("participants-bottom-" + width + "-" + theme.Name, bottom, token).ConfigureAwait(false);
                     backend.FeedKey("ctrl+s"); app.PumpInputOnce();
                     if (!dialog.IsClosed) throw new InvalidDataException("Save did not close the valid participant form: " + string.Join("; ", Enumerable.Range(0, editor.Form.FieldCount).Select(index => editor.Form.GetFieldError(index)).Where(error => error != null)));
                     RunnerProfile? submitted = await outcome.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);

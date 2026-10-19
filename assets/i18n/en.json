@@ -328,5 +328,11 @@
   "settings.streamCharacters": "Stream batch characters",
   "settings.streamCharacters.help": "Commit accumulated text at this threshold, from one through 65536 characters. A timer also flushes smaller batches. Applies after restart.",
   "settings.streamInterval": "Stream commit interval (milliseconds)",
-  "settings.streamInterval.help": "Flush accumulated text even if the runner stops emitting. Ten through 5000 milliseconds, plus storage time. Applies after restart."
+  "settings.streamInterval.help": "Flush accumulated text even if the runner stops emitting. Ten through 5000 milliseconds, plus storage time. Applies after restart.",
+  "backups.jobs": "Recovery jobs",
+  "backups.noJobs": "No recovery jobs yet.",
+  "backups.artifact": "Archive",
+  "backups.artifact.help": "The persistent archive identifier associated with this job.",
+  "backups.viewOperation": "View operation",
+  "backups.viewOperation.help": "Read the persisted job state, safe failure code and missing credential references."
 }

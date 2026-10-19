@@ -29,13 +29,14 @@ namespace ArgueBot.Tui
         private bool _Archived;
         private string _LastContent = "";
         private TuiApplication? _App;
+        private UiDispatcher? _Dispatcher;
         private CancellationToken _Token;
         internal ConversationApp(ArgueBotClient client) { _Client = client; }
         internal async Task RunAsync(CancellationToken token)
         {
-            _Token = token;
             using (CancellationTokenSource polling = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
+                _Token = polling.Token;
                 Task poll = Task.CompletedTask;
                 try
                 {
@@ -46,12 +47,12 @@ namespace ArgueBot.Tui
         }
         internal void Configure(TuiApplication app)
         {
-            _App = app; app.Theme = Theme.Dark; app.HighlightFocusedRegion = true;
+            _App = app; _Dispatcher = new UiDispatcher(app, _Token); app.Theme = Theme.Dark; app.HighlightFocusedRegion = true;
             app.AddWidget("threads", _Threads, region => region.LeftAnchored(0, 28).FillHeight(0, 4).WithBorder(BorderStyle.Line, "Conversations: Enter opens").WithPadding(0));
             _Transcript = app.AddPane("transcript", region => region.FillWidth(28, 0).FillHeight(0, 4).WithBorder(BorderStyle.Line, "Shared debate history"));
             app.AddWidget("composer", _Composer, region => region.BottomAnchored(1, 3).FillWidth().WithBorder(BorderStyle.Line, "Note: Enter sends").WithPadding(0));
             app.AddWidget("status", _Status, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(0));
-            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+e", "Participants").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
+            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+e", "Participants").AddAppHint("ctrl+k", "Recovery").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
             app.Bind("ctrl+q", app.Quit);
             app.Bind("ctrl+n", () => Launch(NewAsync));
             app.Bind("ctrl+b", () => Launch(StartAsync));
@@ -60,6 +61,7 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+a", () => Launch(FollowupAsync));
             app.Bind("ctrl+f", () => Launch(SearchAsync));
             app.Bind("ctrl+e", () => Launch(ParticipantsAsync));
+            app.Bind("ctrl+k", () => Launch(RecoveryAsync));
             app.Bind("alt+right", () => _Page++);
             app.Bind("alt+left", () => _Page = Math.Max(1, _Page - 1));
             app.Bind("ctrl+t", () => app.Theme = app.Theme.Name == "Dark" ? Theme.Light : Theme.Dark);
@@ -95,7 +97,22 @@ namespace ArgueBot.Tui
         private async Task ExecuteActionAsync(Func<Task> action)
         {
             try { await action().ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OutOfMemoryException) { _App?.Post(() => _Status.RightText = ex.Message); }
+            catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _App?.Post(() => _Status.RightText = ex.Message);
+                if (_App != null && !_Token.IsCancellationRequested)
+                {
+                    try { await UiAsync(() => _App.ConfirmAsync("Operation failed: " + ex.Message, "Close", "Close")).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
+                }
+            }
+        }
+        private async Task RecoveryAsync()
+        {
+            if (_App == null) return;
+            RecoveryWorkflow workflow = new RecoveryWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token);
+            await workflow.RunAsync().ConfigureAwait(false);
         }
         private async Task ParticipantsAsync()
         {
@@ -176,14 +193,7 @@ namespace ArgueBot.Tui
         }
         private Task<T> UiAsync<T>(Func<Task<T>> action)
         {
-            TaskCompletionSource<T> completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (_App == null) throw new InvalidOperationException("Terminal is not running.");
-            _App.Post(async () =>
-            {
-                try { completion.TrySetResult(await action().ConfigureAwait(false)); }
-                catch (Exception ex) { completion.TrySetException(ex); }
-            });
-            return completion.Task;
+            return (_Dispatcher ?? throw new InvalidOperationException("Terminal is not running.")).InvokeAsync(action);
         }
         private async Task SearchAsync()
         {
@@ -233,7 +243,7 @@ namespace ArgueBot.Tui
         }
         private async Task HelpAsync()
         {
-            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Ctrl+E manages CLI/REST participants and literal arguments; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
+            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Ctrl+E manages CLI/REST participants and literal arguments; Ctrl+K opens administrator backup/recovery; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
         }
     }
 }

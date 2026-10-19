@@ -2,8 +2,8 @@ namespace ArgueBot.Tui
 {
     using System;
     using System.Threading.Tasks;
-    using TUIKit.Hosting;
     using TUIKit;
+    using TUIKit.Hosting;
     using TUIKit.Input;
     using TUIKit.Modals;
     using TUIKit.Theming;
@@ -18,6 +18,7 @@ namespace ArgueBot.Tui
         private bool _Busy;
         private string _Error = "";
         private CellStyle _ErrorStyle;
+        private Theme _Theme = Theme.Dark;
         /// <inheritdoc />
         public override bool CanClose { get { return !_Busy; } }
         internal FormDialog(string title, Form form, Func<T> extract, TuiApplication? application = null, Func<T, Task>? submit = null)
@@ -62,7 +63,12 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         public override bool HandlePaste(string text) { return _Form.HandlePaste(text); }
         /// <inheritdoc />
-        public void ApplyTheme(Theme theme) { _Scroll.ApplyTheme(theme); BorderStyleColor = theme.Border; BackgroundStyle = theme.Text; _ErrorStyle = theme.Error; }
+        public void ApplyTheme(Theme theme) { _Theme = theme; _Scroll.ApplyTheme(theme); BorderStyleColor = theme.Border; BackgroundStyle = theme.Text; _ErrorStyle = theme.Error; }
+        private int FormHeight(int width)
+        {
+            _Form.Render(new LayoutProbeSurface(width));
+            return Math.Max(1, _Form.ContentHeight);
+        }
         private int HeaderLines(int width)
         {
             string message = _Busy ? "Saving on the service machine..." : _Error;
@@ -71,10 +77,11 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         protected override int MeasureContentWidth(int availableWidth) { return Math.Min(72, availableWidth); }
         /// <inheritdoc />
-        protected override int MeasureContentHeight(int contentWidth) { return _Form.Measure(new Size(contentWidth, 10000)).Height + HeaderLines(contentWidth); }
+        protected override int MeasureContentHeight(int contentWidth) { return FormHeight(Math.Max(1, contentWidth - 1)) + HeaderLines(contentWidth); }
         /// <inheritdoc />
         protected override void RenderContent(ISurface content)
         {
+            _Scroll.ApplyTheme(_Theme);
             int width = Math.Max(1, content.Size.Width); int lines = HeaderLines(width);
             string message = _Busy ? "Saving on the service machine..." : _Error;
             for (int row = 0; row < lines; row++)
@@ -82,8 +89,9 @@ namespace ArgueBot.Tui
                 int start = row * width;
                 if (start < message.Length) content.DrawText(0, row, message.Substring(start, Math.Min(width, message.Length - start)), _ErrorStyle);
             }
-            int height = _Form.Measure(new Size(width, 10000)).Height;
-            _Scroll.SetContentSize(width, height); _Scroll.Render(new SurfaceView(content, new Rect(0, lines, width, Math.Max(0, content.Size.Height - lines))));
+            int formWidth = Math.Max(1, width - 1);
+            int height = FormHeight(formWidth);
+            _Scroll.SetContentSize(formWidth, height); _Scroll.Render(new SurfaceView(content, new Rect(0, lines, width, Math.Max(0, content.Size.Height - lines))));
         }
     }
 }

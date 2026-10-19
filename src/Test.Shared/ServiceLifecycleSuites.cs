@@ -1,16 +1,16 @@
 namespace Test.Shared
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Net;
     using System.Net.Http;
     using System.Net.Sockets;
-    using System.Net;
     using System.Text.Json;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Client;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
@@ -97,6 +97,8 @@ namespace Test.Shared
                     BackupOperation restore = await two.SendAsync<BackupOperation>(HttpMethod.Post, "v1.0/api/backups/" + artifact.Id + "/restore", new BackupRequest { Password = "fixture-recovery-passphrase", DestinationName = "http-recovered", Port = 4547 }, token).ConfigureAwait(false);
                     restore = await AwaitRecoveryAsync(one, restore.Id, token).ConfigureAwait(false);
                     if (restore.State != "completed" || !File.Exists(Path.Combine(home, "restores", "http-recovered", "arguebot.db"))) throw new InvalidDataException("Controlled new-home restore failed: " + restore.ErrorCode);
+                    BackupOperationPage jobs = await two.SendAsync<BackupOperationPage>(HttpMethod.Get, "v1.0/api/backup-operations?backupId=" + Uri.EscapeDataString(artifact.Id) + "&pageSize=1", token: token).ConfigureAwait(false);
+                    if (jobs.TotalCount != 3 || jobs.Items.Single().Id != restore.Id || jobs.PageSize != 1) throw new InvalidDataException("The HTTP operation list cannot recover the latest durable job.");
                     await two.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/backups/" + artifact.Id, token: token).ConfigureAwait(false);
                     if (File.Exists(Path.Combine(home, "backups", artifact.Id + ".arguebak"))) throw new InvalidDataException("Artifact deletion retained its file.");
                     if ((await one.MessagesAsync(conversation.Id, token).ConfigureAwait(false)).Count != 1) throw new InvalidDataException("Clients did not share durable history.");

@@ -1,15 +1,15 @@
 namespace Test.Shared
 {
+    using System;
     using System.Collections.Generic;
-    using System.IO.Compression;
     using System.IO;
+    using System.IO.Compression;
     using System.Linq;
     using System.Security.Cryptography;
-    using System.Text.Json;
     using System.Text;
-    using System.Threading.Tasks;
+    using System.Text.Json;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
@@ -51,6 +51,8 @@ namespace Test.Shared
                     if (!busy) throw new InvalidDataException("An in-flight archive was eligible for deletion.");
                     await database.Backups.ReconcileAsync(token).ConfigureAwait(false);
                     operation = await database.Backups.ReadOperationAsync(owner, operation.Id, token).ConfigureAwait(false);
+                    BackupOperationPage jobs = await database.Backups.EnumerateOperationsAsync(owner, entry.Id, size: 1, token: token).ConfigureAwait(false);
+                    if (jobs.TotalCount != 1 || jobs.Items.Single().Id != operation.Id || jobs.PageSize != 1) throw new InvalidDataException("Recovery operation paging lost durable jobs or exact totals.");
                     if (operation.State != "failed" || operation.ErrorCode != "service_interrupted" || (await database.Backups.ReadAsync(owner, entry.Id, token).ConfigureAwait(false)).Status != "unavailable") throw new InvalidDataException("Interrupted recovery was replayed or advertised as ready.");
                     BackupPage page = await database.Backups.EnumerateAsync(owner, "議論", token: token).ConfigureAwait(false);
                     if (page.TotalCount != 1) throw new InvalidDataException("Recovery metadata search lost Unicode or exact totals.");
