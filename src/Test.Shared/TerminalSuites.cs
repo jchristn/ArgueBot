@@ -4,10 +4,14 @@ namespace Test.Shared
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
     using ArgueBot.Tui;
+    using ArgueBot.Core.Models;
+    using TUIKit;
+    using TUIKit.Widgets;
     using TUIKit.Hosting;
     using TUIKit.Terminal;
     using TUIKit.Testing;
@@ -20,7 +24,56 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task ParticipantFormsAsync(CancellationToken token)
+        {
+            foreach (int width in new int[] { 60, 100 })
+            foreach (Theme theme in new Theme[] { Theme.Dark, Theme.Light })
+            {
+                token.ThrowIfCancellationRequested();
+                HeadlessBackend backend = new HeadlessBackend(width, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    RunnerProfile original = new RunnerProfile { Name = "Terminal 議論", Kind = "cli", Provider = "plain", Executable = "fixture", Arguments = new List<string> { "", "--directory", "space and Unicode 議論" } };
+                    ParticipantEditor editor = new ParticipantEditor(original);
+                    FormDialog<RunnerProfile> dialog = new FormDialog<RunnerProfile>("Edit participant", editor.Form, editor.Extract);
+                    dialog.ApplyTheme(theme);
+                    Task<RunnerProfile?> outcome = app.ShowAsync<RunnerProfile>(dialog);
+                    app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame() ?? throw new InvalidDataException("Participant dialog frame was missing."));
+                    if (!screen.Contains("Edit participant", StringComparison.Ordinal) || !screen.Contains("Name", StringComparison.Ordinal)) throw new InvalidDataException("The participant form did not render its title and fields.");
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    if (!dialog.IsClosed) throw new InvalidDataException("Save did not close the valid participant form: " + string.Join("; ", Enumerable.Range(0, editor.Form.FieldCount).Select(index => editor.Form.GetFieldError(index)).Where(error => error != null)));
+                    RunnerProfile? submitted = await outcome.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (submitted == null || !submitted.Arguments.SequenceEqual(original.Arguments)) throw new InvalidDataException("Terminal form submission changed literal argument order or dropped an empty argument.");
+                    ParticipantEditor retained = new ParticipantEditor(original); int attempts = 0;
+                    FormDialog<RunnerProfile> retry = new FormDialog<RunnerProfile>("Retry participant", retained.Form, retained.Extract, app, candidate =>
+                    {
+                        attempts++;
+                        if (attempts == 1) throw new InvalidOperationException("Service rejected the fixture; edit and retry.");
+                        return Task.CompletedTask;
+                    });
+                    Task<RunnerProfile?> saved = app.ShowAsync<RunnerProfile>(retry);
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce(); app.PumpInputOnce(); app.RenderOnce();
+                    if (retry.IsClosed || !retained.Extract().Arguments.SequenceEqual(original.Arguments)) throw new InvalidDataException("A service save failure closed the form or discarded its draft.");
+                    string rejected = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!rejected.Contains("Service rejected", StringComparison.Ordinal)) throw new InvalidDataException("The form did not display its service failure inline.");
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce(); app.PumpInputOnce();
+                    await saved.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (attempts != 2) throw new InvalidDataException("Retry did not submit the retained participant draft exactly once.");
+                    ParticipantEditor blank = new ParticipantEditor();
+                    FormDialog<RunnerProfile> invalid = new FormDialog<RunnerProfile>("Create participant", blank.Form, blank.Extract);
+                    Task<RunnerProfile?> validation = app.ShowAsync<RunnerProfile>(invalid);
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce(); app.RenderOnce();
+                    if (validation.IsCompleted) throw new InvalidDataException("A blank participant form bypassed required-field validation.");
+                    backend.FeedKey("escape"); app.PumpInputOnce(); app.PumpInputOnce();
+                    RunnerProfile? cancelled = await validation.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (cancelled != null) throw new InvalidDataException("Escape did not cancel the participant form.");
+                    app.Stop();
+                }
+            }
         }
         private static Task ShellAsync(CancellationToken token)
         {

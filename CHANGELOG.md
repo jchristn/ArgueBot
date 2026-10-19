@@ -15,3 +15,4 @@
 - Database-level ownership now protects SQLite files across separately configured homes and PostgreSQL through a dedicated advisory-lock writer; lost PostgreSQL ownership signals service shutdown and never reconnects automatically.
 - Session privileges now use separate stored system/tenant administrator flags. Historical snapshots retain versioned column inventories and migrate before reuse.
 - Stream commits now batch by size and timer, flush before finalization, preserve split Unicode surrogate pairs, and record committed text offsets. Countdown/typing holds use injectable monotonic time.
+- TUI participant forms now create, edit and delete reusable CLI/REST configurations, preserve ordered empty arguments and keep drafts visible after service save errors.

@@ -3,6 +3,7 @@ namespace ArgueBot.Tui
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Net.Http;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
@@ -50,7 +51,7 @@ namespace ArgueBot.Tui
             _Transcript = app.AddPane("transcript", region => region.FillWidth(28, 0).FillHeight(0, 4).WithBorder(BorderStyle.Line, "Shared debate history"));
             app.AddWidget("composer", _Composer, region => region.BottomAnchored(1, 3).FillWidth().WithBorder(BorderStyle.Line, "Note: Enter sends").WithPadding(0));
             app.AddWidget("status", _Status, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(0));
-            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
+            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+e", "Participants").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
             app.Bind("ctrl+q", app.Quit);
             app.Bind("ctrl+n", () => Launch(NewAsync));
             app.Bind("ctrl+b", () => Launch(StartAsync));
@@ -58,6 +59,7 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+r", () => Launch(ControlsAsync));
             app.Bind("ctrl+a", () => Launch(FollowupAsync));
             app.Bind("ctrl+f", () => Launch(SearchAsync));
+            app.Bind("ctrl+e", () => Launch(ParticipantsAsync));
             app.Bind("alt+right", () => _Page++);
             app.Bind("alt+left", () => _Page = Math.Max(1, _Page - 1));
             app.Bind("ctrl+t", () => app.Theme = app.Theme.Name == "Dark" ? Theme.Light : Theme.Dark);
@@ -95,6 +97,39 @@ namespace ArgueBot.Tui
             try { await action().ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { _App?.Post(() => _Status.RightText = ex.Message); }
         }
+        private async Task ParticipantsAsync()
+        {
+            if (_App == null) return;
+            List<RunnerProfile> profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
+            string[] choices = new[] { "Create participant" }.Concat(profiles.Select(profile => profile.Name + " [" + profile.Kind + "/" + profile.Provider + "]" + (profile.Enabled ? "" : " disabled"))).ToArray();
+            int selected = await UiAsync(() => _App.SelectAsync("Participants on the service machine", choices)).ConfigureAwait(false);
+            if (selected < 0) return;
+            RunnerProfile? profile = selected == 0 ? null : profiles[selected - 1];
+            if (profile != null)
+            {
+                int action = await UiAsync(() => _App.SelectAsync(profile.Name, "Edit participant", "Delete reusable profile (history remains)")).ConfigureAwait(false);
+                if (action < 0) return;
+                if (action == 1)
+                {
+                    if (await UiAsync(() => _App.ConfirmAsync("Delete " + profile.Name + "? Historical run snapshots remain readable.")).ConfigureAwait(false))
+                        await _Client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/participants/" + Uri.EscapeDataString(profile.Id), token: _Token).ConfigureAwait(false);
+                    return;
+                }
+            }
+            RunnerProfile? updated = await UiAsync(async () =>
+            {
+                ParticipantEditor editor = new ParticipantEditor(profile);
+                FormDialog<RunnerProfile> dialog = new FormDialog<RunnerProfile>(profile == null ? "Create participant" : "Edit participant", editor.Form, editor.Extract, _App, async candidate =>
+                {
+                    if (profile == null) await _Client.CreateParticipantAsync(candidate, _Token).ConfigureAwait(false);
+                    else await _Client.SendAsync<RunnerProfile>(HttpMethod.Put, "v1.0/api/participants/" + Uri.EscapeDataString(profile.Id), candidate, _Token).ConfigureAwait(false);
+                });
+                dialog.ApplyTheme(_App.Theme);
+                return await _App.ShowAsync<RunnerProfile>(dialog).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+            if (updated == null) return;
+            _App.Post(() => _Status.RightText = "Participant saved. Existing run snapshots remain unchanged.");
+        }
         private async Task NewAsync()
         {
             if (_App == null) return;
@@ -113,7 +148,7 @@ namespace ArgueBot.Tui
         {
             if (_Selected == null || _App == null) return;
             List<RunnerProfile> profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
-            if (profiles.Count < 2) throw new InvalidOperationException("Configure two participants using the console or web interface first.");
+            if (profiles.Count < 2) throw new InvalidOperationException("Configure two participants with Ctrl+E first.");
             List<string> selected = new List<string>();
             int countChoice = await UiAsync(() => _App.SelectAsync("Debate participants", "Two speakers", "Three speakers")).ConfigureAwait(false);
             if (countChoice < 0) return;
@@ -127,9 +162,9 @@ namespace ArgueBot.Tui
             }
             string? roundsText = await UiAsync(() => _App.PromptAsync("Maximum rounds (1 to 50)", "6")).ConfigureAwait(false);
             if (roundsText == null) return;
-            string? secondsText = await UiAsync(() => _App.PromptAsync("Intervention window in seconds (0 to 300)", "15")).ConfigureAwait(false);
+            string? secondsText = await UiAsync(() => _App.PromptAsync("Intervention window in seconds (0 to 600)", "15")).ConfigureAwait(false);
             if (secondsText == null) return;
-            if (!int.TryParse(roundsText, out int rounds) || rounds < 1 || rounds > 50 || !int.TryParse(secondsText, out int seconds) || seconds < 0 || seconds > 300) throw new InvalidOperationException("Use rounds 1 to 50 and seconds 0 to 300.");
+            if (!int.TryParse(roundsText, out int rounds) || rounds < 1 || rounds > 50 || !int.TryParse(secondsText, out int seconds) || seconds < 0 || seconds > 600) throw new InvalidOperationException("Use rounds 1 to 50 and seconds 0 to 600.");
             await _Client.StartAsync(_Selected, new CreateRunRequest { ParticipantIds = selected, MaxRounds = rounds, InterventionSeconds = seconds, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
         }
         private async Task PauseAsync()
@@ -198,7 +233,7 @@ namespace ArgueBot.Tui
         }
         private async Task HelpAsync()
         {
-            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
+            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Ctrl+E manages CLI/REST participants and literal arguments; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
         }
     }
 }
