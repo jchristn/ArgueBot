@@ -19,6 +19,7 @@ const Participants = lazy(() => import("./views/Participants.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Backups = lazy(() => import("./views/Backups.jsx"));
+const Roles = lazy(() => import("./views/Roles.jsx"));
 const Users = lazy(() => import("./views/Users.jsx"));
 const Audit = lazy(() => import("./views/Audit.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
@@ -216,6 +217,7 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
           ? [
               ["audit", "audit.title", "users"],
               ["users", "users.title", "users"],
+              ["roles", "roles.title", "users"],
             ]
           : []),
       ],
@@ -380,6 +382,7 @@ export default function App() {
               <Route path="/dashboard/backups" element={<Backups />} />
               <Route path="/dashboard/audit" element={<Audit />} />
               <Route path="/dashboard/users" element={<Users />} />
+              <Route path="/dashboard/roles" element={<Roles />} />
               <Route
                 path="*"
                 element={<Navigate to="/dashboard/home" replace />}

@@ -738,6 +738,10 @@ test("administer a tenant identity, sign in as a viewer and revoke it through di
       ].map((response) => response.status);
     });
     expect(denied).toEqual([403, 403]);
+    await expect(viewer.getByRole("link", { name: "Roles", exact: true })).toHaveCount(0);
+    await viewer.goto("/dashboard/roles");
+    await expect(viewer.getByRole("alert")).toContainText("administrator");
+    await expect(viewer.getByRole("button", { name: "Create role", exact: true })).toHaveCount(0);
     await row.getByRole("button", { name: "Edit user", exact: true }).click();
     await page
       .getByRole("dialog")
@@ -785,4 +789,61 @@ test("administer a tenant identity, sign in as a viewer and revoke it through di
   } finally {
     await other.close();
   }
+});
+
+
+test("clone protected roles, preserve conflicted drafts and deactivate custom definitions", async ({ page }) => {
+  await enroll(page);
+  await page.getByRole("link", { name: "Roles", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Roles", exact: true })).toBeVisible();
+  const search = page.getByLabel("Find roles", { exact: true });
+  await search.fill("Viewer");
+  const builtin = page.getByRole("row").filter({ hasText: "Viewer" });
+  await expect(builtin).toContainText("Protected");
+  await expect(builtin.getByRole("button", { name: "Edit role" })).toHaveCount(0);
+  await builtin.getByRole("button", { name: "Clone role" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Role name", { exact: true })).toHaveValue("Viewer copy");
+  await expect(dialog).toContainText("Copying permissions from Viewer.");
+  await fs.mkdir(path.resolve("../.run/screenshots"), { recursive: true });
+  const name = "Browser role %+議論 " + Date.now();
+  await dialog.getByLabel("Role name", { exact: true }).fill(name);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+      await dialog.getByRole("button", { name: "Save", exact: true }).scrollIntoViewIfNeeded();
+      await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeInViewport();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+      await page.screenshot({ path: path.resolve(`../.run/screenshots/role-editor-${width}-${theme}.png`), fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await search.fill(name);
+  const row = page.getByRole("row").filter({ hasText: name });
+  await row.getByRole("button", { name: "Edit role" }).click();
+  const remote = await page.evaluate(async (name) => {
+    const headers = { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" };
+    const found = await (await fetch("/v1.0/api/roles?search=" + encodeURIComponent(name), { headers })).json();
+    const role = found.items.find(item => item.name === name);
+    const response = await fetch("/v1.0/api/roles/" + role.id, { method: "PUT", headers, body: JSON.stringify({ name: name + " remote", active: true, expectedRevision: role.revision }) });
+    return { status: response.status, role: await response.json() };
+  }, name);
+  expect(remote.status).toBe(200);
+  await dialog.getByLabel("Role name", { exact: true }).fill("Unsaved custom role");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Reload before saving");
+  await expect(dialog.getByLabel("Role name", { exact: true })).toHaveValue("Unsaved custom role");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  const updated = page.getByRole("row").filter({ hasText: remote.role.name });
+  await updated.getByRole("button", { name: "Edit role" }).click();
+  await dialog.getByLabel("Role enabled", { exact: true }).uncheck();
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(updated).toContainText("Disabled");
+  const missing = await page.locator("button,input,select").evaluateAll(elements => elements.filter(element => element.getClientRects().length && !element.title.trim()).map(element => element.outerHTML));
+  expect(missing).toEqual([]);
 });

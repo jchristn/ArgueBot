@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Dashboard Roles page and Ctrl+O terminal workflow for protected built-in inspection, custom-role cloning and revision-checked editing/deactivation. Web conflicts preserve drafts; ordinary users cannot expose management controls through direct page navigation.
+
 - Authenticated role definition browsing, tenant custom-role creation/cloning and revision-checked deactivation. Built-ins remain immutable, current database administrator authority is rechecked, and changes carry atomic audit events. Permission/assignment editing and complete scoped enforcement remain in progress.
 
 - Schema 12 stores protected built-in roles, tenant permissions, mappings and scoped user assignments. Current-user resolution enforces activity, name fallback, exact scope and deny precedence. Management endpoints and route enforcement remain in progress.

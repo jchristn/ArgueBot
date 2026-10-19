@@ -24,7 +24,39 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task RoleFormsAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(60, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    RoleRecord source = new RoleRecord { Id = "rol_fixture", Name = "Viewer", Builtin = true, Protected = true };
+                    bool protectedRole = false;
+                    try { new RoleEditor(source); } catch (ArgumentException) { protectedRole = true; }
+                    if (!protectedRole) throw new InvalidDataException("Protected role entered a terminal edit form.");
+                    RoleEditor editor = new RoleEditor(source, true);
+                    FormDialog<RoleRequest> dialog = new FormDialog<RoleRequest>("Clone role: Viewer", editor.Form, editor.Extract); dialog.ApplyTheme(theme);
+                    Task<RoleRequest?> result = app.ShowAsync<RoleRequest>(dialog);
+                    ((TextField)editor.Form.GetField(0)).Value = "";
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    if (dialog.IsClosed) throw new InvalidDataException("An empty role name closed its draft.");
+                    ((TextField)editor.Form.GetField(0)).Value = "Terminal custom 議論";
+                    editor.Form.SetFocusedField(1); backend.FeedKey("space"); app.PumpInputOnce(); app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("Role enabled", StringComparison.Ordinal) || !screen.Contains("Save", StringComparison.Ordinal)) throw new InvalidDataException("Terminal role form lost its enabled control or save action.");
+                    await SaveEvidenceAsync("role-editor-" + theme.Name, screen, token).ConfigureAwait(false);
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    RoleRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (request == null || request.CloneRoleId != source.Id || request.ExpectedRevision != 0 || request.Active) throw new InvalidDataException("Terminal clone changed source binding, revision or selected activity.");
+                    RoleEditor update = new RoleEditor(new RoleRecord { Name = "Existing", Active = false, Revision = 7 });
+                    if (update.Extract().ExpectedRevision != 7 || update.Extract().CloneRoleId.Length != 0 || update.Extract().Active) throw new InvalidDataException("Terminal role update lost its revision or became a clone.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task UserFormsAsync(CancellationToken token)
         {

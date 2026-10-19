@@ -412,6 +412,13 @@ small {
 .empty-state h3 {
   color: var(--text);
 }
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .filters {
   display: flex;
   align-items: center;
