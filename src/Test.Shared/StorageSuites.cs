@@ -102,10 +102,10 @@ namespace Test.Shared
                         int commits = events.Count(change => change.Kind == "delta");
                         if (commits < 1 || commits > 30) throw new InvalidDataException("The engine still persisted one write per runner fragment.");
                         long offset = 0;
-                        foreach (DurableEvent fragment in events.Where(change => change.Kind == "delta"))
+                        foreach (DurableEvent committedFragment in events.Where(change => change.Kind == "delta"))
                         {
-                            if (fragment.TextOffset != offset) throw new InvalidDataException("Committed stream offsets cannot reconstruct the message without gaps or duplication.");
-                            offset += fragment.Text.Length;
+                            if (committedFragment.TextOffset != offset) throw new InvalidDataException("Committed stream offsets cannot reconstruct the message without gaps or duplication.");
+                            offset += committedFragment.Text.Length;
                         }
                         if (string.Concat(events.Where(change => change.Kind == "delta").Select(change => change.Text)) != answer.Content) throw new InvalidDataException("Committed stream replay diverged from the finalized message.");
                     }
