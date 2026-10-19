@@ -24,7 +24,36 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task SplashAsync(CancellationToken token)
+        {
+            foreach (bool pressKey in new[] { true, false })
+            {
+                HeadlessBackend backend = new HeadlessBackend(80, 24) { ClaimsTerminal = false };
+                using (ArgueBotClient client = new ArgueBotClient())
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    new ConversationApp(client).Configure(app); app.Start();
+                    Task splash = SplashScreen.ShowAsync(app, token);
+                    app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("Conversations", StringComparison.Ordinal) || !screen.Contains("Note: Enter sends", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
+                    await SaveEvidenceAsync("splash", screen, token).ConfigureAwait(false);
+                    if (pressKey) { backend.FeedKey("ctrl+n"); app.PumpInputOnce(); }
+                    else
+                    {
+                        await Task.Delay(2800, token).ConfigureAwait(false);
+                        if (splash.IsCompleted) throw new InvalidDataException("Splash closed before three seconds.");
+                        await Task.Delay(400, token).ConfigureAwait(false);
+                        app.PumpInputOnce();
+                    }
+                    await splash.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    app.RenderOnce();
+                    if (app.Modals.IsActive) throw new InvalidDataException("Splash dismissal activated a workspace shortcut or left its modal open.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task RoleFormsAsync(CancellationToken token)
         {

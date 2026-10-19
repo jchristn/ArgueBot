@@ -40,7 +40,7 @@ namespace ArgueBot.Tui
                 Task poll = Task.CompletedTask;
                 try
                 {
-                    await TuiApp.RunAsync(app => { Configure(app); poll = PollAsync(polling.Token); }, token).ConfigureAwait(false);
+                    await TuiApp.RunAsync(app => { Configure(app); poll = PollAsync(polling.Token); app.Post(() => Launch(() => SplashScreen.ShowAsync(app, polling.Token))); }, token).ConfigureAwait(false);
                 }
                 finally { polling.Cancel(); try { await poll.ConfigureAwait(false); } catch (OperationCanceledException) { } }
             }

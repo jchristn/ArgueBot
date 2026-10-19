@@ -4,7 +4,7 @@
 
 ### In progress
 
-- The C# TUI opens with an ASCII ArgueBot splash logo. Any key dismisses it immediately; otherwise it closes after three seconds.
+- The C# TUI opens with a lowercase Ogre ASCII logo in a centered splash modal over the workspace. Any key dismisses it immediately; otherwise it closes after three seconds.
 
 - Scoped user-role assignment APIs and console lifecycle, shared GUID/name/built-in resolution, protected identity/assignment checks, exact resource scope and bounded tenant inheritance. Creation/reactivation enforce the 256-active-assignment limit. Complete domain enforcement and remaining editors are still in progress.
 
