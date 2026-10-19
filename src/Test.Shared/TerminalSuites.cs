@@ -38,7 +38,7 @@ namespace Test.Shared
                     Task splash = SplashScreen.ShowAsync(app, token);
                     app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame()!);
-                    if (!screen.Contains("Conversations", StringComparison.Ordinal) || !screen.Contains("Note: Enter sends", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
+                    if (!screen.Contains("Conversations", StringComparison.Ordinal) || !screen.Contains("Note: Enter sends", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal) || !screen.Contains("v0.1.0", StringComparison.Ordinal) || !screen.Contains("2026 Joel Christner", StringComparison.Ordinal) || !screen.Contains("https://github.com/jchristn/ArgueBot", StringComparison.Ordinal) || !screen.Contains("MIT License", StringComparison.Ordinal) || !screen.Contains("Ctrl+E: configure agents", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
                     await SaveEvidenceAsync("splash", screen, token).ConfigureAwait(false);
                     if (pressKey) { backend.FeedKey("ctrl+n"); app.PumpInputOnce(); }
                     else
