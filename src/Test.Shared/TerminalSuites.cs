@@ -55,6 +55,17 @@ namespace Test.Shared
                     backend.FeedKey("ctrl+s"); app.PumpInputOnce();
                     BackupRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
                     if (request?.DestinationName != "recovered_fixture" || request.Password != "fixture-recovery-passphrase" || request.Port != 4537) throw new InvalidDataException("The recovery form changed its explicit destination, passphrase or port.");
+                    RecoveryEditor postgresql = new RecoveryEditor("restore");
+                    ((TextField)postgresql.Form.GetField(1)).Value = "postgresql_fixture";
+                    ((Dropdown<string>)postgresql.Form.GetField(3)).SelectedIndex = 1;
+                    FormDialog<BackupRequest> providerDialog = new FormDialog<BackupRequest>("PostgreSQL restore", postgresql.Form, postgresql.Extract);
+                    Task<BackupRequest?> providerResult = app.ShowAsync<BackupRequest>(providerDialog);
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    if (providerDialog.IsClosed) throw new InvalidDataException("PostgreSQL restore accepted a missing connection reference.");
+                    ((TextField)postgresql.Form.GetField(4)).Value = "ARGUEBOT_FIXTURE_RECOVERY_DATABASE";
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    BackupRequest? providerRequest = await providerResult.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (providerRequest?.RestoreDatabaseType != ArgueBot.Core.Database.DatabaseTypeEnum.Postgresql || providerRequest.RestoreConnectionEnvironmentVariable != "ARGUEBOT_FIXTURE_RECOVERY_DATABASE") throw new InvalidDataException("Terminal recovery lost the explicit PostgreSQL destination reference.");
                     app.Stop();
                 }
             }

@@ -24,11 +24,13 @@ function command(words, body) {
   return JSON.parse(result.stdout);
 }
 function check(condition, message) {if (!condition) throw new Error(message); checks++;}
-async function completed(id) {
+async function completed(id, expected = "completed") {
   for(let attempt=0;attempt<100;attempt++) {
     const job = command(['backups','status',id]);
-    if(job.state==='failed') throw new Error(`Recovery job failed: ${job.errorCode}`);
-    if(job.state==='completed') return job;
+    if(['failed','completed'].includes(job.state)) {
+      if(job.state!==expected) throw new Error(`Recovery job expected ${expected}, received ${job.state}: ${job.errorCode}`);
+      return job;
+    }
     await delay(50);
   }
   throw new Error('Recovery job did not complete before its test deadline.');
@@ -56,6 +58,17 @@ try {
   const verified = command(['backups','verify',accepted.backupId,'-'], {});
   await completed(verified.id);
   check(command(['backups','operations',accepted.backupId]).totalCount===2, 'CLI verification did not persist a separate operation.');
+  const targetReference = process.env.ARGUEBOT_TEST_CLI_POSTGRESQL_REFERENCE;
+  if(targetReference) {
+    const connection = process.env[targetReference] || '';
+    if(!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(targetReference) || !/(?:^|;)Host=127\.0\.0\.1(?:;|$)/i.test(connection) || !/(?:^|;)Database=arguebot_[A-Za-z0-9_]+(?:;|$)/i.test(connection)) throw new Error('PostgreSQL CLI smoke requires an explicit loopback arguebot_ fixture database reference.');
+    const restored = command(['backups','restore',accepted.backupId,'-'], {destinationName:'cli-postgresql-recovered',restoreDatabaseType:'Postgresql',restoreConnectionEnvironmentVariable:targetReference});
+    const restoredJob = await completed(restored.id);
+    const settings = JSON.parse(await fs.readFile(path.join(home,'restores/cli-postgresql-recovered/arguebot.json'),'utf8'));
+    check(restoredJob.targetProvider==='Postgresql' && settings.Database.Type==='Postgresql' && settings.Database.ConnectionEnvironmentVariable===targetReference && settings.Database.ConnectionString==='', 'HTTP/CLI PostgreSQL recovery did not preserve its explicit provider and secret reference.');
+    const refused = command(['backups','restore',accepted.backupId,'-'], {destinationName:'must-not-overwrite',restoreDatabaseType:'Postgresql',restoreConnectionEnvironmentVariable:targetReference});
+    check((await completed(refused.id,'failed')).errorCode==='restore_target_not_empty', 'HTTP/CLI PostgreSQL recovery did not refuse a populated destination.');
+  }
   command(['backups','delete',accepted.backupId]);
   check(command(['backups','list']).totalCount===0, 'CLI archive deletion retained metadata.');
   console.log(`CLI surface smoke passed ${checks} assertions against an isolated service.`);

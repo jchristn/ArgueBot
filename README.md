@@ -21,7 +21,7 @@
 
 ## Conversation runtime rewrite
 
-A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners and shared conversation interfaces are being implemented. The replacement supports SQLite and PostgreSQL, automatic local service startup/attachment, durable run controls, participant configuration forms and recovery archives with shared job browsing. The existing npm and launch-script paths below still run the current TypeScript application. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations.
+A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners and shared conversation interfaces are being implemented. The replacement supports SQLite and PostgreSQL, automatic local service startup/attachment, durable run controls, participant configuration forms and recovery archives with shared job browsing and isolated SQLite/PostgreSQL restore. The existing npm and launch-script paths below still run the current TypeScript application. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations.
 
 ## Why ArgueBot?
 

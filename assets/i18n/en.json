@@ -294,7 +294,7 @@
   "backups.verify": "Verify",
   "backups.verify.help": "Validate archive authentication, file inventory, checksums and database schema without changing live data.",
   "backups.restore": "Restore",
-  "backups.restore.help": "Restore to a new SQLite home beneath the service home’s restores directory. Existing homes are never replaced, sessions are revoked and the recovered service is not started.",
+  "backups.restore.help": "Restore to a new home beneath the service home’s restores directory. SQLite creates a local database; PostgreSQL requires an explicitly provisioned empty database. Existing homes and nonempty databases are never replaced, sessions are revoked and the recovered service is not started.",
   "backups.delete": "Delete",
   "backups.delete.help": "Permanently remove this idle archive and its operation history. Conversation data is unchanged.",
   "backups.download": "Download backup",
@@ -334,5 +334,11 @@
   "backups.artifact": "Archive",
   "backups.artifact.help": "The persistent archive identifier associated with this job.",
   "backups.viewOperation": "View operation",
-  "backups.viewOperation.help": "Read the persisted job state, safe failure code and missing credential references."
+  "backups.viewOperation.help": "Read the persisted job state, safe failure code and missing credential references.",
+  "backups.provider": "Destination database",
+  "backups.provider.help": "SQLite creates a new database file. PostgreSQL uses an explicitly provisioned empty database with a service-machine connection environment reference.",
+  "backups.connectionReference": "PostgreSQL connection environment reference",
+  "backups.connectionReference.help": "Name of a variable on the service machine containing the destination connection string. Never enter the connection string or credential value here.",
+  "backups.retained": "Retained recovery staging",
+  "backups.retained.help": "The external database was committed but home reconciliation or publication failed. Keep this protected staging home for operator recovery; do not delete it or remove an incomplete-recovery marker without reviewing the recovery guide."
 }

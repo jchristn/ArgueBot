@@ -114,6 +114,13 @@ jobs:
             sleep 1
           done
           curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat
+      - name: Complete archive restore through CLI and HTTP into PostgreSQL
+        env:
+          ARGUEBOT_TEST_CLI_POSTGRESQL_REFERENCE: ARGUEBOT_FIXTURE_RECOVERY_DATABASE
+          ARGUEBOT_FIXTURE_RECOVERY_DATABASE: Host=127.0.0.1;Port=4450;Database=arguebot_recovery_test;Username=arguebot_test;Password=arguebot-provider-fixture-not-for-production;Pooling=false
+        run: |
+          docker exec "${{ job.services.postgresql.id }}" createdb -U arguebot_test arguebot_recovery_test
+          node scripts/test-cli-surfaces.mjs
       - name: All supported provider and runner descriptors
         run: ARGUEBOT_CLI_FIXTURE="$PWD/src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll" dotnet run --project src/Test.Automated -c Release --no-build -- --results test-results/integration.json
       - uses: actions/upload-artifact@v4

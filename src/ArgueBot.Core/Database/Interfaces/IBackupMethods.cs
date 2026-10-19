@@ -16,7 +16,7 @@ namespace ArgueBot.Core.Database.Interfaces
         /// <summary>Publish archive size/checksum/status after its atomic filesystem publication, or mark a failed artifact.</summary>
         Task SetStatusAsync(RequestContext context, string id, string status, long bytes = 0, string digest = "", CancellationToken token = default);
         /// <summary>Accept a durable create, verify or restore operation without persisting its passphrase.</summary>
-        Task<BackupOperation> CreateOperationAsync(RequestContext context, string backupId, string kind, string targetHome = "", int port = 0, CancellationToken token = default);
+        Task<BackupOperation> CreateOperationAsync(RequestContext context, string backupId, string kind, string targetHome = "", int port = 0, string targetProvider = "", string connectionEnvironmentVariable = "", CancellationToken token = default);
         /// <summary>Page durable administrative recovery jobs, optionally filtered to one artifact.</summary>
         Task<BackupOperationPage> EnumerateOperationsAsync(RequestContext context, string backupId = "", int page = 1, int size = 25, CancellationToken token = default);
         /// <summary>Read a durable operation and the names of missing credential references.</summary>

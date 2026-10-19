@@ -6,6 +6,7 @@ namespace Test.Shared
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Sqlite;
@@ -29,8 +30,92 @@ namespace Test.Shared
                     bool missing = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variable));
                     cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => RunAsync(provider, variable, token), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => OwnershipAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlRecovery", "Complete archives restore SQLite history into an empty PostgreSQL database and reject existing data", cancellation => PostgresqlRecoveryAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
+            }
+        }
+        private static async Task PostgresqlRecoveryAsync(string variable, CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-pg-recovery-" + Guid.NewGuid().ToString("N"));
+            string name = "arguebot_restore_" + Guid.NewGuid().ToString("N");
+            string reference = "ARGUEBOT_RECOVERY_TARGET_" + Guid.NewGuid().ToString("N");
+            bool created = false;
+            try
+            {
+                NpgsqlConnectionStringBuilder connection = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable(variable)) { Pooling = false };
+                using (NpgsqlConnection control = new NpgsqlConnection(connection.ConnectionString))
+                {
+                    await control.OpenAsync(token).ConfigureAwait(false);
+                    using (NpgsqlCommand create = new NpgsqlCommand("CREATE DATABASE \"" + name + "\"", control)) { await create.ExecuteNonQueryAsync(token).ConfigureAwait(false); created = true; }
+                }
+                connection.Database = name; Environment.SetEnvironmentVariable(reference, connection.ConnectionString);
+                ArgueBotPaths sourcePaths = new ArgueBotPaths(Path.Combine(home, "source"));
+                await new ServiceSettings().SaveAsync(sourcePaths, token).ConfigureAwait(false);
+                RequestContext owner = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true };
+                Conversation conversation;
+                string archive = Path.Combine(home, "source.arguebak");
+                using (SqliteDatabaseDriver source = new SqliteDatabaseDriver(sourcePaths))
+                {
+                    await source.InitializeAsync(token).ConfigureAwait(false);
+                    conversation = await source.CreateConversationAsync(owner, "Portable recovery into PostgreSQL 議論", token).ConfigureAwait(false);
+                    await source.AppendMessageAsync(owner, new Message { ConversationId = conversation.Id, Content = "Keep exact history across both supported providers." }, token: token).ConfigureAwait(false);
+                    await RecoveryArchive.CreateAsync(source, sourcePaths, archive, token: token).ConfigureAwait(false);
+                }
+                DatabaseSettings target = new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = reference };
+                using (VerifiedRecovery recovery = await RecoveryArchive.OpenAsync(archive, token: token).ConfigureAwait(false))
+                {
+                    string destination = Path.Combine(home, "recovered");
+                    await RecoveryRestorer.ToNewPostgresqlHomeAsync(recovery, destination, target, 4549, token: token).ConfigureAwait(false);
+                    ServiceSettings settings = await ServiceSettings.LoadAsync(new ArgueBotPaths(destination), token).ConfigureAwait(false);
+                    if (settings.Database.Type != DatabaseTypeEnum.Postgresql || settings.Database.ConnectionEnvironmentVariable != reference || settings.Database.ConnectionString.Length != 0 || File.Exists(Path.Combine(destination, "runtime", "recovery-incomplete"))) throw new InvalidDataException("PostgreSQL recovery published incorrect credentials or an incomplete home.");
+                    using (DatabaseDriverBase restored = DatabaseDriverFactory.Create(target))
+                    {
+                        await restored.InitializeAsync(token).ConfigureAwait(false);
+                        if ((await restored.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false)).Single().Content != "Keep exact history across both supported providers.") throw new InvalidDataException("PostgreSQL recovery lost exact source history.");
+                    }
+                    bool refused = false;
+                    try { await RecoveryRestorer.ToNewPostgresqlHomeAsync(recovery, Path.Combine(home, "must-not-publish"), target, token: token).ConfigureAwait(false); }
+                    catch (DomainException exception) when (exception.Code == "restore_target_not_empty") { refused = true; }
+                    if (!refused || Directory.Exists(Path.Combine(home, "must-not-publish"))) throw new InvalidDataException("Recovery reused a nonempty PostgreSQL destination.");
+                    using (DatabaseDriverBase preserved = DatabaseDriverFactory.Create(target))
+                    {
+                        await preserved.InitializeAsync(token).ConfigureAwait(false);
+                        if ((await preserved.ReadConversationAsync(owner, conversation.Id, token).ConfigureAwait(false)).Title != conversation.Title) throw new InvalidDataException("Refusing a nonempty target changed its data.");
+                    }
+                    NpgsqlConnectionStringBuilder reset = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable(variable)) { Pooling = false };
+                    using (NpgsqlConnection control = new NpgsqlConnection(reset.ConnectionString))
+                    {
+                        await control.OpenAsync(token).ConfigureAwait(false);
+                        using (NpgsqlCommand command = control.CreateCommand())
+                        {
+                            command.CommandText = "DROP DATABASE \"" + name + "\" WITH (FORCE)"; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                            command.CommandText = "CREATE DATABASE \"" + name + "\""; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                        }
+                    }
+                    RecoveryPublicationException? failure = null;
+                    try { await RecoveryRestorer.ToNewPostgresqlHomeAsync(recovery, Path.Combine(home, "publication-refused"), target, 4549, new FailingRecoveryPublisher(), token).ConfigureAwait(false); }
+                    catch (RecoveryPublicationException exception) { failure = exception; }
+                    if (failure == null || !Directory.Exists(failure.StagingHome) || !File.Exists(Path.Combine(failure.StagingHome, "backups", "restored-database.arguedb.jsonl")) || Directory.Exists(Path.Combine(home, "publication-refused"))) throw new InvalidDataException("A committed PostgreSQL restore lost its protected staging after publication failure.");
+                    using (DatabaseDriverBase preserved = DatabaseDriverFactory.Create(target))
+                    {
+                        await preserved.InitializeAsync(token).ConfigureAwait(false);
+                        if ((await preserved.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false)).Single().Content != "Keep exact history across both supported providers.") throw new InvalidDataException("Publication failure lost committed destination history.");
+                    }
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(reference, null);
+                if (created)
+                {
+                    using (NpgsqlConnection control = new NpgsqlConnection(Environment.GetEnvironmentVariable(variable)))
+                    {
+                        await control.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+                        using (NpgsqlCommand drop = new NpgsqlCommand("DROP DATABASE IF EXISTS \"" + name + "\" WITH (FORCE)", control)) { await drop.ExecuteNonQueryAsync(CancellationToken.None).ConfigureAwait(false); }
+                    }
+                }
+                if (Directory.Exists(home)) Directory.Delete(home, true);
             }
         }
         private static async Task OwnershipAsync(string variable, CancellationToken token)

@@ -1,14 +1,14 @@
 namespace ArgueBot.Server.Services
 {
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text.Json;
     using System.Text.RegularExpressions;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
@@ -73,6 +73,12 @@ namespace ArgueBot.Server.Services
             {
                 if (!Regex.IsMatch(request.DestinationName ?? "", "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$", RegexOptions.CultureInvariant)) throw new DomainException(400, "invalid_destination", "Use a new home name of one to 64 letters, digits, hyphens or underscores.");
                 if (request.Port != 0 && (request.Port < 1024 || request.Port > 65535)) throw new DomainException(400, "invalid_port", "Use a listener port from 1024 to 65535.");
+                if (!Enum.IsDefined(request.RestoreDatabaseType)) throw new DomainException(400, "invalid_provider", "Select SQLite or PostgreSQL for recovery.");
+                if (request.RestoreDatabaseType == DatabaseTypeEnum.Postgresql)
+                {
+                    if (!Regex.IsMatch(request.RestoreConnectionEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.CultureInvariant) || string.IsNullOrEmpty(Environment.GetEnvironmentVariable(request.RestoreConnectionEnvironmentVariable))) throw new DomainException(400, "missing_target_configuration", "Set a PostgreSQL connection environment reference on the service machine before restoring.");
+                }
+                else if (request.RestoreConnectionEnvironmentVariable.Length > 0) throw new DomainException(400, "unused_target_reference", "SQLite recovery does not use a PostgreSQL environment reference.");
                 destination = Path.Combine(_Paths.Home, "restores", request.DestinationName!);
                 if (Directory.Exists(destination) || File.Exists(destination)) throw new DomainException(409, "destination_exists", "Choose a new recovery home name.");
             }
@@ -84,7 +90,7 @@ namespace ArgueBot.Server.Services
                 if (_Tasks.Count >= 4) throw new DomainException(429, "recovery_capacity", "Wait for a recovery operation to finish before submitting another.");
                 BackupEntry entry = kind == "create" ? await _Database.Backups.CreateAsync(context, request.Name, password != null, request.IncludeSecrets, token).ConfigureAwait(false) : await _Database.Backups.ReadAsync(context, id ?? "", token).ConfigureAwait(false);
                 if (kind != "create" && (entry.Status != "ready" || !File.Exists(ArtifactPath(entry.Id)))) throw new DomainException(409, "backup_unavailable", "This recovery archive is unavailable.");
-                BackupOperation operation = await _Database.Backups.CreateOperationAsync(context, entry.Id, kind, destination, request.Port, token).ConfigureAwait(false);
+                BackupOperation operation = await _Database.Backups.CreateOperationAsync(context, entry.Id, kind, destination, kind == "restore" ? request.Port : 0, kind == "restore" ? request.RestoreDatabaseType.ToString() : "", kind == "restore" ? request.RestoreConnectionEnvironmentVariable : "", token).ConfigureAwait(false);
                 bool includeSecrets = request.IncludeSecrets;
                 _Tasks.Add(Task.Run(() => ExecuteAsync(context, operation, includeSecrets, password)));
                 request.Password = "";
@@ -113,7 +119,16 @@ namespace ArgueBot.Server.Services
                     {
                         operation.MissingReferences = recovery.MissingReferences.ToList();
                         if (operation.Kind == "restore")
-                        { await RecoveryRestorer.ToNewHomeAsync(recovery, operation.TargetHome, operation.Port == 0 ? null : operation.Port, _Shutdown.Token).ConfigureAwait(false); }
+                        {
+                            int? port = operation.Port == 0 ? null : operation.Port;
+                            if (operation.TargetProvider == DatabaseTypeEnum.Postgresql.ToString())
+                            {
+                                DatabaseSettings destination = new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = operation.TargetConnectionEnvironmentVariable };
+                                RecoveryRestoreResult restored = await RecoveryRestorer.ToNewPostgresqlHomeAsync(recovery, operation.TargetHome, destination, port, token: _Shutdown.Token).ConfigureAwait(false);
+                                operation.Port = restored.Port;
+                            }
+                            else { RecoveryRestoreResult restored = await RecoveryRestorer.ToNewHomeAsync(recovery, operation.TargetHome, port, _Shutdown.Token).ConfigureAwait(false); operation.Port = restored.Port; }
+                        }
                     }
                 }
                 operation.State = "completed";
@@ -121,7 +136,8 @@ namespace ArgueBot.Server.Services
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
                 operation.State = "failed";
-                operation.ErrorCode = exception is OperationCanceledException ? "service_interrupted" : exception is CryptographicException ? "archive_authentication_failed" : exception is InvalidDataException ? "archive_invalid" : exception is IOException ? "recovery_io_failed" : "recovery_failed";
+                if (exception is RecoveryPublicationException publication) operation.RetainedStagingHome = publication.StagingHome;
+                operation.ErrorCode = exception is RecoveryPublicationException ? "restore_publication_failed" : exception is DomainException domain ? domain.Code : exception is OperationCanceledException ? "service_interrupted" : exception is CryptographicException ? "archive_authentication_failed" : exception is InvalidDataException ? "archive_invalid" : exception is IOException ? "recovery_io_failed" : "recovery_failed";
                 if (operation.Kind == "create") await _Database.Backups.SetStatusAsync(context, operation.BackupId, "failed", token: CancellationToken.None).ConfigureAwait(false);
             }
             finally

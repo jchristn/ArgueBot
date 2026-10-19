@@ -193,39 +193,109 @@ test("participant argument editor preserves blank literal arguments", async ({
   ).toHaveValue("");
 });
 
-test("create, verify, download and delete a recovery archive", async ({ page }) => {
+test("create, verify, download and delete a recovery archive", async ({
+  page,
+}) => {
   await enroll(page);
   await page.getByRole("link", { name: "Backups", exact: true }).click();
-  await page.getByRole("button", { name: "Create backup", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Create backup", exact: true })
+    .click();
   const archiveName = "Browser recovery fixture " + Date.now();
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill(archiveName);
-  await page.getByLabel("Passphrase", { exact: true }).fill("browser-fixture-passphrase");
-  await page.getByRole("dialog").getByRole("button", { name: "Create backup", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill(archiveName);
+  await page
+    .getByLabel("Passphrase", { exact: true })
+    .fill("browser-fixture-passphrase");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Create backup", exact: true })
+    .click();
   await expect(page.getByText("create: completed")).toBeVisible();
-  const row = page.getByRole("row").filter({hasText: archiveName});
+  const row = page.getByRole("row").filter({ hasText: archiveName });
   await expect(row).toContainText("ready");
-  const [download] = await Promise.all([page.waitForEvent("download"), row.getByRole("button", { name: "Download backup" }).click()]);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    row.getByRole("button", { name: "Download backup" }).click(),
+  ]);
   expect(download.suggestedFilename()).toMatch(/\.arguebak$/);
-  await row.getByRole("button", {name: "Verify", exact: true}).click();
-  await page.getByLabel("Passphrase", {exact: true}).fill("browser-fixture-passphrase");
-  await page.getByRole("dialog").getByRole("button", {name: "Verify", exact: true}).click();
+  await row.getByRole("button", { name: "Verify", exact: true }).click();
+  await page
+    .getByLabel("Passphrase", { exact: true })
+    .fill("browser-fixture-passphrase");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Verify", exact: true })
+    .click();
   await expect(page.getByText("verify: completed")).toBeVisible();
+  await row.getByRole("button", { name: "Restore", exact: true }).click();
+  await page
+    .getByLabel("Passphrase", { exact: true })
+    .fill("browser-fixture-passphrase");
+  await page
+    .getByLabel("New home name", { exact: true })
+    .fill("browser-pg-target");
+  await page
+    .getByLabel("Destination database", { exact: true })
+    .selectOption("Postgresql");
+  const missingReference = "ARGUEBOT_TEST_MISSING_" + Date.now();
+  await page
+    .getByLabel("PostgreSQL connection environment reference", { exact: true })
+    .fill(missingReference);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Restore", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText(/Set a PostgreSQL connection environment reference/),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("PostgreSQL connection environment reference", {
+      exact: true,
+    }),
+  ).toHaveValue(missingReference);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
   const archiveId = await row.locator("td").first().getAttribute("title");
   await page.reload();
-  const jobs = page.locator("section").filter({has: page.getByRole("heading", {name: "Recovery jobs", exact: true})});
-  const verified = jobs.getByRole("row").filter({hasText: archiveId}).filter({hasText: "verify"});
+  const jobs = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: "Recovery jobs", exact: true }),
+    });
+  const verified = jobs
+    .getByRole("row")
+    .filter({ hasText: archiveId })
+    .filter({ hasText: "verify" });
   await expect(verified).toContainText("completed");
   await verified.getByRole("button").click();
   await expect(page.getByText("verify: completed")).toBeVisible();
-  await page.setViewportSize({width: 390, height: 844});
-  for(const theme of ["light", "dark"]) {
-    if(await page.locator("html").getAttribute("data-theme")!==theme)
-      await page.getByRole("button", {name: /Switch to (light|dark) mode/}).click();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
-    await page.screenshot({path: path.join("../.run/screenshots", `recovery-390-${theme}.png`), fullPage:true});
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const theme of ["light", "dark"]) {
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+      await page
+        .getByRole("button", { name: /Switch to (light|dark) mode/ })
+        .click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBeTruthy();
+    await page.screenshot({
+      path: path.join("../.run/screenshots", `recovery-390-${theme}.png`),
+      fullPage: true,
+    });
   }
-  await page.setViewportSize({width:1280,height:900});
-  await row.getByRole("button", {name: "Delete", exact: true}).click();
-  await page.getByRole("dialog").getByRole("button", {name: "Delete", exact: true}).click();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await row.getByRole("button", { name: "Delete", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
   await expect(row).toHaveCount(0);
 });

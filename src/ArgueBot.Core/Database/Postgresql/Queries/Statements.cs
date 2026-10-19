@@ -4,6 +4,7 @@ namespace ArgueBot.Core.Database.Postgresql.Queries
     {
         internal static string Translate(string sql)
         {
+            if (sql == "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'") return "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema') AND table_schema NOT LIKE 'pg_toast%'";
             if (sql.StartsWith("PRAGMA", System.StringComparison.Ordinal)) return "SELECT 1;";
             sql = sql.Replace("SELECT name FROM sqlite_master WHERE name='schema_migrations'", "SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='schema_migrations'");
             if (sql.StartsWith("INSERT OR IGNORE", System.StringComparison.Ordinal)) return sql.Replace("INSERT OR IGNORE", "INSERT") + " ON CONFLICT DO NOTHING";

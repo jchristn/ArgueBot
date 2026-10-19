@@ -10,7 +10,9 @@
       "status": 200,
       "public": true,
       "example": null,
-      "query": [],
+      "query": [
+        "challenge"
+      ],
       "execute": false,
       "save": null
     },

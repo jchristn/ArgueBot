@@ -58,6 +58,13 @@ namespace Test.Shared
                 for (int retry = 0; retry < 20 && !File.Exists(descriptorFile); retry++) await Task.Delay(50, token).ConfigureAwait(false);
                 LocalServiceDescriptor descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(descriptorFile, token).ConfigureAwait(false)) ?? throw new InvalidDataException("Service did not publish attachment metadata.");
                 service = Process.GetProcessById(descriptor.ProcessId);
+                if (descriptor.HomeId != LocalHomeIdentity.Read(paths)) throw new InvalidDataException("Attachment metadata lost its home binding.");
+                string otherHome = Path.Combine(home, "different-home");
+                await new ServiceSettings { Port = port }.SaveAsync(new ArgueBotPaths(otherHome), token).ConfigureAwait(false);
+                bool wrongHome = false;
+                try { await LocalServiceConnector.ConnectAsync(otherHome, token: token).ConfigureAwait(false); }
+                catch (InvalidOperationException exception) when (exception.Message.Contains("different application home", StringComparison.Ordinal)) { wrongHome = true; }
+                if (!wrongHome) throw new InvalidDataException("A second home attached to another home's healthy listener.");
                 using (ArgueBotClient one = new ArgueBotClient(endpoints[0]))
                 using (ArgueBotClient two = new ArgueBotClient(endpoints[1]))
                 {
@@ -68,6 +75,10 @@ namespace Test.Shared
                     try { await one.CreateParticipantAsync(new RunnerProfile { Name = "invalid credential URL capture fixture", Kind = "rest", Provider = "ollama", Endpoint = "http://fixture-user:fixture-secret-url@127.0.0.1:11434/?token=fixture-secret-query", Model = "fixture" }, token).ConfigureAwait(false); }
                     catch (DomainException ex) when (ex.StatusCode == 400) { rejected = true; }
                     if (!rejected) throw new InvalidDataException("Credential URL configuration was accepted.");
+                    rejected = false;
+                    try { await one.SendAsync<BackupOperation>(HttpMethod.Post, "v1.0/api/backups/bak_fixture/restore", new BackupRequest { DestinationName = "bad-reference", RestoreDatabaseType = ArgueBot.Core.Database.DatabaseTypeEnum.Postgresql, RestoreConnectionEnvironmentVariable = "Host=127.0.0.1;Password=fixture-secret-connection" }, token).ConfigureAwait(false); }
+                    catch (DomainException exception) when (exception.StatusCode == 400) { rejected = true; }
+                    if (!rejected) throw new InvalidDataException("A literal connection credential was accepted as an environment reference.");
                     RequestHistoryEntry? captured = null;
                     for (int retry = 0; retry < 20 && captured == null; retry++)
                     {
@@ -76,6 +87,15 @@ namespace Test.Shared
                         if (record != null) captured = await one.SendAsync<RequestHistoryEntry>(HttpMethod.Get, "v1.0/api/request-history/" + record.Id, token: token).ConfigureAwait(false);
                         else await Task.Delay(50, token).ConfigureAwait(false);
                     }
+                    RequestHistoryEntry? invalidReference = null;
+                    for (int retry = 0; retry < 20 && invalidReference == null; retry++)
+                    {
+                        HistoryPage history = await one.SendAsync<HistoryPage>(HttpMethod.Get, "v1.0/api/request-history?method=POST&status=400", token: token).ConfigureAwait(false);
+                        RequestHistoryEntry? record = history.Items.FirstOrDefault(item => item.Path == "/v1.0/api/backups/bak_fixture/restore");
+                        if (record != null) invalidReference = await one.SendAsync<RequestHistoryEntry>(HttpMethod.Get, "v1.0/api/request-history/" + record.Id, token: token).ConfigureAwait(false);
+                        else await Task.Delay(50, token).ConfigureAwait(false);
+                    }
+                    if (invalidReference == null || invalidReference.RawRequestBody.Contains("fixture-secret", StringComparison.Ordinal)) throw new InvalidDataException("An invalid credential reference leaked its literal connection value into request history.");
                     if (captured == null || captured.RawRequestBody.Contains("fixture-secret", StringComparison.Ordinal) || captured.Headers.Any(header => header.Name.Equals("Authorization", StringComparison.OrdinalIgnoreCase) && header.Value != "[redacted]")) throw new InvalidDataException("Credential URL or authorization data leaked into captured request diagnostics.");
                     BackupOperation created = await one.SendAsync<BackupOperation>(HttpMethod.Post, "v1.0/api/backups", new BackupRequest { Name = "HTTP recovery fixture", Password = "fixture-recovery-passphrase" }, token).ConfigureAwait(false);
                     created = await AwaitRecoveryAsync(two, created.Id, token).ConfigureAwait(false);

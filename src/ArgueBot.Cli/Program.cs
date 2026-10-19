@@ -5,6 +5,7 @@ namespace ArgueBot.Cli
     using System.IO;
     using System.Linq;
     using System.Text.Json;
+    using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
@@ -14,7 +15,7 @@ namespace ArgueBot.Cli
 
     internal static class Program
     {
-        private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+        private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
         private static async Task<int> Main(string[] args)
         {
             using (CancellationTokenSource lifetime = new CancellationTokenSource())
@@ -44,7 +45,7 @@ namespace ArgueBot.Cli
             using (ArgueBotClient client = new ArgueBotClient(server))
             {
                 if (!string.IsNullOrWhiteSpace(session)) client.SetToken(session);
-                else await client.PairLocalAsync(new ArgueBotPaths(home).Home, token).ConfigureAwait(false);
+                else await client.PairLocalCachedAsync(new ArgueBotPaths(home).Home, token).ConfigureAwait(false);
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
                 if (command == "service")
                 {

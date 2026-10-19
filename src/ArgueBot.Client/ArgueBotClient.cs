@@ -1,14 +1,18 @@
 namespace ArgueBot.Client
 {
+    using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
+    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
-    using System.Net.Http;
+    using System.Security.Cryptography;
     using System.Text.Json;
-    using System.Threading.Tasks;
+    using System.Text.Json.Serialization;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
+    using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
 
@@ -16,16 +20,17 @@ namespace ArgueBot.Client
     public sealed class ArgueBotClient : IDisposable
     {
         private readonly HttpClient _Http;
-        private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317.</summary>
-        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317")
+        private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler.</summary>
+        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null)
         {
             Uri address = new Uri(endpoint.TrimEnd('/') + "/", UriKind.Absolute);
             if ((address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps) || address.UserInfo.Length > 0 || address.Query.Length > 0 || address.Fragment.Length > 0)
                 throw new ArgumentException("Use an HTTP service URL without embedded credentials, query or fragment.", nameof(endpoint));
             if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps)
                 throw new ArgumentException("Remote service connections require HTTPS.", nameof(endpoint));
-            _Http = new HttpClient { BaseAddress = address, Timeout = TimeSpan.FromSeconds(30) };
+            _Http = handler == null ? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) : new HttpClient(handler, true);
+            _Http.BaseAddress = address; _Http.Timeout = TimeSpan.FromSeconds(30);
             _Http.DefaultRequestHeaders.Add("x-client-id", Guid.NewGuid().ToString("N"));
         }
         /// <summary>Use an existing session. Secrets are never included in URLs.</summary>
@@ -47,6 +52,62 @@ namespace ArgueBot.Client
                     // Another local client may have exchanged the same single-use code first.
                     await Task.Delay(50, token).ConfigureAwait(false);
                 }
+            }
+        }
+        /// <summary>Reuse an owner-protected CLI session for the proven local home, revalidating current privileges on every invocation. Expired/revoked tokens trigger fresh enrollment. Call during startup before issuing concurrent requests; it mutates authentication headers.</summary>
+        public async Task PairLocalCachedAsync(string home, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(home);
+            if (_Http.BaseAddress == null || _Http.BaseAddress.Host != "127.0.0.1" || _Http.BaseAddress.Scheme != Uri.UriSchemeHttp || _Http.BaseAddress.AbsolutePath != "/") throw new InvalidOperationException("Local session reuse requires the service's direct 127.0.0.1 HTTP endpoint.");
+            ArgueBotPaths paths = new ArgueBotPaths(home); paths.EnsureDirectories();
+            string? homeId = LocalHomeIdentity.Read(paths);
+            _Http.DefaultRequestHeaders.Authorization = null;
+            string challenge = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            HealthResponse health = await SendAsync<HealthResponse>(HttpMethod.Get, "health?challenge=" + challenge, token: token).ConfigureAwait(false);
+            if (health.Status != "ready" || health.Protocol != 1 || health.Schema < 1 || homeId == null || health.HomeId != homeId || !LocalHomeIdentity.VerifyProof(paths, _Http.BaseAddress.Port, challenge, health.HomeProof)) throw new InvalidOperationException("The listener could not prove ownership of the selected home; no cached credential was sent.");
+            string file = Path.Combine(paths.Home, "runtime", "cli-session.json");
+            string lockFile = Path.Combine(paths.Home, "runtime", "cli-session.lock");
+            FileStream? lease = null; long lockStarted = Stopwatch.GetTimestamp();
+            while (lease == null)
+            {
+                token.ThrowIfCancellationRequested();
+                try { lease = new FileStream(lockFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+                catch (IOException exception)
+                {
+                    if (Stopwatch.GetElapsedTime(lockStarted) >= TimeSpan.FromSeconds(5)) throw new IOException("The local CLI session cache is busy or unavailable. Retry after the current refresh finishes.", exception);
+                    await Task.Delay(50, token).ConfigureAwait(false);
+                }
+            }
+            using (lease)
+            {
+                HomePermissions.File(lockFile);
+                if (File.Exists(file))
+                {
+                    HomePermissions.File(file);
+                    LocalClientSession? cached = null;
+                    try { if (new FileInfo(file).Length <= 16384) cached = JsonSerializer.Deserialize<LocalClientSession>(await File.ReadAllTextAsync(file, token).ConfigureAwait(false), _Json); }
+                    catch (JsonException) { }
+                    if (cached != null && cached.FormatVersion == 1 && cached.Endpoint == _Http.BaseAddress.AbsoluteUri && cached.HomeId == homeId && cached.Token.Length > 0)
+                    {
+                        SetToken(cached.Token);
+                        try { await SendAsync<RequestContext>(HttpMethod.Get, "v1.0/api/auth/me", token: token).ConfigureAwait(false); return; }
+                        catch (DomainException exception) when (exception.StatusCode == 401) { _Http.DefaultRequestHeaders.Authorization = null; }
+                    }
+                }
+                await PairLocalAsync(home, token).ConfigureAwait(false);
+                await SendAsync<RequestContext>(HttpMethod.Get, "v1.0/api/auth/me", token: token).ConfigureAwait(false);
+                LocalClientSession current = new LocalClientSession { Endpoint = _Http.BaseAddress.AbsoluteUri, HomeId = homeId, Token = _Http.DefaultRequestHeaders.Authorization?.Parameter ?? throw new InvalidOperationException("Enrollment returned no session.") };
+                string temporary = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        HomePermissions.File(temporary);
+                        await JsonSerializer.SerializeAsync(output, current, _Json, token).ConfigureAwait(false); await output.FlushAsync(token).ConfigureAwait(false); output.Flush(true);
+                    }
+                    File.Move(temporary, file, true);
+                }
+                finally { if (File.Exists(temporary)) File.Delete(temporary); }
             }
         }
         /// <summary>Download a ready archive to a new owner-readable file. Failed or cancelled transfers never publish a partial destination.</summary>
@@ -117,6 +178,7 @@ namespace ArgueBot.Client
                 {
                     if (!response.IsSuccessStatusCode)
                     {
+                        if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
                         ApiError? error = await response.Content.ReadFromJsonAsync<ApiError>(_Json, token).ConfigureAwait(false);
                         throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.");
                     }

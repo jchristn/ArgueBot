@@ -60,7 +60,7 @@ namespace ArgueBot.Tui
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }
                 BackupEntry entry = result.Items[selected];
-                string[] actions = entry.Status == "ready" ? new[] { "Verify archive", "Restore into a new SQLite home", "Download onto this client machine", "View artifact operations", "Delete idle archive" } : new[] { "View artifact operations", "Delete idle archive" };
+                string[] actions = entry.Status == "ready" ? new[] { "Verify archive", "Restore into a new home", "Download onto this client machine", "View artifact operations", "Delete idle archive" } : new[] { "View artifact operations", "Delete idle archive" };
                 int action = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync(entry.Name + " | " + entry.Bytes + " bytes", actions)).ConfigureAwait(false);
                 if (action >= 0 && entry.Status != "ready") action += 3;
                 if (action == 0 || action == 1) await SubmitAsync(action == 0 ? "verify" : "restore", entry).ConfigureAwait(false);
@@ -94,7 +94,7 @@ namespace ArgueBot.Tui
                 do
                 {
                     BackupOperation operation = await _Client.SendAsync<BackupOperation>(HttpMethod.Get, "v1.0/api/backup-operations/" + Uri.EscapeDataString(id), token: _Token).ConfigureAwait(false);
-                    string text = operation.Kind + " | " + operation.State + " | " + operation.Id + "\n" + operation.ErrorCode + "\n" + operation.TargetHome + "\nMissing credential references: " + string.Join(", ", operation.MissingReferences);
+                    string text = operation.Kind + " | " + operation.State + " | " + operation.Id + "\n" + operation.ErrorCode + "\n" + operation.TargetHome + "\nDestination: " + operation.TargetProvider + " " + operation.TargetConnectionEnvironmentVariable + "\nRetained staging: " + operation.RetainedStagingHome + "\nMissing credential references: " + string.Join(", ", operation.MissingReferences);
                     refresh = await _Dispatcher.InvokeAsync(() => _Application.ConfirmAsync(text, "Refresh", "Back")).ConfigureAwait(false);
                 } while (refresh);
             }

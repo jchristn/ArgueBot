@@ -33,6 +33,11 @@ export default function Backups() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [includeSecrets, setIncludeSecrets] = useState(false);
+  const [restoreDatabaseType, setRestoreDatabaseType] = useState("Sqlite");
+  const [
+    restoreConnectionEnvironmentVariable,
+    setRestoreConnectionEnvironmentVariable,
+  ] = useState("");
   const [port, setPort] = useState(4537);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState(null);
@@ -68,6 +73,8 @@ export default function Backups() {
     setName("");
     setPassword("");
     setIncludeSecrets(false);
+    setRestoreDatabaseType("Sqlite");
+    setRestoreConnectionEnvironmentVariable("");
     setFailure(null);
     setDialog({ kind, artifact });
   };
@@ -95,6 +102,12 @@ export default function Backups() {
           </p>
           {operation.errorCode && <p role="alert">{operation.errorCode}</p>}
           {operation.targetHome && <p>{operation.targetHome}</p>}
+          {operation.retainedStagingHome && (
+            <p role="alert" title={t("backups.retained.help")}>
+              {t("backups.retained")}:{" "}
+              <code>{operation.retainedStagingHome}</code>
+            </p>
+          )}
           {operation.missingReferences?.length > 0 && (
             <p>
               {t("backups.missing")}: {operation.missingReferences.join(", ")}
@@ -271,6 +284,11 @@ export default function Backups() {
                       password,
                       includeSecrets,
                       destinationName: name,
+                      restoreDatabaseType,
+                      restoreConnectionEnvironmentVariable:
+                        restoreDatabaseType === "Postgresql"
+                          ? restoreConnectionEnvironmentVariable
+                          : "",
                       port: dialog.kind === "restore" ? port : 0,
                     }),
                   );
@@ -312,6 +330,38 @@ export default function Backups() {
                         />
                       )}
                     </Field>
+                    <Field label="backups.provider">
+                      {(props) => (
+                        <select
+                          {...props}
+                          value={restoreDatabaseType}
+                          onChange={(event) =>
+                            setRestoreDatabaseType(event.target.value)
+                          }
+                        >
+                          <option value="Sqlite">SQLite</option>
+                          <option value="Postgresql">PostgreSQL</option>
+                        </select>
+                      )}
+                    </Field>
+                    {restoreDatabaseType === "Postgresql" && (
+                      <Field label="backups.connectionReference">
+                        {(props) => (
+                          <input
+                            {...props}
+                            value={restoreConnectionEnvironmentVariable}
+                            required
+                            pattern="[A-Za-z_][A-Za-z0-9_]{0,127}"
+                            maxLength={128}
+                            onChange={(event) =>
+                              setRestoreConnectionEnvironmentVariable(
+                                event.target.value,
+                              )
+                            }
+                          />
+                        )}
+                      </Field>
+                    )}
                     <Field label="backups.port">
                       {(props) => (
                         <input

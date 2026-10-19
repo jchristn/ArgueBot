@@ -1,8 +1,8 @@
 namespace ArgueBot.Core.Backups
 {
+    using System;
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
-    using System;
     using ArgueBot.Core.Database;
 
     internal static class BackupSchema
@@ -22,6 +22,7 @@ namespace ArgueBot.Core.Backups
         {
             Dictionary<string, bool> columns = Tables()[table];
             if (table == "users" && version < 5) { columns.Remove("is_admin"); columns.Remove("is_tenant_admin"); columns.Remove("protected"); }
+            if (table == "backup_operations" && version < 7) { columns.Remove("target_provider"); columns.Remove("target_connection_env"); columns.Remove("retained_staging_home"); }
             if (table == "events" && version < 6) columns.Remove("text_offset");
             return columns;
         }

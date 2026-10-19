@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Backups
 {
+    using System;
     using System.Collections.Generic;
-    using System.Data.Common;
     using System.Data;
+    using System.Data.Common;
     using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
-    using System.Text.Json;
     using System.Text;
-    using System.Threading.Tasks;
+    using System.Text.Json;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
@@ -78,6 +78,7 @@ namespace ArgueBot.Core.Backups
         {
             Dictionary<string, Dictionary<string, bool>> schema = BackupSchema.Tables();
             List<string> order = schema.Keys.ToList(); HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<int> capturedVersions = new HashSet<int>();
             string table = ""; List<string> columns = new List<string>(); int version = 0; long rows = 0; bool header = false; bool footer = false; int position = -1;
             await foreach (BackupRecord record in BackupReader.ReadAsync(path, token).ConfigureAwait(false))
             {
@@ -96,6 +97,11 @@ namespace ArgueBot.Core.Backups
                 {
                     if (record.Table != table || table.Length == 0 || record.Values == null || record.Values.Count != columns.Count) throw new InvalidDataException("Backup row shape is invalid.");
                     for (int index = 0; index < columns.Count; index++) if (schema[table][columns[index]] && record.Values[index] != null && !long.TryParse(record.Values[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out long _)) throw new InvalidDataException("Backup integer value is invalid.");
+                    if (table == "schema_migrations")
+                    {
+                        string? value = record.Values[columns.IndexOf("version")];
+                        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int captured) || captured < 1 || captured > version || !capturedVersions.Add(captured)) throw new InvalidDataException("Snapshot schema bookkeeping disagrees with its declared version.");
+                    }
                     rows = checked(rows + 1);
                 }
                 else if (record.Kind == "footer")
@@ -106,6 +112,7 @@ namespace ArgueBot.Core.Backups
                 else throw new InvalidDataException("Unexpected backup record.");
             }
             IEnumerable<string> required = order.Where(name => BackupSchema.IntroducedVersion(name) <= version);
+            if (capturedVersions.Count == 0 || capturedVersions.Max() != version) throw new InvalidDataException("Snapshot schema bookkeeping disagrees with its declared version.");
             if (!header || !footer || required.Any(name => !seen.Contains(name))) throw new InvalidDataException("Backup is missing required tables or records.");
         }
         internal static async Task RestoreAsync(DbConnection connection, DbTransaction transaction, string path, CancellationToken token)

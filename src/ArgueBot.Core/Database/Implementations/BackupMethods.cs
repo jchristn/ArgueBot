@@ -67,14 +67,24 @@ namespace ArgueBot.Core.Database.Implementations
             }, token).ConfigureAwait(false);
         }
         /// <summary>Accept a durable create, verify or restore operation without persisting its passphrase.</summary>
-        public async Task<BackupOperation> CreateOperationAsync(RequestContext context, string backupId, string kind, string targetHome = "", int port = 0, CancellationToken token = default)
+        public async Task<BackupOperation> CreateOperationAsync(RequestContext context, string backupId, string kind, string targetHome = "", int port = 0, string targetProvider = "", string connectionEnvironmentVariable = "", CancellationToken token = default)
         {
             await ReadAsync(context, backupId, token).ConfigureAwait(false);
             if (kind != "create" && kind != "verify" && kind != "restore") throw new ArgumentException("Invalid recovery operation kind.", nameof(kind));
+            ArgumentNullException.ThrowIfNull(targetHome); ArgumentNullException.ThrowIfNull(targetProvider); ArgumentNullException.ThrowIfNull(connectionEnvironmentVariable);
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
+            if (kind == "restore")
+            {
+                if (targetProvider.Length == 0) targetProvider = DatabaseTypeEnum.Sqlite.ToString();
+                if (targetProvider != "Sqlite" && targetProvider != "Postgresql") throw new ArgumentException("Select a supported restore provider.", nameof(targetProvider));
+                if (targetProvider == "Postgresql" && !System.Text.RegularExpressions.Regex.IsMatch(connectionEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant)) throw new ArgumentException("Use a PostgreSQL connection environment reference.", nameof(connectionEnvironmentVariable));
+                if (targetProvider == "Sqlite" && connectionEnvironmentVariable.Length != 0) throw new ArgumentException("SQLite does not use a destination connection reference.", nameof(connectionEnvironmentVariable));
+            }
+            else if (targetProvider.Length > 0 || connectionEnvironmentVariable.Length > 0) throw new ArgumentException("Destination configuration applies only to restore operations.");
             string id = Ids.New("bop_");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                await ExecuteAsync(connection, transaction, "INSERT INTO backup_operations(id,backup_id,created_by_tenant_id,created_by_user_id,kind,state,target_home,port,created_utc,updated_utc) VALUES(@id,@backup,@tenant,@user,@kind,'queued',@home,@port,@now,@now)", token, P("id", id, "backup", backupId, "tenant", context.TenantId, "user", context.UserId, "kind", kind, "home", targetHome, "port", port)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO backup_operations(id,backup_id,created_by_tenant_id,created_by_user_id,kind,state,target_home,target_provider,target_connection_env,port,created_utc,updated_utc) VALUES(@id,@backup,@tenant,@user,@kind,'queued',@home,@provider,@connection,@port,@now,@now)", token, P("id", id, "backup", backupId, "tenant", context.TenantId, "user", context.UserId, "kind", kind, "home", targetHome, "provider", targetProvider, "connection", connectionEnvironmentVariable, "port", port)).ConfigureAwait(false);
                 await AuditAsync(connection, transaction, context, "backup." + kind, "queued", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadOperationAsync(context, id, token).ConfigureAwait(false);
@@ -110,7 +120,7 @@ namespace ArgueBot.Core.Database.Implementations
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 {
                     if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Recovery operation not found.");
-                    operation = new BackupOperation { Id = id, BackupId = S(reader, "backup_id"), Kind = S(reader, "kind"), State = S(reader, "state"), ErrorCode = S(reader, "error_code"), TargetHome = S(reader, "target_home"), Port = Convert.ToInt32(reader["port"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
+                    operation = new BackupOperation { Id = id, BackupId = S(reader, "backup_id"), Kind = S(reader, "kind"), State = S(reader, "state"), ErrorCode = S(reader, "error_code"), TargetHome = S(reader, "target_home"), TargetProvider = S(reader, "target_provider"), TargetConnectionEnvironmentVariable = S(reader, "target_connection_env"), RetainedStagingHome = S(reader, "retained_staging_home"), Port = Convert.ToInt32(reader["port"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
                 }
                 using (DbCommand command = Command(connection, null, "SELECT name FROM backup_operation_references WHERE operation_id=@id ORDER BY name", P("id", id)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
@@ -129,7 +139,7 @@ namespace ArgueBot.Core.Database.Implementations
                 if (!System.Text.RegularExpressions.Regex.IsMatch(reference, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant)) throw new ArgumentException("Invalid credential reference.", nameof(operation));
             return _Database.WriteAsync(async (connection, transaction) =>
             {
-                await ExecuteAsync(connection, transaction, "UPDATE backup_operations SET state=@state,error_code=@error,updated_utc=@now WHERE id=@id", token, P("id", operation.Id, "state", operation.State, "error", operation.ErrorCode)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "UPDATE backup_operations SET state=@state,error_code=@error,retained_staging_home=@staging,port=@port,updated_utc=@now WHERE id=@id", token, P("id", operation.Id, "state", operation.State, "error", operation.ErrorCode, "staging", operation.RetainedStagingHome, "port", operation.Port)).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "DELETE FROM backup_operation_references WHERE operation_id=@id", token, P("id", operation.Id)).ConfigureAwait(false);
                 foreach (string reference in operation.MissingReferences)
                     await ExecuteAsync(connection, transaction, "INSERT INTO backup_operation_references(id,operation_id,name,created_utc,updated_utc) VALUES(@id,@operation,@name,@now,@now)", token, P("id", Ids.New("bref_"), "operation", operation.Id, "name", reference)).ConfigureAwait(false);

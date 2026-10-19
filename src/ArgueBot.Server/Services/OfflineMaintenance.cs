@@ -25,6 +25,7 @@ namespace ArgueBot.Server.Services
                         await database.ExportSnapshotAsync(Path.Combine(paths.Home, "backups", "before-restore-" + Guid.NewGuid().ToString("N") + ".arguedb.jsonl"), token).ConfigureAwait(false);
                         await database.RestoreSnapshotAsync(file, token).ConfigureAwait(false);
                         await database.InitializeAsync(token).ConfigureAwait(false);
+                        await database.RevokeRestoredSessionsAsync(token).ConfigureAwait(false);
                     }
                     else await database.ExportSnapshotAsync(file, token).ConfigureAwait(false);
                 }

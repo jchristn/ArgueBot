@@ -5,6 +5,7 @@ namespace ArgueBot.Client
     using System.IO;
     using System.Net.Http;
     using System.Net.Http.Json;
+    using System.Security.Cryptography;
     using System.Text.Json;
     using System.Text.Json.Serialization;
     using System.Threading;
@@ -20,13 +21,15 @@ namespace ArgueBot.Client
         {
             if (endpoint != null) return endpoint;
             ArgueBotPaths paths = new ArgueBotPaths(home);
+            if (File.Exists(Path.Combine(paths.Home, "runtime", "recovery-incomplete"))) throw new InvalidOperationException("This recovery home requires operator review before it can be started. See its incomplete-recovery marker and recovery operation.");
+            string? homeId = autoStart ? LocalHomeIdentity.Ensure(paths) : LocalHomeIdentity.Read(paths);
             string descriptorFile = Path.Combine(paths.Home, "runtime", "service.json");
-            using (HttpClient http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) })
+            using (HttpClient http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(2) })
             {
                 if (File.Exists(descriptorFile))
                 {
                     LocalServiceDescriptor? descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(descriptorFile, token).ConfigureAwait(false));
-                    if (descriptor != null && IsLocal(descriptor.Endpoint) && await ReadyAsync(http, descriptor.Endpoint, token).ConfigureAwait(false))
+                    if (descriptor != null && descriptor.HomeId == homeId && IsLocal(descriptor.Endpoint) && await ReadyAsync(http, descriptor.Endpoint, paths, homeId, token).ConfigureAwait(false))
                     {
                         if (descriptor.Protocol != 1) throw new InvalidOperationException("The running local service uses an incompatible attachment protocol. Update the client and service together.");
                         return descriptor.Endpoint;
@@ -41,7 +44,7 @@ namespace ArgueBot.Client
                     port = settings?.Port ?? port;
                 }
                 string local = "http://127.0.0.1:" + port;
-                if (await ReadyAsync(http, local, token).ConfigureAwait(false)) return local;
+                if (await ReadyAsync(http, local, paths, homeId, token).ConfigureAwait(false)) return local;
                 if (!autoStart) throw new InvalidOperationException("The local service is not running. Start ArgueBot.Server or omit --no-start.");
                 ProcessStartInfo start = LocateServer();
                 start.ArgumentList.Add("--home"); start.ArgumentList.Add(paths.Home); start.ArgumentList.Add("--detached");
@@ -54,7 +57,7 @@ namespace ArgueBot.Client
                     while (DateTime.UtcNow < deadline)
                     {
                         token.ThrowIfCancellationRequested();
-                        if (await ReadyAsync(http, local, token).ConfigureAwait(false)) return local;
+                        if (await ReadyAsync(http, local, paths, homeId, token).ConfigureAwait(false)) return local;
                         await Task.Delay(100, token).ConfigureAwait(false);
                     }
                     throw new TimeoutException("The local service did not become ready within twenty seconds. Inspect the application home's startup log.");
@@ -65,12 +68,15 @@ namespace ArgueBot.Client
         {
             return Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) && uri.Scheme == "http" && uri.Host == "127.0.0.1" && uri.AbsolutePath == "/" && uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0;
         }
-        private static async Task<bool> ReadyAsync(HttpClient http, string endpoint, CancellationToken token)
+        private static async Task<bool> ReadyAsync(HttpClient http, string endpoint, ArgueBotPaths paths, string? homeId, CancellationToken token)
         {
             try
             {
-                HealthResponse? response = await http.GetFromJsonAsync<HealthResponse>(endpoint + "/health", token).ConfigureAwait(false);
+                string challenge = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+                HealthResponse? response = await http.GetFromJsonAsync<HealthResponse>(endpoint + "/health?challenge=" + challenge, token).ConfigureAwait(false);
                 if (response?.Status != "ready" || response.Schema < 1) return false;
+                if (homeId == null || response.HomeId != homeId) throw new InvalidOperationException("The configured listener belongs to a different application home or cannot be verified. Choose a different port, or attach explicitly with --server.");
+                if (!LocalHomeIdentity.VerifyProof(paths, new Uri(endpoint).Port, challenge, response.HomeProof)) throw new InvalidOperationException("The local listener could not prove ownership of the selected application home.");
                 if (response.Protocol != 1) throw new InvalidOperationException("The listener uses an incompatible attachment protocol. Start matching client and service builds together.");
                 return true;
             }

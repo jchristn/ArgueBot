@@ -25,6 +25,7 @@ namespace ArgueBot.Server
     {
         internal async Task<bool> RunAsync(ArgueBotPaths paths, ServiceSettings settings, CancellationToken token)
         {
+            if (File.Exists(Path.Combine(paths.Home, "runtime", "recovery-incomplete"))) throw new InvalidDataException("This recovery home has not completed reconciliation. Keep it stopped and review the retained snapshot and recovery operation before removing its incomplete-recovery marker.");
             bool restartRequested = false;
             using (RadiantHost telemetry = TelemetryHost.Start(settings.Telemetry))
             using (CancellationTokenSource wake = CancellationTokenSource.CreateLinkedTokenSource(token))
@@ -34,6 +35,7 @@ namespace ArgueBot.Server
             {
                 telemetry.LoggerFactory?.AddProvider(new FileLogProvider(Path.Combine(paths.Home, "logs")));
                 await database.InitializeAsync(token).ConfigureAwait(false);
+                string homeId = LocalHomeIdentity.Ensure(paths);
                 using (CancellationTokenRegistration ownership = database.OwnershipToken.Register(() => wake.Cancel()))
                 await using (BackupManager backups = new BackupManager(database, paths))
                 {
@@ -79,7 +81,12 @@ namespace ArgueBot.Server
                                     RequestContext? received = http.Metadata as RequestContext;
                                     context.CorrelationId = received?.CorrelationId ?? Guid.NewGuid().ToString("N"); context.ReceivedUtc = received?.ReceivedUtc ?? DateTime.UtcNow; context.StartedTimestamp = received?.StartedTimestamp ?? Stopwatch.GetTimestamp(); http.Metadata = context;
                                 });
-                                server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.SendAsync(http, new HealthResponse { Status = "ready", Schema = DatabaseSchema.CurrentVersion, Protocol = 1 }), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
+                                server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.GuardAsync(http, async () =>
+                                {
+                                    string challenge = http.Request.Query.Elements["challenge"] ?? "";
+                                    string proof = challenge.Length == 0 ? "" : LocalHomeIdentity.CreateProof(paths, settings.Port, challenge);
+                                    await Api.SendAsync(http, new HealthResponse { HomeId = homeId, HomeProof = proof, Status = "ready", Schema = DatabaseSchema.CurrentVersion, Protocol = 1 }).ConfigureAwait(false);
+                                }), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
                                 server.Routes.PreAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/auth/pair", http => Api.GuardAsync(http, async () =>
                                 { await Api.SendAsync(http, new PairResponse { Token = await enrollment.PairAsync(Api.Body<PairRequest>(http).Code, http.Token).ConfigureAwait(false) }).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Exchange local single-use code", "Auth"));
                                 server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/auth/me", http => Api.SendAsync(http, Api.Context(http)), openApiMetadata: OpenApiRouteMetadata.Create("Current identity", "Auth"));

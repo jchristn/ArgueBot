@@ -6,7 +6,7 @@ Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pa
 
 List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
-Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new SQLite home beneath the service home, never overwrites live data and leaves the recovered service stopped. Full PostgreSQL bundle destinations remain under implementation. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
+Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new home beneath the service home and leaves the recovered service stopped. SQLite creates a new file; PostgreSQL requires an explicitly provisioned empty database through restoreConnectionEnvironmentVariable. Existing homes and nonempty destination databases are refused. If an external restore commits but reconciliation or publication fails, retainedStagingHome identifies protected operator recovery state. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
 
 Streaming commits are batched by a configured size threshold or timer. Schema-6 events carry `textOffset` in UTF-16 code units; reconcile older events from a message snapshot. Finalization flushes pending fragments before its terminal event. Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
 
@@ -15,6 +15,10 @@ Streaming commits are batched by a configured size threshold or timer. Schema-6 
 Check readiness without authentication. Public local endpoint. Read permission required.
 
 Success: **200**, response: `HealthResponse`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| challenge | query | false | Optional fresh random 32-byte hex nonce. The listener returns homeProof bound to this challenge, actual port and private local-home key. This is local process attestation, not user authentication. |
 
 ## POST /v1.0/api/auth/pair
 
@@ -547,7 +551,10 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | state | string | Queued, running, completed or failed. |
 | errorCode | string | Safe failure code, without exception details or credentials. |
 | targetHome | string | Explicit new-home restore destination, otherwise empty. |
-| port | integer | Configured restored listener port. |
+| targetProvider | string | Restore destination provider, otherwise empty. |
+| targetConnectionEnvironmentVariable | string | Nonsecret PostgreSQL destination environment reference, otherwise empty. |
+| retainedStagingHome | string | Protected staging home retained after an externally committed database could not be reconciled or published. Requires explicit operator recovery. |
+| port | integer | Requested listener port, or the effective port after successful restoration. Zero initially preserves the archive setting. |
 | missingReferences | array | Credential names missing during restore. |
 | createdUtc | string | UTC acceptance time. |
 | updatedUtc | string | UTC last status change. |
@@ -576,7 +583,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### BackupRequest
 
-Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. Controlled restore currently targets a fresh SQLite home.
+Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port/restoreDatabaseType/restoreConnectionEnvironmentVariable. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. SQLite creates a new database file; PostgreSQL requires an empty pre-provisioned destination configured through a service-machine environment reference.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -584,6 +591,8 @@ Create accepts name/includeSecrets/password. Verify accepts password. Restore ac
 | includeSecrets | boolean | Include local encryption keys and literal database configuration. Requires a passphrase. |
 | password | string | Optional encryption passphrase. A nonempty value requires at least twelve characters and at most 1024 UTF-8 bytes; never persisted in job metadata. |
 | destinationName | string | Required for restore. New child directory beneath the service home restores directory. |
+| restoreDatabaseType | DatabaseTypeEnum | Destination provider for a new recovered home. SQLite is the default; PostgreSQL requires an empty pre-provisioned database. |
+| restoreConnectionEnvironmentVariable | string | Environment reference on the service machine containing the PostgreSQL destination connection string. Never send its secret value. |
 | port | integer | Listener port for a new recovered home. Zero preserves the archived setting. |
 
 ### CapturedHeader
@@ -696,6 +705,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 | Field | Type | Meaning |
 | --- | --- | --- |
+| homeId | string | Opaque path-bound application-home routing identifier. Not an authentication credential. |
+| homeProof | string | HMAC-SHA256 process proof bound to an optional random challenge, listener port and home. Empty when no challenge was requested. |
 | status | string | Readiness state. |
 | schema | integer | Current database schema version, independent of product version. |
 | protocol | integer | HTTP attachment protocol version, separate from schema and product versions. |

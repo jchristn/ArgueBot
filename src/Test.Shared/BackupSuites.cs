@@ -220,12 +220,12 @@ namespace Test.Shared
                 {
                     BackupRecord record = JsonSerializer.Deserialize<BackupRecord>(line)!;
                     if (record.Kind == "header") record.SchemaVersion = 4;
-                    if (record.Kind == "table" && (record.Table == "users" || record.Table == "events"))
+                    if (record.Kind == "table")
                     {
-                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset").Select(column => column.Value).OrderByDescending(index => index).ToList();
+                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset" || column.Key == "target_provider" || column.Key == "target_connection_env" || column.Key == "retained_staging_home").Select(column => column.Value).OrderByDescending(index => index).ToList();
                         foreach (int index in removed) record.Columns.RemoveAt(index);
                     }
-                    if (record.Kind == "row" && (record.Table == "users" || record.Table == "events")) foreach (int index in removed) record.Values.RemoveAt(index);
+                    if (record.Kind == "row") foreach (int index in removed) record.Values.RemoveAt(index);
                     if (record.Kind == "row" && record.Table == "schema_migrations" && int.Parse(record.Values[0]!, System.Globalization.CultureInfo.InvariantCulture) >= 5) continue;
                     if (record.Kind == "row") rows++;
                     if (record.Kind == "footer") { record.TotalRows = rows; record.Digest = Convert.ToHexString(hash.GetHashAndReset()); }

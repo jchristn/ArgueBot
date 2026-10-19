@@ -5,7 +5,9 @@ namespace Test.Shared
     using System.IO;
     using System.Net.Http;
     using System.Security.AccessControl;
+    using System.Security.Cryptography;
     using System.Security.Principal;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
@@ -22,11 +24,69 @@ namespace Test.Shared
             get
             {
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Configuration", "Safe configuration", new List<TestCaseDescriptor> {
+                new TestCaseDescriptor("Configuration", "SessionCache", "CLI session reuse validates local proofs before sending cached credentials", SessionCacheAsync),
+                new TestCaseDescriptor("Configuration", "HomeBinding", "Local routing identities are atomic, path-bound and read-only when absent", HomeBindingAsync),
                 new TestCaseDescriptor("Configuration", "Permissions", "Application directories and exported files restrict access to the current owner", PermissionsAsync),
                 new TestCaseDescriptor("Configuration", "Settings", "Invalid saves preserve the last configuration; unknown file fields fail visibly", SettingsAsync),
                 new TestCaseDescriptor("Configuration", "ClientOrigin", "Authenticated client refuses unsafe origins and absolute request URLs", ClientOriginAsync)
             }) };
             }
+        }
+        private static async Task SessionCacheAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-cache-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(home); string binding = LocalHomeIdentity.Ensure(paths);
+                string cache = Path.Combine(home, "runtime", "cli-session.json");
+                await File.WriteAllTextAsync(cache, JsonSerializer.Serialize(new { formatVersion = 1, endpoint = "http://127.0.0.1:4567/", homeId = binding, token = "fixture-cli-session" }), token).ConfigureAwait(false);
+                foreach (bool valid in new[] { false, true })
+                {
+                    LocalProofHandler handler = new LocalProofHandler(paths, valid);
+                    using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4567", handler))
+                    {
+                        client.SetToken("fixture-preexisting-header"); bool rejected = false;
+                        try { await client.PairLocalCachedAsync(home, token).ConfigureAwait(false); }
+                        catch (InvalidOperationException) when (!valid) { rejected = true; }
+                        if (handler.CredentialBeforeProof || handler.PairRequests != 0 || (valid ? handler.MeRequests != 1 : !rejected || handler.MeRequests != 0)) throw new InvalidDataException("A listener with no valid home proof received a credential, or a valid cache unnecessarily enrolled again.");
+                    }
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
+        private static async Task HomeBindingAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-binding-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(Path.Combine(home, "source"));
+                if (LocalHomeIdentity.Read(paths) != null || Directory.Exists(home)) throw new InvalidDataException("Read-only identity lookup created a home.");
+                Task<string>[] clients = new Task<string>[8];
+                for (int index = 0; index < clients.Length; index++) clients[index] = Task.Run(() => LocalHomeIdentity.Ensure(paths), token);
+                string[] bindings = await Task.WhenAll(clients).ConfigureAwait(false);
+                for (int round = 0; round < 4; round++)
+                {
+                    ArgueBotPaths raced = new ArgueBotPaths(Path.Combine(home, "race-" + round));
+                    Task<string>[] concurrent = new Task<string>[8];
+                    for (int index = 0; index < concurrent.Length; index++) concurrent[index] = Task.Run(() => LocalHomeIdentity.Ensure(raced), token);
+                    string[] identities = await Task.WhenAll(concurrent).ConfigureAwait(false);
+                    foreach (string identity in identities) if (identity != identities[0]) throw new InvalidDataException("Concurrent creation replaced an already published private home key.");
+                }
+                foreach (string binding in bindings) if (binding != bindings[0] || binding.Length != 64) throw new InvalidDataException("Concurrent local clients did not share a complete routing identity.");
+                if (LocalHomeIdentity.Read(new ArgueBotPaths(paths.Home + Path.DirectorySeparatorChar)) != bindings[0]) throw new InvalidDataException("A trailing home separator changed routing identity.");
+                ArgueBotPaths copied = new ArgueBotPaths(Path.Combine(home, "copied")); copied.EnsureDirectories();
+                File.Copy(Path.Combine(paths.Home, "runtime", "home-identity"), Path.Combine(copied.Home, "runtime", "home-identity"));
+                if (LocalHomeIdentity.Read(copied) == bindings[0]) throw new InvalidDataException("A copied home retained another path's routing identity.");
+                string challenge = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+                string proof = LocalHomeIdentity.CreateProof(paths, 4567, challenge);
+                if (!LocalHomeIdentity.VerifyProof(paths, 4567, challenge, proof) || LocalHomeIdentity.VerifyProof(paths, 4568, challenge, proof) || LocalHomeIdentity.VerifyProof(copied, 4567, challenge, proof) || LocalHomeIdentity.VerifyProof(paths, 4567, Convert.ToHexString(RandomNumberGenerator.GetBytes(32)), proof)) throw new InvalidDataException("Local process proofs did not bind the private home key, actual listener port and fresh challenge.");
+                await File.WriteAllTextAsync(Path.Combine(copied.Home, "runtime", "recovery-incomplete"), "fixture incomplete recovery", token).ConfigureAwait(false);
+                bool stopped = false;
+                try { await LocalServiceConnector.ConnectAsync(copied.Home, token: token).ConfigureAwait(false); }
+                catch (InvalidOperationException exception) when (exception.Message.Contains("operator review", StringComparison.Ordinal)) { stopped = true; }
+                if (!stopped) throw new InvalidDataException("An incomplete recovery home could auto-start.");
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task PermissionsAsync(CancellationToken token)
         {

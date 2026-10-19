@@ -1,6 +1,6 @@
 # Replacement runtime development
 
-The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, provider backup/restore, full dashboard/TUI parity, packaging and acceptance gates remain open in IMPROVEMENTS.md.
+The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, remaining recovery/import/retention flows, full dashboard/TUI parity, packaging and acceptance gates remain open in IMPROVEMENTS.md.
 
 NuGet.Config uses a repository-local ignored package cache and maps packages to nuget.org. Locked hashes are verified against published packages, avoiding same-version private builds in a machine-wide cache.
 
@@ -55,3 +55,7 @@ Streaming persistence batches at 4096 UTF-16 characters or a 250 ms timer by def
 Set `ARGUEBOT_TUI_EVIDENCE_DIR` to an isolated artifact directory to save scrubbed headless terminal frames. Runtime CI saves these beside its test results. The form host reserves scrollbar space and derives layout extent without allocating a large dummy cell buffer; tests tab through long participant forms to their action buttons. UI dispatch waits cancel when the TUI detaches.
 
 After a Release solution build, `node scripts/test-cli-surfaces.mjs` starts an isolated SQLite service and checks console participant create/update/list/delete plus archive create/status/list/download/verify/delete and persisted operation browsing. Its fictional executable is never run. The script stops its service and removes only its own temporary home; all three runtime CI jobs run it.
+
+Complete archives now restore between SQLite and PostgreSQL. The shared PostgreSQL case creates and drops only its own generated fixture database, verifies nonempty-target refusal and injects a final-publication failure to verify retained staging. Integration CI also runs the real CLI/HTTP flow against a separate empty fixture database. The optional ARGUEBOT_TEST_CLI_POSTGRESQL_REFERENCE hook in the CLI smoke accepts only a declared loopback arguebot_ fixture database.
+
+Local auto-attachment checks an opaque path-bound home identity and a fresh HMAC process proof before user credentials are sent. The proof includes the actual listener port to prevent replay/proxying from a differently configured port. CLI commands share runtime/cli-session.json under owner permissions and an exclusive refresh lock; every invocation revalidates the current principal, and expired/revoked sessions enroll again. TUI/browser sessions remain separate. This local process proof is not a user login scheme, remote identity federation or a substitute for hosted TLS.

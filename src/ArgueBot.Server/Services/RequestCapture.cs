@@ -78,7 +78,7 @@ namespace ArgueBot.Server.Services
         }
         private static void Headers(RequestHistoryEntry entry, NameValueCollection headers, bool response)
         {
-            foreach (string? key in headers.AllKeys) if (key != null) entry.Headers.Add(new CapturedHeader { Name = key, Value = CaptureRedactor.Sensitive(key) ? "[redacted]" : (headers[key] ?? ""), Response = response });
+            foreach (string? key in headers.AllKeys) if (key != null) entry.Headers.Add(new CapturedHeader { Name = key, Value = CaptureRedactor.Sensitive(key) ? "[redacted]" : (CaptureRedactor.Text(headers[key]) ?? ""), Response = response });
         }
     }
 }

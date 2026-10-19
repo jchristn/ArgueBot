@@ -1,7 +1,7 @@
 namespace ArgueBot.Core.Backups
 {
-    using System.Collections.Generic;
     using System;
+    using System.Collections.Generic;
 
     /// <summary>Controlled recovery result, without secret values or automatic execution.</summary>
     public sealed class RecoveryRestoreResult
@@ -14,6 +14,8 @@ namespace ArgueBot.Core.Backups
         public string Home { get { return _Home; } set { ArgumentNullException.ThrowIfNull(value); _Home = value; } }
         /// <summary>Destination storage provider.</summary>
         public string Provider { get { return _Provider; } set { ArgumentNullException.ThrowIfNull(value); _Provider = value; } }
+        /// <summary>Configured listener port in the published home. Recovery never starts the listener.</summary>
+        public int Port { get; set; }
         /// <summary>Restored sessions were invalidated before the home became available.</summary>
         public bool SessionsRevoked { get; set; }
         /// <summary>Whether historical key material was explicitly included.</summary>

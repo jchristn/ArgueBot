@@ -1,7 +1,7 @@
 namespace ArgueBot.Core.Models
 {
-    using System.Collections.Generic;
     using System;
+    using System.Collections.Generic;
 
     /// <summary>Durable lifecycle of an administrator's recovery operation, without passphrases.</summary>
     public sealed class BackupOperation
@@ -11,6 +11,9 @@ namespace ArgueBot.Core.Models
         private string _Kind = "";
         private string _State = "";
         private string _ErrorCode = "";
+        private string _TargetProvider = "";
+        private string _TargetConnectionEnvironmentVariable = "";
+        private string _RetainedStagingHome = "";
         private string _TargetHome = "";
         private List<string> _MissingReferences = new List<string>();
 
@@ -26,7 +29,13 @@ namespace ArgueBot.Core.Models
         public string ErrorCode { get { return _ErrorCode; } set { ArgumentNullException.ThrowIfNull(value); _ErrorCode = value; } }
         /// <summary>Explicit new-home restore destination, otherwise empty.</summary>
         public string TargetHome { get { return _TargetHome; } set { ArgumentNullException.ThrowIfNull(value); _TargetHome = value; } }
-        /// <summary>Configured restored listener port.</summary>
+        /// <summary>Restore destination provider, otherwise empty.</summary>
+        public string TargetProvider { get { return _TargetProvider; } set { ArgumentNullException.ThrowIfNull(value); _TargetProvider = value; } }
+        /// <summary>Nonsecret PostgreSQL destination environment reference, otherwise empty.</summary>
+        public string TargetConnectionEnvironmentVariable { get { return _TargetConnectionEnvironmentVariable; } set { ArgumentNullException.ThrowIfNull(value); _TargetConnectionEnvironmentVariable = value; } }
+        /// <summary>Protected staging home retained after an externally committed database could not be reconciled or published. Requires explicit operator recovery.</summary>
+        public string RetainedStagingHome { get { return _RetainedStagingHome; } set { ArgumentNullException.ThrowIfNull(value); _RetainedStagingHome = value; } }
+        /// <summary>Requested listener port, or the effective port after successful restoration. Zero initially preserves the archive setting.</summary>
         public int Port { get; set; }
         /// <summary>Credential names missing during restore.</summary>
         public List<string> MissingReferences { get { return _MissingReferences; } set { ArgumentNullException.ThrowIfNull(value); _MissingReferences = value; } }

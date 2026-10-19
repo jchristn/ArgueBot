@@ -57,7 +57,12 @@ namespace ArgueBot.Core.Database
         }
 
         /// <summary>Initialize idempotently and reconcile interrupted generations. Never downgrade a future schema.</summary>
-        public async Task InitializeAsync(CancellationToken token = default)
+        public Task InitializeAsync(CancellationToken token = default) { return InitializeCoreAsync(false, token); }
+
+        /// <summary>Initialize only an empty destination database after acquiring its exclusive owner. Refuses all existing user tables before any schema mutation; intended for isolated recovery.</summary>
+        public Task InitializeEmptyAsync(CancellationToken token = default) { return InitializeCoreAsync(true, token); }
+
+        private async Task InitializeCoreAsync(bool requireEmpty, CancellationToken token)
         {
             await _Writer.WaitAsync(token).ConfigureAwait(false);
             try
@@ -70,6 +75,11 @@ namespace ArgueBot.Core.Database
                 using (WriterConnectionLease lease = await OpenWriterAsync(token).ConfigureAwait(false))
                 {
                     DbConnection connection = lease.Connection;
+                    if (requireEmpty)
+                    {
+                        long tables = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", token).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                        if (tables != 0) throw new DomainException(409, "restore_target_not_empty", "Recovery requires an empty destination database. Choose a newly provisioned database.");
+                    }
                     await ExecuteAsync(connection, null, "PRAGMA journal_mode=WAL;", token).ConfigureAwait(false);
                     long version = 0;
                     object? exists = await ScalarAsync(connection, null, "SELECT name FROM sqlite_master WHERE name='schema_migrations'", token).ConfigureAwait(false);

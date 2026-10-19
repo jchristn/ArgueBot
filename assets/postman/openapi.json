@@ -24,7 +24,20 @@
         ],
         "summary": "Check readiness without authentication",
         "description": "Public local endpoint. Read permission required.",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "challenge",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Fa-f0-9]{64}$",
+              "minLength": 64,
+              "maxLength": 64
+            },
+            "description": "Optional fresh random 32-byte hex nonce. The listener returns homeProof bound to this challenge, actual port and private local-home key. This is local process attestation, not user authentication."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful check readiness without authentication",
@@ -4605,10 +4618,22 @@
             "type": "string",
             "description": "Explicit new-home restore destination, otherwise empty."
           },
+          "targetProvider": {
+            "type": "string",
+            "description": "Restore destination provider, otherwise empty."
+          },
+          "targetConnectionEnvironmentVariable": {
+            "type": "string",
+            "description": "Nonsecret PostgreSQL destination environment reference, otherwise empty."
+          },
+          "retainedStagingHome": {
+            "type": "string",
+            "description": "Protected staging home retained after an externally committed database could not be reconciled or published. Requires explicit operator recovery."
+          },
           "port": {
             "type": "integer",
             "format": "int32",
-            "description": "Configured restored listener port."
+            "description": "Requested listener port, or the effective port after successful restoration. Zero initially preserves the archive setting."
           },
           "missingReferences": {
             "type": "array",
@@ -4706,13 +4731,21 @@
             "description": "Required for restore. New child directory beneath the service home restores directory.",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
           },
+          "restoreDatabaseType": {
+            "$ref": "#/components/schemas/DatabaseTypeEnum",
+            "description": "Destination provider for a new recovered home. SQLite is the default; PostgreSQL requires an empty pre-provisioned database."
+          },
+          "restoreConnectionEnvironmentVariable": {
+            "type": "string",
+            "description": "Environment reference on the service machine containing the PostgreSQL destination connection string. Never send its secret value."
+          },
           "port": {
             "type": "integer",
             "format": "int32",
             "description": "Listener port for a new recovered home. Zero preserves the archived setting."
           }
         },
-        "description": "Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. Controlled restore currently targets a fresh SQLite home."
+        "description": "Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port/restoreDatabaseType/restoreConnectionEnvironmentVariable. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. SQLite creates a new database file; PostgreSQL requires an empty pre-provisioned destination configured through a service-machine environment reference."
       },
       "CapturedHeader": {
         "type": "object",
@@ -4997,6 +5030,14 @@
       "HealthResponse": {
         "type": "object",
         "properties": {
+          "homeId": {
+            "type": "string",
+            "description": "Opaque path-bound application-home routing identifier. Not an authentication credential."
+          },
+          "homeProof": {
+            "type": "string",
+            "description": "HMAC-SHA256 process proof bound to an optional random challenge, listener port and home. Empty when no challenge was requested."
+          },
           "status": {
             "type": "string",
             "description": "Readiness state."
@@ -5011,7 +5052,13 @@
             "format": "int32",
             "description": "HTTP attachment protocol version, separate from schema and product versions."
           }
-        }
+        },
+        "required": [
+          "status",
+          "schema",
+          "protocol",
+          "homeId"
+        ]
       },
       "HistoryPage": {
         "type": "object",
