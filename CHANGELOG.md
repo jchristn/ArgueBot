@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Schema 12 stores protected built-in roles, tenant permissions, mappings and scoped user assignments. Current-user resolution enforces activity, name fallback, exact scope and deny precedence. Management endpoints and route enforcement remain in progress.
+
 - Schema 11 replaces stored password equivalents with salted PBKDF2-HMAC-SHA256 verifiers. Existing accounts and sessions migrate without password changes; stored verifiers cannot be replayed as login input.
 
 - Scoped authorization evaluator and shared truth-table coverage for explicit deny, inheritance, ownership narrowing, administrator bypass and credential owner ceilings. Stored role management and endpoint integration remain in progress.

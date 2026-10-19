@@ -394,7 +394,7 @@ Replacement backup and restore workflows, including current limitations, are doc
 
 The replacement service supports configurable event replay retention without deleting transcript history. Expired event cursors require a snapshot refresh; the dashboard recovers automatically and the native client exposes typed stream errors. See [execution and recovery](docs/EXECUTION.md) and [operations](docs/OPERATIONS.md).
 
-Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. See [identity behavior and remaining security gates](docs/IDENTITY.md).
+Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. Passwords use salted PBKDF2 storage verifiers. Stored scoped-role foundations are available internally; management and enforcement integration remain in progress. See [identity behavior](docs/IDENTITY.md) and [authorization status](docs/AUTHORIZATION.md).
 
 Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Password exchange requires HTTPS. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. TLS certificate keys follow encrypted opt-in recovery rules. Hosted ingress and runner isolation remain open.
 

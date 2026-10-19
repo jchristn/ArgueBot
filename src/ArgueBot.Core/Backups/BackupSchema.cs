@@ -31,7 +31,7 @@ namespace ArgueBot.Core.Backups
             return columns;
         }
         internal static int IntroducedVersion(string table)
-        { return table == "generation_attempts" || table == "attempt_context" ? 9 : table.StartsWith("backup_", StringComparison.Ordinal) ? 4 : table.StartsWith("request_history", StringComparison.Ordinal) ? 3 : 1; }
+        { return table.StartsWith("authorization_", StringComparison.Ordinal) ? 12 : table == "generation_attempts" || table == "attempt_context" ? 9 : table.StartsWith("backup_", StringComparison.Ordinal) ? 4 : table.StartsWith("request_history", StringComparison.Ordinal) ? 3 : 1; }
         internal static string Normalize(string table, string column)
         { return (table == "messages" || table == "events") && column == "sequence" ? "sequence_number" : column; }
     }

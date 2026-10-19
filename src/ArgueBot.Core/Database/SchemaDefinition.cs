@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS request_history(id TEXT PRIMARY KEY, tenant_id TEXT, 
 CREATE INDEX IF NOT EXISTS ix_request_history_time ON request_history(tenant_id,user_id,created_utc,id);
 CREATE TABLE IF NOT EXISTS request_history_headers(id TEXT PRIMARY KEY, tenant_id TEXT, history_id TEXT NOT NULL REFERENCES request_history(id) ON DELETE CASCADE, name TEXT NOT NULL, value TEXT NOT NULL, response INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
 """;
-        internal static readonly string Create = """
+        private const string Initial = """
 CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', password_sha256 TEXT NOT NULL DEFAULT '', password_salt TEXT NOT NULL DEFAULT '', password_iterations INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 1, role TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, is_tenant_admin INTEGER NOT NULL DEFAULT 0, protected INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(tenant_id,id));
@@ -49,5 +49,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ix_attempts_active_run ON generation_attempts(
 CREATE TABLE IF NOT EXISTS attempt_context(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, attempt_id TEXT NOT NULL, message_id TEXT NOT NULL, position INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(attempt_id,position), UNIQUE(attempt_id,message_id), FOREIGN KEY(tenant_id,attempt_id) REFERENCES generation_attempts(tenant_id,id) ON DELETE CASCADE, FOREIGN KEY(tenant_id,message_id) REFERENCES messages(tenant_id,id) ON DELETE CASCADE);
 
 """;
+        internal static readonly string Create = Initial + AuthorizationSchema.Create;
     }
 }

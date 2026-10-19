@@ -40,7 +40,7 @@ namespace Test.Shared
                     await connection.OpenAsync(token).ConfigureAwait(false);
                     using (SqliteCommand command = connection.CreateCommand())
                     {
-                        command.CommandText = "UPDATE users SET password_sha256=@equivalent WHERE tenant_id='ten_local' AND email IN ('first@example.invalid','second@example.invalid'); ALTER TABLE users DROP COLUMN password_salt; ALTER TABLE users DROP COLUMN password_iterations; DELETE FROM schema_migrations WHERE version=11;";
+                        command.CommandText = "UPDATE users SET password_sha256=@equivalent WHERE tenant_id='ten_local' AND email IN ('first@example.invalid','second@example.invalid'); ALTER TABLE users DROP COLUMN password_salt; ALTER TABLE users DROP COLUMN password_iterations; DROP TABLE authorization_user_assignments; DROP TABLE authorization_role_permissions; DROP TABLE authorization_permissions; DROP TABLE authorization_roles; DELETE FROM schema_migrations WHERE version>=11;";
                         command.Parameters.AddWithValue("@equivalent", equivalent); await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
                     }
                 }

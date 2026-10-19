@@ -220,7 +220,7 @@ namespace Test.Shared
                 foreach (string line in await File.ReadAllLinesAsync(source, token).ConfigureAwait(false))
                 {
                     BackupRecord record = JsonSerializer.Deserialize<BackupRecord>(line)!;
-                    if (record.Table == "generation_attempts" || record.Table == "attempt_context") continue;
+                    if (record.Table.StartsWith("authorization_", StringComparison.Ordinal) || record.Table == "generation_attempts" || record.Table == "attempt_context") continue;
                     if (record.Kind == "header") record.SchemaVersion = 4;
                     if (record.Kind == "table")
                     {

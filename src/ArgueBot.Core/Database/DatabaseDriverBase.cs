@@ -37,6 +37,8 @@ namespace ArgueBot.Core.Database
         public IProfileMethods Profiles { get; }
         /// <summary>Tenant-scoped identity administration.</summary>
         public IUserMethods Users { get; }
+        /// <summary>Current stored scoped user permissions.</summary>
+        public AuthorizationMethods Authorization { get; }
         /// <summary>Execution checkpoint methods.</summary>
         public IRunMethods Runs { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -58,6 +60,7 @@ namespace ArgueBot.Core.Database
             _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
             Users = new UserMethods(this);
+            Authorization = new AuthorizationMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
             Backups = new BackupMethods(this);
@@ -139,6 +142,7 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
+                        await AuthorizationSeeder.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }
