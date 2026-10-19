@@ -17,3 +17,4 @@
 - Stream commits now batch by size and timer, flush before finalization, preserve split Unicode surrogate pairs, and record committed text offsets. Countdown/typing holds use injectable monotonic time.
 - TUI participant forms now create, edit and delete reusable CLI/REST configurations, preserve ordered empty arguments and keep drafts visible after service save errors.
 - Recovery now includes paginated durable-job browsing in web/console/TUI, masked terminal recovery forms, and headless frame evidence in runtime CI. Console participant update/delete commands complement the existing create/list commands.
+- Windows background service launches restrict inherited handles to the null device, preventing service lifetime from retaining client capture pipes. Cross-platform CLI smoke now uses a home with spaces and Unicode.

@@ -47,9 +47,9 @@ namespace ArgueBot.Client
                 start.ArgumentList.Add("--home"); start.ArgumentList.Add(paths.Home); start.ArgumentList.Add("--detached");
                 start.UseShellExecute = false; start.CreateNoWindow = true;
                 start.RedirectStandardInput = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
-                using (Process process = Process.Start(start) ?? throw new IOException("The local service process could not start."))
+                using (Process process = OperatingSystem.IsWindows() ? WindowsServiceLauncher.Start(start) : Process.Start(start) ?? throw new IOException("The local service process could not start."))
                 {
-                    process.StandardInput.Close();
+                    if (!OperatingSystem.IsWindows()) process.StandardInput.Close();
                     DateTime deadline = DateTime.UtcNow.AddSeconds(20);
                     while (DateTime.UtcNow < deadline)
                     {

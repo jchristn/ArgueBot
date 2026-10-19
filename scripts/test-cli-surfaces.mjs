@@ -8,7 +8,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const cli = path.join(root, 'src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll');
 await fs.access(cli);
 await fs.mkdir(path.join(root, '.run'), {recursive:true});
-const home = await fs.mkdtemp(path.join(root, '.run/cli-surfaces-'));
+const home = await fs.mkdtemp(path.join(root, '.run/cli surfaces 議論-'));
 await fs.chmod(home, 0o700);
 const listener = net.createServer();
 await new Promise((resolve, reject) => listener.once('error', reject).listen(0, '127.0.0.1', resolve));
@@ -18,7 +18,7 @@ await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port}), {mo
 let started = false;
 let checks = 0;
 function command(words, body) {
-  const result = spawnSync('dotnet', [cli, '--home', home, ...words], {cwd:root, input: body === undefined ? undefined : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`CLI ${words.slice(0,2).join(' ')} failed: ${result.stderr}`);
   return JSON.parse(result.stdout);
@@ -40,7 +40,7 @@ try {
   check(typeof profile.id==='string' && profile.id.length>0 && profile.id.length<=64, 'Participant creation did not return an identifier.');
   profile.name = 'Edited CLI fixture';
   const updated = command(['participants','update',profile.id,'-'], profile);
-  check(updated.name===profile.name && updated.arguments[0]==='', 'Participant update lost its name or empty argument.');
+  check(updated.name===profile.name && JSON.stringify(updated.arguments)===JSON.stringify(profile.arguments), 'Participant update lost its name or empty argument.');
   check(command(['participants','list']).some(item=>item.id===profile.id), 'Participant listing lost the edited profile.');
   command(['participants','delete',profile.id]);
   check(!command(['participants','list']).some(item=>item.id===profile.id), 'Participant deletion retained its reusable record.');
