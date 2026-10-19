@@ -389,3 +389,5 @@ When filing a bug, include:
 ## License
 
 [MIT](LICENSE.md) -- see [LICENSE.md](LICENSE.md) for details.
+
+Replacement backup and restore workflows, including current limitations, are documented in [docs/RECOVERY.md](docs/RECOVERY.md).

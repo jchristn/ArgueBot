@@ -690,4 +690,6 @@ Use this table for benchmark or acceptance findings as implementation proceeds. 
 
 ### Where implementation departs from this plan
 
-No implementation departures are recorded yet. Add dated entries here when decisions change, naming the requirement, reason, replacement behavior, tests/docs affected, and user decision where required. Keep unresolved compliance gaps visible through release acceptance rather than marking their work packages complete.
+October 19, 2026: the user explicitly narrowed database support to SQLite and PostgreSQL; see ADR 0003. Complete-service recovery metadata is a protected global resource because its archives span tenants; see ADR 0004. Controlled full-bundle restore currently publishes new SQLite homes, while direct PostgreSQL bundle restore remains required and open. This is an implementation sequencing limit, not a removed acceptance criterion.
+
+Recovery evidence: 22 shared descriptors pass locally with PostgreSQL, CLI process fixtures and PolyPrompt transport enabled, with zero skips. Ten browser journeys pass, including encrypted archive creation, verification, authenticated download and deletion. Complete-home recovery tests exercise session revocation, key rotation, corruption, traversal, quota, wrong passphrases and transaction rollback. Schema migration 4 records artifact inventory and durable administrative jobs; encrypted bundles embed the locked dependency inventory. These slices do not complete P1, P4, P5, P6 or release acceptance.

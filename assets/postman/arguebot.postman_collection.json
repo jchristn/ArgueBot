@@ -48,6 +48,14 @@
       "value": ""
     },
     {
+      "key": "backupId",
+      "value": ""
+    },
+    {
+      "key": "operationId",
+      "value": ""
+    },
+    {
       "key": "settingsRevision",
       "value": ""
     },
@@ -1093,6 +1101,313 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Backups",
+      "description": "Lifecycle operations for backups. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List global recovery artifacts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups",
+            "description": "Requires an active bearer session. Read permission required. List global recovery artifacts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create complete recovery archive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Create complete recovery archive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example recovery\",\n  \"includeSecrets\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
+                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
+                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read recovery artifact",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}",
+            "description": "Requires an active bearer session. Read permission required. Read recovery artifact"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify a recovery archive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/verify",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Verify a recovery archive",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
+                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
+                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore into a new isolated home",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/restore",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Restore into a new isolated home",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destinationName\": \"recovered-example\",\n  \"port\": 4537\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
+                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
+                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download a recovery archive",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/download",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Read permission required. Download a recovery archive"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete an idle recovery archive",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Delete an idle recovery archive"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read recovery operation status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/backup-operations/{{operationId}}",
+            "description": "Requires an active bearer session. Read permission required. Read recovery operation status"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('operationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
                 ]
               }
             }

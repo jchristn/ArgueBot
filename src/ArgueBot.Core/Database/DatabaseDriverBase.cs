@@ -1,6 +1,5 @@
 namespace ArgueBot.Core.Database
 {
-    using System;
     using System.Collections.Generic;
     using System.Data.Common;
     using System.Diagnostics;
@@ -9,8 +8,9 @@ namespace ArgueBot.Core.Database
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
@@ -33,6 +33,10 @@ namespace ArgueBot.Core.Database
         public IRunMethods Runs { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
         public IHistoryMethods History { get; }
+        /// <summary>Global administrator recovery inventory and operation lifecycle.</summary>
+        public IBackupMethods Backups { get; }
+        /// <summary>Effective running storage provider.</summary>
+        public DatabaseTypeEnum ProviderType { get { return _Settings.Type; } }
 
 
         /// <summary>Create a driver. Initialization must run before any other operation.</summary>
@@ -43,6 +47,7 @@ namespace ArgueBot.Core.Database
             Profiles = new ProfileMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
+            Backups = new BackupMethods(this);
         }
 
         /// <summary>Initialize idempotently and reconcile interrupted generations. Never downgrade a future schema.</summary>
@@ -301,6 +306,16 @@ namespace ArgueBot.Core.Database
                 await WriteAsync((connection, transaction) => LogicalSnapshot.RestoreAsync(connection, transaction, stable, token), token).ConfigureAwait(false);
             }
             finally { Directory.Delete(temporary, true); }
+        }
+
+        /// <summary>Invalidate restored sessions before publishing an offline recovery home. The caller must hold exclusive maintenance ownership.</summary>
+        public Task RevokeRestoredSessionsAsync(CancellationToken token = default)
+        {
+            return WriteAsync(async (connection, transaction) =>
+            {
+                await ExecuteAsync(connection, transaction, "UPDATE backup_records SET status='unavailable',updated_utc=@now; UPDATE backup_operations SET state='failed',error_code='recovery_interrupted',updated_utc=@now WHERE state IN ('queued','running'); UPDATE auth_sessions SET active=0,updated_utc=@now WHERE active=1", token).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO audit_events(id,operation,outcome,created_utc,updated_utc) VALUES(@id,'recovery_sessions','revoked',@now,@now)", token, P("id", Ids.New("aud_"))).ConfigureAwait(false);
+            }, token);
         }
 
         /// <summary>Reject unauthenticated or read-only mutation requests.</summary>

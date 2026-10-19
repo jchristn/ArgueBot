@@ -6,6 +6,8 @@ Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pa
 
 List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
+Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new SQLite home beneath the service home, never overwrites live data and leaves the recovered service stopped. Full PostgreSQL bundle destinations remain under implementation. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
+
 Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
 
 ## GET /health
@@ -370,6 +372,108 @@ Representative request:
 {}
 ```
 
+## GET /v1.0/api/backups
+
+List global recovery artifacts. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `BackupPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## POST /v1.0/api/backups
+
+Create complete recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Example recovery",
+  "includeSecrets": false
+}
+```
+
+## GET /v1.0/api/backups/{backupId}
+
+Read recovery artifact. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `BackupEntry`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | path | true | Identifier in the authenticated ownership scope. |
+
+## POST /v1.0/api/backups/{backupId}/verify
+
+Verify a recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{}
+```
+
+## POST /v1.0/api/backups/{backupId}/restore
+
+Restore into a new isolated home. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "destinationName": "recovered-example",
+  "port": 4537
+}
+```
+
+## GET /v1.0/api/backups/{backupId}/download
+
+Download a recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Read permission required.
+
+Success: **200**, response: `BinaryArchive`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | path | true | Identifier in the authenticated ownership scope. |
+
+## DELETE /v1.0/api/backups/{backupId}
+
+Delete an idle recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **200**, response: `DeletionResponse`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| backupId | path | true | Identifier in the authenticated ownership scope. |
+
+## GET /v1.0/api/backup-operations/{operationId}
+
+Read recovery operation status. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `BackupOperation`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| operationId | path | true | Identifier in the authenticated ownership scope. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -401,6 +505,63 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | code | string | Stable error code. |
 | message | string | Safe explanation. |
 | requestId | string | Correlation identifier. |
+
+### BackupEntry
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Opaque artifact identifier. |
+| name | string | Operator's display name. |
+| bytes | integer | Published archive size. |
+| encrypted | boolean | Whether the archive is passphrase encrypted. |
+| includesSecrets | boolean | Whether explicitly requested key material is included. |
+| schemaVersion | integer | Captured schema version. |
+| provider | string | Source storage provider. |
+| digest | string | Published archive SHA-256. |
+| status | string | Creating, ready, failed or unavailable. |
+| createdUtc | string | UTC creation time. |
+
+### BackupOperation
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Opaque operation identifier. |
+| backupId | string | Associated artifact. |
+| kind | string | Create, verify or restore. |
+| state | string | Queued, running, completed or failed. |
+| errorCode | string | Safe failure code, without exception details or credentials. |
+| targetHome | string | Explicit new-home restore destination, otherwise empty. |
+| port | integer | Configured restored listener port. |
+| missingReferences | array | Credential names missing during restore. |
+| createdUtc | string | UTC acceptance time. |
+| updatedUtc | string | UTC last status change. |
+
+### BackupPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Matching items in stable newest-first order. |
+| totalCount | integer | Matching total independent of page size. |
+| pageNumber | integer | One-based page. |
+| pageSize | integer | Items per page. |
+
+### BackupRequest
+
+Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. Controlled restore currently targets a fresh SQLite home.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Display name for a newly created artifact, up to 200 characters. |
+| includeSecrets | boolean | Include local encryption keys and literal database configuration. Requires a passphrase. |
+| password | string | Optional encryption passphrase. A nonempty value requires at least twelve characters and at most 1024 UTF-8 bytes; never persisted in job metadata. |
+| destinationName | string | Required for restore. New child directory beneath the service home restores directory. |
+| port | integer | Listener port for a new recovered home. Zero preserves the archived setting. |
 
 ### CapturedHeader
 
@@ -515,20 +676,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | schema | integer | Current database schema version, independent of product version. |
 | protocol | integer | HTTP attachment protocol version, separate from schema and product versions. |
 
-### HistoryFilter
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| search | string | Path search. |
-| method | string | Optional HTTP method. |
-| status | integer (nullable) | Optional exact response status. |
-| fromUtc | string (nullable) | Optional start UTC. |
-| toUtc | string (nullable) | Optional end UTC. |
-| pageNumber | integer | One-based page. |
-| pageSize | integer | Page size, 1 to 100. |
-
 ### HistoryPage
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -539,18 +686,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page. |
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
-
-### LocalServiceDescriptor
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| endpoint | string | Local listener address. |
-| protocol | integer | Attachment protocol, independent of product and schema versions. |
-| instanceId | string | Process instance identifier used when removing stale metadata. |
-| processId | integer | Operating-system process ID for diagnostics, never a substitute for the ownership lock. |
-| startedUtc | string | Service startup time. |
 
 ### Message
 
@@ -657,16 +792,6 @@ CLI requires executable and uses ordered arguments plus stdin. REST requires end
 | maxOutputBytes | integer | Maximum captured output bytes. |
 | enabled | boolean | Whether new work can use this profile. |
 
-### ArgueBotPaths
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| home | string | Absolute application home. |
-| databaseFile | string | Default SQLite file. |
-| settingsFile | string | Service settings file. |
-
 ### ServiceSettings
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -701,16 +826,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | type | DatabaseTypeEnum | Default embedded provider. |
 | connectionString | string | SQLite path or server connection string without committed secrets. |
 | connectionEnvironmentVariable | string | Optional environment variable that overrides ConnectionString. |
-
-### SchemaMigration
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| version | integer | Monotonic database schema version, independent of product version. |
-| description | string | Human-readable upgrade purpose. |
-| statements | array | Ordered parameterized DDL statements. |
 
 ### PairRequest
 

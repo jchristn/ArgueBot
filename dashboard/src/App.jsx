@@ -18,6 +18,7 @@ const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
+const Backups = lazy(() => import("./views/Backups.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
 function Language() {
   const { t } = useTranslation();
@@ -130,6 +131,7 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
         ["history", "history.title", "chat"],
         ["explorer", "explorer.title", "grid"],
         ["settings", "nav.settings", "settings"],
+        ["backups", "backups.title", "download"],
       ],
     },
   ];
@@ -289,6 +291,7 @@ export default function App() {
               <Route path="/dashboard/history" element={<RequestHistory />} />
               <Route path="/dashboard/explorer" element={<ApiExplorer />} />
               <Route path="/dashboard/settings" element={<Settings />} />
+              <Route path="/dashboard/backups" element={<Backups />} />
               <Route
                 path="*"
                 element={<Navigate to="/dashboard/home" replace />}

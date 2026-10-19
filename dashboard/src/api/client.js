@@ -101,6 +101,43 @@ export class ApiClient {
       },
     );
   }
+  backups(filter = {}) {
+    return this.request("/v1.0/api/backups?" + new URLSearchParams(filter));
+  }
+  recoveryOperation(id) {
+    return this.request(
+      "/v1.0/api/backup-operations/" + encodeURIComponent(id),
+    );
+  }
+  recovery(kind, id, body) {
+    return this.request(
+      "/v1.0/api/backups" +
+        (kind === "create" ? "" : "/" + encodeURIComponent(id) + "/" + kind),
+      { method: "POST", body },
+    );
+  }
+  deleteBackup(id) {
+    return this.request("/v1.0/api/backups/" + encodeURIComponent(id), {
+      method: "DELETE",
+    });
+  }
+  async downloadBackup(id) {
+    const response = await fetch(
+      "/v1.0/api/backups/" + encodeURIComponent(id) + "/download",
+      { headers: { Authorization: "Bearer " + this.token } },
+    );
+    if (!response.ok)
+      throw new ApiError(
+        response.status,
+        await response.json().catch(() => ({})),
+      );
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = id + ".arguebak";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   participants() {
     return this.request("/v1.0/api/participants");
   }

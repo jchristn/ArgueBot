@@ -96,10 +96,12 @@ jobs:
             8.0.x
             10.0.401
       - run: dotnet restore src/ArgueBot.sln --locked-mode && dotnet build src/ArgueBot.sln -c Release --no-restore
+      - name: Locked dependency inventory drift
+        run: node scripts/generate-dependencies.mjs && git diff --exit-code -- assets/dependencies.json
       - name: Start the committed Postman runner fixture
         run: |
           mkdir -p .run test-results
-          PORT=4491 node postman/mocks/ollama/default.js >.run/runner-fixture.log 2>&1 &
+          PORT=4491 node --input-type=commonjs < postman/mocks/ollama/default.js >.run/runner-fixture.log 2>&1 &
           for attempt in $(seq 1 20); do
             if curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat; then break; fi
             sleep 1

@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Backups
 {
-    using System;
     using System.Collections.Generic;
-    using System.Data;
     using System.Data.Common;
+    using System.Data;
     using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
-    using System.Text;
     using System.Text.Json;
-    using System.Threading;
+    using System.Text;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
@@ -40,7 +40,7 @@ namespace ArgueBot.Core.Backups
                     long rows = 0;
                     foreach (string table in BackupSchema.Tables().Keys)
                     {
-                        if (version < 3 && (table == "request_history" || table == "request_history_headers")) continue;
+                        if (BackupSchema.IntroducedVersion(table) > version) continue;
                         using (DbCommand command = Command(connection, transaction, "SELECT * FROM " + table + " ORDER BY " + (table == "schema_migrations" ? "version" : "id")))
                         using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                         {
@@ -100,7 +100,7 @@ namespace ArgueBot.Core.Backups
                 }
                 else throw new InvalidDataException("Unexpected backup record.");
             }
-            IEnumerable<string> required = order.Where(name => version >= 3 || (name != "request_history" && name != "request_history_headers"));
+            IEnumerable<string> required = order.Where(name => BackupSchema.IntroducedVersion(name) <= version);
             if (!header || !footer || required.Any(name => !seen.Contains(name))) throw new InvalidDataException("Backup is missing required tables or records.");
         }
         internal static async Task RestoreAsync(DbConnection connection, DbTransaction transaction, string path, CancellationToken token)

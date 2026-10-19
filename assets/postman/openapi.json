@@ -3391,6 +3391,956 @@
           }
         }
       }
+    },
+    "/v1.0/api/backups": {
+      "get": {
+        "operationId": "get_v1_0_api_backups",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "List global recovery artifacts",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list global recovery artifacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_0_api_backups",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Create complete recovery archive",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Successful create complete recovery archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              },
+              "example": {
+                "name": "Example recovery",
+                "includeSecrets": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/backups/{backupId}": {
+      "get": {
+        "operationId": "get_v1_0_api_backups_backupId_",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Read recovery artifact",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read recovery artifact",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v1_0_api_backups_backupId_",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Delete an idle recovery archive",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful delete an idle recovery archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/backups/{backupId}/verify": {
+      "post": {
+        "operationId": "post_v1_0_api_backups_backupId_verify",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Verify a recovery archive",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful verify a recovery archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/backups/{backupId}/restore": {
+      "post": {
+        "operationId": "post_v1_0_api_backups_backupId_restore",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Restore into a new isolated home",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful restore into a new isolated home",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              },
+              "example": {
+                "destinationName": "recovered-example",
+                "port": 4537
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/backups/{backupId}/download": {
+      "get": {
+        "operationId": "get_v1_0_api_backups_backupId_download",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Download a recovery archive",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Read permission required.",
+        "parameters": [
+          {
+            "name": "backupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful download a recovery archive",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/backup-operations/{operationId}": {
+      "get": {
+        "operationId": "get_v1_0_api_backup_operations_operationId_",
+        "tags": [
+          "Backups"
+        ],
+        "summary": "Read recovery operation status",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read recovery operation status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3446,6 +4396,163 @@
             "description": "Correlation identifier."
           }
         }
+      },
+      "BackupEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Opaque artifact identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Operator's display name."
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Published archive size."
+          },
+          "encrypted": {
+            "type": "boolean",
+            "description": "Whether the archive is passphrase encrypted."
+          },
+          "includesSecrets": {
+            "type": "boolean",
+            "description": "Whether explicitly requested key material is included."
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Captured schema version."
+          },
+          "provider": {
+            "type": "string",
+            "description": "Source storage provider."
+          },
+          "digest": {
+            "type": "string",
+            "description": "Published archive SHA-256."
+          },
+          "status": {
+            "type": "string",
+            "description": "Creating, ready, failed or unavailable."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC creation time."
+          }
+        }
+      },
+      "BackupOperation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Opaque operation identifier."
+          },
+          "backupId": {
+            "type": "string",
+            "description": "Associated artifact."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Create, verify or restore."
+          },
+          "state": {
+            "type": "string",
+            "description": "Queued, running, completed or failed."
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "Safe failure code, without exception details or credentials."
+          },
+          "targetHome": {
+            "type": "string",
+            "description": "Explicit new-home restore destination, otherwise empty."
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Configured restored listener port."
+          },
+          "missingReferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Credential names missing during restore."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC acceptance time."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC last status change."
+          }
+        }
+      },
+      "BackupPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BackupEntry"
+            },
+            "description": "Matching items in stable newest-first order."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Matching total independent of page size."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Items per page."
+          }
+        }
+      },
+      "BackupRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for a newly created artifact, up to 200 characters."
+          },
+          "includeSecrets": {
+            "type": "boolean",
+            "description": "Include local encryption keys and literal database configuration. Requires a passphrase."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optional encryption passphrase. A nonempty value requires at least twelve characters and at most 1024 UTF-8 bytes; never persisted in job metadata.",
+            "minLength": 0,
+            "maxLength": 1024,
+            "writeOnly": true
+          },
+          "destinationName": {
+            "type": "string",
+            "description": "Required for restore. New child directory beneath the service home restores directory.",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Listener port for a new recovered home. Zero preserves the archived setting."
+          }
+        },
+        "description": "Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. Controlled restore currently targets a fresh SQLite home."
       },
       "CapturedHeader": {
         "type": "object",
@@ -3741,47 +4848,6 @@
           }
         }
       },
-      "HistoryFilter": {
-        "type": "object",
-        "properties": {
-          "search": {
-            "type": "string",
-            "description": "Path search."
-          },
-          "method": {
-            "type": "string",
-            "description": "Optional HTTP method."
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "description": "Optional exact response status."
-          },
-          "fromUtc": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true,
-            "description": "Optional start UTC."
-          },
-          "toUtc": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true,
-            "description": "Optional end UTC."
-          },
-          "pageNumber": {
-            "type": "integer",
-            "format": "int32",
-            "description": "One-based page."
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Page size, 1 to 100."
-          }
-        }
-      },
       "HistoryPage": {
         "type": "object",
         "properties": {
@@ -3806,34 +4872,6 @@
             "type": "integer",
             "format": "int64",
             "description": "Total matching records."
-          }
-        }
-      },
-      "LocalServiceDescriptor": {
-        "type": "object",
-        "properties": {
-          "endpoint": {
-            "type": "string",
-            "description": "Local listener address."
-          },
-          "protocol": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Attachment protocol, independent of product and schema versions."
-          },
-          "instanceId": {
-            "type": "string",
-            "description": "Process instance identifier used when removing stale metadata."
-          },
-          "processId": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Operating-system process ID for diagnostics, never a substitute for the ownership lock."
-          },
-          "startedUtc": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Service startup time."
           }
         }
       },
@@ -4139,23 +5177,6 @@
         ],
         "description": "CLI requires executable and uses ordered arguments plus stdin. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run."
       },
-      "ArgueBotPaths": {
-        "type": "object",
-        "properties": {
-          "home": {
-            "type": "string",
-            "description": "Absolute application home."
-          },
-          "databaseFile": {
-            "type": "string",
-            "description": "Default SQLite file."
-          },
-          "settingsFile": {
-            "type": "string",
-            "description": "Service settings file."
-          }
-        }
-      },
       "ServiceSettings": {
         "type": "object",
         "properties": {
@@ -4228,27 +5249,6 @@
           "connectionEnvironmentVariable": {
             "type": "string",
             "description": "Optional environment variable that overrides ConnectionString."
-          }
-        }
-      },
-      "SchemaMigration": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Monotonic database schema version, independent of product version."
-          },
-          "description": {
-            "type": "string",
-            "description": "Human-readable upgrade purpose."
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Ordered parameterized DDL statements."
           }
         }
       },

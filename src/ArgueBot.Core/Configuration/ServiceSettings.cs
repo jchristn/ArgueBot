@@ -1,11 +1,11 @@
 namespace ArgueBot.Core.Configuration
 {
-    using System;
     using System.IO;
-    using System.Text.Json;
     using System.Text.Json.Serialization;
-    using System.Threading;
+    using System.Text.Json;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
@@ -38,13 +38,17 @@ namespace ArgueBot.Core.Configuration
             if (File.Exists(paths.SettingsFile))
             {
                 string text = await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false);
-                ServiceSettings loaded = JsonSerializer.Deserialize<ServiceSettings>(text, SerializerOptions()) ?? throw new InvalidDataException("Settings cannot be null.");
-                loaded.Validate();
-                return loaded;
+                return Parse(text);
             }
             ServiceSettings settings = new ServiceSettings();
             await settings.SaveAsync(paths, token).ConfigureAwait(false);
             return settings;
+        }
+        /// <summary>Parse and validate a complete settings document without reading or modifying the filesystem.</summary>
+        public static ServiceSettings Parse(string text)
+        {
+            ServiceSettings settings = JsonSerializer.Deserialize<ServiceSettings>(text, SerializerOptions()) ?? throw new InvalidDataException("Settings cannot be null.");
+            settings.Validate(); return settings;
         }
         /// <summary>Atomically replace the settings file.</summary>
         public async Task SaveAsync(ArgueBotPaths paths, CancellationToken token = default)

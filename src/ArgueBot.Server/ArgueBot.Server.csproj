@@ -13,4 +13,5 @@
     <Content Include="../../dashboard/dist/**/*" Link="dashboard/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup><EmbeddedResource Include="../../assets/postman/openapi.json" LogicalName="ArgueBot.openapi.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/dependencies.json" LogicalName="ArgueBot.dependencies.json" /></ItemGroup>
 </Project>

@@ -454,6 +454,128 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/backups",
+      "group": "Backups",
+      "summary": "List global recovery artifacts",
+      "response": "BackupPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "search",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/backups",
+      "group": "Backups",
+      "summary": "Create complete recovery archive",
+      "response": "BackupOperation",
+      "request": "BackupRequest",
+      "status": 202,
+      "public": false,
+      "example": {
+        "name": "Example recovery",
+        "includeSecrets": false
+      },
+      "query": [],
+      "execute": true,
+      "save": "operationId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/backups/{backupId}",
+      "group": "Backups",
+      "summary": "Read recovery artifact",
+      "response": "BackupEntry",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/backups/{backupId}/verify",
+      "group": "Backups",
+      "summary": "Verify a recovery archive",
+      "response": "BackupOperation",
+      "request": "BackupRequest",
+      "status": 202,
+      "public": false,
+      "example": {},
+      "query": [],
+      "execute": true,
+      "save": "operationId"
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/backups/{backupId}/restore",
+      "group": "Backups",
+      "summary": "Restore into a new isolated home",
+      "response": "BackupOperation",
+      "request": "BackupRequest",
+      "status": 202,
+      "public": false,
+      "example": {
+        "destinationName": "recovered-example",
+        "port": 4537
+      },
+      "query": [],
+      "execute": true,
+      "save": "operationId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/backups/{backupId}/download",
+      "group": "Backups",
+      "summary": "Download a recovery archive",
+      "response": "BinaryArchive",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1.0/api/backups/{backupId}",
+      "group": "Backups",
+      "summary": "Delete an idle recovery archive",
+      "response": "DeletionResponse",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/backup-operations/{operationId}",
+      "group": "Backups",
+      "summary": "Read recovery operation status",
+      "response": "BackupOperation",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
     }
   ]
 }

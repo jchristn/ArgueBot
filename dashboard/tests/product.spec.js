@@ -192,3 +192,24 @@ test("participant argument editor preserves blank literal arguments", async ({
     page.getByRole("textbox", { name: "Argument 2", exact: true }),
   ).toHaveValue("");
 });
+
+test("create, verify, download and delete a recovery archive", async ({ page }) => {
+  await enroll(page);
+  await page.getByRole("link", { name: "Backups", exact: true }).click();
+  await page.getByRole("button", { name: "Create backup", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Browser recovery fixture");
+  await page.getByLabel("Passphrase", { exact: true }).fill("browser-fixture-passphrase");
+  await page.getByRole("dialog").getByRole("button", { name: "Create backup", exact: true }).click();
+  await expect(page.getByText("create: completed")).toBeVisible();
+  const row = page.getByRole("row").filter({hasText: "Browser recovery fixture"});
+  await expect(row).toContainText("ready");
+  const [download] = await Promise.all([page.waitForEvent("download"), row.getByRole("button", { name: "Download backup" }).click()]);
+  expect(download.suggestedFilename()).toMatch(/\.arguebak$/);
+  await row.getByRole("button", {name: "Verify", exact: true}).click();
+  await page.getByLabel("Passphrase", {exact: true}).fill("browser-fixture-passphrase");
+  await page.getByRole("dialog").getByRole("button", {name: "Verify", exact: true}).click();
+  await expect(page.getByText("verify: completed")).toBeVisible();
+  await row.getByRole("button", {name: "Delete", exact: true}).click();
+  await page.getByRole("dialog").getByRole("button", {name: "Delete", exact: true}).click();
+  await expect(row).toHaveCount(0);
+});

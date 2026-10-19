@@ -1,14 +1,14 @@
 namespace ArgueBot.Client
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
+    using System.Net.Http;
     using System.Text.Json;
-    using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
 
@@ -48,6 +48,29 @@ namespace ArgueBot.Client
                     await Task.Delay(50, token).ConfigureAwait(false);
                 }
             }
+        }
+        /// <summary>Download a ready archive to a new owner-readable file. Failed or cancelled transfers never publish a partial destination.</summary>
+        public async Task DownloadBackupAsync(string id, string destination, CancellationToken token = default)
+        {
+            string target = Path.GetFullPath(destination);
+            if (File.Exists(target)) throw new IOException("The download destination already exists.");
+            string temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (HttpResponseMessage response = await _Http.GetAsync("v1.0/api/backups/" + Uri.EscapeDataString(id) + "/download", HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode) throw new DomainException((int)response.StatusCode, "download_failed", "The archive could not be downloaded.");
+                    using (Stream input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false))
+                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        ArgueBot.Core.Configuration.HomePermissions.File(temporary);
+                        await input.CopyToAsync(output, token).ConfigureAwait(false);
+                        await output.FlushAsync(token).ConfigureAwait(false); output.Flush(true);
+                    }
+                }
+                File.Move(temporary, target, false);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
         /// <summary>List matching conversations from the server, with exact totals.</summary>
         public Task<Page> ConversationsAsync(string search = "", bool archived = false, int page = 1, CancellationToken token = default)

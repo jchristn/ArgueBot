@@ -1,11 +1,13 @@
 namespace ArgueBot.Core.Database.Implementations
 {
-    using System;
     using System.Collections.Generic;
     using System.Data.Common;
     using System.IO;
-    using System.Threading;
+    using System.Linq;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+    using System.Threading;
+    using System;
     using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
@@ -84,6 +86,10 @@ namespace ArgueBot.Core.Database.Implementations
         {
             if (string.IsNullOrWhiteSpace(profile.Name) || profile.Name.Length > 200) throw new DomainException(400, "invalid_profile", "Profile name must be 1 to 200 characters.");
             if (profile.TimeoutSeconds < 1 || profile.TimeoutSeconds > 3600 || profile.MaxOutputBytes < 1024 || profile.MaxOutputBytes > 16777216) throw new DomainException(400, "invalid_limits", "Timeout must be 1 to 3600 seconds and output 1 KiB to 16 MiB.");
+            if (profile.SecretEnvironmentVariable.Length > 0 && !Regex.IsMatch(profile.SecretEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.CultureInvariant)) throw new DomainException(400, "invalid_secret_reference", "Use an environment variable name of at most 128 characters.");
+            if (profile.Arguments.Count > 128 || profile.Arguments.Any(argument => argument == null || argument.Contains('\0')) || profile.Arguments.Sum(argument => (long)argument.Length) + profile.Executable.Length > 32768) throw new DomainException(400, "invalid_arguments", "Use up to 128 literal arguments and at most 32768 total command characters, without NUL bytes.");
+            if (new string[] { profile.Name, profile.Endpoint, profile.Model, profile.Executable, profile.WorkingDirectory }.Any(value => value.Contains('\0'))) throw new DomainException(400, "invalid_text", "Configuration text cannot contain NUL bytes.");
+            if (profile.Endpoint.Length > 4096 || profile.Model.Length > 1000 || profile.Executable.Length > 4096 || profile.WorkingDirectory.Length > 4096) throw new DomainException(400, "invalid_profile", "Configuration text exceeds its supported length.");
             if (profile.Kind == "cli")
             {
                 if (string.IsNullOrWhiteSpace(profile.Executable)) throw new DomainException(400, "invalid_executable", "A direct executable is required.");
@@ -93,7 +99,9 @@ namespace ArgueBot.Core.Database.Implementations
             }
             else if (profile.Kind == "rest")
             {
-                if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out Uri? endpoint) || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || !string.IsNullOrEmpty(endpoint.UserInfo)) throw new DomainException(400, "invalid_endpoint", "Use an absolute HTTP(S) endpoint without embedded credentials.");
+                if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out Uri? endpoint) || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || !string.IsNullOrEmpty(endpoint.UserInfo) || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0) throw new DomainException(400, "invalid_endpoint", "Use an absolute HTTP(S) endpoint without embedded credentials, query or fragment.");
+                if (profile.Provider != "ollama" && profile.Provider != "openai" && profile.Provider != "anthropic" && profile.Provider != "gemini") throw new DomainException(400, "invalid_provider", "REST provider must be ollama, openai, anthropic or gemini.");
+                if (profile.SecretEnvironmentVariable.Length > 0 && !endpoint.IsLoopback && endpoint.Scheme != Uri.UriSchemeHttps) throw new DomainException(400, "tls_required", "Credentialed remote REST endpoints require HTTPS.");
                 if (string.IsNullOrWhiteSpace(profile.Model)) throw new DomainException(400, "invalid_model", "A model identifier is required.");
             }
             else throw new DomainException(400, "invalid_runner", "Runner kind must be cli or rest.");

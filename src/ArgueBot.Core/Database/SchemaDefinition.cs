@@ -2,6 +2,12 @@ namespace ArgueBot.Core.Database
 {
     internal static class SchemaDefinition
     {
+        internal static readonly string Backups = """
+CREATE TABLE IF NOT EXISTS backup_records(id TEXT PRIMARY KEY, created_by_tenant_id TEXT, created_by_user_id TEXT, name TEXT NOT NULL, file_bytes BIGINT NOT NULL DEFAULT 0, encrypted INTEGER NOT NULL, includes_secrets INTEGER NOT NULL, schema_version INTEGER NOT NULL, provider TEXT NOT NULL, digest TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_backup_records_recent ON backup_records(created_utc,id);
+CREATE TABLE IF NOT EXISTS backup_operations(id TEXT PRIMARY KEY, backup_id TEXT NOT NULL REFERENCES backup_records(id) ON DELETE CASCADE, created_by_tenant_id TEXT, created_by_user_id TEXT, kind TEXT NOT NULL, state TEXT NOT NULL, error_code TEXT NOT NULL DEFAULT '', target_home TEXT NOT NULL DEFAULT '', port INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS backup_operation_references(id TEXT PRIMARY KEY, operation_id TEXT NOT NULL REFERENCES backup_operations(id) ON DELETE CASCADE, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(operation_id,name));
+""";
         internal static readonly string RequestHistory = """
 CREATE TABLE IF NOT EXISTS request_history(id TEXT PRIMARY KEY, tenant_id TEXT, user_id TEXT, principal_name TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL, status INTEGER NOT NULL, duration_ms INTEGER NOT NULL, request_bytes INTEGER NOT NULL, response_bytes INTEGER NOT NULL, raw_request_body TEXT NOT NULL, raw_response_body TEXT NOT NULL, request_truncated INTEGER NOT NULL, response_truncated INTEGER NOT NULL, correlation_id TEXT NOT NULL, trace_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_request_history_time ON request_history(tenant_id,user_id,created_utc,id);
@@ -26,6 +32,10 @@ CREATE TABLE IF NOT EXISTS request_history(id TEXT PRIMARY KEY, tenant_id TEXT, 
 CREATE INDEX IF NOT EXISTS ix_request_history_time ON request_history(tenant_id,user_id,created_utc,id);
 CREATE TABLE IF NOT EXISTS request_history_headers(id TEXT PRIMARY KEY, tenant_id TEXT, history_id TEXT NOT NULL REFERENCES request_history(id) ON DELETE CASCADE, name TEXT NOT NULL, value TEXT NOT NULL, response INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit_events(id TEXT PRIMARY KEY, tenant_id TEXT, user_id TEXT, operation TEXT NOT NULL, outcome TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS backup_records(id TEXT PRIMARY KEY, created_by_tenant_id TEXT, created_by_user_id TEXT, name TEXT NOT NULL, file_bytes BIGINT NOT NULL DEFAULT 0, encrypted INTEGER NOT NULL, includes_secrets INTEGER NOT NULL, schema_version INTEGER NOT NULL, provider TEXT NOT NULL, digest TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_backup_records_recent ON backup_records(created_utc,id);
+CREATE TABLE IF NOT EXISTS backup_operations(id TEXT PRIMARY KEY, backup_id TEXT NOT NULL REFERENCES backup_records(id) ON DELETE CASCADE, created_by_tenant_id TEXT, created_by_user_id TEXT, kind TEXT NOT NULL, state TEXT NOT NULL, error_code TEXT NOT NULL DEFAULT '', target_home TEXT NOT NULL DEFAULT '', port INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS backup_operation_references(id TEXT PRIMARY KEY, operation_id TEXT NOT NULL REFERENCES backup_operations(id) ON DELETE CASCADE, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(operation_id,name));
 """;
     }
 }
