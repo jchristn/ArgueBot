@@ -75,6 +75,11 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12"
         }
       },
+      "Microsoft.Extensions.TimeProvider.Testing": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "aX2J/3k8BNWzIVCATarxY3xcS2iZm9kW2aN+tAD/qE29OcaySBU+8DC/KhoDk9gfqfYtptnN/eJ+WOZ4yT/hcQ=="
+      },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
         "resolved": "17.14.1",
@@ -236,6 +241,7 @@
           "ArgueBot.Core": "[0.1.0, )",
           "ArgueBot.Runners": "[0.1.0, )",
           "ArgueBot.Tui": "[0.1.0, )",
+          "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
           "Touchstone.Core": "[0.2.1, )"
         }
       }
@@ -314,6 +320,11 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
           "System.Diagnostics.DiagnosticSource": "10.0.12"
         }
+      },
+      "Microsoft.Extensions.TimeProvider.Testing": {
+        "type": "Transitive",
+        "resolved": "10.0.0",
+        "contentHash": "aX2J/3k8BNWzIVCATarxY3xcS2iZm9kW2aN+tAD/qE29OcaySBU+8DC/KhoDk9gfqfYtptnN/eJ+WOZ4yT/hcQ=="
       },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
@@ -489,6 +500,7 @@
           "ArgueBot.Client": "[0.1.0, )",
           "ArgueBot.Core": "[0.1.0, )",
           "ArgueBot.Runners": "[0.1.0, )",
+          "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
           "Touchstone.Core": "[0.2.1, )"
         }
       }

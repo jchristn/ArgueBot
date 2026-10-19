@@ -27,6 +27,10 @@ namespace ArgueBot.Core.Configuration
         public DatabaseSettings Database { get { return _Database; } set { ArgumentNullException.ThrowIfNull(value); _Database = value; } }
         /// <summary>Loopback service port, default 4317, allowed 1 through 65535.</summary>
         public int Port { get { return _Port; } set { if (value < 1 || value > 65535) throw new ArgumentOutOfRangeException(nameof(value)); _Port = value; } }
+        /// <summary>Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536.</summary>
+        public int StreamBatchCharacters { get; set; } = 4096;
+        /// <summary>Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000.</summary>
+        public int StreamCommitMilliseconds { get; set; } = 250;
         /// <summary>Default maximum concurrent conversations.</summary>
         public int MaxConcurrentRuns { get; set; } = 4;
         /// <summary>Whether shell-out runners may execute. Default true for local mode only.</summary>
@@ -68,6 +72,8 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (StreamBatchCharacters < 1 || StreamBatchCharacters > 65536) throw new ArgumentOutOfRangeException(nameof(StreamBatchCharacters));
+            if (StreamCommitMilliseconds < 10 || StreamCommitMilliseconds > 5000) throw new ArgumentOutOfRangeException(nameof(StreamCommitMilliseconds));
             if (MaxConcurrentRuns < 1 || MaxConcurrentRuns > 64) throw new ArgumentOutOfRangeException(nameof(MaxConcurrentRuns));
             if (RequestHistoryBodyBytes < 0 || RequestHistoryBodyBytes > 1048576) throw new ArgumentOutOfRangeException(nameof(RequestHistoryBodyBytes));
             if (RequestHistoryRetentionDays < 1 || RequestHistoryRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(RequestHistoryRetentionDays));

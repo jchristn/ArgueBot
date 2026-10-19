@@ -4338,6 +4338,15 @@
     "development": false
   },
   {
+    "name": "Microsoft.Extensions.TimeProvider.Testing",
+    "version": "10.0.0",
+    "ecosystem": "nuget",
+    "license": "MIT",
+    "source": "https://www.nuget.org/packages/Microsoft.Extensions.TimeProvider.Testing/10.0.0",
+    "integrity": "sha512-aX2J/3k8BNWzIVCATarxY3xcS2iZm9kW2aN+tAD/qE29OcaySBU+8DC/KhoDk9gfqfYtptnN/eJ+WOZ4yT/hcQ==",
+    "development": true
+  },
+  {
     "name": "Microsoft.NET.Test.Sdk",
     "version": "17.14.1",
     "ecosystem": "nuget",

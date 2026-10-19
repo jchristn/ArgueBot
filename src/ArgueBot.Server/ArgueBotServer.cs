@@ -41,7 +41,7 @@ namespace ArgueBot.Server
                     SessionMethods sessions = new SessionMethods(database, new TokenProtector(paths));
                     using (LocalEnrollment enrollment = new LocalEnrollment(paths, sessions))
                     {
-                        ConversationEngine engine = new ConversationEngine(database, new RunnerRouter(settings.AllowCli), settings.MaxConcurrentRuns, telemetry.CreateLogger("ArgueBot.Execution"));
+                        ConversationEngine engine = new ConversationEngine(database, new RunnerRouter(settings.AllowCli), settings.MaxConcurrentRuns, telemetry.CreateLogger("ArgueBot.Execution"), streamBatchCharacters: settings.StreamBatchCharacters, streamCommitMilliseconds: settings.StreamCommitMilliseconds);
                         try
                         {
                             using (Webserver server = new Webserver(new WebserverSettings("127.0.0.1", settings.Port, false), http => Api.SendAsync(http, new ApiError { Code = "not_found", Message = "Route not found." }, 404)))

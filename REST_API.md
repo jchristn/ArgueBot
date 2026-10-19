@@ -8,7 +8,7 @@ List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` 
 
 Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new SQLite home beneath the service home, never overwrites live data and leaves the recovered service stopped. Full PostgreSQL bundle destinations remain under implementation. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
 
-Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
+Streaming commits are batched by a configured size threshold or timer. Schema-6 events carry `textOffset` in UTF-16 code units; reconcile older events from a message snapshot. Finalization flushes pending fragments before its terminal event. Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
 
 ## GET /health
 
@@ -664,6 +664,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | kind | string | Semantic event type. |
 | entityId | string | Changed entity. |
 | text | string | Optional text delta or safe detail. |
+| textOffset | integer | UTF-16 code-unit offset for this committed text fragment within its message. Legacy events before schema 6 use zero and require snapshot reconciliation. |
 | createdUtc | string | Creation time in UTC. |
 
 ### HealthResponse
@@ -804,6 +805,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | requestHistoryRetentionDays | integer | Request history retention in days, default thirty. |
 | database | DatabaseSettings | Persistent database configuration. SQLite is the local default. |
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
+| streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
+| streamCommitMilliseconds | integer | Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
 | allowCli | boolean | Whether shell-out runners may execute. Default true for local mode only. |
 
@@ -852,6 +855,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | revision | string | Expected settings file revision. |
 | port | integer | Configured port, from 1 to 65535. Explicit launch flags still win. |
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
+| streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |
+| streamCommitMilliseconds | integer (nullable) | Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value. |
 | allowCli | boolean | Allow local shell-out execution after restart. |
 | databaseType | DatabaseTypeEnum | Selected persistence provider. |
 | connectionEnvironmentVariable | string | Server environment reference for the connection string. |

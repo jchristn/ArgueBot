@@ -324,5 +324,9 @@
   "backups.destination.help": "One to 64 letters, digits, hyphens or underscores. The service creates this directory beneath its restores directory.",
   "backups.port": "Recovered listener port",
   "backups.port.help": "Port from 1024 to 65535 for the recovered home. The service remains stopped until explicitly launched.",
-  "backups.defaultName": "Recovery archive"
+  "backups.defaultName": "Recovery archive",
+  "settings.streamCharacters": "Stream batch characters",
+  "settings.streamCharacters.help": "Commit accumulated text at this threshold, from one through 65536 characters. A timer also flushes smaller batches. Applies after restart.",
+  "settings.streamInterval": "Stream commit interval (milliseconds)",
+  "settings.streamInterval.help": "Flush accumulated text even if the runner stops emitting. Ten through 5000 milliseconds, plus storage time. Applies after restart."
 }

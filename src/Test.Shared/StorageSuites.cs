@@ -7,6 +7,7 @@ namespace Test.Shared
     using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Data.Sqlite;
+    using Microsoft.Extensions.Time.Testing;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Sqlite;
@@ -30,6 +31,7 @@ namespace Test.Shared
                     new TestCaseDescriptor("Storage", "ExclusiveDatabase", "SQLite database ownership survives different home settings and releases on disposal", ExclusiveDatabaseAsync),
                     new TestCaseDescriptor("Storage", "ExclusiveHome", "Exclusive application-home ownership", ExclusiveHomeAsync),
                     new TestCaseDescriptor("Storage", "CommandReceipts", "Moderator retries do not extend twice; immediate pause/resume retires the old worker", CommandReceiptsAsync),
+                    new TestCaseDescriptor("Storage", "StreamCommits", "Burst streaming batches writes and a stalled runner still checkpoints text", StreamCommitsAsync),
                     new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync),
                     new TestCaseDescriptor("Storage", "SchemaUpgrade", "Historical schema upgrade creates backup and rejects future schemas", SchemaUpgradeAsync)
                 }) };
@@ -60,6 +62,89 @@ namespace Test.Shared
                     await successor.InitializeAsync(token).ConfigureAwait(false);
                     Conversation conversation = await successor.CreateConversationAsync(Owner(), "New owner after shutdown", token).ConfigureAwait(false);
                     if ((await successor.ReadConversationAsync(Owner(), conversation.Id, token).ConfigureAwait(false)).Title != conversation.Title) throw new InvalidDataException("Database ownership was not released cleanly.");
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
+        private static async Task StreamCommitsAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-streams-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RunnerProfile profile = await database.Profiles.CreateAsync(Owner(), new RunnerProfile { Name = "Stream fixture", Kind = "cli", Provider = "plain", Executable = "fixture" }, token).ConfigureAwait(false);
+                    Conversation probe = await database.CreateConversationAsync(Owner(), "Stream receipt probe", token).ConfigureAwait(false);
+                    Message fragment = await database.AppendMessageAsync(Owner(), new Message { ConversationId = probe.Id, Speaker = "fixture", State = "streaming" }, token: token).ConfigureAwait(false);
+                    fragment.Content = "議論🙂";
+                    await database.UpdateMessageAsync(Owner(), fragment, fragment.Content, token).ConfigureAwait(false);
+                    await database.UpdateMessageAsync(Owner(), fragment, fragment.Content, token).ConfigureAwait(false);
+                    if ((await database.ReadEventsAsync(Owner(), probe.Id, token: token).ConfigureAwait(false)).Count(change => change.Kind == "delta") != 1) throw new InvalidDataException("An exact stream commit retry duplicated replay text.");
+                    fragment.State = "completed"; await database.UpdateMessageAsync(Owner(), fragment, "", token).ConfigureAwait(false);
+                    fragment.State = "streaming";
+                    bool rewound = false;
+                    try { await database.UpdateMessageAsync(Owner(), fragment, "", token).ConfigureAwait(false); }
+                    catch (DomainException exception) when (exception.Code == "message_finalized") { rewound = true; }
+                    if (!rewound) throw new InvalidDataException("A delayed stream commit rewound a finalized message.");
+                    Conversation conversation = await database.CreateConversationAsync(Owner(), "Burst commits", token).ConfigureAwait(false);
+                    await using (ConversationEngine engine = new ConversationEngine(database, new BurstRunner(), streamBatchCharacters: 257))
+                    {
+                        DebateRun run = await engine.StartAsync(Owner(), conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Burst Unicode", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = "burst" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            while ((await database.Runs.ReadAsync(Owner(), conversation.Id, run.Id, deadline.Token).ConfigureAwait(false)).State != "completed") await Task.Delay(10, deadline.Token).ConfigureAwait(false);
+                        }
+                        Message answer = (await database.ReadMessagesAsync(Owner(), conversation.Id, token).ConfigureAwait(false)).Single(message => message.Speaker == profile.Name);
+                        if (answer.Content != string.Concat(Enumerable.Repeat(BurstRunner.Fragment, BurstRunner.Fragments))) throw new InvalidDataException("Stream batching corrupted Unicode or lost final text.");
+                        List<DurableEvent> events = await database.ReadEventsAsync(Owner(), conversation.Id, token: token).ConfigureAwait(false);
+                        int commits = events.Count(change => change.Kind == "delta");
+                        if (commits < 1 || commits > 30) throw new InvalidDataException("The engine still persisted one write per runner fragment.");
+                        long offset = 0;
+                        foreach (DurableEvent fragment in events.Where(change => change.Kind == "delta"))
+                        {
+                            if (fragment.TextOffset != offset) throw new InvalidDataException("Committed stream offsets cannot reconstruct the message without gaps or duplication.");
+                            offset += fragment.Text.Length;
+                        }
+                        if (string.Concat(events.Where(change => change.Kind == "delta").Select(change => change.Text)) != answer.Content) throw new InvalidDataException("Committed stream replay diverged from the finalized message.");
+                    }
+                    FixtureRunner waiting = new FixtureRunner { Wait = true };
+                    FakeTimeProvider streamClock = new FakeTimeProvider();
+                    await using (ConversationEngine engine = new ConversationEngine(database, waiting, clock: streamClock, streamCommitMilliseconds: 25))
+                    {
+                        Conversation slow = await database.CreateConversationAsync(Owner(), "Stalled stream", token).ConfigureAwait(false);
+                        DebateRun run = await engine.StartAsync(Owner(), slow.Id, new CreateRunRequest { Mode = "followup", Question = "Slow", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = "slow" }, token).ConfigureAwait(false);
+                        await waiting.Started.Task.WaitAsync(token).ConfigureAwait(false);
+                        streamClock.Advance(TimeSpan.FromSeconds(1));
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            while (!(await database.ReadMessagesAsync(Owner(), slow.Id, deadline.Token).ConfigureAwait(false)).Any(message => message.State == "streaming" && message.Content == "A concrete argument. ")) await Task.Delay(10, deadline.Token).ConfigureAwait(false);
+                        }
+                        await engine.ApplyAsync(Owner(), slow.Id, run.Id, new CommandRequest { Action = "interrupt", IdempotencyKey = "interrupt" }, "fixture", token).ConfigureAwait(false);
+                    }
+                    MonotonicFakeTimeProvider windowClock = new MonotonicFakeTimeProvider();
+                    FixtureRunner counting = new FixtureRunner();
+                    RunnerProfile second = await database.Profiles.CreateAsync(Owner(), new RunnerProfile { Name = "Second stream fixture", Kind = "cli", Provider = "plain", Executable = "fixture" }, token).ConfigureAwait(false);
+                    await using (ConversationEngine engine = new ConversationEngine(database, counting, clock: windowClock))
+                    {
+                        Conversation window = await database.CreateConversationAsync(Owner(), "Monotonic controls", token).ConfigureAwait(false);
+                        DebateRun run = await engine.StartAsync(Owner(), window.Id, new CreateRunRequest { ParticipantIds = new List<string> { profile.Id, second.Id }, MaxRounds = 1, InterventionSeconds = 30, IdempotencyKey = "clock" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            while ((await database.Runs.ReadAsync(Owner(), window.Id, run.Id, deadline.Token).ConfigureAwait(false)).State != "window") await Task.Delay(5, deadline.Token).ConfigureAwait(false);
+                            await engine.ApplyAsync(Owner(), window.Id, run.Id, new CommandRequest { Action = "hold" }, "typing", deadline.Token).ConfigureAwait(false);
+                            windowClock.AdjustWallClock(TimeSpan.FromDays(1)); windowClock.Advance(TimeSpan.FromSeconds(20));
+                            await Task.Delay(30, deadline.Token).ConfigureAwait(false);
+                            if (counting.Calls != 1) throw new InvalidDataException("A wall-clock adjustment bypassed a typing hold.");
+                            windowClock.AdjustWallClock(TimeSpan.FromDays(-3));
+                            for (int seconds = 0; seconds < 100 && counting.Calls == 1; seconds++)
+                            { windowClock.Advance(TimeSpan.FromSeconds(1)); await Task.Delay(5, deadline.Token).ConfigureAwait(false); }
+                            if (counting.Calls != 2) throw new InvalidDataException("A typing hold did not expire using monotonic elapsed time.");
+                        }
+                    }
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }

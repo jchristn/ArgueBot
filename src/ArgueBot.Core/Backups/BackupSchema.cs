@@ -22,6 +22,7 @@ namespace ArgueBot.Core.Backups
         {
             Dictionary<string, bool> columns = Tables()[table];
             if (table == "users" && version < 5) { columns.Remove("is_admin"); columns.Remove("is_tenant_admin"); columns.Remove("protected"); }
+            if (table == "events" && version < 6) columns.Remove("text_offset");
             return columns;
         }
         internal static int IntroducedVersion(string table)

@@ -12,6 +12,6 @@ namespace ArgueBot.Core.Services
         internal bool PauseAfterTurn { get; set; }
         internal bool StopRequested { get; set; }
         internal bool SkipWindow { get; set; }
-        internal ConcurrentDictionary<string, DateTime> Holds { get; } = new ConcurrentDictionary<string, DateTime>();
+        internal ConcurrentDictionary<string, long> Holds { get; } = new ConcurrentDictionary<string, long>();
     }
 }

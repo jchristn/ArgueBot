@@ -4822,6 +4822,11 @@
             "type": "string",
             "description": "Optional text delta or safe detail."
           },
+          "textOffset": {
+            "type": "integer",
+            "format": "int64",
+            "description": "UTF-16 code-unit offset for this committed text fragment within its message. Legacy events before schema 6 use zero and require snapshot reconciliation."
+          },
           "createdUtc": {
             "type": "string",
             "format": "date-time",
@@ -5207,6 +5212,16 @@
             "format": "int32",
             "description": "Loopback service port, default 4317, allowed 1 through 65535."
           },
+          "streamBatchCharacters": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536."
+          },
+          "streamCommitMilliseconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000."
+          },
           "maxConcurrentRuns": {
             "type": "integer",
             "format": "int32",
@@ -5292,6 +5307,18 @@
             "type": "integer",
             "format": "int32",
             "description": "Concurrent conversations, 1 to 64."
+          },
+          "streamBatchCharacters": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value."
+          },
+          "streamCommitMilliseconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value."
           },
           "allowCli": {
             "type": "boolean",

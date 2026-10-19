@@ -10,6 +10,8 @@ function SettingsForm({ snapshot, onSave }) {
     port: snapshot.settings.port,
     maxConcurrentRuns: snapshot.settings.maxConcurrentRuns,
     allowCli: snapshot.settings.allowCli,
+    streamBatchCharacters: snapshot.settings.streamBatchCharacters,
+    streamCommitMilliseconds: snapshot.settings.streamCommitMilliseconds,
     databaseType: snapshot.settings.database.type,
     connectionEnvironmentVariable:
       snapshot.settings.database.connectionEnvironmentVariable,
@@ -57,6 +59,34 @@ function SettingsForm({ snapshot, onSave }) {
             />
           )}
         </Field>
+        <Field label="settings.streamCharacters">
+          {(props) => (
+            <input
+              {...props}
+              type="number"
+              min="1"
+              max="65536"
+              value={value.streamBatchCharacters}
+              onChange={(event) =>
+                change("streamBatchCharacters", Number(event.target.value))
+              }
+            />
+          )}
+        </Field>
+        <Field label="settings.streamInterval">
+          {(props) => (
+            <input
+              {...props}
+              type="number"
+              min="10"
+              max="5000"
+              value={value.streamCommitMilliseconds}
+              onChange={(event) =>
+                change("streamCommitMilliseconds", Number(event.target.value))
+              }
+            />
+          )}
+        </Field>
         <Field label="settings.database">
           {(props) => (
             <select
@@ -64,11 +94,9 @@ function SettingsForm({ snapshot, onSave }) {
               value={value.databaseType}
               onChange={(event) => change("databaseType", event.target.value)}
             >
-              {["Sqlite", "Postgresql"].map(
-                (provider) => (
-                  <option key={provider}>{provider}</option>
-                ),
-              )}
+              {["Sqlite", "Postgresql"].map((provider) => (
+                <option key={provider}>{provider}</option>
+              ))}
             </select>
           )}
         </Field>

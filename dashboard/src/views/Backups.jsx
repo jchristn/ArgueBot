@@ -158,7 +158,7 @@ export default function Backups() {
                           try {
                             await api.downloadBackup(artifact.id);
                           } catch (error) {
-                            notify(error.message);
+                            notify(error);
                           }
                         }}
                       />

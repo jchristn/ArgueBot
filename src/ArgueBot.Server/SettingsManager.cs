@@ -31,6 +31,8 @@ namespace ArgueBot.Server
                 if (update.Revision != Revision()) throw new DomainException(409, "revision_conflict", "Settings changed. Reload before saving.");
                 ServiceSettings settings = await ServiceSettings.LoadAsync(_Paths, token).ConfigureAwait(false);
                 settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.AllowCli = update.AllowCli;
+                if (update.StreamBatchCharacters.HasValue) settings.StreamBatchCharacters = update.StreamBatchCharacters.Value;
+                if (update.StreamCommitMilliseconds.HasValue) settings.StreamCommitMilliseconds = update.StreamCommitMilliseconds.Value;
                 settings.Database.Type = update.DatabaseType; settings.Database.ConnectionEnvironmentVariable = update.ConnectionEnvironmentVariable;
                 await settings.SaveAsync(_Paths, token).ConfigureAwait(false);
                 return await ReadAsync(token).ConfigureAwait(false);

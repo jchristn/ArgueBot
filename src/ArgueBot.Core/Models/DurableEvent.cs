@@ -26,6 +26,9 @@ namespace ArgueBot.Core.Models
         /// <summary>Optional text delta or safe detail.</summary>
         public string Text { get { return _Text; } set { ArgumentNullException.ThrowIfNull(value); _Text = value; } }
 
+        /// <summary>UTF-16 code-unit offset for this committed text fragment within its message. Legacy events before schema 6 use zero and require snapshot reconciliation.</summary>
+        public long TextOffset { get; set; }
+
         /// <summary>Creation time in UTC.</summary>
         public DateTime CreatedUtc { get; set; }
 

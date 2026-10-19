@@ -92,10 +92,10 @@ namespace ArgueBot.Core.Database
                             {
                                 foreach (string statement in migration.Statements)
                                 {
-                                    if (statement.StartsWith("ALTER TABLE users ADD COLUMN ", StringComparison.Ordinal))
+                                    if (statement.StartsWith("ALTER TABLE ", StringComparison.Ordinal) && statement.Contains(" ADD COLUMN ", StringComparison.Ordinal))
                                     {
-                                        string column = statement.Split(' ')[5]; bool present = false;
-                                        using (DbCommand inspect = Command(connection, transaction, "SELECT * FROM users WHERE 1=0"))
+                                        string tableName = statement.Split(' ')[2]; string column = statement.Split(' ')[5]; bool present = false;
+                                        using (DbCommand inspect = Command(connection, transaction, "SELECT * FROM " + tableName + " WHERE 1=0"))
                                         using (DbDataReader columns = await inspect.ExecuteReaderAsync(token).ConfigureAwait(false))
                                         { for (int index = 0; index < columns.FieldCount; index++) if (columns.GetName(index) == column) present = true; }
                                         if (present) continue;
@@ -266,11 +266,24 @@ namespace ArgueBot.Core.Database
         public async Task UpdateMessageAsync(RequestContext context, Message message, string delta, CancellationToken token = default)
         {
             RequireWrite(context);
+            ArgumentNullException.ThrowIfNull(delta);
+            if (delta.Length > message.Content.Length || !message.Content.EndsWith(delta, StringComparison.Ordinal)) throw new DomainException(400, "invalid_stream_delta", "The fragment must be a suffix of its accumulated message.");
             await ReadConversationAsync(context, message.ConversationId, token).ConfigureAwait(false);
             await WriteAsync(async (connection, transaction) =>
             {
+                string currentContent; string currentState;
+                using (DbCommand inspect = Command(connection, transaction, "SELECT content,state FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@id", P("tenant", context.TenantId, "conversation", message.ConversationId, "id", message.Id)))
+                using (DbDataReader reader = await inspect.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Message not found.");
+                    currentContent = S(reader, "content"); currentState = S(reader, "state");
+                }
+                if (currentContent == message.Content && currentState == message.State) return;
+                if (currentState != "streaming" && message.State != "consumed" && message.State != currentState) throw new DomainException(409, "message_finalized", "Finalized message state cannot be rewound.");
+                string prefix = message.Content.Substring(0, message.Content.Length - delta.Length);
+                if (currentContent != prefix) throw new DomainException(409, "stream_revision_conflict", "The fragment does not extend the committed message. Reconcile its snapshot.");
                 await ExecuteAsync(connection, transaction, "UPDATE messages SET content=@content,state=@state,updated_utc=@now WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@id", token, P("content", message.Content, "state", message.State, "tenant", context.TenantId, "conversation", message.ConversationId, "id", message.Id)).ConfigureAwait(false);
-                await EventAsync(connection, transaction, context.TenantId, message.ConversationId, message.State == "streaming" ? "delta" : "message_end", message.Id, delta, token).ConfigureAwait(false);
+                await EventAsync(connection, transaction, context.TenantId, message.ConversationId, message.State == "streaming" ? "delta" : "message_end", message.Id, delta, message.Content.Length - delta.Length, token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
         }
 
@@ -283,7 +296,7 @@ namespace ArgueBot.Core.Database
             using (DbCommand command = Command(connection, null, "SELECT * FROM events WHERE tenant_id=@tenant AND conversation_id=@id AND sequence_number>@after ORDER BY sequence_number LIMIT 1000", P("tenant", context.TenantId, "id", conversationId, "after", after)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
-                while (await reader.ReadAsync(token).ConfigureAwait(false)) events.Add(new DurableEvent { ConversationId = conversationId, Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Kind = S(reader, "kind"), EntityId = S(reader, "entity_id"), Text = S(reader, "text"), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) });
+                while (await reader.ReadAsync(token).ConfigureAwait(false)) events.Add(new DurableEvent { ConversationId = conversationId, Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Kind = S(reader, "kind"), EntityId = S(reader, "entity_id"), Text = S(reader, "text"), TextOffset = Convert.ToInt64(reader["text_offset"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) });
             }
             return events;
         }
@@ -400,8 +413,10 @@ namespace ArgueBot.Core.Database
         }
 
         internal static async Task EventAsync(DbConnection connection, DbTransaction transaction, string tenant, string conversation, string kind, string entity, string text, CancellationToken token)
+        { await EventAsync(connection, transaction, tenant, conversation, kind, entity, text, 0, token).ConfigureAwait(false); }
+        internal static async Task EventAsync(DbConnection connection, DbTransaction transaction, string tenant, string conversation, string kind, string entity, string text, long textOffset, CancellationToken token)
         {
-            await ExecuteAsync(connection, transaction, "INSERT INTO events(id,tenant_id,conversation_id,sequence_number,kind,entity_id,text,created_utc,updated_utc) SELECT @id,@tenant,@conversation,COALESCE(MAX(sequence_number),0)+1,@kind,@entity,@text,@now,@now FROM events WHERE conversation_id=@conversation", token, P("id", Ids.New("evt_"), "tenant", tenant, "conversation", conversation, "kind", kind, "entity", entity, "text", text)).ConfigureAwait(false);
+            await ExecuteAsync(connection, transaction, "INSERT INTO events(id,tenant_id,conversation_id,sequence_number,kind,entity_id,text,text_offset,created_utc,updated_utc) SELECT @id,@tenant,@conversation,COALESCE(MAX(sequence_number),0)+1,@kind,@entity,@text,@offset,@now,@now FROM events WHERE conversation_id=@conversation", token, P("id", Ids.New("evt_"), "tenant", tenant, "conversation", conversation, "kind", kind, "entity", entity, "text", text, "offset", textOffset)).ConfigureAwait(false);
         }
 
         private static void AddParameter(DbCommand command, string name, object value)

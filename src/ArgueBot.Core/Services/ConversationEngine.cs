@@ -21,16 +21,22 @@ namespace ArgueBot.Core.Services
         private readonly DatabaseDriverBase _Database;
         private readonly IRunner _Runner;
         private readonly ILogger _Logger;
+        private readonly TimeProvider _Clock;
+        private readonly int _StreamBatchCharacters;
+        private readonly TimeSpan _StreamCommitInterval;
         private readonly CancellationTokenSource _Lifetime = new CancellationTokenSource();
         private readonly SemaphoreSlim _Capacity;
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _Gates = new ConcurrentDictionary<string, SemaphoreSlim>();
         private readonly ConcurrentDictionary<string, ExecutionWorker> _Workers = new ConcurrentDictionary<string, ExecutionWorker>();
 
-        /// <summary>Create an engine with bounded concurrent conversations, default four.</summary>
-        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null)
+        /// <summary>Create an engine with bounded concurrency, injectable time and bounded stream commit batches. Defaults: four runs, 4096 characters or 250 milliseconds per commit.</summary>
+        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null, TimeProvider? clock = null, int streamBatchCharacters = 4096, int streamCommitMilliseconds = 250)
         {
             ArgumentNullException.ThrowIfNull(database); ArgumentNullException.ThrowIfNull(runner);
             if (capacity < 1 || capacity > 64) throw new ArgumentOutOfRangeException(nameof(capacity));
+            if (streamBatchCharacters < 1 || streamBatchCharacters > 65536) throw new ArgumentOutOfRangeException(nameof(streamBatchCharacters));
+            if (streamCommitMilliseconds < 10 || streamCommitMilliseconds > 5000) throw new ArgumentOutOfRangeException(nameof(streamCommitMilliseconds));
+            _Clock = clock ?? TimeProvider.System; _StreamBatchCharacters = streamBatchCharacters; _StreamCommitInterval = TimeSpan.FromMilliseconds(streamCommitMilliseconds);
             _Logger = logger ?? NullLogger.Instance;
             _Database = database; _Runner = runner; _Capacity = new SemaphoreSlim(capacity, capacity);
         }
@@ -65,10 +71,10 @@ namespace ArgueBot.Core.Services
                 switch (request.Action)
                 {
                     case "hold":
-                        if (worker != null && run.State == "window") worker.Holds[clientId] = DateTime.UtcNow.AddSeconds(30);
+                        if (worker != null && run.State == "window") worker.Holds[clientId] = _Clock.GetTimestamp();
                         return;
                     case "release":
-                        worker?.Holds.TryRemove(clientId, out DateTime _); return;
+                        worker?.Holds.TryRemove(clientId, out long _); return;
                     case "note":
                     case "steer":
                         if (string.IsNullOrWhiteSpace(request.Text) || string.IsNullOrWhiteSpace(request.IdempotencyKey)) throw new DomainException(400, "invalid_message", "Text and idempotency key are required.");
@@ -157,20 +163,23 @@ namespace ArgueBot.Core.Services
                         }
                         finally { gate.Release(); }
                         string? failure = null;
+                        string answerState = "completed";
+                        await using (MessageStreamWriter stream = new MessageStreamWriter(_Database, context, answer, _StreamBatchCharacters, _StreamCommitInterval, _Clock))
+                        using (CancellationTokenRegistration streamFailure = stream.FaultToken.Register(() => worker.Generation?.Cancel()))
+                        {
                         try
                         {
                             string prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + conversation.Title + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
                             if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + conversation.Title;
-                            await _Runner.GenerateAsync(profile, prompt, contextMessages, async (delta, execution) =>
-                            {
-                                answer.Content += delta;
-                                await _Database.UpdateMessageAsync(context, answer, delta, execution).ConfigureAwait(false);
-                            }, worker.Generation.Token).ConfigureAwait(false);
-                            answer.State = "completed";
+                            await _Runner.GenerateAsync(profile, prompt, contextMessages, stream.AppendAsync, worker.Generation.Token).ConfigureAwait(false);
+                            if (stream.Failed) throw new DomainException(503, "stream_persistence_failed", "Stream persistence failed.");
+                            answerState = "completed";
                         }
-                        catch (OperationCanceledException) { answer.State = "interrupted"; }
+                        catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = "stream_persistence_failed"; }
                         catch (Exception ex) when (ex is not OutOfMemoryException)
-                        { answer.State = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
+                        { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
+                        }
+                        answer.State = answerState;
                         if (failure != null) _Logger.LogWarning("Generation failed {RunId} {Outcome}", run.Id, failure);
                         else _Logger.LogInformation("Generation finished {RunId} {State}", run.Id, answer.State);
                         await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -194,14 +203,15 @@ namespace ArgueBot.Core.Services
                             if (run.State != "window") return;
                         }
                         finally { gate.Release(); }
-                        DateTime deadline = DateTime.UtcNow.AddSeconds(run.InterventionSeconds);
-                        while (DateTime.UtcNow < deadline && !worker.SkipWindow && !worker.StopRequested && !worker.PauseAfterTurn)
+                        long windowStarted = _Clock.GetTimestamp();
+                        while (!worker.SkipWindow && !worker.StopRequested && !worker.PauseAfterTurn)
                         {
                             token.ThrowIfCancellationRequested();
-                            DateTime now = DateTime.UtcNow;
-                            foreach (KeyValuePair<string, DateTime> hold in worker.Holds) if (hold.Value <= now) worker.Holds.TryRemove(hold.Key, out DateTime _);
-                            if (!worker.Holds.IsEmpty) deadline = now.AddSeconds(run.InterventionSeconds);
-                            await Task.Delay(100, token).ConfigureAwait(false);
+                            long now = _Clock.GetTimestamp();
+                            foreach (KeyValuePair<string, long> hold in worker.Holds) if (_Clock.GetElapsedTime(hold.Value, now) >= TimeSpan.FromSeconds(30)) worker.Holds.TryRemove(hold.Key, out long _);
+                            if (!worker.Holds.IsEmpty) windowStarted = now;
+                            else if (_Clock.GetElapsedTime(windowStarted, now) >= TimeSpan.FromSeconds(run.InterventionSeconds)) break;
+                            await Task.Delay(TimeSpan.FromMilliseconds(100), _Clock, token).ConfigureAwait(false);
                             DebateRun latest = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
                             if (latest.State == "paused" || worker.PauseAfterTurn) return;
                         }
