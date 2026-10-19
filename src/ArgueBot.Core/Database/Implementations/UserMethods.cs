@@ -19,6 +19,18 @@ namespace ArgueBot.Core.Database.Implementations
         private readonly DatabaseDriverBase _Database;
         internal UserMethods(DatabaseDriverBase database) { _Database = database; }
         /// <inheritdoc />
+        public async Task<bool> CanExecuteAsync(RequestContext context, CancellationToken token = default)
+        {
+            RequireAuthenticated(context);
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, null, "SELECT u.role,u.is_admin,u.is_tenant_admin FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=@tenant AND u.id=@user AND u.active=1 AND t.active=1", P("tenant", context.TenantId, "user", context.UserId)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(token).ConfigureAwait(false)) return false;
+                return HasWritePermission(new RequestContext { Role = S(reader, "role"), IsAdmin = Convert.ToInt32(reader["is_admin"], CultureInfo.InvariantCulture) != 0, IsTenantAdmin = Convert.ToInt32(reader["is_tenant_admin"], CultureInfo.InvariantCulture) != 0 });
+            }
+        }
+        /// <inheritdoc />
         public async Task<UserPage> EnumerateAsync(RequestContext context, string search = "", int pageNumber = 1, int pageSize = 25, CancellationToken token = default)
         {
             RequireAdmin(context);

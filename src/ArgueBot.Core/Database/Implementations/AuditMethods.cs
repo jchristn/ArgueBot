@@ -1,6 +1,7 @@
 namespace ArgueBot.Core.Database.Implementations
 {
     using System;
+    using System.Collections.Generic;
     using System.Data.Common;
     using System.Globalization;
     using System.Threading;
@@ -8,6 +9,7 @@ namespace ArgueBot.Core.Database.Implementations
     using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Observability;
     using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
@@ -44,6 +46,15 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 await AppendAsync(connection, transaction, context.IsAuthenticated ? context : new RequestContext { CorrelationId = context.CorrelationId }, "http.authorization", "denied", "Request", "", status == 401 ? "unauthenticated" : status == 429 ? "rate_limited" : "forbidden", token).ConfigureAwait(false);
             }, token);
+        }
+        /// <inheritdoc />
+        public async Task RecordExecutionDeniedAsync(RequestContext context, string runId, string errorCode, CancellationToken token = default)
+        {
+            RequireAuthenticated(context);
+            if (string.IsNullOrWhiteSpace(runId) || runId.Length > 64 || errorCode is not ("authorization_revoked" or "authorization_unavailable")) throw new ArgumentException("Supply a run identifier and a supported execution authorization failure.");
+            await _Database.WriteAsync(async (connection, transaction) =>
+            { await AppendAsync(connection, transaction, context, "run.authorization", "denied", "Run", runId, errorCode, token).ConfigureAwait(false); }, token).ConfigureAwait(false);
+            ProductTelemetry.ExecutionDenials.Add(1, new KeyValuePair<string, object?>("reason", errorCode));
         }
         internal static Task<int> AppendAsync(DbConnection connection, DbTransaction transaction, RequestContext context, string operation, string outcome, string resourceType, string resourceId, string errorCode, CancellationToken token)
         {

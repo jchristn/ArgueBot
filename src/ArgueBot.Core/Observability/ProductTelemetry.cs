@@ -20,6 +20,8 @@ namespace ArgueBot.Core.Observability
         public static readonly Histogram<double> GenerationDuration = Meter.CreateHistogram<double>("arguebot.runner.duration", "s");
         /// <summary>Observed time to first answer text in seconds.</summary>
         public static readonly Histogram<double> FirstTextDuration = Meter.CreateHistogram<double>("arguebot.runner.first_text.duration", "s");
+        /// <summary>Durably audited background execution denials with bounded reason-code labels.</summary>
+        public static readonly Counter<long> ExecutionDenials = Meter.CreateCounter<long>("arguebot.execution.denials");
         /// <summary>Replay cursors requiring fresh snapshots, with bounded provider labels.</summary>
         public static readonly Counter<long> ReplayGaps = Meter.CreateCounter<long>("arguebot.replay.gaps");
         /// <summary>Committed replay events removed by retention. Domain transcript and audit data are unaffected.</summary>

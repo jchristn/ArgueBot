@@ -7,6 +7,8 @@ namespace ArgueBot.Core.Database.Interfaces
     /// <summary>Tenant-scoped identity administration with protected records and atomic security accounting.</summary>
     public interface IUserMethods
     {
+        /// <summary>Check current active user/tenant execution authority for previously accepted service-owned work, independent of its issuing session lifetime.</summary>
+        Task<bool> CanExecuteAsync(RequestContext context, CancellationToken token = default);
         /// <summary>Enumerate tenant identities for an administrator.</summary>
         Task<UserPage> EnumerateAsync(RequestContext context, string search = "", int pageNumber = 1, int pageSize = 25, CancellationToken token = default);
         /// <summary>Read identity metadata. Users may read their own record.</summary>

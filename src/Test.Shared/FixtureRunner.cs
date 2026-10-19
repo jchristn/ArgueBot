@@ -16,8 +16,10 @@ namespace Test.Shared
         /// <inheritdoc />
         public async Task GenerateAsync(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, Func<string, CancellationToken, Task> onText, CancellationToken token = default)
         {
-            Interlocked.Increment(ref _Calls); Started.TrySetResult(true);
+            Interlocked.Increment(ref _Calls);
             await onText("A concrete argument. ", token).ConfigureAwait(false);
+            // Signal only after the fragment is queued, so fake-clock advancement cannot race an empty timer flush.
+            Started.TrySetResult(true);
             if (Wait) await Task.Delay(Timeout.Infinite, token).ConfigureAwait(false);
             await onText("Complete.", token).ConfigureAwait(false);
         }

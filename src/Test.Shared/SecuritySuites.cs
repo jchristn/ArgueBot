@@ -20,7 +20,21 @@ namespace Test.Shared
         /// <summary>Reusable security descriptors.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "TlsTrust", "Local TLS pins bind certificate, home, endpoint, name and validity without trusting arbitrary certificates", TlsChecks.RunAsync), new TestCaseDescriptor("Security", "Identities", "Tenant identities, protected administration, password exchange, revision conflicts and immediate revocation", IdentitiesAsync), new TestCaseDescriptor("Security", "Audit", "Append-only audit inspection enforces explicit flags, tenant scope and anonymous accounting", AuditAsync), new TestCaseDescriptor("Security", "AdminBoundary", "Session privileges follow explicit flags and current active user and tenant state", AdminBoundaryAsync), new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "ExecutionIdentity", "Accepted work survives session logout but current role/active state revokes model execution", ExecutionIdentityAsync), new TestCaseDescriptor("Security", "TlsTrust", "Local TLS pins bind certificate, home, endpoint, name and validity without trusting arbitrary certificates", TlsChecks.RunAsync), new TestCaseDescriptor("Security", "Identities", "Tenant identities, protected administration, password exchange, revision conflicts and immediate revocation", IdentitiesAsync), new TestCaseDescriptor("Security", "Audit", "Append-only audit inspection enforces explicit flags, tenant scope and anonymous accounting", AuditAsync), new TestCaseDescriptor("Security", "AdminBoundary", "Session privileges follow explicit flags and current active user and tenant state", AdminBoundaryAsync), new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+        }
+        private static async Task ExecutionIdentityAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-execution-identity-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(home);
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(paths))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    await ExecutionIdentityChecks.RunAsync(database, paths, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task IdentitiesAsync(CancellationToken token)
         {

@@ -469,5 +469,7 @@
   "settings.tls": "HTTPS listener",
   "settings.tls.help": "Provision keys/listener.pfx in this application home before enabling. Restart to apply, then use the HTTPS address. Password login requires HTTPS.",
   "settings.tlsPasswordEnv": "Certificate password environment reference",
-  "settings.tlsPasswordEnv.help": "Optional variable on the service machine containing the PFX password. Enter the variable name, never the password."
+  "settings.tlsPasswordEnv.help": "Optional variable on the service machine containing the PFX password. Enter the variable name, never the password.",
+  "outcome.authorization_revoked": "Execution permission was revoked. Restore the account and required access before explicitly resuming.",
+  "outcome.authorization_unavailable": "Execution paused because current permissions could not be verified. Inspect service diagnostics before retrying."
 }

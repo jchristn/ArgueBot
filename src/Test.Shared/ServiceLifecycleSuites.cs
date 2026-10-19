@@ -62,9 +62,27 @@ namespace Test.Shared
             }
             finally
             {
-                if (service != null) { if (!service.HasExited) service.Kill(true); await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); service.Dispose(); }
+                await StopFixtureServiceAsync(home, service).ConfigureAwait(false);
                 await DeleteStoppedHomeAsync(home).ConfigureAwait(false);
             }
+        }
+        private static async Task StopFixtureServiceAsync(string home, Process? service)
+        {
+            // Readiness can fail after the owned child publishes its descriptor. Capture that
+            // process before deleting the fixture so cleanup cannot hide the startup failure.
+            if (service == null)
+            {
+                string file = Path.Combine(home, "runtime", "service.json");
+                if (!File.Exists(file)) return;
+                LocalServiceDescriptor? descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(file).ConfigureAwait(false));
+                if (descriptor == null || descriptor.HomeId != LocalHomeIdentity.Read(new ArgueBotPaths(home))) throw new InvalidDataException("Unverified fixture service descriptor; retain its home for investigation.");
+                try { service = Process.GetProcessById(descriptor.ProcessId); }
+                catch (ArgumentException) { return; }
+                TimeSpan age = descriptor.StartedUtc - service.StartTime.ToUniversalTime();
+                if (age < TimeSpan.FromSeconds(-1) || age > TimeSpan.FromSeconds(30)) { service.Dispose(); throw new InvalidDataException("Fixture process identity changed; retain its home for investigation."); }
+            }
+            try { if (!service.HasExited) service.Kill(true); await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
+            finally { service.Dispose(); }
         }
         private static async Task DeleteStoppedHomeAsync(string home)
         {

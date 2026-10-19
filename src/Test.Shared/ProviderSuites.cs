@@ -166,6 +166,7 @@ namespace Test.Shared
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
                     await IdentityChecks.RunAsync(database, new ArgueBotPaths(migrationHome), token).ConfigureAwait(false);
+                    await ExecutionIdentityChecks.RunAsync(database, new ArgueBotPaths(migrationHome), token).ConfigureAwait(false);
                     await AttemptStorageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     await MessagePageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     await ReplayChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);

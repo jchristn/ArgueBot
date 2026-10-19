@@ -397,3 +397,5 @@ The replacement service supports configurable event replay retention without del
 Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. See [identity behavior and remaining security gates](docs/IDENTITY.md).
 
 Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Password exchange requires HTTPS. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. TLS certificate keys follow encrypted opt-in recovery rules. Hosted ingress and runner isolation remain open.
+
+Accepted background runs survive session sign-out. Current account disablement or execution-role revocation interrupts generation and pauses without replay; re-enable access and explicitly resume when appropriate. See [execution and recovery](docs/EXECUTION.md).

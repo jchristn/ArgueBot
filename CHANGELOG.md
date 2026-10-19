@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Background generation now checks current identity execution authority before attempts and during streaming. Logout leaves accepted work running; account disablement or role revocation interrupts it, preserves provenance and pauses without replay. Denials have independent audit and bounded metrics.
+
 - Optional loopback HTTPS with operator-provisioned PFX and password environment reference. Password exchange requires TLS; native local trust can use an exact protected home/endpoint certificate pin while retaining name and validity checks. TLS private keys require encrypted opt-in recovery.
 
 - Tenant user administration across dashboard, terminal and console; tenant-bound password exchange; protected local owner; optimistic identity updates and atomic session revocation. Schema 10 preserves older identity records without assigning passwords. Hosted credential/RBAC/isolation gates remain open.

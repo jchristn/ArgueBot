@@ -157,6 +157,11 @@ namespace ArgueBot.Core.Services
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             if (worker.PauseAfterTurn || run.State == "paused" || run.State == "completed" || run.State == "cancelled" || run.State == "failed") return;
                             if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
+                            if (!await _Database.Users.CanExecuteAsync(context, token).ConfigureAwait(false))
+                            {
+                                await _Database.Audit.RecordExecutionDeniedAsync(context, run.Id, "authorization_revoked", token).ConfigureAwait(false);
+                                throw new DomainException(403, "authorization_revoked", "The execution principal is inactive or no longer permitted to generate. Work remains paused.");
+                            }
                             profile = run.Participants[run.SpeakerIndex];
                             prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + run.Question + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
                             if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + run.Question;
@@ -171,19 +176,27 @@ namespace ArgueBot.Core.Services
                         string? failure = null;
                         string answerState = "completed";
                         MessageStreamWriter stream = new MessageStreamWriter(_Database, context, answer, _StreamBatchCharacters, _StreamCommitInterval, _Clock);
+                        ExecutionAuthorizationWatch authorization = new ExecutionAuthorizationWatch(_Database, context, worker.Generation, _Clock, token);
+                        await using (authorization)
                         await using (stream)
                         using (CancellationTokenRegistration streamFailure = stream.FaultToken.Register(() => worker.Generation?.Cancel()))
                         {
-                        try
-                        {
-                            await _Database.Attempts.MarkStreamingAsync(context, attempt, worker.Generation.Token).ConfigureAwait(false);
-                            await _Runner.GenerateAsync(profile, prompt, contextMessages, stream.AppendAsync, worker.Generation.Token).ConfigureAwait(false);
-                            if (stream.Failed) throw new DomainException(503, stream.FailureCode, "Stream persistence failed.");
-                            answerState = "completed";
+                            try
+                            {
+                                if (!await authorization.InitialCheck.WaitAsync(worker.Generation.Token).ConfigureAwait(false)) throw new OperationCanceledException(worker.Generation.Token);
+                                await _Database.Attempts.MarkStreamingAsync(context, attempt, worker.Generation.Token).ConfigureAwait(false);
+                                await _Runner.GenerateAsync(profile, prompt, contextMessages, stream.AppendAsync, worker.Generation.Token).ConfigureAwait(false);
+                                if (stream.Failed) throw new DomainException(503, stream.FailureCode, "Stream persistence failed.");
+                                answerState = "completed";
+                            }
+                            catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
+                            catch (Exception ex) when (ex is not OutOfMemoryException)
+                            { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
                         }
-                        catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
-                        catch (Exception ex) when (ex is not OutOfMemoryException)
-                        { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
+                        if (authorization.FailureCode.Length > 0)
+                        {
+                            answerState = "interrupted"; failure = authorization.FailureCode;
+                            await _Database.Audit.RecordExecutionDeniedAsync(context, run.Id, failure, CancellationToken.None).ConfigureAwait(false);
                         }
                         if (stream.Failed) { answerState = "failed"; failure = stream.FailureCode; }
                         answer.State = answerState;

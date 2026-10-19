@@ -525,8 +525,10 @@ namespace ArgueBot.Core.Database
         public static void RequireWrite(RequestContext context)
         {
             RequireAuthenticated(context);
-            if (!context.IsAdmin && !context.IsTenantAdmin && context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
+            if (!HasWritePermission(context)) throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
+        internal static bool HasWritePermission(RequestContext context)
+        { return context.IsAdmin || context.IsTenantAdmin || context.Role == "admin" || context.Role == "operator"; }
 
         /// <summary>Optionally acquire an exclusive provider session that is retained for all writes until disposal. Default providers use transient connections.</summary>
         protected virtual Task<DbConnection?> AcquireOwnedWriterAsync(CancellationToken token) { return Task.FromResult<DbConnection?>(null); }
