@@ -1,20 +1,20 @@
 namespace ArgueBot.Server.Routes
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Globalization;
     using System.Text.Json;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Database;
+    using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
-    using WatsonWebserver.Core.OpenApi;
-    using WatsonWebserver.Core;
     using WatsonWebserver;
+    using WatsonWebserver.Core;
+    using WatsonWebserver.Core.OpenApi;
 
     internal sealed class ConversationRoutes
     {
@@ -27,10 +27,10 @@ namespace ArgueBot.Server.Routes
         {
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
             {
-                string search = http.Request.Query.Elements["search"] ?? "";
-                int page = int.TryParse(http.Request.Query.Elements["pageNumber"], out int parsedPage) ? parsedPage : 1;
-                int size = int.TryParse(http.Request.Query.Elements["pageSize"], out int parsedSize) ? parsedSize : 25;
-                bool archive = http.Request.Query.Elements["archived"] == "true";
+                string search = http.Request.RetrieveQueryValue("search") ?? "";
+                int page = int.TryParse(http.Request.RetrieveQueryValue("pageNumber"), out int parsedPage) ? parsedPage : 1;
+                int size = int.TryParse(http.Request.RetrieveQueryValue("pageSize"), out int parsedSize) ? parsedSize : 25;
+                bool archive = http.Request.RetrieveQueryValue("archived") == "true";
                 await Api.SendAsync(http, await _Database.EnumerateConversationsAsync(Api.Context(http), search, archive, page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Search owned conversations", "Conversations"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
@@ -44,10 +44,10 @@ namespace ArgueBot.Server.Routes
             { await _Database.DeleteConversationAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false); await Api.SendAsync(http, new DeletionResponse()).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Delete stopped conversation", "Conversations"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/messages", http => Api.GuardAsync(http, async () =>
             {
-                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
-                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
-                string? through = http.Request.Query.Elements["throughSequence"];
-                bool tail = bool.Parse(http.Request.Query.Elements["tail"] ?? "false");
+                int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
+                string? through = http.Request.RetrieveQueryValue("throughSequence");
+                bool tail = bool.Parse(http.Request.RetrieveQueryValue("tail") ?? "false");
                 await Api.SendAsync(http, await _Database.ReadMessagePageAsync(Api.Context(http), Api.Parameter(http, "conversationId"), page, size, through == null ? null : long.Parse(through, CultureInfo.InvariantCulture), tail, _Settings.HistoryPreviewCodePoints, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Read bounded history previews with stable membership paging", "Messages"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/messages/{messageId}", http => Api.GuardAsync(http, async () =>
@@ -60,8 +60,8 @@ namespace ArgueBot.Server.Routes
             }), openApiMetadata: OpenApiRouteMetadata.Create("Append idempotent public note", "Messages"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/events", http => Api.GuardAsync(http, async () =>
             {
-                long after = long.Parse(http.Request.Query.Elements["after"] ?? "0", CultureInfo.InvariantCulture);
-                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? _Settings.EventReplayPageSize.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+                long after = long.Parse(http.Request.RetrieveQueryValue("after") ?? "0", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? _Settings.EventReplayPageSize.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
                 if ((http.Request.Headers["Accept"] ?? "").Contains("text/event-stream", StringComparison.Ordinal))
                     await StreamAsync(http, after, size).ConfigureAwait(false);
                 else await Api.SendAsync(http, await _Database.ReadEventsAsync(Api.Context(http), Api.Parameter(http, "conversationId"), after, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
@@ -74,8 +74,8 @@ namespace ArgueBot.Server.Routes
             { await Api.SendAsync(http, await _Database.Runs.ReadAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read run checkpoint", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs/{runId}/attempts", http => Api.GuardAsync(http, async () =>
             {
-                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
-                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
+                int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
                 await Api.SendAsync(http, await _Database.Attempts.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Inspect durable generation attempts and exact selected context identifiers", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, root + "/runs/{runId}/actions", http => Api.GuardAsync(http, async () =>

@@ -1,18 +1,18 @@
 namespace ArgueBot.Client
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
+    using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
-    using System.Net.Http;
     using System.Runtime.CompilerServices;
     using System.Security.Cryptography;
-    using System.Text.Json.Serialization;
     using System.Text.Json;
-    using System.Threading.Tasks;
+    using System.Text.Json.Serialization;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
@@ -33,6 +33,14 @@ namespace ArgueBot.Client
             _Http = handler == null ? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) : new HttpClient(handler, true);
             _Http.BaseAddress = address; _Http.Timeout = TimeSpan.FromSeconds(30);
             _Http.DefaultRequestHeaders.Add("x-client-id", Guid.NewGuid().ToString("N"));
+        }
+        /// <summary>Exchange tenant-bound password material without an existing session and install the resulting token. The returned secret is intended for an explicit login command only.</summary>
+        public async Task<string> LoginAsync(LoginRequest request, CancellationToken token = default)
+        {
+            if (_Http.BaseAddress?.Scheme != Uri.UriSchemeHttps) throw new DomainException(400, "tls_required", "Password exchange requires an HTTPS listener.");
+            _Http.DefaultRequestHeaders.Authorization = null;
+            SessionResponse response = await SendAsync<SessionResponse>(HttpMethod.Post, "v1.0/api/auth/login", request, token).ConfigureAwait(false);
+            SetToken(response.Token); return response.Token;
         }
         /// <summary>Use an existing session. Secrets are never included in URLs.</summary>
         public void SetToken(string token) { _Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token); }
@@ -62,7 +70,7 @@ namespace ArgueBot.Client
         public async Task PairLocalCachedAsync(string home, CancellationToken token = default)
         {
             ArgumentNullException.ThrowIfNull(home);
-            if (_Http.BaseAddress == null || _Http.BaseAddress.Host != "127.0.0.1" || _Http.BaseAddress.Scheme != Uri.UriSchemeHttp || _Http.BaseAddress.AbsolutePath != "/") throw new InvalidOperationException("Local session reuse requires the service's direct 127.0.0.1 HTTP endpoint.");
+            if (_Http.BaseAddress == null || _Http.BaseAddress.Host != "127.0.0.1" || (_Http.BaseAddress.Scheme != Uri.UriSchemeHttp && _Http.BaseAddress.Scheme != Uri.UriSchemeHttps) || _Http.BaseAddress.AbsolutePath != "/") throw new InvalidOperationException("Local session reuse requires the service's direct 127.0.0.1 HTTP(S) endpoint.");
             ArgueBotPaths paths = new ArgueBotPaths(home); paths.EnsureDirectories();
             string? homeId = LocalHomeIdentity.Read(paths);
             _Http.DefaultRequestHeaders.Authorization = null;

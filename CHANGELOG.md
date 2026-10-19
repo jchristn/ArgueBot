@@ -4,6 +4,11 @@
 
 ### In progress
 
+- Optional loopback HTTPS with operator-provisioned PFX and password environment reference. Password exchange requires TLS; native local trust can use an exact protected home/endpoint certificate pin while retaining name and validity checks. TLS private keys require encrypted opt-in recovery.
+
+- Tenant user administration across dashboard, terminal and console; tenant-bound password exchange; protected local owner; optimistic identity updates and atomic session revocation. Schema 10 preserves older identity records without assigning passwords. Hosted credential/RBAC/isolation gates remain open.
+- URL-encoded query filters now decode through Watson's query accessor, restoring email, Unicode and punctuation searches.
+
 - Domain conversation/profile reads now reject unauthenticated or unbound principals even when called outside HTTP, with shared checks on both supported databases.
 
 - Configurable incremental event retention, bounded replay pages, typed cursor recovery and native event streaming. Dashboard reconnects refresh snapshots after expired cursors. Large stream callbacks are bounded and malformed Unicode preserves the valid prefix before failing the attempt.

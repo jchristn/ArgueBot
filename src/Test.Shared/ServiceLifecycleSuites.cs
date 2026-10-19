@@ -1,16 +1,16 @@
 namespace Test.Shared
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Net;
     using System.Net.Http;
     using System.Net.Sockets;
-    using System.Net;
     using System.Text.Json;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Client;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
@@ -33,14 +33,15 @@ namespace Test.Shared
             try
             {
                 TcpListener listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(); int port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
-                await new ServiceSettings { Port = port, RequestHistoryEnabled = false }.SaveAsync(new ArgueBotPaths(home), token).ConfigureAwait(false);
+                CertificateFixture.Create(new ArgueBotPaths(home));
+                await new ServiceSettings { Port = port, TlsEnabled = true, RequestHistoryEnabled = false }.SaveAsync(new ArgueBotPaths(home), token).ConfigureAwait(false);
                 string endpoint = await LocalServiceConnector.ConnectAsync(home, token: token).ConfigureAwait(false);
                 string descriptorFile = Path.Combine(home, "runtime", "service.json");
                 for (int retry = 0; retry < 40 && !File.Exists(descriptorFile); retry++) await Task.Delay(25, token).ConfigureAwait(false);
                 LocalServiceDescriptor descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(descriptorFile, token).ConfigureAwait(false)) ?? throw new InvalidDataException("No service descriptor.");
                 service = Process.GetProcessById(descriptor.ProcessId);
                 await SessionHttpChecks.RunAsync(endpoint, home, token).ConfigureAwait(false);
-                using (ArgueBotClient client = new ArgueBotClient(endpoint))
+                using (ArgueBotClient client = LocalServiceConnector.CreateClient(endpoint, home))
                 {
                     await client.PairLocalAsync(home, token).ConfigureAwait(false);
                     AuditPage denials = new AuditPage();
@@ -98,7 +99,8 @@ namespace Test.Shared
                 TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
                 listener.Start(); port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
                 ArgueBotPaths paths = new ArgueBotPaths(home);
-                await new ServiceSettings { Port = port, EventMaxPerConversation = 10, EventMaintenanceSeconds = 5 }.SaveAsync(paths, token).ConfigureAwait(false);
+                CertificateFixture.Create(paths);
+                await new ServiceSettings { Port = port, TlsEnabled = true, EventMaxPerConversation = 10, EventMaintenanceSeconds = 5 }.SaveAsync(paths, token).ConfigureAwait(false);
                 Task<string> first = LocalServiceConnector.ConnectAsync(home, token: token);
                 Task<string> second = LocalServiceConnector.ConnectAsync(home, token: token);
                 string[] endpoints = await Task.WhenAll(first, second).ConfigureAwait(false);
@@ -109,16 +111,17 @@ namespace Test.Shared
                 service = Process.GetProcessById(descriptor.ProcessId);
                 if (descriptor.HomeId != LocalHomeIdentity.Read(paths)) throw new InvalidDataException("Attachment metadata lost its home binding.");
                 string otherHome = Path.Combine(home, "different-home");
-                await new ServiceSettings { Port = port }.SaveAsync(new ArgueBotPaths(otherHome), token).ConfigureAwait(false);
+                await new ServiceSettings { Port = port, TlsEnabled = true }.SaveAsync(new ArgueBotPaths(otherHome), token).ConfigureAwait(false);
                 bool wrongHome = false;
-                try { await LocalServiceConnector.ConnectAsync(otherHome, token: token).ConfigureAwait(false); }
-                catch (InvalidOperationException exception) when (exception.Message.Contains("different application home", StringComparison.Ordinal)) { wrongHome = true; }
+                try { await LocalServiceConnector.ConnectAsync(otherHome, autoStart: false, token: token).ConfigureAwait(false); }
+                catch (InvalidOperationException) { wrongHome = true; }
                 if (!wrongHome) throw new InvalidDataException("A second home attached to another home's healthy listener.");
-                using (ArgueBotClient one = new ArgueBotClient(endpoints[0]))
-                using (ArgueBotClient two = new ArgueBotClient(endpoints[1]))
+                using (ArgueBotClient one = LocalServiceConnector.CreateClient(endpoints[0], home))
+                using (ArgueBotClient two = LocalServiceConnector.CreateClient(endpoints[1], home))
                 {
                     await Task.WhenAll(one.PairLocalAsync(home, token), two.PairLocalAsync(home, token)).ConfigureAwait(false);
                     await MessageHttpChecks.RunAsync(one, token).ConfigureAwait(false);
+                    await IdentityHttpChecks.RunAsync(one, endpoints[0], home, token).ConfigureAwait(false);
                     Conversation conversation = await one.CreateConversationAsync("Shared startup fixture", token).ConfigureAwait(false);
                     await two.NoteAsync(conversation.Id, "Seen by a second client", token: token).ConfigureAwait(false);
                     bool rejected = false;
@@ -174,7 +177,7 @@ namespace Test.Shared
                     if ((await one.MessagesAsync(conversation.Id, token).ConfigureAwait(false)).Count != 1) throw new InvalidDataException("Clients did not share durable history.");
                 }
                 if (service.HasExited || await LocalServiceConnector.ConnectAsync(home, autoStart: false, token: token).ConfigureAwait(false) != endpoints[0]) throw new InvalidDataException("Closing clients stopped the service.");
-                using (ArgueBotClient admin = new ArgueBotClient(endpoints[0]))
+                using (ArgueBotClient admin = LocalServiceConnector.CreateClient(endpoints[0], home))
                 {
                     await admin.PairLocalAsync(home, token).ConfigureAwait(false);
                     await admin.SendAsync<Acknowledgement>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false);

@@ -39,10 +39,10 @@ namespace ArgueBot.Core.Database.Implementations
         public Task RecordDeniedRequestAsync(RequestContext context, int status, CancellationToken token = default)
         {
             ArgumentNullException.ThrowIfNull(context);
-            if (status != 401 && status != 403) throw new ArgumentOutOfRangeException(nameof(status));
+            if (status != 401 && status != 403 && status != 429) throw new ArgumentOutOfRangeException(nameof(status));
             return _Database.WriteAsync(async (connection, transaction) =>
             {
-                await AppendAsync(connection, transaction, context.IsAuthenticated ? context : new RequestContext { CorrelationId = context.CorrelationId }, "http.authorization", "denied", "Request", "", status == 401 ? "unauthenticated" : "forbidden", token).ConfigureAwait(false);
+                await AppendAsync(connection, transaction, context.IsAuthenticated ? context : new RequestContext { CorrelationId = context.CorrelationId }, "http.authorization", "denied", "Request", "", status == 401 ? "unauthenticated" : status == 429 ? "rate_limited" : "forbidden", token).ConfigureAwait(false);
             }, token);
         }
         internal static Task<int> AppendAsync(DbConnection connection, DbTransaction transaction, RequestContext context, string operation, string outcome, string resourceType, string resourceId, string errorCode, CancellationToken token)

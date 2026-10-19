@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
+import { fixtureCertificate } from './fixture-certificate.mjs';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -14,7 +15,8 @@ const listener = net.createServer();
 await new Promise((resolve, reject) => listener.once('error', reject).listen(0, '127.0.0.1', resolve));
 const port = listener.address().port;
 await new Promise(resolve => listener.close(resolve));
-await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port}), {mode:0o600});
+await fixtureCertificate(home);
+await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port,tlsEnabled:false}), {mode:0o600});
 let started = false;
 let checks = 0;
 function invoke(words, body) {
@@ -39,6 +41,14 @@ async function completed(id, expected = "completed") {
 try {
   started = true;
   check(command(['service','start']).status==='ready', 'CLI did not attach to its isolated service.');
+  const blocked = spawnSync('dotnet',[cli,'--home',home,'auth','login','-'],{cwd:root,input:JSON.stringify({tenantId:'ten_local',email:'missing@example.invalid',passwordSha256:'D'.repeat(64)}),encoding:'utf8',timeout:10000,env:{...process.env,ARGUEBOT_TOKEN:''}});
+  check(blocked.status!==0 && blocked.stderr.includes('tls_required'), 'The HTTP native helper accepted password-equivalent exchange.');
+  const plainExchange = await fetch(`http://127.0.0.1:${port}/v1.0/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenantId:'ten_local',email:'missing@example.invalid',passwordSha256:'D'.repeat(64)})});
+  check(plainExchange.status===403 && (await plainExchange.json()).code==='tls_required', 'The HTTP listener accepted password exchange independently of the native helper.');
+  command(['service','stop']);
+  for(let attempt=0;attempt<100;attempt++) { if(await fs.stat(path.join(home,'runtime/service.json')).then(()=>false,()=>true)) break; await delay(50); }
+  await fs.writeFile(path.join(home,'arguebot.json'),JSON.stringify({port,tlsEnabled:true}),{mode:0o600});
+  check(command(['service','start']).status==='ready', 'Native CLI did not attach to the owner-pinned HTTPS listener.');
   const audit = command(['audit','list','session.issue']);
   check(audit.totalCount >= 1 && audit.items.every(item=>item.operation==='session.issue' && item.sessionId), 'CLI audit inspection lost session accounting.');
   const profile = command(['participants','add','-'], {name:'CLI surface fixture',kind:'cli',provider:'plain',executable:'fixture-not-executed',arguments:['','--literal','議論 with spaces']});
@@ -49,6 +59,13 @@ try {
   check(command(['participants','list']).some(item=>item.id===profile.id), 'Participant listing lost the edited profile.');
   command(['participants','delete',profile.id]);
   check(!command(['participants','list']).some(item=>item.id===profile.id), 'Participant deletion retained its reusable record.');
+  const identity = command(['users','create','-'], {name:'CLI viewer fixture',email:'cli-viewer@example.invalid',passwordSha256:'A'.repeat(64)});
+  check(identity.role==='viewer' && identity.hasPassword && !JSON.stringify(identity).includes('A'.repeat(64)), 'CLI identity creation leaked its password or assigned an elevated role.');
+  check(command(['users','list','cli-viewer']).items.some(item=>item.id===identity.id), 'CLI identity paging lost its created user.');
+  const enrolled = command(['auth','login','-'], {tenantId:'ten_local',email:identity.email,passwordSha256:'A'.repeat(64)});
+  check(typeof enrolled.token==='string' && enrolled.token.startsWith('v1.'), 'CLI password login did not return an opaque session.');
+  const disabled = command(['users','update',identity.id,'-'], {name:identity.name,email:identity.email,active:false,expectedRevision:identity.revision});
+  check(!disabled.active && disabled.revision===identity.revision+1, 'CLI identity disablement did not advance its revision.');
   const fixture = path.join(root, 'src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll');
   const debaters = ['A', 'B'].map(name => command(['participants','add','-'], {name:`CLI attempt fixture ${name}`,kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain']}));
   const conversation = command(['conversations','create','CLI attempt provenance fixture']);

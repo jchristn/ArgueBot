@@ -16,6 +16,14 @@ namespace ArgueBot.Client
     /// <summary>Starts or attaches to the service for a local home, without opening its database.</summary>
     public static class LocalServiceConnector
     {
+        /// <summary>Create an owned HTTP handler with platform TLS validation or exact owner-home loopback certificate pinning. The caller must dispose it.</summary>
+        public static HttpClientHandler CreateHttpHandler(string home)
+        { return LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)); }
+
+        /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled.</summary>
+        public static ArgueBotClient CreateClient(string endpoint, string home)
+        { return new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home))); }
+
         /// <summary>Resolve an explicit remote/local address, or attach/start the selected local home.</summary>
         public static async Task<string> ConnectAsync(string home, string? endpoint = null, bool autoStart = true, CancellationToken token = default)
         {
@@ -24,7 +32,7 @@ namespace ArgueBot.Client
             if (File.Exists(Path.Combine(paths.Home, "runtime", "recovery-incomplete"))) throw new InvalidOperationException("This recovery home requires operator review before it can be started. See its incomplete-recovery marker and recovery operation.");
             string? homeId = autoStart ? LocalHomeIdentity.Ensure(paths) : LocalHomeIdentity.Read(paths);
             string descriptorFile = Path.Combine(paths.Home, "runtime", "service.json");
-            using (HttpClient http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(2) })
+            using (HttpClient http = new HttpClient(LocalTlsTrust.CreateHandler(paths)) { Timeout = TimeSpan.FromSeconds(2) })
             {
                 if (File.Exists(descriptorFile))
                 {
@@ -35,15 +43,15 @@ namespace ArgueBot.Client
                         return descriptor.Endpoint;
                     }
                 }
-                int port = 4317;
+                int port = 4317; bool tls = false;
                 if (File.Exists(paths.SettingsFile))
                 {
                     JsonSerializerOptions options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     options.Converters.Add(new JsonStringEnumConverter());
                     ServiceSettings? settings = JsonSerializer.Deserialize<ServiceSettings>(await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false), options);
-                    port = settings?.Port ?? port;
+                    port = settings?.Port ?? port; tls = settings?.TlsEnabled ?? false;
                 }
-                string local = "http://127.0.0.1:" + port;
+                string local = (tls ? "https" : "http") + "://127.0.0.1:" + port;
                 if (await ReadyAsync(http, local, paths, homeId, token).ConfigureAwait(false)) return local;
                 if (!autoStart) throw new InvalidOperationException("The local service is not running. Start ArgueBot.Server or omit --no-start.");
                 ProcessStartInfo start = LocateServer();
@@ -66,7 +74,7 @@ namespace ArgueBot.Client
         }
         private static bool IsLocal(string endpoint)
         {
-            return Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) && uri.Scheme == "http" && uri.Host == "127.0.0.1" && uri.AbsolutePath == "/" && uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0;
+            return Uri.TryCreate(endpoint, UriKind.Absolute, out Uri? uri) && (uri.Scheme == "http" || uri.Scheme == "https") && uri.Host == "127.0.0.1" && uri.AbsolutePath == "/" && uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0;
         }
         private static async Task<bool> ReadyAsync(HttpClient http, string endpoint, ArgueBotPaths paths, string? homeId, CancellationToken token)
         {

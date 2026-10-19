@@ -10,6 +10,7 @@ namespace ArgueBot.Tests.Fixtures
         private static async Task<int> Main(string[] args)
         {
             string mode = args.Length > 0 ? args[0] : "plain";
+            if (mode == "certificate" && args.Length == 2) { CertificateFixture.Write(args[1]); return 0; }
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);
             if (mode == "exit") return 17;
             if (mode == "hang") { await Task.Delay(Timeout.Infinite).ConfigureAwait(false); return 0; }

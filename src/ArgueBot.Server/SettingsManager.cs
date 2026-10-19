@@ -1,11 +1,11 @@
 namespace ArgueBot.Server
 {
+    using System;
     using System.IO;
     using System.Security.Cryptography;
     using System.Text.Json;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Services;
 
@@ -30,6 +30,9 @@ namespace ArgueBot.Server
             {
                 if (update.Revision != Revision()) throw new DomainException(409, "revision_conflict", "Settings changed. Reload before saving.");
                 ServiceSettings settings = await ServiceSettings.LoadAsync(_Paths, token).ConfigureAwait(false);
+                if (update.TlsEnabled.HasValue) settings.TlsEnabled = update.TlsEnabled.Value;
+                if (update.TlsPasswordEnvironmentVariable != null) settings.TlsPasswordEnvironmentVariable = update.TlsPasswordEnvironmentVariable;
+                if (settings.TlsEnabled && !File.Exists(Path.Combine(_Paths.Home, "keys", "listener.pfx"))) throw new DomainException(400, "tls_certificate_missing", "Provision keys/listener.pfx before enabling HTTPS.");
                 settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.AllowCli = update.AllowCli;
                 if (update.StreamBatchCharacters.HasValue) settings.StreamBatchCharacters = update.StreamBatchCharacters.Value;
                 if (update.StreamCommitMilliseconds.HasValue) settings.StreamCommitMilliseconds = update.StreamCommitMilliseconds.Value;

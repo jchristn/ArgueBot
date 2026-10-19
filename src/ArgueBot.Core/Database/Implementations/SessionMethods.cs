@@ -5,12 +5,14 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Globalization;
     using System.Security.Cryptography;
     using System.Text;
+    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Security;
+    using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Revocable opaque local sessions. Only token digests are persisted.</summary>
@@ -32,6 +34,41 @@ namespace ArgueBot.Core.Database.Implementations
                 await AuditMethods.AppendAsync(connection, transaction, new RequestContext { IsAuthenticated = true, TenantId = "ten_local", UserId = "usr_local", SessionId = sessionId, AuthScheme = "LocalEnrollment" }, "session.issue", "issued", "Session", sessionId, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return secret;
+        }
+        /// <summary>Exchange tenant-local password-equivalent material for a one-hour revocable session. The transport must enforce TLS and rate-limit this operation.</summary>
+        public async Task<string> LoginAsync(LoginRequest request, string correlationId = "", CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            string tenant = request.TenantId ?? ""; string email = request.Email ?? ""; string password = request.PasswordSha256 ?? "";
+            bool shape = tenant.Length > 0 && tenant.Length <= 64 && email.Length <= 254 && Regex.IsMatch(password, "^[A-Fa-f0-9]{64}$", RegexOptions.CultureInvariant);
+            string issued = "";
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                string user = ""; string stored = new string('0', 64);
+                if (shape)
+                {
+                    using (DbCommand command = Command(connection, transaction, "SELECT u.id,u.password_sha256 FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=@tenant AND u.email=@email AND u.active=1 AND t.active=1", P("tenant", tenant, "email", email.ToLowerInvariant())))
+                    using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                    { if (await reader.ReadAsync(token).ConfigureAwait(false)) { user = S(reader, "id"); stored = S(reader, "password_sha256"); } }
+                }
+                byte[] expected = stored.Length == 64 ? Convert.FromHexString(stored) : new byte[32];
+                byte[] supplied = shape ? Convert.FromHexString(password) : new byte[32];
+                bool matches = CryptographicOperations.FixedTimeEquals(expected, supplied);
+                CryptographicOperations.ZeroMemory(expected); CryptographicOperations.ZeroMemory(supplied);
+                RequestContext context = new RequestContext { CorrelationId = correlationId };
+                if (!shape || user.Length == 0 || stored.Length != 64 || !matches)
+                {
+                    await AuditMethods.AppendAsync(connection, transaction, context, "auth.password", "denied", "Session", "", "invalid_login", token).ConfigureAwait(false);
+                    return;
+                }
+                string id = Ids.New("ses_"); DateTime expiry = DateTime.UtcNow.AddHours(1);
+                issued = _Protector.Protect(new SessionClaims { SessionId = id, TenantId = tenant, UserId = user, IssuedUtc = DateTime.UtcNow, ExpiresUtc = expiry, TokenId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) });
+                await ExecuteAsync(connection, transaction, "INSERT INTO auth_sessions(id,tenant_id,user_id,token_hash,expires_utc,created_utc,updated_utc) VALUES(@id,@tenant,@user,@hash,@expires,@now,@now)", token, P("id", id, "tenant", tenant, "user", user, "hash", Hash(issued), "expires", expiry.ToString("O", CultureInfo.InvariantCulture))).ConfigureAwait(false);
+                context.IsAuthenticated = true; context.TenantId = tenant; context.UserId = user; context.SessionId = id; context.AuthScheme = "PasswordExchange";
+                await AuditMethods.AppendAsync(connection, transaction, context, "session.issue", "issued", "Session", id, "", token).ConfigureAwait(false);
+            }, token).ConfigureAwait(false);
+            if (issued.Length == 0) throw new DomainException(401, "invalid_login", "The tenant, identity or password is invalid or inactive.");
+            return issued;
         }
         /// <summary>Resolve an active session and its current active user and tenant.</summary>
         public async Task<RequestContext?> AuthenticateAsync(string secret, CancellationToken token = default)

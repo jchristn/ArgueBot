@@ -19,6 +19,7 @@ const Participants = lazy(() => import("./views/Participants.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Backups = lazy(() => import("./views/Backups.jsx"));
+const Users = lazy(() => import("./views/Users.jsx"));
 const Audit = lazy(() => import("./views/Audit.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
 function Language() {
@@ -56,6 +57,10 @@ function ThemeControl({ theme, toggle }) {
 function Login({ onLogin, theme, toggleTheme }) {
   const { t } = useTranslation();
   const [code, setCode] = useState("");
+  const [mode, setMode] = useState("pair");
+  const [tenant, setTenant] = useState("ten_local");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -77,7 +82,12 @@ function Login({ onLogin, theme, toggleTheme }) {
             setBusy(true);
             setError(null);
             try {
-              onLogin(await api.pair(code.trim()));
+              onLogin(
+                mode === "pair"
+                  ? await api.pair(code.trim())
+                  : await api.login(tenant.trim(), email.trim(), password),
+              );
+              setPassword("");
             } catch (failure) {
               setError(failure);
             } finally {
@@ -85,24 +95,93 @@ function Login({ onLogin, theme, toggleTheme }) {
             }
           }}
         >
-          <Field label="login.code">
+          <Field label="login.method">
             {(props) => (
-              <input
+              <select
                 {...props}
-                type="password"
-                autoComplete="one-time-code"
-                required
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
+                value={mode}
+                onChange={(event) => {
+                  setMode(event.target.value);
+                  setError(null);
+                  setCode("");
+                  setPassword("");
+                }}
+              >
+                <option value="pair">{t("login.pair")}</option>
+                <option
+                  value="password"
+                  disabled={location.protocol !== "https:"}
+                  title={t("login.tls.help")}
+                >
+                  {t("login.passwordMode")}
+                </option>
+              </select>
             )}
           </Field>
+          {mode === "pair" ? (
+            <Field label="login.code">
+              {(props) => (
+                <input
+                  {...props}
+                  type="password"
+                  autoComplete="one-time-code"
+                  required
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                />
+              )}
+            </Field>
+          ) : (
+            <>
+              <Field label="login.tenant">
+                {(props) => (
+                  <input
+                    {...props}
+                    required
+                    maxLength={64}
+                    value={tenant}
+                    onChange={(event) => setTenant(event.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="users.email">
+                {(props) => (
+                  <input
+                    {...props}
+                    type="email"
+                    autoComplete="username"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="login.password">
+                {(props) => (
+                  <input
+                    {...props}
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    maxLength={1024}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                )}
+              </Field>
+            </>
+          )}
           {error && <ErrorPanel error={error} />}
           <Button
             label="login.submit"
             className="primary"
             type="submit"
-            disabled={busy || !code.trim()}
+            disabled={
+              busy ||
+              (mode === "pair"
+                ? !code.trim()
+                : !tenant.trim() || !email.trim() || !password)
+            }
           />
         </form>
         <p className="muted">{t("login.where")}</p>
@@ -133,7 +212,12 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
         ["explorer", "explorer.title", "grid"],
         ["settings", "nav.settings", "settings"],
         ["backups", "backups.title", "download"],
-        ...(user.isAdmin || user.isTenantAdmin ? [["audit", "audit.title", "users"]] : []),
+        ...(user.isAdmin || user.isTenantAdmin
+          ? [
+              ["audit", "audit.title", "users"],
+              ["users", "users.title", "users"],
+            ]
+          : []),
       ],
     },
   ];
@@ -295,6 +379,7 @@ export default function App() {
               <Route path="/dashboard/settings" element={<Settings />} />
               <Route path="/dashboard/backups" element={<Backups />} />
               <Route path="/dashboard/audit" element={<Audit />} />
+              <Route path="/dashboard/users" element={<Users />} />
               <Route
                 path="*"
                 element={<Navigate to="/dashboard/home" replace />}

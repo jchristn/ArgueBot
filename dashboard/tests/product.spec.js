@@ -263,11 +263,9 @@ test("create, verify, download and delete a recovery archive", async ({
     .click();
   const archiveId = await row.locator("td").first().getAttribute("title");
   await page.reload();
-  const jobs = page
-    .locator("section")
-    .filter({
-      has: page.getByRole("heading", { name: "Recovery jobs", exact: true }),
-    });
+  const jobs = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Recovery jobs", exact: true }),
+  });
   const verified = jobs
     .getByRole("row")
     .filter({ hasText: archiveId })
@@ -300,122 +298,284 @@ test("create, verify, download and delete a recovery archive", async ({
   await expect(row).toHaveCount(0);
 });
 
-test("inspect immutable security accounting and filter empty results", async ({ page }) => {
+test("inspect immutable security accounting and filter empty results", async ({
+  page,
+}) => {
   await enroll(page);
   expect((await page.request.get("/v1.0/api/auth/me")).status()).toBe(401);
   await page.getByRole("link", { name: "Security audit", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Security audit", exact: true })).toBeVisible();
-  await page.getByRole("searchbox", { name: "Operation code" }).fill("http.authorization");
-  await expect(page.getByRole("cell", { name: "http.authorization", exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Inspect security event", exact: true }).first().click();
-  await expect(page.getByRole("dialog")).toContainText("Audit events cannot be edited or deleted");
+  await expect(
+    page.getByRole("heading", { name: "Security audit", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Operation code" })
+    .fill("http.authorization");
+  await expect(
+    page.getByRole("cell", { name: "http.authorization", exact: true }).first(),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Inspect security event", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "Audit events cannot be edited or deleted",
+  );
   await expect(page.getByRole("dialog")).toContainText("Safe error code");
   await page.keyboard.press("Escape");
   for (const theme of ["light", "dark"]) {
     await page.setViewportSize({ width: 390, height: 844 });
     const current = await page.locator("html").getAttribute("data-theme");
-    if (current !== theme) await page.getByRole("button", { name: /Switch to .* mode/ }).click();
-    await page.screenshot({ path: path.join(process.env.ARGUEBOT_E2E_SCREENSHOTS || "../.run/screenshots", `audit-390-${theme}.png`), fullPage: true });
+    if (current !== theme)
+      await page.getByRole("button", { name: /Switch to .* mode/ }).click();
+    await page.screenshot({
+      path: path.join(
+        process.env.ARGUEBOT_E2E_SCREENSHOTS || "../.run/screenshots",
+        `audit-390-${theme}.png`,
+      ),
+      fullPage: true,
+    });
   }
-  await page.getByRole("searchbox", { name: "Operation code" }).fill("no-such-security-operation");
-  await expect(page.getByText("No security events match this operation.")).toBeVisible();
+  await page
+    .getByRole("searchbox", { name: "Operation code" })
+    .fill("no-such-security-operation");
+  await expect(
+    page.getByText("No security events match this operation."),
+  ).toBeVisible();
 });
 
-test("run a real PolyPrompt fixture debate and inspect durable attempt context", async ({ page }) => {
+test("run a real PolyPrompt fixture debate and inspect durable attempt context", async ({
+  page,
+}) => {
   const { startProviderFixture } = await import("./provider-fixture.js");
   const fixture = await startProviderFixture();
   try {
     await enroll(page);
     const profiles = await page.evaluate(async (endpoint) => {
       const result = [];
-      for (const name of ["Attempt browser A " + crypto.randomUUID(), "Attempt browser B " + crypto.randomUUID()]) {
-        const response = await fetch("/v1.0/api/participants", { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ name, kind: "rest", provider: "ollama", endpoint, model: "fixture", timeoutSeconds: 5 }) });
-        if (!response.ok) throw new Error("Provider fixture profile setup failed.");
+      for (const name of [
+        "Attempt browser A " + crypto.randomUUID(),
+        "Attempt browser B " + crypto.randomUUID(),
+      ]) {
+        const response = await fetch("/v1.0/api/participants", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            kind: "rest",
+            provider: "ollama",
+            endpoint,
+            model: "fixture",
+            timeoutSeconds: 5,
+          }),
+        });
+        if (!response.ok)
+          throw new Error("Provider fixture profile setup failed.");
         result.push(await response.json());
       }
       return result;
     }, fixture.endpoint);
-    await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
-    await page.getByRole("textbox", { name: "Question or title" }).fill("Attempt browser immutable question");
+    await page
+      .getByRole("button", { name: "New conversation", exact: true })
+      .first()
+      .click();
+    await page
+      .getByRole("textbox", { name: "Question or title" })
+      .fill("Attempt browser immutable question");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.getByRole("textbox", { name: "Your message" }).fill("Use this exact source note for the fixture debate.");
+    await page
+      .getByRole("textbox", { name: "Your message" })
+      .fill("Use this exact source note for the fixture debate.");
     await page.getByRole("button", { name: "Send", exact: true }).click();
-    await expect(page.getByText("Use this exact source note for the fixture debate.", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Start another debate", exact: true }).click();
+    await expect(
+      page.getByText("Use this exact source note for the fixture debate.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Start another debate", exact: true })
+      .click();
     const start = page.getByRole("dialog");
-    for (const profile of profiles) await start.getByLabel(profile.name, { exact: false }).check();
+    for (const profile of profiles)
+      await start.getByLabel(profile.name, { exact: false }).check();
     await start.getByRole("spinbutton", { name: "Maximum rounds" }).fill("1");
-    await start.getByRole("spinbutton", { name: "Pause between turns (seconds)" }).fill("0");
-    await start.getByRole("button", { name: "Start debate", exact: true }).click();
-    await expect(page.getByText("Fixture answer.", { exact: true })).toHaveCount(2);
-    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
+    await start
+      .getByRole("spinbutton", { name: "Pause between turns (seconds)" })
+      .fill("0");
+    await start
+      .getByRole("button", { name: "Start debate", exact: true })
+      .click();
+    await expect(
+      page.getByText("Fixture answer.", { exact: true }),
+    ).toHaveCount(2);
+    await page
+      .getByRole("button", { name: "Generation attempts", exact: true })
+      .click();
     const inspector = page.getByRole("dialog");
-    await expect(inspector.getByRole("button", { name: "Inspect attempt", exact: true })).toHaveCount(2);
-    await inspector.getByRole("button", { name: "Inspect attempt", exact: true }).first().click();
+    await expect(
+      inspector.getByRole("button", { name: "Inspect attempt", exact: true }),
+    ).toHaveCount(2);
+    await inspector
+      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .first()
+      .click();
     await expect(inspector).toContainText("debate-v1");
-    await expect(inspector).toContainText("Use this exact source note for the fixture debate.");
+    await expect(inspector).toContainText(
+      "Use this exact source note for the fixture debate.",
+    );
     await expect(inspector).toContainText("Attempt browser immutable question");
     await page.setViewportSize({ width: 390, height: 844 });
     await inspector.locator(".inspector-section").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: "../.run/screenshots/attempt-context-390-light.png", fullPage: true });
+    await page.screenshot({
+      path: "../.run/screenshots/attempt-context-390-light.png",
+      fullPage: true,
+    });
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
-    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Inspect attempt", exact: true }).first().click();
-    await page.getByRole("dialog").locator(".inspector-section").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: "../.run/screenshots/attempt-context-390-dark.png", fullPage: true });
+    await page
+      .getByRole("button", { name: "Switch to dark mode", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Generation attempts", exact: true })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .first()
+      .click();
+    await page
+      .getByRole("dialog")
+      .locator(".inspector-section")
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: "../.run/screenshots/attempt-context-390-dark.png",
+      fullPage: true,
+    });
     await page.keyboard.press("Escape");
     await page.reload();
-    await page.getByRole("button", { name: "Generation attempts", exact: true }).click();
-    await expect(page.getByRole("dialog").getByRole("button", { name: "Inspect attempt", exact: true })).toHaveCount(2);
-  } finally { await fixture.stop(); }
+    await page
+      .getByRole("button", { name: "Generation attempts", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Inspect attempt", exact: true }),
+    ).toHaveCount(2);
+  } finally {
+    await fixture.stop();
+  }
 });
 
-test("page long history, read complete text and export beyond the visible page", async ({ page }) => {
+test("page long history, read complete text and export beyond the visible page", async ({
+  page,
+}) => {
   await enroll(page);
-  await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
-  await page.getByRole("textbox", { name: "Question or title" }).fill("Paged browser history fixture");
+  await page
+    .getByRole("button", { name: "New conversation", exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole("textbox", { name: "Question or title" })
+    .fill("Paged browser history fixture");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Paged browser history fixture" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Paged browser history fixture" }),
+  ).toBeVisible();
   await page.evaluate(async () => {
     const id = location.pathname.split("/").at(-1);
     for (let index = 0; index < 35; index++) {
-      const text = index === 0 ? "LONG SOURCE START " + "議論🙂 ".repeat(3000) + "\nCOMPLETE BROWSER TRANSCRIPT TAIL" : "Paged browser message " + index;
-      const response = await fetch(`/v1.0/api/conversations/${id}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text, idempotencyKey: `page-fixture-${index}` }) });
+      const text =
+        index === 0
+          ? "LONG SOURCE START " +
+            "議論🙂 ".repeat(3000) +
+            "\nCOMPLETE BROWSER TRANSCRIPT TAIL"
+          : "Paged browser message " + index;
+      const response = await fetch(`/v1.0/api/conversations/${id}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "note",
+          text,
+          idempotencyKey: `page-fixture-${index}`,
+        }),
+      });
       if (!response.ok) throw new Error("History fixture setup failed.");
     }
   });
   await page.reload();
-  await expect(page.getByText("Paged browser message 34", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Paged browser message 34", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Previous", exact: true }).click();
-  const read = page.getByRole("button", { name: "Read full message", exact: true });
+  const read = page.getByRole("button", {
+    name: "Read full message",
+    exact: true,
+  });
   await expect(read).toBeVisible();
-  await expect(page.getByText("COMPLETE BROWSER TRANSCRIPT TAIL", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("COMPLETE BROWSER TRANSCRIPT TAIL", { exact: true }),
+  ).toHaveCount(0);
   await read.click();
-  await expect(page.getByRole("dialog")).toContainText("COMPLETE BROWSER TRANSCRIPT TAIL");
+  await expect(page.getByRole("dialog")).toContainText(
+    "COMPLETE BROWSER TRANSCRIPT TAIL",
+  );
   await page.keyboard.press("Escape");
   await page.evaluate(async () => {
     const id = location.pathname.split("/").at(-1);
-    const response = await fetch(`/v1.0/api/conversations/${id}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text: "New message beyond captured membership", idempotencyKey: "page-fixture-newer" }) });
+    const response = await fetch(`/v1.0/api/conversations/${id}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "note",
+        text: "New message beyond captured membership",
+        idempotencyKey: "page-fixture-newer",
+      }),
+    });
     if (!response.ok) throw new Error("Concurrent history append failed.");
   });
-  await expect(page.getByRole("button", { name: "Newer messages available", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Read full message", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Newer messages available", exact: true }).click();
-  await expect(page.getByText("New message beyond captured membership", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Newer messages available", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Read full message", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Newer messages available", exact: true })
+    .click();
+  await expect(
+    page.getByText("New message beyond captured membership", { exact: true }),
+  ).toBeVisible();
   const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download transcript", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Download transcript", exact: true })
+    .click();
   const artifact = await downloaded;
   const text = await fs.readFile(await artifact.path(), "utf8");
   expect(text).toContain("COMPLETE BROWSER TRANSCRIPT TAIL");
   expect(text).toContain("New message beyond captured membership");
-  await page.getByRole("combobox", { name: "Records per page", exact: true }).selectOption("10");
-  await expect(page.getByRole("button", { name: "Read full message", exact: true })).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Records per page", exact: true })
+    .selectOption("10");
+  await expect(
+    page.getByRole("button", { name: "Read full message", exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: "../.run/screenshots/message-pages-390.png", fullPage: true });
+  await page.screenshot({
+    path: "../.run/screenshots/message-pages-390.png",
+    fullPage: true,
+  });
 });
 
-test("reload snapshots after an expired event cursor before resuming live updates", async ({ page }) => {
+test("reload snapshots after an expired event cursor before resuming live updates", async ({
+  page,
+}) => {
   await enroll(page);
   const calls = [];
   let refused = false;
@@ -423,31 +583,206 @@ test("reload snapshots after an expired event cursor before resuming live update
   let resumedCursor = "";
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (/\/v1\.0\/api\/conversations\/[^/]+$/.test(url.pathname) && request.method() === "GET") calls.push("snapshot");
+    if (
+      /\/v1\.0\/api\/conversations\/[^/]+$/.test(url.pathname) &&
+      request.method() === "GET"
+    )
+      calls.push("snapshot");
   });
-  await page.route(/\/v1\.0\/api\/conversations\/[^/]+\/events(?:\?.*)?$/, async (route) => {
-    calls.push("events");
-    if (!refused) {
-      refused = true;
-      await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ code: "event_history_gap", message: "The replay cursor expired." }) });
-    } else {
-      resumed = true;
-      resumedCursor = route.request().headers()["last-event-id"];
-      await route.continue();
-    }
-  });
-  await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
-  await page.getByRole("textbox", { name: "Question or title" }).fill("Replay snapshot recovery fixture");
+  await page.route(
+    /\/v1\.0\/api\/conversations\/[^/]+\/events(?:\?.*)?$/,
+    async (route) => {
+      calls.push("events");
+      if (!refused) {
+        refused = true;
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            code: "event_history_gap",
+            message: "The replay cursor expired.",
+          }),
+        });
+      } else {
+        resumed = true;
+        resumedCursor = route.request().headers()["last-event-id"];
+        await route.continue();
+      }
+    },
+  );
+  await page
+    .getByRole("button", { name: "New conversation", exact: true })
+    .first()
+    .click();
+  await page
+    .getByRole("textbox", { name: "Question or title" })
+    .fill("Replay snapshot recovery fixture");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => resumed).toBe(true);
   const first = calls.indexOf("events");
   const second = calls.indexOf("events", first + 1);
-  expect(calls.slice(first + 1, second).filter((kind) => kind === "snapshot").length).toBeGreaterThanOrEqual(2);
+  expect(
+    calls.slice(first + 1, second).filter((kind) => kind === "snapshot").length,
+  ).toBeGreaterThanOrEqual(2);
   const id = new URL(page.url()).pathname.split("/").at(-1);
   expect(resumedCursor).toBe(id + ":1");
   await page.evaluate(async (conversation) => {
-    const response = await fetch(`/v1.0/api/conversations/${conversation}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text: "Committed after replay recovery", idempotencyKey: "replay-recovery-note" }) });
+    const response = await fetch(
+      `/v1.0/api/conversations/${conversation}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "note",
+          text: "Committed after replay recovery",
+          idempotencyKey: "replay-recovery-note",
+        }),
+      },
+    );
     if (!response.ok) throw new Error("Replay recovery fixture append failed.");
   }, id);
-  await expect(page.getByText("Committed after replay recovery", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Committed after replay recovery", { exact: true }),
+  ).toBeVisible();
+});
+
+test("administer a tenant identity, sign in as a viewer and revoke it through disablement", async ({
+  page,
+  browser,
+}) => {
+  await enroll(page);
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  const email = `browser-${Date.now()}+%40@example.invalid`;
+  await page.getByRole("button", { name: "Create user", exact: true }).click();
+  const form = page.getByRole("dialog");
+  await form
+    .getByLabel("Display name", { exact: true })
+    .fill("Browser identity fixture");
+  await form.getByLabel("Email address", { exact: true }).fill(email);
+  await form
+    .getByLabel("New password", { exact: true })
+    .fill("fictional-browser-password");
+  await fs.mkdir(path.resolve("../.run/screenshots"), { recursive: true });
+  for (const width of [1280, 390])
+    for (const theme of ["light", "dark"]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: path.resolve(
+          `../.run/screenshots/users-form-${width}-${theme}.png`,
+        ),
+        fullPage: true,
+      });
+      if (width === 390) {
+        await form
+          .getByRole("button", { name: "Save", exact: true })
+          .scrollIntoViewIfNeeded();
+        await expect(
+          form.getByRole("button", { name: "Save", exact: true }),
+        ).toBeInViewport();
+        await page.screenshot({
+          path: path.resolve(`../.run/screenshots/users-actions-${theme}.png`),
+          fullPage: true,
+        });
+      }
+    }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await form.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(form).not.toBeVisible();
+  await page.getByLabel("Find users", { exact: true }).fill(email);
+  const row = page.getByRole("row").filter({ hasText: email });
+  await expect(row).toContainText("Viewer");
+  const other = await browser.newContext({ ignoreHTTPSErrors: true });
+  try {
+    const viewer = await other.newPage();
+    await viewer.goto("/");
+    await viewer
+      .getByLabel("Sign-in method", { exact: true })
+      .selectOption("password");
+    await viewer.getByLabel("Email address", { exact: true }).fill(email);
+    await viewer
+      .getByLabel("Password", { exact: true })
+      .fill("fictional-browser-password");
+    await viewer
+      .getByRole("button", { name: "Connect securely", exact: true })
+      .click();
+    await expect(
+      viewer.getByRole("heading", { name: "Your thinking, in progress" }),
+    ).toBeVisible();
+    await expect(
+      viewer.getByRole("link", { name: "Users", exact: true }),
+    ).toHaveCount(0);
+    const denied = await viewer.evaluate(async () => {
+      const token = sessionStorage.getItem("arguebot.session");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      return [
+        await fetch("/v1.0/api/users", { headers }),
+        await fetch("/v1.0/api/conversations", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ title: "Viewer mutation must fail" }),
+        }),
+      ].map((response) => response.status);
+    });
+    expect(denied).toEqual([403, 403]);
+    await row.getByRole("button", { name: "Edit user", exact: true }).click();
+    await page
+      .getByRole("dialog")
+      .getByLabel("Active", { exact: true })
+      .uncheck();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(row).toContainText("Disabled");
+    expect(
+      await viewer.evaluate(
+        async () =>
+          (
+            await fetch("/v1.0/api/auth/me", {
+              headers: {
+                Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+              },
+            })
+          ).status,
+      ),
+    ).toBe(401);
+    const captured = await page.evaluate(async () => {
+      const headers = {
+        Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
+      };
+      const records = await (
+        await fetch("/v1.0/api/request-history?method=POST&pageSize=100", {
+          headers,
+        })
+      ).json();
+      const login = records.items.find(
+        (record) => record.path === "/v1.0/api/auth/login",
+      );
+      return login
+        ? await (
+            await fetch("/v1.0/api/request-history/" + login.id, { headers })
+          ).json()
+        : null;
+    });
+    expect(captured).not.toBeNull();
+    expect(captured.rawRequestBody).toContain("[redacted]");
+    expect(captured.rawRequestBody).not.toContain("fictional-browser-password");
+    expect(captured.rawResponseBody).toContain("[redacted]");
+  } finally {
+    await other.close();
+  }
 });

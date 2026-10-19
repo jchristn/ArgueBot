@@ -10,6 +10,9 @@ function SettingsForm({ snapshot, onSave }) {
     port: snapshot.settings.port,
     maxConcurrentRuns: snapshot.settings.maxConcurrentRuns,
     allowCli: snapshot.settings.allowCli,
+    tlsEnabled: snapshot.settings.tlsEnabled,
+    tlsPasswordEnvironmentVariable:
+      snapshot.settings.tlsPasswordEnvironmentVariable,
     streamBatchCharacters: snapshot.settings.streamBatchCharacters,
     streamCommitMilliseconds: snapshot.settings.streamCommitMilliseconds,
     contextMaxCharacters: snapshot.settings.contextMaxCharacters,
@@ -40,6 +43,28 @@ function SettingsForm({ snapshot, onSave }) {
         }
       }}
     >
+      <Field label="settings.tls">
+        {(props) => (
+          <input
+            {...props}
+            type="checkbox"
+            checked={value.tlsEnabled}
+            onChange={(event) => change("tlsEnabled", event.target.checked)}
+          />
+        )}
+      </Field>
+      <Field label="settings.tlsPasswordEnv">
+        {(props) => (
+          <input
+            {...props}
+            value={value.tlsPasswordEnvironmentVariable}
+            maxLength={128}
+            onChange={(event) =>
+              change("tlsPasswordEnvironmentVariable", event.target.value)
+            }
+          />
+        )}
+      </Field>
       <div className="form-grid">
         <Field label="settings.port">
           {(props) => (
@@ -96,9 +121,27 @@ function SettingsForm({ snapshot, onSave }) {
             />
           )}
         </Field>
-        {[ ["contextMaxCharacters", "settings.contextCharacters", 1024, 16777216], ["contextMaxMessages", "settings.contextMessages", 1, 10000], ["historyPreviewCodePoints", "settings.historyPreview", 128, 16384] ].map(([name, label, min, max]) => (
+        {[
+          [
+            "contextMaxCharacters",
+            "settings.contextCharacters",
+            1024,
+            16777216,
+          ],
+          ["contextMaxMessages", "settings.contextMessages", 1, 10000],
+          ["historyPreviewCodePoints", "settings.historyPreview", 128, 16384],
+        ].map(([name, label, min, max]) => (
           <Field key={name} label={label}>
-            {(props) => <input {...props} type="number" min={min} max={max} value={value[name]} onChange={(event) => change(name, Number(event.target.value))} />}
+            {(props) => (
+              <input
+                {...props}
+                type="number"
+                min={min}
+                max={max}
+                value={value[name]}
+                onChange={(event) => change(name, Number(event.target.value))}
+              />
+            )}
           </Field>
         ))}
         <Field label="settings.database">
@@ -128,12 +171,41 @@ function SettingsForm({ snapshot, onSave }) {
       </div>
       <fieldset title={t("settings.replay.help")}>
         <legend>{t("settings.replay")}</legend>
-        <label className="checkbox-label" title={t("settings.eventEnabled.help")}>
-          <input type="checkbox" title={t("settings.eventEnabled.help")} checked={value.eventRetentionEnabled} onChange={(event) => change("eventRetentionEnabled", event.target.checked)} />
+        <label
+          className="checkbox-label"
+          title={t("settings.eventEnabled.help")}
+        >
+          <input
+            type="checkbox"
+            title={t("settings.eventEnabled.help")}
+            checked={value.eventRetentionEnabled}
+            onChange={(event) =>
+              change("eventRetentionEnabled", event.target.checked)
+            }
+          />
           {t("settings.eventEnabled")}
         </label>
         <div className="form-grid">
-          {[["eventRetentionDays", "settings.eventDays", 1, 3650], ["eventMaxPerConversation", "settings.eventCount", 1, 1000000], ["eventMaintenanceSeconds", "settings.eventInterval", 5, 3600], ["eventRetentionBatchSize", "settings.eventBatch", 1, 1000], ["eventReplayPageSize", "settings.eventPage", 1, 1000]].map(([name, label, min, max]) => <Field key={name} label={label}>{(props) => <input {...props} type="number" min={min} max={max} value={value[name]} onChange={(event) => change(name, Number(event.target.value))} />}</Field>)}
+          {[
+            ["eventRetentionDays", "settings.eventDays", 1, 3650],
+            ["eventMaxPerConversation", "settings.eventCount", 1, 1000000],
+            ["eventMaintenanceSeconds", "settings.eventInterval", 5, 3600],
+            ["eventRetentionBatchSize", "settings.eventBatch", 1, 1000],
+            ["eventReplayPageSize", "settings.eventPage", 1, 1000],
+          ].map(([name, label, min, max]) => (
+            <Field key={name} label={label}>
+              {(props) => (
+                <input
+                  {...props}
+                  type="number"
+                  min={min}
+                  max={max}
+                  value={value[name]}
+                  onChange={(event) => change(name, Number(event.target.value))}
+                />
+              )}
+            </Field>
+          ))}
         </div>
       </fieldset>
       <label className="checkbox-label" title={t("settings.cli.help")}>

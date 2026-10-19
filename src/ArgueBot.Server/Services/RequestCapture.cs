@@ -24,7 +24,7 @@ namespace ArgueBot.Server.Services
             try
             {
                 RequestContext context = http.Metadata as RequestContext ?? new RequestContext();
-                if (http.Response.StatusCode == 401 || http.Response.StatusCode == 403) await _Database.Audit.RecordDeniedRequestAsync(context, http.Response.StatusCode, CancellationToken.None).ConfigureAwait(false);
+                if (http.Response.StatusCode == 401 || http.Response.StatusCode == 403 || http.Response.StatusCode == 429) await _Database.Audit.RecordDeniedRequestAsync(context, http.Response.StatusCode, CancellationToken.None).ConfigureAwait(false);
                 if (!_Settings.RequestHistoryEnabled) return;
                 int limit = Math.Clamp(_Settings.RequestHistoryBodyBytes, 0, 1048576);
                 string request = CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");

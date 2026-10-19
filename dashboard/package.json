@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test:ci": "vitest run",
-    "test:e2e": "npm run build && dotnet build ../src/ArgueBot.Server -c Release --no-restore && playwright test",
+    "test:e2e": "npm run build && dotnet build ../src/Test.Fixtures -c Release --no-restore && dotnet build ../src/ArgueBot.Server -c Release --no-restore && playwright test",
     "i18n:check": "node scripts/check-i18n.mjs",
     "lint": "eslint src"
   },

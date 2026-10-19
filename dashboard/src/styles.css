@@ -524,6 +524,10 @@ td time {
 .field > textarea {
   width: 100%;
 }
+.field > input[type="checkbox"] {
+  width: 16px;
+  align-self: flex-start;
+}
 .field > small {
   font-size: 10px;
   font-weight: 400;

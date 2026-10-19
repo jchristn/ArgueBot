@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Backups
 {
+    using System;
     using System.Collections.Generic;
-    using System.IO.Compression;
     using System.IO;
+    using System.IO.Compression;
     using System.Linq;
     using System.Reflection;
     using System.Security.Cryptography;
+    using System.Text;
     using System.Text.Json;
     using System.Text.RegularExpressions;
-    using System.Text;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
@@ -41,7 +41,8 @@ namespace ArgueBot.Core.Backups
                 if (!includeSecrets) settings.Database.ConnectionString = "";
                 ArgueBotPaths stagedPaths = new ArgueBotPaths(staged); await settings.SaveAsync(stagedPaths, token).ConfigureAwait(false);
                 RecoveryManifest manifest = new RecoveryManifest { SchemaVersion = DatabaseSchema.CurrentVersion, Provider = settings.Database.Type.ToString(), ApplicationVersion = typeof(RecoveryArchive).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown", CreatedUtc = DateTime.UtcNow, IncludesSecrets = includeSecrets, ConfigurationRevision = revision, Dependencies = dependencies?.ToList() ?? new List<DependencyReference>() };
-                if (settings.Database.ConnectionEnvironmentVariable.Length > 0) manifest.SecretReferences.Add(settings.Database.ConnectionEnvironmentVariable);
+                if (settings.TlsEnabled && settings.TlsPasswordEnvironmentVariable.Length > 0) manifest.SecretReferences.Add(settings.TlsPasswordEnvironmentVariable);
+                if (settings.Database.ConnectionEnvironmentVariable.Length > 0 && !manifest.SecretReferences.Contains(settings.Database.ConnectionEnvironmentVariable, StringComparer.Ordinal)) manifest.SecretReferences.Add(settings.Database.ConnectionEnvironmentVariable);
                 int secretColumn = -1;
                 await foreach (BackupRecord record in BackupReader.ReadAsync(Path.Combine(staged, "database.arguedb.jsonl"), token).ConfigureAwait(false))
                 {
@@ -59,7 +60,8 @@ namespace ArgueBot.Core.Backups
                     foreach (string key in Directory.GetFiles(Path.Combine(paths.Home, "keys")))
                     {
                         string name = Path.GetFileName(key);
-                        if (!Regex.IsMatch(name, "^session-[a-f0-9]{16}\\.key$", RegexOptions.CultureInvariant)) continue;
+                        if (name != "listener.pfx" && !Regex.IsMatch(name, "^session-[a-f0-9]{16}\\.key$", RegexOptions.CultureInvariant)) continue;
+                        if (name == "listener.pfx" && new FileInfo(key).Length > 1048576) throw new InvalidDataException("The listener certificate exceeds the recovery size limit.");
                         string target = Path.Combine(staged, "keys", name); File.Copy(key, target, false); HomePermissions.File(target);
                     }
                     string current = File.ReadAllText(Path.Combine(paths.Home, "keys", "session-current")).Trim();

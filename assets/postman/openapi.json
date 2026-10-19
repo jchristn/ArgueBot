@@ -4967,6 +4967,604 @@
           }
         }
       }
+    },
+    "/v1.0/api/auth/login": {
+      "post": {
+        "operationId": "post_v1_0_api_auth_login",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange tenant-bound password material",
+        "description": "Public local endpoint. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful exchange tenant-bound password material",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": null
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/users": {
+      "get": {
+        "operationId": "get_v1_0_api_users",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Enumerate tenant identities",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful enumerate tenant identities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_0_api_users",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a tenant identity",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create a tenant identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              },
+              "example": null
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/users/{userId}": {
+      "get": {
+        "operationId": "get_v1_0_api_users_userId_",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Read own or administered identity metadata",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read own or administered identity metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_users_userId_",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update an identity and revoke affected sessions",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update an identity and revoke affected sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              },
+              "example": null
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5777,6 +6375,32 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Explicit tenant identifier."
+          },
+          "email": {
+            "type": "string",
+            "description": "Tenant-local email address."
+          },
+          "passwordSha256": {
+            "type": "string",
+            "description": "Sixty-four hexadecimal SHA-256 password-equivalent characters. Treat this value as a password.",
+            "writeOnly": true,
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "tenantId",
+          "email",
+          "passwordSha256"
+        ]
+      },
       "Message": {
         "type": "object",
         "properties": {
@@ -6143,6 +6767,171 @@
         ],
         "description": "CLI requires executable and uses ordered arguments plus stdin. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run."
       },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Opaque revocable one-hour session. Keep it out of logs, URLs and source control."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRecord"
+            },
+            "description": "Ordered public identity metadata."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum results per page."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Count matching the tenant and search filter."
+          }
+        },
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ]
+      },
+      "UserRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable user identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Owning tenant identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "Normalized email, unique within the tenant when configured."
+          },
+          "role": {
+            "type": "string",
+            "description": "Compatibility domain role: viewer, operator or admin."
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "description": "System administrator bypass."
+          },
+          "isTenantAdmin": {
+            "type": "boolean",
+            "description": "Tenant administrator bypass."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether authentication remains enabled."
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Whether normal management must refuse mutation."
+          },
+          "hasPassword": {
+            "type": "boolean",
+            "description": "Whether password login has been configured."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Optimistic mutation revision."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC creation timestamp."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC last update timestamp."
+          }
+        },
+        "description": "Public tenant identity metadata. No password verifier or hash is returned. Protected identities cannot be changed through normal management. Administrator flags are separate from compatibility domain role names."
+      },
+      "UserRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name, one through two hundred characters.",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address for tenant-bound login.",
+            "format": "email",
+            "maxLength": 254
+          },
+          "role": {
+            "type": "string",
+            "description": "Compatibility domain role: viewer, operator or admin.",
+            "enum": [
+              "viewer",
+              "operator",
+              "admin"
+            ],
+            "default": "viewer"
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "description": "System administrator flag, assignable only by a system administrator."
+          },
+          "isTenantAdmin": {
+            "type": "boolean",
+            "description": "Tenant administrator flag."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Enable authentication; disabling invalidates existing sessions."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Expected revision for updates; zero for creation.",
+            "minimum": 0
+          },
+          "passwordSha256": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional new SHA-256 password-equivalent hexadecimal material. Omit to preserve the password. Never returned.",
+            "writeOnly": true,
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          }
+        },
+        "description": "Complete metadata replacement. Omit passwordSha256 to preserve its password; a new value revokes existing sessions. Disablement also revokes sessions atomically. Updates require expectedRevision. Only system administrators may manage system administrators; all management remains bound to the current tenant.",
+        "required": [
+          "name",
+          "email"
+        ]
+      },
       "ServiceSettings": {
         "type": "object",
         "properties": {
@@ -6167,6 +6956,14 @@
           "database": {
             "$ref": "#/components/schemas/DatabaseSettings",
             "description": "Persistent database configuration. SQLite is the local default."
+          },
+          "tlsEnabled": {
+            "type": "boolean",
+            "description": "Enable HTTPS using keys/listener.pfx in the application home. Password login requires HTTPS."
+          },
+          "tlsPasswordEnvironmentVariable": {
+            "type": "string",
+            "description": "Optional environment variable containing the listener PFX password. No literal password is persisted."
           },
           "port": {
             "type": "integer",
@@ -6332,6 +7129,16 @@
           "revision": {
             "type": "string",
             "description": "Expected settings file revision."
+          },
+          "tlsEnabled": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Optional HTTPS toggle. Provision keys/listener.pfx before enabling; restart to apply."
+          },
+          "tlsPasswordEnvironmentVariable": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional listener PFX password environment reference; omission preserves it."
           },
           "port": {
             "type": "integer",

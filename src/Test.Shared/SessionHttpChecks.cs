@@ -7,14 +7,20 @@ namespace Test.Shared
     using System.Net.Http.Json;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Client;
     using ArgueBot.Core.Models;
 
     internal static class SessionHttpChecks
     {
         internal static async Task RunAsync(string endpoint, string home, CancellationToken token)
         {
-            using (HttpClient http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(endpoint), Timeout = TimeSpan.FromSeconds(10) })
+            using (HttpClient http = new HttpClient(LocalServiceConnector.CreateHttpHandler(home)) { BaseAddress = new Uri(endpoint), Timeout = TimeSpan.FromSeconds(10) })
             {
+                for (int attempt = 0; attempt < 21; attempt++)
+                {
+                    using (HttpResponseMessage rejected = await http.PostAsJsonAsync("v1.0/api/auth/login", new LoginRequest { TenantId = "ten_local", Email = "missing@example.invalid", PasswordSha256 = new string('D', 64) }, token).ConfigureAwait(false))
+                    { if ((int)rejected.StatusCode != (attempt < 20 ? 401 : 429)) throw new InvalidDataException("Password exchange did not enforce its bounded service-wide attempt window."); }
+                }
                 string code = await File.ReadAllTextAsync(Path.Combine(home, "runtime", "pairing-code"), token).ConfigureAwait(false);
                 using (HttpResponseMessage paired = await http.PostAsJsonAsync("v1.0/api/auth/pair", new { code }, token).ConfigureAwait(false))
                 {

@@ -14,6 +14,8 @@ namespace ArgueBot.Core.Models
         public string HomeId { get { return _HomeId; } set { ArgumentNullException.ThrowIfNull(value); _HomeId = value; } }
         /// <summary>Local listener address.</summary>
         public string Endpoint { get { return _Endpoint; } set { ArgumentNullException.ThrowIfNull(value); _Endpoint = value; } }
+        /// <summary>Public TLS certificate SHA-256 pin for this exact home endpoint, or empty for HTTP.</summary>
+        public string CertificateSha256 { get; set; } = "";
         /// <summary>Attachment protocol, independent of product and schema versions.</summary>
         public int Protocol { get; set; } = ServiceProtocol.CurrentVersion;
         /// <summary>Process instance identifier used when removing stale metadata.</summary>

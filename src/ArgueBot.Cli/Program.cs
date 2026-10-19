@@ -46,8 +46,15 @@ namespace ArgueBot.Cli
             if (words.Count == 0 || words[0] == "--help" || words[0] == "help") { Help(); return 0; }
             if (words[0] == "service" && words.Count > 1 && words[1] != "start") autoStart = false;
             server = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, server, autoStart, token).ConfigureAwait(false);
-            using (ArgueBotClient client = new ArgueBotClient(server))
+            using (ArgueBotClient client = LocalServiceConnector.CreateClient(server, new ArgueBotPaths(home).Home))
             {
+                if (words[0] == "auth" && words.Count > 1 && words[1] == "login")
+                {
+                    Require(words, 3);
+                    LoginRequest request = JsonSerializer.Deserialize<LoginRequest>(await TextAsync(words, 2, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed login object.");
+                    Print(new SessionResponse { Token = await client.LoginAsync(request, token).ConfigureAwait(false) });
+                    return 0;
+                }
                 if (!string.IsNullOrWhiteSpace(session)) client.SetToken(session);
                 else await client.PairLocalCachedAsync(new ArgueBotPaths(home).Home, token).ConfigureAwait(false);
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
@@ -56,6 +63,19 @@ namespace ArgueBot.Cli
                     if (operation == "status" || operation == "start") Print(await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: token).ConfigureAwait(false));
                     else if (operation == "stop") Print(await client.SendAsync<Acknowledgement>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false));
                     else if (operation == "restart") Print(await client.SendAsync<RestartResponse>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/restart", token: token).ConfigureAwait(false));
+                    else { Help(); return 2; }
+                }
+                else if (command == "users")
+                {
+                    string root = "v1.0/api/users";
+                    if (operation == "list") Print(await client.SendAsync<UserPage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
+                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<UserRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "create" || operation == "update")
+                    {
+                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
+                        UserRequest request = JsonSerializer.Deserialize<UserRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed user object.");
+                        Print(await client.SendAsync<UserRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
+                    }
                     else { Help(); return 2; }
                 }
                 else if (command == "audit" && operation == "list")
@@ -164,6 +184,11 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   conversations rename ID TITLE
   conversations archive ID
   conversations export ID          Markdown to stdout.
+  auth login -|--file PATH          Exchange tenant/email/passwordSha256; writes token JSON.
+  users list [SEARCH] [PAGE]        Enumerate identities in this tenant.
+  users show ID
+  users create JSON|-|--file PATH
+  users update ID JSON|-|--file PATH
   audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
   backups list
   backups create JSON|-|--file PATH

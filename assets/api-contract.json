@@ -651,6 +651,80 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/auth/login",
+      "group": "Authentication",
+      "summary": "Exchange tenant-bound password material",
+      "response": "SessionResponse",
+      "request": "LoginRequest",
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/users",
+      "group": "Users",
+      "summary": "Enumerate tenant identities",
+      "response": "UserPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "search",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/users",
+      "group": "Users",
+      "summary": "Create a tenant identity",
+      "response": "UserRecord",
+      "request": "UserRequest",
+      "status": 201,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/users/{userId}",
+      "group": "Users",
+      "summary": "Read own or administered identity metadata",
+      "response": "UserRecord",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v1.0/api/users/{userId}",
+      "group": "Users",
+      "summary": "Update an identity and revoke affected sessions",
+      "response": "UserRecord",
+      "request": "UserRequest",
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
     }
   ]
 }

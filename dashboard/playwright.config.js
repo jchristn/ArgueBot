@@ -13,14 +13,16 @@ export default defineConfig({
     ["html", { outputFolder: "../.run/browser-report", open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:4420",
+    baseURL: "https://127.0.0.1:4420",
+    ignoreHTTPSErrors: true, // Disposable fixture certificate; no system trust changes.
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
   webServer: {
     command:
-      "dotnet run --project ../src/ArgueBot.Server -c Release -f net10.0 --no-build -- --home ../.run/browser-home --port 4420",
-    url: "http://127.0.0.1:4420/health",
+      "node tests/start-server.mjs",
+    url: "https://127.0.0.1:4420/health",
+    ignoreHTTPSErrors: true,
     reuseExistingServer: false,
     timeout: 30000,
   },

@@ -2,7 +2,7 @@
 
 The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in `IMPROVEMENTS.md` and `docs/DEVELOPMENT.md`.
 
-Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. Password/credential exchange is not yet enabled by this local-only host.
+Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. The local-only listener also supports tenant/email/passwordSha256 JSON exchange over HTTPS at /v1.0/api/auth/login, without an existing session or unrelated authentication headers. Password equivalents are passwords: never put them in URLs or logs. Twenty exchange attempts per minute are allowed per service. Hosted ingress, credential schemes and scoped RBAC remain open delivery gates.
 
 Protocol 2 changes GET message history from an unbounded array to MessagePage. Upgrade native clients and service together; product and database schema versions are independent. Message pages contain bounded previews and explicit contentTruncated/contentBytes metadata. Fetch a message by ID for complete text. Reuse throughSequence to keep page membership stable as later messages arrive; streaming text may still change. Tail selects the last page. Exports enumerate pages and hydrate previews instead of exporting truncated content. List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Schema 9 also records pending/streaming/terminal generation attempts, prompt hashes and exact ordered source identifiers. Answer finalization, successful directive consumption and speaker advance commit together. Inspect the run attempts route; over-budget context pauses before invocation without dropping transcript text. See `docs/EXECUTION.md`. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
@@ -531,6 +531,50 @@ Success: **200**, response: `Message`.
 | conversationId | path | true | Identifier in the authenticated ownership scope. |
 | messageId | path | true | Identifier in the authenticated ownership scope. |
 
+## POST /v1.0/api/auth/login
+
+Exchange tenant-bound password material. Public local endpoint. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **200**, response: `SessionResponse`. Request: `LoginRequest`.
+
+## GET /v1.0/api/users
+
+Enumerate tenant identities. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `UserPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## POST /v1.0/api/users
+
+Create a tenant identity. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **201**, response: `UserRecord`. Request: `UserRequest`.
+
+## GET /v1.0/api/users/{userId}
+
+Read own or administered identity metadata. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `UserRecord`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+
+## PUT /v1.0/api/users/{userId}
+
+Update an identity and revoke affected sessions. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+
+Success: **200**, response: `UserRecord`. Request: `UserRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -830,6 +874,16 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
 
+### LoginRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| tenantId | string | Explicit tenant identifier. |
+| email | string | Tenant-local email address. |
+| passwordSha256 | string | Sixty-four hexadecimal SHA-256 password-equivalent characters. Treat this value as a password. |
+
 ### Message
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -952,6 +1006,60 @@ CLI requires executable and uses ordered arguments plus stdin. REST requires end
 | maxOutputBytes | integer | Maximum captured output bytes. |
 | enabled | boolean | Whether new work can use this profile. |
 
+### SessionResponse
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| token | string | Opaque revocable one-hour session. Keep it out of logs, URLs and source control. |
+
+### UserPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Ordered public identity metadata. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Maximum results per page. |
+| totalCount | integer | Count matching the tenant and search filter. |
+
+### UserRecord
+
+Public tenant identity metadata. No password verifier or hash is returned. Protected identities cannot be changed through normal management. Administrator flags are separate from compatibility domain role names.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable user identifier. |
+| tenantId | string | Owning tenant identifier. |
+| name | string | Display name. |
+| email | string | Normalized email, unique within the tenant when configured. |
+| role | string | Compatibility domain role: viewer, operator or admin. |
+| isAdmin | boolean | System administrator bypass. |
+| isTenantAdmin | boolean | Tenant administrator bypass. |
+| active | boolean | Whether authentication remains enabled. |
+| protected | boolean | Whether normal management must refuse mutation. |
+| hasPassword | boolean | Whether password login has been configured. |
+| revision | integer | Optimistic mutation revision. |
+| createdUtc | string | UTC creation timestamp. |
+| updatedUtc | string | UTC last update timestamp. |
+
+### UserRequest
+
+Complete metadata replacement. Omit passwordSha256 to preserve its password; a new value revokes existing sessions. Disablement also revokes sessions atomically. Updates require expectedRevision. Only system administrators may manage system administrators; all management remains bound to the current tenant.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Display name, one through two hundred characters. |
+| email | string | Email address for tenant-bound login. |
+| role | string | Compatibility domain role: viewer, operator or admin. |
+| isAdmin | boolean | System administrator flag, assignable only by a system administrator. |
+| isTenantAdmin | boolean | Tenant administrator flag. |
+| active | boolean | Enable authentication; disabling invalidates existing sessions. |
+| expectedRevision | integer | Expected revision for updates; zero for creation. |
+| passwordSha256 | string (nullable) | Optional new SHA-256 password-equivalent hexadecimal material. Omit to preserve the password. Never returned. |
+
 ### ServiceSettings
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -963,6 +1071,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | requestHistoryBodyBytes | integer | Capture prefix limit in bytes, default 32768. |
 | requestHistoryRetentionDays | integer | Request history retention in days, default thirty. |
 | database | DatabaseSettings | Persistent database configuration. SQLite is the local default. |
+| tlsEnabled | boolean | Enable HTTPS using keys/listener.pfx in the application home. Password login requires HTTPS. |
+| tlsPasswordEnvironmentVariable | string | Optional environment variable containing the listener PFX password. No literal password is persisted. |
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
 | streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
 | streamCommitMilliseconds | integer | Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000. |
@@ -1021,6 +1131,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | revision | string | Expected settings file revision. |
+| tlsEnabled | boolean (nullable) | Optional HTTPS toggle. Provision keys/listener.pfx before enabling; restart to apply. |
+| tlsPasswordEnvironmentVariable | string (nullable) | Optional listener PFX password environment reference; omission preserves it. |
 | port | integer | Configured port, from 1 to 65535. Explicit launch flags still win. |
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
 | streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |

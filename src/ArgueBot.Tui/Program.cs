@@ -24,7 +24,7 @@ namespace ArgueBot.Tui
                 try
                 {
                     endpoint = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, endpoint, autoStart, lifetime.Token).ConfigureAwait(false);
-                    using (ArgueBotClient client = new ArgueBotClient(endpoint))
+                    using (ArgueBotClient client = LocalServiceConnector.CreateClient(endpoint, new ArgueBotPaths(home).Home))
                     {
                         string? session = Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN");
                         if (!string.IsNullOrWhiteSpace(session)) client.SetToken(session);

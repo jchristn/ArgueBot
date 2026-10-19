@@ -10,10 +10,10 @@ namespace ArgueBot.Server.Services
     {
         private readonly string _Path;
         private readonly string _InstanceId = Guid.NewGuid().ToString("N");
-        internal LocalServiceRegistration(ArgueBotPaths paths, int port)
+        internal LocalServiceRegistration(ArgueBotPaths paths, int port, bool tls, string certificateSha256)
         {
             _Path = Path.Combine(paths.Home, "runtime", "service.json");
-            LocalServiceDescriptor descriptor = new LocalServiceDescriptor { HomeId = LocalHomeIdentity.Ensure(paths), Endpoint = "http://127.0.0.1:" + port, ProcessId = Environment.ProcessId, InstanceId = _InstanceId, StartedUtc = DateTime.UtcNow };
+            LocalServiceDescriptor descriptor = new LocalServiceDescriptor { HomeId = LocalHomeIdentity.Ensure(paths), Endpoint = (tls ? "https" : "http") + "://127.0.0.1:" + port, CertificateSha256 = certificateSha256, ProcessId = Environment.ProcessId, InstanceId = _InstanceId, StartedUtc = DateTime.UtcNow };
             string temporary = _Path + ".tmp";
             File.WriteAllText(temporary, JsonSerializer.Serialize(descriptor));
             HomePermissions.File(temporary);

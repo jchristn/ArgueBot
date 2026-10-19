@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Database
 {
+    using System;
     using System.Collections.Generic;
-    using System.Data.Common;
     using System.Data;
+    using System.Data.Common;
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
@@ -35,6 +35,8 @@ namespace ArgueBot.Core.Database
 
         /// <summary>Runner configuration methods.</summary>
         public IProfileMethods Profiles { get; }
+        /// <summary>Tenant-scoped identity administration.</summary>
+        public IUserMethods Users { get; }
         /// <summary>Execution checkpoint methods.</summary>
         public IRunMethods Runs { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -55,6 +57,7 @@ namespace ArgueBot.Core.Database
             ArgumentNullException.ThrowIfNull(settings);
             _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
+            Users = new UserMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
             Backups = new BackupMethods(this);
@@ -522,7 +525,7 @@ namespace ArgueBot.Core.Database
         public static void RequireWrite(RequestContext context)
         {
             RequireAuthenticated(context);
-            if (context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
+            if (!context.IsAdmin && !context.IsTenantAdmin && context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
 
         /// <summary>Optionally acquire an exclusive provider session that is retained for all writes until disposal. Default providers use transient connections.</summary>

@@ -169,7 +169,7 @@ namespace Test.Shared
                     if (all.TotalCount != 1) throw new InvalidDataException("History crossed tenant boundary.");
                     List<ActivityBucket> buckets = await database.History.SummaryAsync(Owner(), start, start.AddHours(3), 60, token).ConfigureAwait(false);
                     if (buckets.Count != 3 || buckets[0].Success != 1 || buckets[0].Failure != 0 || buckets[1].Success != 0 || buckets[2].Failure != 0) throw new InvalidDataException("Summary omitted empty buckets or crossed tenant boundary.");
-                    RequestContext viewer = Owner(); viewer.Role = "viewer";
+                    RequestContext viewer = Owner(); viewer.Role = "viewer"; viewer.IsAdmin = false; viewer.IsTenantAdmin = false;
                     bool denied = false;
                     try { await database.History.ReadAsync(viewer, entry.Id, token).ConfigureAwait(false); }
                     catch (DomainException ex) when (ex.StatusCode == 403) { denied = true; }
@@ -198,7 +198,7 @@ namespace Test.Shared
                     if (page.TotalCount != 1) throw new InvalidDataException("Search did not find message content.");
                     RequestContext foreign = Owner(); foreign.TenantId = "ten_foreign";
                     try { await database.ReadConversationAsync(foreign, id, token).ConfigureAwait(false); throw new InvalidDataException("Cross-tenant read accepted."); } catch (DomainException ex) when (ex.StatusCode == 404) { }
-                    RequestContext viewer = Owner(); viewer.Role = "viewer";
+                    RequestContext viewer = Owner(); viewer.Role = "viewer"; viewer.IsAdmin = false; viewer.IsTenantAdmin = false;
                     try { await database.CreateConversationAsync(viewer, "denied", token).ConfigureAwait(false); throw new InvalidDataException("Viewer mutation accepted."); } catch (DomainException ex) when (ex.StatusCode == 403) { }
                     List<DurableEvent> events = await database.ReadEventsAsync(context, id, token: token).ConfigureAwait(false);
                     if (events.Count != 2 || events[0].Sequence != 1 || events[1].Sequence != 2) throw new InvalidDataException("Durable event sequence or deduplication failed.");

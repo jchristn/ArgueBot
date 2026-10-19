@@ -24,7 +24,35 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task UserFormsAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(60, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    UserEditor editor = new UserEditor(false, new UserRecord { Name = "Terminal identity", Email = "terminal@example.invalid", Role = "viewer", Active = true, Revision = 7 });
+                    FormDialog<UserRequest> dialog = new FormDialog<UserRequest>("Edit tenant user", editor.Form, editor.Extract); dialog.ApplyTheme(theme);
+                    Task<UserRequest?> result = app.ShowAsync<UserRequest>(dialog);
+                    if (editor.Form.FieldCount != 6) throw new InvalidDataException("Tenant user editor exposed the system administrator flag.");
+                    ((TextField)editor.Form.GetField(1)).Value = "invalid email";
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    if (dialog.IsClosed) throw new InvalidDataException("Invalid identity metadata closed its draft.");
+                    ((TextField)editor.Form.GetField(1)).Value = "terminal@example.invalid";
+                    ((TextField)editor.Form.GetField(5)).Value = "fictional-terminal-password";
+                    editor.Form.SetFocusedField(5); app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (screen.Contains("fictional-terminal-password", StringComparison.Ordinal)) throw new InvalidDataException("The terminal rendered an unmasked login password.");
+                    await SaveEvidenceAsync("user-editor-" + theme.Name, screen, token).ConfigureAwait(false);
+                    backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                    UserRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (request == null || request.PasswordSha256?.Length != 64 || request.IsAdmin || request.ExpectedRevision != 7 || request.Email != "terminal@example.invalid") throw new InvalidDataException("The terminal identity form changed privileges, revision or password representation.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task MessageReaderAsync(CancellationToken token)
         {

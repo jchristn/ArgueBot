@@ -1,11 +1,11 @@
 namespace ArgueBot.Core.Configuration
 {
-    using System.IO;
-    using System.Text.Json.Serialization;
-    using System.Text.Json;
-    using System.Threading.Tasks;
-    using System.Threading;
     using System;
+    using System.IO;
+    using System.Text.Json;
+    using System.Text.Json.Serialization;
+    using System.Threading;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
@@ -25,6 +25,10 @@ namespace ArgueBot.Core.Configuration
         public int RequestHistoryRetentionDays { get; set; } = 30;
         /// <summary>Persistent database configuration. SQLite is the local default.</summary>
         public DatabaseSettings Database { get { return _Database; } set { ArgumentNullException.ThrowIfNull(value); _Database = value; } }
+        /// <summary>Enable HTTPS using keys/listener.pfx in the application home. Password login requires HTTPS.</summary>
+        public bool TlsEnabled { get; set; }
+        /// <summary>Optional environment variable containing the listener PFX password. No literal password is persisted.</summary>
+        public string TlsPasswordEnvironmentVariable { get; set; } = "";
         /// <summary>Loopback service port, default 4317, allowed 1 through 65535.</summary>
         public int Port { get { return _Port; } set { if (value < 1 || value > 65535) throw new ArgumentOutOfRangeException(nameof(value)); _Port = value; } }
         /// <summary>Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536.</summary>
@@ -90,6 +94,7 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (TlsPasswordEnvironmentVariable == null || (TlsPasswordEnvironmentVariable.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(TlsPasswordEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$"))) throw new ArgumentException("Use a TLS password environment variable name.");
             if (EventRetentionDays < 1 || EventRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(EventRetentionDays));
             if (EventMaxPerConversation < 1 || EventMaxPerConversation > 1000000) throw new ArgumentOutOfRangeException(nameof(EventMaxPerConversation));
             if (EventMaintenanceSeconds < 5 || EventMaintenanceSeconds > 3600) throw new ArgumentOutOfRangeException(nameof(EventMaintenanceSeconds));

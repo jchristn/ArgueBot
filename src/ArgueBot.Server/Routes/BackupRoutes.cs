@@ -20,9 +20,9 @@ namespace ArgueBot.Server.Routes
         {
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/backups", http => Api.GuardAsync(http, async () =>
             {
-                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
-                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
-                await Api.SendAsync(http, await _Database.Backups.EnumerateAsync(Api.Context(http), http.Request.Query.Elements["search"] ?? "", page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+                int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
+                await Api.SendAsync(http, await _Database.Backups.EnumerateAsync(Api.Context(http), http.Request.RetrieveQueryValue("search") ?? "", page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("List global recovery artifacts", "Backups"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/backups", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Manager.AcceptAsync(Api.Context(http), "create", null, Api.Body<BackupRequest>(http), http.Token).ConfigureAwait(false), 202).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Queue a complete recovery archive", "Backups"));
@@ -30,9 +30,9 @@ namespace ArgueBot.Server.Routes
             { await Api.SendAsync(http, await _Database.Backups.ReadAsync(Api.Context(http), Api.Parameter(http, "backupId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read recovery artifact metadata", "Backups"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/backup-operations", http => Api.GuardAsync(http, async () =>
             {
-                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
-                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
-                await Api.SendAsync(http, await _Database.Backups.EnumerateOperationsAsync(Api.Context(http), http.Request.Query.Elements["backupId"] ?? "", page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+                int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
+                await Api.SendAsync(http, await _Database.Backups.EnumerateOperationsAsync(Api.Context(http), http.Request.RetrieveQueryValue("backupId") ?? "", page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Page durable recovery jobs", "Backups"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/api/backup-operations/{operationId}", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Backups.ReadOperationAsync(Api.Context(http), Api.Parameter(http, "operationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read durable recovery operation status", "Backups"));

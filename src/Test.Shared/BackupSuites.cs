@@ -75,6 +75,7 @@ namespace Test.Shared
                     ServiceSettings settings = await ServiceSettings.LoadAsync(paths, token).ConfigureAwait(false);
                     settings.Database.ConnectionString = "fixture-secret-connection-not-for-production"; await settings.SaveAsync(paths, token).ConfigureAwait(false);
                     TokenProtector protector = new TokenProtector(paths); protector.Rotate();
+                    CertificateFixture.Create(paths);
                     SessionMethods sessions = new SessionMethods(database, protector);
                     string originalSession = await sessions.IssueLocalAsync(token).ConfigureAwait(false);
                     Conversation conversation = await database.CreateConversationAsync(Owner(), "Recover the complete thread", token).ConfigureAwait(false);
@@ -91,7 +92,7 @@ namespace Test.Shared
                     await RecoveryArchive.CreateAsync(database, paths, encrypted, true, "fixture-recovery-passphrase", token: token).ConfigureAwait(false);
                     using (VerifiedRecovery recovered = await RecoveryArchive.OpenAsync(encrypted, "fixture-recovery-passphrase", token: token).ConfigureAwait(false))
                     {
-                        if (!recovered.Manifest.IncludesSecrets || !recovered.Encrypted || recovered.Settings.Database.ConnectionString != settings.Database.ConnectionString || !File.Exists(Path.Combine(recovered.DirectoryPath, "keys", "session-current"))) throw new InvalidDataException("Encrypted opt-in recovery did not preserve protected configuration and keys.");
+                        if (!recovered.Manifest.IncludesSecrets || !recovered.Encrypted || recovered.Settings.Database.ConnectionString != settings.Database.ConnectionString || !File.Exists(Path.Combine(recovered.DirectoryPath, "keys", "session-current")) || !File.Exists(Path.Combine(recovered.DirectoryPath, "keys", "listener.pfx"))) throw new InvalidDataException("Encrypted opt-in recovery did not preserve protected configuration and keys.");
                         TokenProtector restored = new TokenProtector(new ArgueBotPaths(recovered.DirectoryPath));
                         string session = protector.Protect(new SessionClaims { SessionId = "ses_fixture", TenantId = "ten_local", UserId = "usr_local", IssuedUtc = DateTime.UtcNow, ExpiresUtc = DateTime.UtcNow.AddMinutes(5) });
                         if (restored.Unprotect(session) == null) throw new InvalidDataException("Recovered key ring could not read source ciphertext.");
@@ -223,7 +224,7 @@ namespace Test.Shared
                     if (record.Kind == "header") record.SchemaVersion = 4;
                     if (record.Kind == "table")
                     {
-                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => (record.Table == "runs" && column.Key == "question") || column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset" || column.Key == "target_provider" || column.Key == "target_connection_env" || column.Key == "retained_staging_home" || (record.Table == "audit_events" && new[] { "session_id", "auth_scheme", "correlation_id", "resource_type", "resource_id", "error_code" }.Contains(column.Key))).Select(column => column.Value).OrderByDescending(index => index).ToList();
+                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => (record.Table == "runs" && column.Key == "question") || (record.Table == "users" && new[] { "email", "password_sha256", "revision" }.Contains(column.Key)) || column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected" || column.Key == "text_offset" || column.Key == "target_provider" || column.Key == "target_connection_env" || column.Key == "retained_staging_home" || (record.Table == "audit_events" && new[] { "session_id", "auth_scheme", "correlation_id", "resource_type", "resource_id", "error_code" }.Contains(column.Key))).Select(column => column.Value).OrderByDescending(index => index).ToList();
                         foreach (int index in removed) record.Columns.RemoveAt(index);
                     }
                     if (record.Kind == "row") foreach (int index in removed) record.Values.RemoveAt(index);

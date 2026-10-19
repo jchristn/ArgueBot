@@ -7,6 +7,10 @@ namespace ArgueBot.Server
     {
         /// <summary>Expected settings file revision.</summary>
         public string Revision { get; set; } = "";
+        /// <summary>Optional HTTPS toggle. Provision keys/listener.pfx before enabling; restart to apply.</summary>
+        public bool? TlsEnabled { get; set; }
+        /// <summary>Optional listener PFX password environment reference; omission preserves it.</summary>
+        public string? TlsPasswordEnvironmentVariable { get; set; }
         /// <summary>Configured port, from 1 to 65535. Explicit launch flags still win.</summary>
         public int Port { get; set; }
         /// <summary>Concurrent conversations, 1 to 64.</summary>

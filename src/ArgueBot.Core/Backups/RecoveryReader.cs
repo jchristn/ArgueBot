@@ -1,16 +1,16 @@
 namespace ArgueBot.Core.Backups
 {
+    using System;
     using System.Collections.Generic;
-    using System.IO.Compression;
     using System.IO;
+    using System.IO.Compression;
     using System.Linq;
     using System.Security.Cryptography;
-    using System.Text.Json.Serialization;
     using System.Text.Json;
+    using System.Text.Json.Serialization;
     using System.Text.RegularExpressions;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
 
@@ -70,6 +70,7 @@ namespace ArgueBot.Core.Backups
                     if (entry.Length < 0 || entry.Length > limits.MaximumBytes - total) throw new InvalidDataException("Recovery content exceeds the configured byte limit.");
                     total += entry.Length;
                     if (entry.FullName.StartsWith("keys/session-", StringComparison.Ordinal) && entry.FullName != "keys/session-current" && entry.Length != 32) throw new InvalidDataException("Recovery session key has an invalid size.");
+                    if (entry.FullName == "keys/listener.pfx" && entry.Length > 1048576) throw new InvalidDataException("The listener certificate exceeds the recovery size limit.");
                     if (entry.FullName == "keys/session-current" && entry.Length > 128) throw new InvalidDataException("Recovery key pointer exceeds its size limit.");
                 }
                 if (!entries.TryGetValue("manifest.json", out ZipArchiveEntry? manifestEntry) || manifestEntry.Length > 4194304) throw new InvalidDataException("Recovery manifest is missing or oversized.");
@@ -117,7 +118,7 @@ namespace ArgueBot.Core.Backups
             }
         }
         private static bool Allowed(string path)
-        { return path == "manifest.json" || path == "database.arguedb.jsonl" || path == "arguebot.json" || path == "keys/session-current" || Regex.IsMatch(path, "^keys/session-[a-f0-9]{16}\\.key$", RegexOptions.CultureInvariant); }
+        { return path == "manifest.json" || path == "database.arguedb.jsonl" || path == "arguebot.json" || path == "keys/session-current" || path == "keys/listener.pfx" || Regex.IsMatch(path, "^keys/session-[a-f0-9]{16}\\.key$", RegexOptions.CultureInvariant); }
         private static void ValidateKeys(string workspace, RecoveryManifest manifest)
         {
             string keys = Path.Combine(workspace, "keys");
