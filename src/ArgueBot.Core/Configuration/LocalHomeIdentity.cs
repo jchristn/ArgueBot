@@ -55,7 +55,7 @@ namespace ArgueBot.Core.Configuration
             try
             {
                 for (int index = 0; index < key.Length; index++) key[index] = (byte)((Hex(seed[index * 2]) << 4) | Hex(seed[index * 2 + 1]));
-                string message = "ArgueBot local service protocol 1\n" + Bind(paths, seed) + "\n" + port.ToString(CultureInfo.InvariantCulture) + "\n" + challenge.ToUpperInvariant();
+                string message = "ArgueBot local service protocol " + ServiceProtocol.CurrentVersion.ToString(CultureInfo.InvariantCulture) + "\n" + Bind(paths, seed) + "\n" + port.ToString(CultureInfo.InvariantCulture) + "\n" + challenge.ToUpperInvariant();
                 return Convert.ToHexString(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(message))).ToLowerInvariant();
             }
             finally { CryptographicOperations.ZeroMemory(key); CryptographicOperations.ZeroMemory(seed); }

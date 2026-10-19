@@ -4,7 +4,7 @@ The replacement service owns persistent conversations, execution and configurati
 
 Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. Password/credential exchange is not yet enabled by this local-only host.
 
-List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Schema 9 also records pending/streaming/terminal generation attempts, prompt hashes and exact ordered source identifiers. Answer finalization, successful directive consumption and speaker advance commit together. Inspect the run attempts route; over-budget context pauses before invocation without dropping transcript text. See `docs/EXECUTION.md`. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
+Protocol 2 changes GET message history from an unbounded array to MessagePage. Upgrade native clients and service together; product and database schema versions are independent. Message pages contain bounded previews and explicit contentTruncated/contentBytes metadata. Fetch a message by ID for complete text. Reuse throughSequence to keep page membership stable as later messages arrive; streaming text may still change. Tail selects the last page. Exports enumerate pages and hydrate previews instead of exporting truncated content. List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Schema 9 also records pending/streaming/terminal generation attempts, prompt hashes and exact ordered source identifiers. Answer finalization, successful directive consumption and speaker advance commit together. Inspect the run attempts route; over-budget context pauses before invocation without dropping transcript text. See `docs/EXECUTION.md`. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
 Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new home beneath the service home and leaves the recovered service stopped. SQLite creates a new file; PostgreSQL requires an explicitly provisioned empty database through restoreConnectionEnvironmentVariable. Existing homes and nonempty destination databases are refused. If an external restore commits but reconciliation or publication fails, retainedStagingHome identifies protected operator recovery state. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
 
@@ -100,13 +100,17 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/messages
 
-Read ordered owned history including owner-visible directives. Requires an active bearer session. Read permission required.
+Read bounded owned message previews with stable membership and exact totals. Requires an active bearer session. Read permission required.
 
-Success: **200**, response: `List<Message>`.
+Success: **200**, response: `MessagePage`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
 | conversationId | path | true | Identifier in the authenticated ownership scope. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| throughSequence | query | false | Optional captured membership boundary. Omission captures the latest sequence. Streaming content itself is not frozen. Future boundaries are rejected. |
+| tail | query | false | Select the last page of the captured membership, overriding pageNumber. Preview text is bounded; use individual message reads for full content. |
 
 ## POST /v1.0/api/conversations/{conversationId}/messages
 
@@ -515,6 +519,17 @@ Success: **200**, response: `AttemptPage`.
 | pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 
+## GET /v1.0/api/conversations/{conversationId}/messages/{messageId}
+
+Read one complete owned message without loading other history. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `Message`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| messageId | path | true | Identifier in the authenticated ownership scope. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -826,9 +841,24 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | speaker | string | Speaker snapshot. |
 | kind | string | Semantic message kind. |
 | content | string | Original message text. |
+| contentBytes | integer | Full stored UTF-8 content size. Bounded pages can return a shorter content preview with ContentTruncated true. |
+| contentTruncated | boolean | Whether this transport result is a bounded preview. Fetch the individual message before treating its text as complete or exporting it. |
 | recipientId | string (nullable) | Private directive recipient, if present. |
 | state | string | Generation lifecycle state. |
 | createdUtc | string | Creation time in UTC. |
+
+### MessagePage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Ordered bounded message previews. |
+| pageNumber | integer | One-based page. |
+| pageSize | integer | Page size. |
+| totalCount | integer | Total matching records. |
+| throughSequence | integer | Membership boundary captured for this page. Reuse it to traverse a stable set while new messages arrive; streaming content itself can still advance. |
+| latestSequence | integer | Latest stored sequence at request start, including messages beyond a supplied membership boundary. |
 
 ### Page
 
@@ -934,6 +964,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
 | streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
 | streamCommitMilliseconds | integer | Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000. |
+| historyPreviewCodePoints | integer | Maximum Unicode code points in each message preview returned by paged history. Default 4096, range 128 through 16384. Full message reads remain explicit. |
 | contextMaxCharacters | integer | Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history. |
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
@@ -986,6 +1017,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
 | streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |
 | streamCommitMilliseconds | integer (nullable) | Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value. |
+| historyPreviewCodePoints | integer (nullable) | Optional Unicode code-point limit per message preview, 128 through 16384. Omission preserves its configured value. |
 | contextMaxCharacters | integer (nullable) | Optional context character budget, 1024 through 16777216. Omission preserves its configured value. |
 | contextMaxMessages | integer (nullable) | Optional selected context message bound, one through 10000. Omission preserves its configured value. |
 | allowCli | boolean | Allow local shell-out execution after restart. |

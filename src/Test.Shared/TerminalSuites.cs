@@ -24,7 +24,29 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task MessageReaderAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Light, Theme.Dark })
+            {
+                HeadlessBackend backend = new HeadlessBackend(60, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    string text = string.Join("\n", Enumerable.Range(1, 300).Select(index => "Read-only Unicode line 議論🙂 " + index)) + "\nCOMPLETE MESSAGE TAIL";
+                    MessageDialog dialog = new MessageDialog(new Message { Content = text });
+                    Task<Message?> result = app.ShowAsync<Message>(dialog);
+                    dialog.HandlePaste("attempted mutation");
+                    backend.FeedKey("ctrl+end"); app.PumpInputOnce(); app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (dialog.Content != text || !screen.Contains("COMPLETE MESSAGE TAIL", StringComparison.Ordinal) || !screen.Contains("Close", StringComparison.Ordinal)) throw new InvalidDataException("A long full message became editable, lost its tail or hid the close action.");
+                    await SaveEvidenceAsync("message-reader-" + theme.Name, screen, token).ConfigureAwait(false);
+                    backend.FeedKey("tab"); backend.FeedKey("enter"); app.PumpInputOnce(); app.PumpInputOnce();
+                    if (await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false) != null) throw new InvalidDataException("Closing the reader returned a mutation.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task AttemptDetailsAsync(CancellationToken token)
         {

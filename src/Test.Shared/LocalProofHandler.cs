@@ -14,10 +14,11 @@ namespace Test.Shared
     {
         private readonly ArgueBotPaths _Paths;
         private readonly bool _Valid;
+        private readonly int _Protocol;
         internal bool CredentialBeforeProof { get; private set; }
         internal int MeRequests { get; private set; }
         internal int PairRequests { get; private set; }
-        internal LocalProofHandler(ArgueBotPaths paths, bool valid) { _Paths = paths; _Valid = valid; }
+        internal LocalProofHandler(ArgueBotPaths paths, bool valid, int protocol = ServiceProtocol.CurrentVersion) { _Paths = paths; _Valid = valid; _Protocol = protocol; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             object response; HttpStatusCode status = HttpStatusCode.OK;
@@ -25,7 +26,7 @@ namespace Test.Shared
             {
                 CredentialBeforeProof = request.Headers.Authorization != null;
                 string challenge = request.RequestUri.Query.Substring("?challenge=".Length);
-                response = new HealthResponse { Status = "ready", Protocol = 1, Schema = DatabaseSchema.CurrentVersion, HomeId = LocalHomeIdentity.Read(_Paths)!, HomeProof = _Valid ? LocalHomeIdentity.CreateProof(_Paths, request.RequestUri.Port, challenge) : new string('0', 64) };
+                response = new HealthResponse { Status = "ready", Protocol = _Protocol, Schema = DatabaseSchema.CurrentVersion, HomeId = LocalHomeIdentity.Read(_Paths)!, HomeProof = _Valid ? LocalHomeIdentity.CreateProof(_Paths, request.RequestUri.Port, challenge) : new string('0', 64) };
             }
             else if (request.RequestUri.AbsolutePath == "/v1.0/api/auth/me" && request.Headers.Authorization?.Parameter == "fixture-cli-session")
             { MeRequests++; response = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, Role = "viewer" }; }

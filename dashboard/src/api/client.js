@@ -74,8 +74,34 @@ export class ApiClient {
   deleteConversation(id) {
     return this.request(this.root(id), { method: "DELETE" });
   }
-  messages(id) {
-    return this.request(this.root(id) + "/messages");
+  messages(id, { pageNumber = 1, pageSize = 25, throughSequence, tail = false } = {}) {
+    const query = new URLSearchParams({ pageNumber, pageSize, tail });
+    if (throughSequence !== undefined) query.set("throughSequence", throughSequence);
+    return this.request(this.root(id) + "/messages?" + query);
+  }
+  message(id, messageId) {
+    return this.request(this.root(id) + "/messages/" + encodeURIComponent(messageId));
+  }
+  async allMessages(id) {
+    let page = await this.messages(id, { pageSize: 100 });
+    const throughSequence = page.throughSequence;
+    const expected = page.totalCount;
+    const result = [];
+    let sequence = 0;
+    while (result.length < expected) {
+      if (page.throughSequence !== throughSequence || page.totalCount !== expected || page.items.length === 0)
+        throw new ApiError(409, { code: "history_changed", message: i18n.t("messages.changed") });
+      for (const preview of page.items) {
+        if (preview.sequence <= sequence || preview.sequence > throughSequence || result.length >= expected)
+          throw new ApiError(409, { code: "history_changed", message: i18n.t("messages.changed") });
+        const message = preview.contentTruncated ? await this.message(id, preview.id) : preview;
+        if (message.contentTruncated || message.id !== preview.id || message.sequence !== preview.sequence)
+          throw new ApiError(409, { code: "history_changed", message: i18n.t("messages.changed") });
+        result.push(message); sequence = message.sequence;
+      }
+      if (result.length < expected) page = await this.messages(id, { pageNumber: page.pageNumber + 1, pageSize: 100, throughSequence });
+    }
+    return result;
   }
   note(id, text) {
     return this.request(this.root(id) + "/messages", {

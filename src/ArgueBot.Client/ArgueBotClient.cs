@@ -7,6 +7,7 @@ namespace ArgueBot.Client
     using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
+    using System.Runtime.CompilerServices;
     using System.Security.Cryptography;
     using System.Text.Json;
     using System.Text.Json.Serialization;
@@ -67,7 +68,7 @@ namespace ArgueBot.Client
             _Http.DefaultRequestHeaders.Authorization = null;
             string challenge = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             HealthResponse health = await SendAsync<HealthResponse>(HttpMethod.Get, "health?challenge=" + challenge, token: token).ConfigureAwait(false);
-            if (health.Status != "ready" || health.Protocol != 1 || health.Schema < 1 || homeId == null || health.HomeId != homeId || !LocalHomeIdentity.VerifyProof(paths, _Http.BaseAddress.Port, challenge, health.HomeProof)) throw new InvalidOperationException("The listener could not prove ownership of the selected home; no cached credential was sent.");
+            if (health.Status != "ready" || health.Protocol != ServiceProtocol.CurrentVersion || health.Schema < 1 || homeId == null || health.HomeId != homeId || !LocalHomeIdentity.VerifyProof(paths, _Http.BaseAddress.Port, challenge, health.HomeProof)) throw new InvalidOperationException("The listener could not prove ownership of the selected home; no cached credential was sent.");
             string file = Path.Combine(paths.Home, "runtime", "cli-session.json");
             string lockFile = Path.Combine(paths.Home, "runtime", "cli-session.lock");
             FileStream? lease = null; long lockStarted = Stopwatch.GetTimestamp();
@@ -148,9 +149,42 @@ namespace ArgueBot.Client
         /// <summary>Update title/pin/archive using its current revision.</summary>
         public Task<Conversation> UpdateConversationAsync(Conversation conversation, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
-        /// <summary>Read ordered history.</summary>
-        public Task<List<Message>> MessagesAsync(string id, CancellationToken token = default)
-        { return SendAsync<List<Message>>(HttpMethod.Get, Root(id) + "/messages", null, token); }
+        /// <summary>Read bounded history previews. A supplied sequence freezes membership; streaming text can still advance. Tail selects the latest page.</summary>
+        public Task<MessagePage> MessagePageAsync(string id, int pageNumber = 1, int pageSize = 25, long? throughSequence = null, bool tail = false, CancellationToken token = default)
+        {
+            string query = "?pageNumber=" + pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&pageSize=" + pageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&tail=" + (tail ? "true" : "false");
+            if (throughSequence.HasValue) query += "&throughSequence=" + throughSequence.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return SendAsync<MessagePage>(HttpMethod.Get, Root(id) + "/messages" + query, token: token);
+        }
+        /// <summary>Read one complete message in the same ownership scope as its conversation.</summary>
+        public Task<Message> MessageAsync(string id, string messageId, CancellationToken token = default)
+        { return SendAsync<Message>(HttpMethod.Get, Root(id) + "/messages/" + Uri.EscapeDataString(messageId), token: token); }
+        /// <summary>Enumerate full messages in sequence order using bounded pages and a captured membership boundary. Truncated previews are hydrated individually. The caller controls memory use.</summary>
+        public async IAsyncEnumerable<Message> EnumerateMessagesAsync(string id, [EnumeratorCancellation] CancellationToken token = default)
+        {
+            MessagePage page = await MessagePageAsync(id, pageSize: 100, token: token).ConfigureAwait(false);
+            long through = page.ThroughSequence; long expected = page.TotalCount; long delivered = 0; long sequence = 0;
+            while (delivered < expected)
+            {
+                if (page.ThroughSequence != through || page.TotalCount != expected || page.Items.Count == 0) throw new DomainException(409, "history_changed", "History membership changed during export. Retry from a fresh snapshot.");
+                foreach (Message preview in page.Items)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (preview.Sequence <= sequence || preview.Sequence > through || ++delivered > expected) throw new DomainException(409, "history_changed", "History order changed during export.");
+                    Message message = preview.ContentTruncated ? await MessageAsync(id, preview.Id, token).ConfigureAwait(false) : preview;
+                    if (message.ContentTruncated || message.Id != preview.Id || message.Sequence != preview.Sequence) throw new DomainException(409, "history_changed", "The full message did not match its preview.");
+                    sequence = message.Sequence; yield return message;
+                }
+                if (delivered < expected) page = await MessagePageAsync(id, page.PageNumber + 1, 100, through, token: token).ConfigureAwait(false);
+            }
+        }
+        /// <summary>Collect complete ordered history for explicit callers that need it in memory. Interfaces should use bounded pages; exports can enumerate instead.</summary>
+        public async Task<List<Message>> MessagesAsync(string id, CancellationToken token = default)
+        {
+            List<Message> messages = new List<Message>();
+            await foreach (Message message in EnumerateMessagesAsync(id, token).ConfigureAwait(false)) messages.Add(message);
+            return messages;
+        }
         /// <summary>Append an idempotent public note.</summary>
         public Task<Message> NoteAsync(string id, string text, string? key = null, CancellationToken token = default)
         { return SendAsync<Message>(HttpMethod.Post, Root(id) + "/messages", new CommandRequest { Action = "note", Text = text, IdempotencyKey = key ?? Guid.NewGuid().ToString("N") }, token); }

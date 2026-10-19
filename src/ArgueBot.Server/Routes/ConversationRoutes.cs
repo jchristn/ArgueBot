@@ -6,6 +6,7 @@ namespace ArgueBot.Server.Routes
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Models;
@@ -19,7 +20,8 @@ namespace ArgueBot.Server.Routes
         private readonly DatabaseDriverBase _Database;
         private readonly ConversationEngine _Engine;
         private readonly SessionMethods _Sessions;
-        internal ConversationRoutes(DatabaseDriverBase database, ConversationEngine engine, SessionMethods sessions) { _Database = database; _Engine = engine; _Sessions = sessions; }
+        private readonly ServiceSettings _Settings;
+        internal ConversationRoutes(DatabaseDriverBase database, ConversationEngine engine, SessionMethods sessions, ServiceSettings settings) { _Database = database; _Engine = engine; _Sessions = sessions; _Settings = settings; }
         internal void Register(Webserver server)
         {
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
@@ -40,7 +42,15 @@ namespace ArgueBot.Server.Routes
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.DELETE, root, http => Api.GuardAsync(http, async () =>
             { await _Database.DeleteConversationAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false); await Api.SendAsync(http, new DeletionResponse()).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Delete stopped conversation", "Conversations"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/messages", http => Api.GuardAsync(http, async () =>
-            { await Api.SendAsync(http, await _Database.ReadMessagesAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read ordered messages", "Messages"));
+            {
+                int page = int.Parse(http.Request.Query.Elements["pageNumber"] ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.Query.Elements["pageSize"] ?? "25", CultureInfo.InvariantCulture);
+                string? through = http.Request.Query.Elements["throughSequence"];
+                bool tail = bool.Parse(http.Request.Query.Elements["tail"] ?? "false");
+                await Api.SendAsync(http, await _Database.ReadMessagePageAsync(Api.Context(http), Api.Parameter(http, "conversationId"), page, size, through == null ? null : long.Parse(through, CultureInfo.InvariantCulture), tail, _Settings.HistoryPreviewCodePoints, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+            }), openApiMetadata: OpenApiRouteMetadata.Create("Read bounded history previews with stable membership paging", "Messages"));
+            server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/messages/{messageId}", http => Api.GuardAsync(http, async () =>
+            { await Api.SendAsync(http, await _Database.ReadMessageAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "messageId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read one full owned message", "Messages"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, root + "/messages", http => Api.GuardAsync(http, async () =>
             {
                 CommandRequest request = Api.Body<CommandRequest>(http);

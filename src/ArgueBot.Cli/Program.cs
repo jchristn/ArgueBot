@@ -4,6 +4,7 @@ namespace ArgueBot.Cli
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Text;
     using System.Text.Json;
     using System.Text.Json.Serialization;
     using System.Threading;
@@ -16,8 +17,11 @@ namespace ArgueBot.Cli
     internal static class Program
     {
         private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
+        private static readonly JsonSerializerOptions _JsonLine = new JsonSerializerOptions(_Json) { WriteIndented = false };
         private static async Task<int> Main(string[] args)
         {
+            Console.InputEncoding = new UTF8Encoding(false, true);
+            Console.OutputEncoding = new UTF8Encoding(false, true);
             using (CancellationTokenSource lifetime = new CancellationTokenSource())
             {
                 Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; lifetime.Cancel(); };
@@ -84,10 +88,14 @@ namespace ArgueBot.Cli
                     {
                         case "list": Print(await client.ConversationsAsync(words.Count > 2 ? words[2] : "", token: token).ConfigureAwait(false)); break;
                         case "create": Print(await client.CreateConversationAsync(await TextAsync(words, 2, token).ConfigureAwait(false), token).ConfigureAwait(false)); break;
-                        case "show": Require(words, 3); Print(await client.MessagesAsync(words[2], token).ConfigureAwait(false)); break;
+                        case "show":
+                            Require(words, 3);
+                            if (words.Contains("--jsonl")) { await foreach (Message message in client.EnumerateMessagesAsync(words[2], token).ConfigureAwait(false)) Console.WriteLine(JsonSerializer.Serialize(message, _JsonLine)); }
+                            else Print(await client.MessagesAsync(words[2], token).ConfigureAwait(false));
+                            break;
                         case "rename": Require(words, 4); Conversation renamed = await client.ConversationAsync(words[2], token).ConfigureAwait(false); renamed.Title = string.Join(" ", words.Skip(3)); Print(await client.UpdateConversationAsync(renamed, token).ConfigureAwait(false)); break;
                         case "archive": Require(words, 3); Conversation archived = await client.ConversationAsync(words[2], token).ConfigureAwait(false); archived.Archived = true; Print(await client.UpdateConversationAsync(archived, token).ConfigureAwait(false)); break;
-                        case "export": Require(words, 3); List<Message> messages = await client.MessagesAsync(words[2], token).ConfigureAwait(false); foreach (Message message in messages) Console.WriteLine("## " + message.Speaker + " (" + message.Kind + ")\n\n" + message.Content + "\n"); break;
+                        case "export": Require(words, 3); await foreach (Message message in client.EnumerateMessagesAsync(words[2], token).ConfigureAwait(false)) Console.WriteLine("## " + message.Speaker + " (" + message.Kind + ")\n\n" + message.Content + "\n"); break;
                         default: Help(); return 2;
                     }
                 }
@@ -152,7 +160,7 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   service start|status|restart|stop
   conversations list [SEARCH]       Search owned history (JSON).
   conversations create TITLE|-|--file PATH
-  conversations show ID            Read ordered messages (JSON).
+  conversations show ID [--jsonl]  Read full ordered messages; JSONL streams them.
   conversations rename ID TITLE
   conversations archive ID
   conversations export ID          Markdown to stdout.

@@ -51,6 +51,14 @@ namespace Test.Shared
                         if (handler.CredentialBeforeProof || handler.PairRequests != 0 || (valid ? handler.MeRequests != 1 : !rejected || handler.MeRequests != 0)) throw new InvalidDataException("A listener with no valid home proof received a credential, or a valid cache unnecessarily enrolled again.");
                     }
                 }
+                LocalProofHandler outdated = new LocalProofHandler(paths, true, 1);
+                using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4567", outdated))
+                {
+                    bool rejected = false;
+                    try { await client.PairLocalCachedAsync(home, token).ConfigureAwait(false); }
+                    catch (InvalidOperationException) { rejected = true; }
+                    if (!rejected || outdated.MeRequests != 0 || outdated.PairRequests != 0 || outdated.CredentialBeforeProof) throw new InvalidDataException("An incompatible protocol received a cached credential.");
+                }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }

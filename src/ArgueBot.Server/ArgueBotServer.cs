@@ -81,7 +81,7 @@ namespace ArgueBot.Server
                                 {
                                     string challenge = http.Request.Query.Elements["challenge"] ?? "";
                                     string proof = challenge.Length == 0 ? "" : LocalHomeIdentity.CreateProof(paths, settings.Port, challenge);
-                                    await Api.SendAsync(http, new HealthResponse { HomeId = homeId, HomeProof = proof, Status = "ready", Schema = DatabaseSchema.CurrentVersion, Protocol = 1 }).ConfigureAwait(false);
+                                    await Api.SendAsync(http, new HealthResponse { HomeId = homeId, HomeProof = proof, Status = "ready", Schema = DatabaseSchema.CurrentVersion, Protocol = ServiceProtocol.CurrentVersion }).ConfigureAwait(false);
                                 }), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
                                 server.Routes.PreAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/auth/pair", http => Api.GuardAsync(http, async () =>
                                 { await Api.SendAsync(http, new PairResponse { Token = await enrollment.PairAsync(Api.Body<PairRequest>(http).Code, http.Token).ConfigureAwait(false) }).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Exchange local single-use code", "Auth"));
@@ -92,7 +92,7 @@ namespace ArgueBot.Server
                                 new HistoryRoutes(database, settings).Register(server);
                                 new AuditRoutes(database).Register(server);
                                 new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
-                                new ConversationRoutes(database, engine, sessions).Register(server);
+                                new ConversationRoutes(database, engine, sessions, settings).Register(server);
                                 new BackupRoutes(database, backups).Register(server);
                                 ContractRoutes.Register(server);
                                 server.UseOpenApi(options => options.DocumentPath = "/openapi.generated.json");

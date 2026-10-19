@@ -36,6 +36,10 @@
       "value": "1"
     },
     {
+      "key": "messageId",
+      "value": ""
+    },
+    {
       "key": "profileId",
       "value": ""
     },
@@ -340,7 +344,7 @@
       "description": "Lifecycle operations for messages. Variables, ownership and validation requirements are described by each request.",
       "item": [
         {
-          "name": "Read ordered owned history including owner-visible directives",
+          "name": "Read bounded owned message previews with stable membership and exact totals",
           "request": {
             "method": "GET",
             "header": [
@@ -350,7 +354,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
-            "description": "Requires an active bearer session. Read permission required. Read ordered owned history including owner-visible directives"
+            "description": "Requires an active bearer session. Read permission required. Read bounded owned message previews with stable membership and exact totals"
           },
           "event": [
             {
@@ -367,7 +371,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('History page is bounded with membership metadata',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);pm.expect(page.throughSequence).to.be.at.most(page.latestSequence);});"
                 ]
               }
             }
@@ -410,7 +415,43 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('messageId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read one complete owned message without loading other history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages/{{messageId}}",
+            "description": "Requires an active bearer session. Read permission required. Read one complete owned message without loading other history"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('messageId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
                 ]
               }
             }

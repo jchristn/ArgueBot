@@ -1150,3 +1150,6 @@ body {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+.history-navigation { flex-shrink: 0; }
+.history-navigation .pagination { padding-block: 8px; margin-block: 0; }

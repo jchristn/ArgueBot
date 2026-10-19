@@ -33,6 +33,7 @@ namespace ArgueBot.Server
                 settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.AllowCli = update.AllowCli;
                 if (update.StreamBatchCharacters.HasValue) settings.StreamBatchCharacters = update.StreamBatchCharacters.Value;
                 if (update.StreamCommitMilliseconds.HasValue) settings.StreamCommitMilliseconds = update.StreamCommitMilliseconds.Value;
+                if (update.HistoryPreviewCodePoints.HasValue) settings.HistoryPreviewCodePoints = update.HistoryPreviewCodePoints.Value;
                 if (update.ContextMaxCharacters.HasValue) settings.ContextMaxCharacters = update.ContextMaxCharacters.Value;
                 if (update.ContextMaxMessages.HasValue) settings.ContextMaxMessages = update.ContextMaxMessages.Value;
                 settings.Database.Type = update.DatabaseType; settings.Database.ConnectionEnvironmentVariable = update.ConnectionEnvironmentVariable;

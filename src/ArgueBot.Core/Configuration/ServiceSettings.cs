@@ -31,6 +31,8 @@ namespace ArgueBot.Core.Configuration
         public int StreamBatchCharacters { get; set; } = 4096;
         /// <summary>Maximum stream timer interval in milliseconds, even when the runner stops emitting. Default 250, allowed ten through 5000.</summary>
         public int StreamCommitMilliseconds { get; set; } = 250;
+        /// <summary>Maximum Unicode code points in each message preview returned by paged history. Default 4096, range 128 through 16384. Full message reads remain explicit.</summary>
+        public int HistoryPreviewCodePoints { get; set; } = 4096;
         /// <summary>Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history.</summary>
         public int ContextMaxCharacters { get; set; } = 262144;
         /// <summary>Maximum selected messages per generation attempt. Default 1000, range one through 10000.</summary>
@@ -76,6 +78,7 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (HistoryPreviewCodePoints < 128 || HistoryPreviewCodePoints > 16384) throw new ArgumentOutOfRangeException(nameof(HistoryPreviewCodePoints));
             if (ContextMaxCharacters < 1024 || ContextMaxCharacters > 16777216) throw new ArgumentOutOfRangeException(nameof(ContextMaxCharacters));
             if (ContextMaxMessages < 1 || ContextMaxMessages > 10000) throw new ArgumentOutOfRangeException(nameof(ContextMaxMessages));
             if (StreamBatchCharacters < 1 || StreamBatchCharacters > 65536) throw new ArgumentOutOfRangeException(nameof(StreamBatchCharacters));

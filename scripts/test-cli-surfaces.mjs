@@ -17,12 +17,13 @@ await new Promise(resolve => listener.close(resolve));
 await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port}), {mode:0o600});
 let started = false;
 let checks = 0;
-function command(words, body) {
-  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
+function invoke(words, body) {
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`CLI ${words.slice(0,2).join(' ')} failed: ${result.stderr}`);
-  return JSON.parse(result.stdout);
+  return result.stdout;
 }
+function command(words, body) { return JSON.parse(invoke(words, body)); }
 function check(condition, message) {if (!condition) throw new Error(message); checks++;}
 async function completed(id, expected = "completed") {
   for(let attempt=0;attempt<100;attempt++) {
@@ -62,6 +63,11 @@ try {
   check(runs[0].state==='completed', 'CLI fixture debate did not complete.');
   const attempts = command(['debate','attempts',conversation.id,run.id]);
   check(attempts.totalCount===2 && attempts.items.every(item=>item.state==='completed' && item.promptDigest.length===64), 'CLI attempt inspection lost external execution provenance.');
+  const longNote = '議論🙂 '.repeat(3000) + '\nFULL CLI TRANSCRIPT TAIL';
+  command(['message','send',conversation.id,'-'], longNote);
+  const lines = invoke(['conversations','show',conversation.id,'--jsonl']).trim().split(/\r?\n/).map(line=>JSON.parse(line));
+  check(lines.length===3 && lines.at(-1).content===longNote && lines.every(item=>!item.contentTruncated), 'CLI JSONL exported previews or lost record boundaries.');
+  check(invoke(['conversations','export',conversation.id]).includes(longNote), 'CLI Markdown export silently truncated content.');
   const accepted = command(['backups','create','-'], {name:'CLI recovery fixture'});
   await completed(accepted.id);
   const artifacts = command(['backups','list']);

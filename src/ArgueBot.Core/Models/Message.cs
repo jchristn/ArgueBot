@@ -2,6 +2,7 @@ namespace ArgueBot.Core.Models
 {
     using System;
     using System.Collections.Generic;
+    using System.Text;
 
     /// <summary>Message transport and domain data.</summary>
     public sealed class Message
@@ -33,6 +34,12 @@ namespace ArgueBot.Core.Models
 
         /// <summary>Original message text.</summary>
         public string Content { get { return _Content; } set { ArgumentNullException.ThrowIfNull(value); _Content = value; } }
+
+        private long _ContentBytes = -1;
+        /// <summary>Full stored UTF-8 content size. Bounded pages can return a shorter content preview with ContentTruncated true.</summary>
+        public long ContentBytes { get { return _ContentBytes < 0 ? Encoding.UTF8.GetByteCount(Content) : _ContentBytes; } set { if (value < 0) throw new ArgumentOutOfRangeException(nameof(value)); _ContentBytes = value; } }
+        /// <summary>Whether this transport result is a bounded preview. Fetch the individual message before treating its text as complete or exporting it.</summary>
+        public bool ContentTruncated { get; set; }
 
         /// <summary>Private directive recipient, if present.</summary>
         public string? RecipientId { get; set; }

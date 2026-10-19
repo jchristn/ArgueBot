@@ -31,7 +31,7 @@ namespace ArgueBot.Client
                     LocalServiceDescriptor? descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(descriptorFile, token).ConfigureAwait(false));
                     if (descriptor != null && descriptor.HomeId == homeId && IsLocal(descriptor.Endpoint) && await ReadyAsync(http, descriptor.Endpoint, paths, homeId, token).ConfigureAwait(false))
                     {
-                        if (descriptor.Protocol != 1) throw new InvalidOperationException("The running local service uses an incompatible attachment protocol. Update the client and service together.");
+                        if (descriptor.Protocol != ServiceProtocol.CurrentVersion) throw new InvalidOperationException("The running local service uses an incompatible attachment protocol. Update the client and service together.");
                         return descriptor.Endpoint;
                     }
                 }
@@ -76,8 +76,8 @@ namespace ArgueBot.Client
                 HealthResponse? response = await http.GetFromJsonAsync<HealthResponse>(endpoint + "/health?challenge=" + challenge, token).ConfigureAwait(false);
                 if (response?.Status != "ready" || response.Schema < 1) return false;
                 if (homeId == null || response.HomeId != homeId) throw new InvalidOperationException("The configured listener belongs to a different application home or cannot be verified. Choose a different port, or attach explicitly with --server.");
+                if (response.Protocol != ServiceProtocol.CurrentVersion) throw new InvalidOperationException("The listener uses an incompatible attachment protocol. Start matching client and service builds together.");
                 if (!LocalHomeIdentity.VerifyProof(paths, new Uri(endpoint).Port, challenge, response.HomeProof)) throw new InvalidOperationException("The local listener could not prove ownership of the selected application home.");
-                if (response.Protocol != 1) throw new InvalidOperationException("The listener uses an incompatible attachment protocol. Start matching client and service builds together.");
                 return true;
             }
             catch (HttpRequestException) { return false; }

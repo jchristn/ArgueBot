@@ -14,6 +14,7 @@ function SettingsForm({ snapshot, onSave }) {
     streamCommitMilliseconds: snapshot.settings.streamCommitMilliseconds,
     contextMaxCharacters: snapshot.settings.contextMaxCharacters,
     contextMaxMessages: snapshot.settings.contextMaxMessages,
+    historyPreviewCodePoints: snapshot.settings.historyPreviewCodePoints,
     databaseType: snapshot.settings.database.type,
     connectionEnvironmentVariable:
       snapshot.settings.database.connectionEnvironmentVariable,
@@ -89,7 +90,7 @@ function SettingsForm({ snapshot, onSave }) {
             />
           )}
         </Field>
-        {[ ["contextMaxCharacters", "settings.contextCharacters", 1024, 16777216], ["contextMaxMessages", "settings.contextMessages", 1, 10000] ].map(([name, label, min, max]) => (
+        {[ ["contextMaxCharacters", "settings.contextCharacters", 1024, 16777216], ["contextMaxMessages", "settings.contextMessages", 1, 10000], ["historyPreviewCodePoints", "settings.historyPreview", 128, 16384] ].map(([name, label, min, max]) => (
           <Field key={name} label={label}>
             {(props) => <input {...props} type="number" min={min} max={max} value={value[name]} onChange={(event) => change(name, Number(event.target.value))} />}
           </Field>

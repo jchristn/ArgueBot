@@ -11,9 +11,13 @@ export default function AttemptDialog({ conversationId, runs, messages, onClose 
   const [runId, setRunId] = useState(runs.at(-1)?.id || "");
   const [paging, setPaging] = useState({ pageNumber: 1, pageSize: 25 });
   const [detail, setDetail] = useState(null);
+  const [sources, setSources] = useState({});
+  const [sourceError, setSourceError] = useState(null);
   const run = runs.find((entry) => entry.id === runId);
   const { data, error, loading, reload } = useData(`${runId}:${paging.pageNumber}:${paging.pageSize}`, () => api.attempts(conversationId, runId, paging.pageNumber, paging.pageSize));
   const source = new Map(messages.map((message) => [message.id, message]));
+  for (const [id, message] of Object.entries(sources)) source.set(id, message);
+  const loadSource = async (id) => { try { const message = await api.message(conversationId, id); setSources((current) => ({ ...current, [id]: message })); setSourceError(null); } catch (failure) { setSourceError(failure); } };
   return <Modal title="attempts.title" onClose={onClose} wide>
     <p>{t("attempts.description")}</p>
     <Field label="attempts.run">
@@ -44,7 +48,8 @@ export default function AttemptDialog({ conversationId, runs, messages, onClose 
         {[["audit.id", detail.id], ["attempts.prompt", `${detail.promptVersion} / ${detail.promptDigest}`], ["attempts.duration", t("attempts.durationValue", { milliseconds: detail.durationMilliseconds })], ["attempts.characters", t("attempts.charactersValue", { count: detail.contextCharacters })], ["audit.error", detail.errorCode || t("common.none")]].map(([key, value]) => <Fragment key={key}><dt title={t(key)}>{t(key)}</dt><dd><code>{value}</code></dd></Fragment>)}
       </dl>
       <h4 title={t("attempts.context.help")}>{t("attempts.context")}</h4>
-      <ol>{detail.contextMessageIds.map((id) => <li key={id}><code>{id}</code><p>{source.get(id)?.content ?? t("attempts.missing")}</p></li>)}</ol>
+      {sourceError && <ErrorPanel error={sourceError} />}
+      <ol>{detail.contextMessageIds.map((id) => <li key={id}><code>{id}</code><p>{source.get(id)?.content ?? t("attempts.missing")}</p>{(!source.has(id) || source.get(id).contentTruncated) && <Button label="messages.loadSource" onClick={() => loadSource(id)} />}</li>)}</ol>
       {detail.contextMessageIds.length === 0 && <p>{t("attempts.pending")}</p>}
     </section>}
     <footer><Button label="common.close" help="common.close" onClick={onClose} /></footer>

@@ -1,6 +1,7 @@
 namespace ArgueBot.Core.Models
 {
     using System;
+    using ArgueBot.Core.Configuration;
 
     /// <summary>Owner-readable attachment metadata. It contains no session or pairing secret.</summary>
     public sealed class LocalServiceDescriptor
@@ -14,7 +15,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Local listener address.</summary>
         public string Endpoint { get { return _Endpoint; } set { ArgumentNullException.ThrowIfNull(value); _Endpoint = value; } }
         /// <summary>Attachment protocol, independent of product and schema versions.</summary>
-        public int Protocol { get; set; } = 1;
+        public int Protocol { get; set; } = ServiceProtocol.CurrentVersion;
         /// <summary>Process instance identifier used when removing stale metadata.</summary>
         public string InstanceId { get { return _InstanceId; } set { ArgumentNullException.ThrowIfNull(value); _InstanceId = value; } }
         /// <summary>Operating-system process ID for diagnostics, never a substitute for the ownership lock.</summary>

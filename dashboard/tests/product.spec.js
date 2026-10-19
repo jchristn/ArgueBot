@@ -370,3 +370,47 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     await expect(page.getByRole("dialog").getByRole("button", { name: "Inspect attempt", exact: true })).toHaveCount(2);
   } finally { await fixture.stop(); }
 });
+
+test("page long history, read complete text and export beyond the visible page", async ({ page }) => {
+  await enroll(page);
+  await page.getByRole("button", { name: "New conversation", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Question or title" }).fill("Paged browser history fixture");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Paged browser history fixture" })).toBeVisible();
+  await page.evaluate(async () => {
+    const id = location.pathname.split("/").at(-1);
+    for (let index = 0; index < 35; index++) {
+      const text = index === 0 ? "LONG SOURCE START " + "議論🙂 ".repeat(3000) + "\nCOMPLETE BROWSER TRANSCRIPT TAIL" : "Paged browser message " + index;
+      const response = await fetch(`/v1.0/api/conversations/${id}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text, idempotencyKey: `page-fixture-${index}` }) });
+      if (!response.ok) throw new Error("History fixture setup failed.");
+    }
+  });
+  await page.reload();
+  await expect(page.getByText("Paged browser message 34", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  const read = page.getByRole("button", { name: "Read full message", exact: true });
+  await expect(read).toBeVisible();
+  await expect(page.getByText("COMPLETE BROWSER TRANSCRIPT TAIL", { exact: true })).toHaveCount(0);
+  await read.click();
+  await expect(page.getByRole("dialog")).toContainText("COMPLETE BROWSER TRANSCRIPT TAIL");
+  await page.keyboard.press("Escape");
+  await page.evaluate(async () => {
+    const id = location.pathname.split("/").at(-1);
+    const response = await fetch(`/v1.0/api/conversations/${id}/messages`, { method: "POST", headers: { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "note", text: "New message beyond captured membership", idempotencyKey: "page-fixture-newer" }) });
+    if (!response.ok) throw new Error("Concurrent history append failed.");
+  });
+  await expect(page.getByRole("button", { name: "Newer messages available", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read full message", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Newer messages available", exact: true }).click();
+  await expect(page.getByText("New message beyond captured membership", { exact: true })).toBeVisible();
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download transcript", exact: true }).click();
+  const artifact = await downloaded;
+  const text = await fs.readFile(await artifact.path(), "utf8");
+  expect(text).toContain("COMPLETE BROWSER TRANSCRIPT TAIL");
+  expect(text).toContain("New message beyond captured membership");
+  await page.getByRole("combobox", { name: "Records per page", exact: true }).selectOption("10");
+  await expect(page.getByRole("button", { name: "Read full message", exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "../.run/screenshots/message-pages-390.png", fullPage: true });
+});

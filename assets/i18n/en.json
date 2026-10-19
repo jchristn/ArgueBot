@@ -395,5 +395,19 @@
   "outcome.uncertain_attempt": "An unfinished attempt requires service restart and reconciliation before retrying.",
   "outcome.provider_error": "The provider rejected generation. Inspect the attempt and endpoint configuration before retrying.",
   "outcome.stream_persistence_failed": "The answer could not be durably checkpointed. Check storage before retrying.",
-  "outcome.execution_error": "Execution paused after an internal error. Inspect service diagnostics before retrying."
+  "outcome.execution_error": "Execution paused after an internal error. Inspect service diagnostics before retrying.",
+  "messages.changed": "History changed while reading it. Retry with a fresh snapshot.",
+  "messages.latest": "Latest messages",
+  "messages.latest.help": "Return to the live tail and capture the newest message membership. Older-page membership stays fixed until you refresh it.",
+  "messages.full": "Read full message",
+  "messages.full.help": "Load this complete message explicitly. History pages show bounded previews; exports include full content.",
+  "messages.loadSource": "Load full source",
+  "messages.loadSource.help": "Fetch the complete owned source message without loading other history.",
+  "settings.historyPreview": "Message preview limit",
+  "settings.historyPreview.help": "Maximum Unicode code points per message preview, 128 through 16384. Full text remains available explicitly. Takes effect after restart.",
+  "messages.newer": "Newer messages available",
+  "messages.newer.help": "New messages arrived beyond your captured page. Open the latest page to see them; older history stays in place.",
+  "messages.preview": "Preview of {bytes, number} stored UTF-8 bytes",
+  "messages.preview.help": "This page shows a bounded preview. Read full message loads the complete stored text. The byte count can grow while generation continues.",
+  "messages.snapshot": "Full stored text at the time of this read. Refresh to load further content if generation is still running."
 }

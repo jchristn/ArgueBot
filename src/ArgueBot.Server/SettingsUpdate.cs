@@ -15,6 +15,8 @@ namespace ArgueBot.Server
         public int? StreamBatchCharacters { get; set; }
         /// <summary>Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value.</summary>
         public int? StreamCommitMilliseconds { get; set; }
+        /// <summary>Optional Unicode code-point limit per message preview, 128 through 16384. Omission preserves its configured value.</summary>
+        public int? HistoryPreviewCodePoints { get; set; }
         /// <summary>Optional context character budget, 1024 through 16777216. Omission preserves its configured value.</summary>
         public int? ContextMaxCharacters { get; set; }
         /// <summary>Optional selected context message bound, one through 10000. Omission preserves its configured value.</summary>

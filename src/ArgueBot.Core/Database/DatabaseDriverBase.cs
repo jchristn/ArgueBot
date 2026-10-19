@@ -228,6 +228,48 @@ namespace ArgueBot.Core.Database
             return messages;
         }
 
+        /// <summary>Read an individual full message through the owned-conversation boundary. No other message content is materialized.</summary>
+        public async Task<Message> ReadMessageAsync(RequestContext context, string conversationId, string messageId, CancellationToken token = default)
+        {
+            await ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, null, "SELECT * FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@message", P("tenant", context.TenantId, "conversation", conversationId, "message", messageId)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Message not found.");
+                return ReadMessage(reader, conversationId);
+            }
+        }
+        /// <summary>Read bounded Unicode previews with exact counts and a stable membership boundary. A boundary captures message membership, not immutable streaming content.</summary>
+        public async Task<MessagePage> ReadMessagePageAsync(RequestContext context, string conversationId, int pageNumber = 1, int pageSize = 25, long? throughSequence = null, bool tail = false, int previewCodePoints = 4096, CancellationToken token = default)
+        {
+            await ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            if (pageNumber < 1 || pageSize < 1 || pageSize > 100 || previewCodePoints < 128 || previewCodePoints > 16384 || throughSequence < 0) throw new DomainException(400, "invalid_page", "Use a positive page, size one through one hundred, valid preview bound and nonnegative membership boundary.");
+            MessagePage page = new MessagePage { PageNumber = pageNumber, PageSize = pageSize };
+            using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+            {
+                page.LatestSequence = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COALESCE(MAX(sequence_number),0) FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation", token, P("tenant", context.TenantId, "conversation", conversationId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                page.ThroughSequence = throughSequence ?? page.LatestSequence;
+                if (page.ThroughSequence > page.LatestSequence) throw new DomainException(400, "invalid_cursor", "The message membership boundary is ahead of this conversation.");
+                const string scope = "tenant_id=@tenant AND conversation_id=@conversation AND sequence_number<=@through";
+                Dictionary<string, object?> values = P("tenant", context.TenantId, "conversation", conversationId, "through", page.ThroughSequence);
+                page.TotalCount = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COUNT(*) FROM messages WHERE " + scope, token, values).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                if (tail) page.PageNumber = checked((int)Math.Max(1, (page.TotalCount + pageSize - 1) / pageSize));
+                values.Add("limit", pageSize); values.Add("offset", checked((long)(page.PageNumber - 1) * pageSize)); values.Add("preview", previewCodePoints);
+                using (DbCommand command = Command(connection, null, "SELECT id,run_id,sequence_number,speaker,kind,substr(content,1,@preview) AS content,length(CAST(content AS BLOB)) AS content_bytes,recipient_id,state,created_utc FROM messages WHERE " + scope + " ORDER BY sequence_number LIMIT @limit OFFSET @offset", values))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                    {
+                        Message message = ReadMessage(reader, conversationId); message.ContentBytes = Convert.ToInt64(reader["content_bytes"], CultureInfo.InvariantCulture);
+                        message.ContentTruncated = Encoding.UTF8.GetByteCount(message.Content) < message.ContentBytes;
+                        page.Items.Add(message);
+                    }
+                }
+            }
+            return page;
+        }
+
         /// <summary>Prepare exact model context without materializing the full transcript. Metadata bounds eligible rows and UTF-8 payload size before content reads; the final UTF-16 check never truncates or silently omits a source.</summary>
         public async Task<List<Message>> ReadGenerationContextAsync(RequestContext context, string conversationId, string participantId, int characterBudget, int maxMessages, CancellationToken token = default)
         {
@@ -320,7 +362,7 @@ namespace ArgueBot.Core.Database
                 await ExecuteAsync(connection, transaction, "UPDATE conversations SET updated_utc=@now,revision=revision+1 WHERE id=@id AND tenant_id=@tenant", token, P("id", message.ConversationId, "tenant", context.TenantId)).ConfigureAwait(false);
                 await EventAsync(connection, transaction, context.TenantId, message.ConversationId, "message", message.Id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
-            return (await ReadMessagesAsync(context, message.ConversationId, token).ConfigureAwait(false)).Single(item => item.Id == message.Id);
+            return await ReadMessageAsync(context, message.ConversationId, message.Id, token).ConfigureAwait(false);
         }
 
         /// <summary>Persist a full accumulated streaming snapshot and its durable delta in one transaction.</summary>

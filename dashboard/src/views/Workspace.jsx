@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
-import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
+import { Button, ErrorPanel, Field, Modal, Pagination } from "../components/ui.jsx";
+import FullMessageDialog from "../components/FullMessageDialog.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
 function StartDialog({ profiles, onStart, onClose }) {
@@ -120,18 +121,21 @@ function WorkspaceContent({ id }) {
   const [recipient, setRecipient] = useState("");
   const [starting, setStarting] = useState(false);
   const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [fullMessage, setFullMessage] = useState(null);
+  const [historyView, setHistoryView] = useState({ pageNumber: 1, pageSize: 25, tail: true });
   const [busy, setBusy] = useState(false);
   const [connection, setConnection] = useState("common.connected");
   const feed = useRef();
   const tail = useRef(true);
-  const { data, error, reload } = useData(id, async () => {
-    const [conversation, messages, runs, profiles] = await Promise.all([
+  const scrollPageTop = useRef(false);
+  const { data, error, reload } = useData(id + JSON.stringify(historyView), async () => {
+    const [conversation, messagePage, runs, profiles] = await Promise.all([
       api.conversation(id),
-      api.messages(id),
+      api.messages(id, historyView),
       api.runs(id),
       api.participants(),
     ]);
-    return { conversation, messages, runs, profiles };
+    return { conversation, messages: messagePage.items, messagePage, runs, profiles };
   });
   const run = data?.runs.at(-1);
   const active =
@@ -140,8 +144,8 @@ function WorkspaceContent({ id }) {
     localStorage.setItem(draftKey, text);
   }, [draftKey, text]);
   useEffect(() => {
-    if (tail.current && feed.current)
-      feed.current.scrollTop = feed.current.scrollHeight;
+    if (scrollPageTop.current && feed.current) { feed.current.scrollTop = 0; scrollPageTop.current = false; }
+    else if (tail.current && feed.current) feed.current.scrollTop = feed.current.scrollHeight;
   }, [data?.messages]);
   useEffect(() => {
     const controller = new AbortController();
@@ -234,30 +238,24 @@ function WorkspaceContent({ id }) {
       setBusy(false);
     }
   };
-  const download = () => {
-    const content =
-      "# " +
-      data.conversation.title +
-      "\n\n" +
-      data.messages
-        .map(
-          (message) =>
-            `## ${message.speaker} (${message.kind})\n\n${message.content}`,
-        )
-        .join("\n\n");
-    const url = URL.createObjectURL(
-      new Blob([content], { type: "text/markdown;charset=utf-8" }),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = id + ".md";
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const download = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const messages = await api.allMessages(id);
+      const content = "# " + data.conversation.title + "\n\n" + messages.map((message) => `## ${message.speaker} (${message.kind})\n\n${message.content}`).join("\n\n");
+      const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
+      const anchor = document.createElement("a"); anchor.href = url; anchor.download = id + ".md"; anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (failure) { notify(failure); }
+    finally { setBusy(false); }
   };
+  const latest = () => { scrollPageTop.current = false; tail.current = true; setHistoryView((current) => ({ pageNumber: 1, pageSize: current.pageSize, tail: true })); };
   if (error && !data) return <ErrorPanel error={error} retry={reload} />;
   if (!data) return <p>{t("common.loading")}</p>;
   return (
     <div className="workspace">
+      {fullMessage && <FullMessageDialog conversationId={id} messageId={fullMessage} onClose={() => setFullMessage(null)} />}
       {attemptsOpen && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} onClose={() => setAttemptsOpen(false)} />}
       <header className="workspace-heading">
         <div>
@@ -273,7 +271,7 @@ function WorkspaceContent({ id }) {
             label="conversations.export"
             icon="download"
             iconOnly
-            disabled={!data.messages.length}
+            disabled={!data.messagePage.totalCount || busy}
             onClick={download}
           />
           <Button
@@ -357,16 +355,18 @@ function WorkspaceContent({ id }) {
           <span>{t("debate.noRuns")}</span>
         )}
       </div>
+      <div className="history-navigation">
+        <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
+        {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
+      </div>
       <div
         className="message-feed"
         ref={feed}
         onScroll={() => {
-          if (feed.current)
-            tail.current =
-              feed.current.scrollHeight -
-                feed.current.scrollTop -
-                feed.current.clientHeight <
-              80;
+          if (feed.current) {
+            tail.current = feed.current.scrollHeight - feed.current.scrollTop - feed.current.clientHeight < 80;
+            if (!tail.current && historyView.tail) setHistoryView((current) => ({ ...current, tail: false, pageNumber: data.messagePage.pageNumber, throughSequence: data.messagePage.throughSequence }));
+          }
         }}
         aria-label={t("debate.history")}
       >
@@ -399,7 +399,9 @@ function WorkspaceContent({ id }) {
               {message.state === "streaming" && (
                 <span className="stream-dot" title={t("state.streaming")} />
               )}
+              {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
             </header>
+            {message.contentTruncated && <p className="muted" title={t("messages.preview.help")}>{t("messages.preview", { bytes: message.contentBytes })}</p>}
             <div className="markdown">
               <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
             </div>

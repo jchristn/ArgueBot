@@ -15,6 +15,7 @@ namespace Test.Shared
 #if NET10_0_OR_GREATER
                 suites.AddRange(TerminalSuites.All);
 #endif
+                suites.AddRange(MessageSuites.All);
                 suites.AddRange(AttemptSuites.All);
                 suites.AddRange(BackupSuites.All);
                 suites.AddRange(ServiceLifecycleSuites.All);

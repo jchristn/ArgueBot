@@ -118,13 +118,18 @@
       "method": "GET",
       "path": "/v1.0/api/conversations/{conversationId}/messages",
       "group": "Messages",
-      "summary": "Read ordered owned history including owner-visible directives",
-      "response": "List<Message>",
+      "summary": "Read bounded owned message previews with stable membership and exact totals",
+      "response": "MessagePage",
       "request": null,
       "status": 200,
       "public": false,
       "example": null,
-      "query": [],
+      "query": [
+        "pageNumber",
+        "pageSize",
+        "throughSequence",
+        "tail"
+      ],
       "execute": false,
       "save": null
     },
@@ -144,7 +149,7 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": "messageId"
     },
     {
       "method": "GET",
@@ -629,6 +634,20 @@
         "pageNumber",
         "pageSize"
       ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/conversations/{conversationId}/messages/{messageId}",
+      "group": "Messages",
+      "summary": "Read one complete owned message without loading other history",
+      "response": "Message",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
       "execute": false,
       "save": null
     }

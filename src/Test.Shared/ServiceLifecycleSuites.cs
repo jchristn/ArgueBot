@@ -108,6 +108,7 @@ namespace Test.Shared
                 using (ArgueBotClient two = new ArgueBotClient(endpoints[1]))
                 {
                     await Task.WhenAll(one.PairLocalAsync(home, token), two.PairLocalAsync(home, token)).ConfigureAwait(false);
+                    await MessageHttpChecks.RunAsync(one, token).ConfigureAwait(false);
                     Conversation conversation = await one.CreateConversationAsync("Shared startup fixture", token).ConfigureAwait(false);
                     await two.NoteAsync(conversation.Id, "Seen by a second client", token: token).ConfigureAwait(false);
                     bool rejected = false;
