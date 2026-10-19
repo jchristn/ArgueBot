@@ -1,0 +1,34 @@
+# Replacement runtime development
+
+The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, additional database drivers, dashboard, packaging and acceptance gates remain open in IMPROVEMENTS.md.
+
+Build from the repository root with .NET 10 (and .NET 8 for reusable-library tests):
+
+```sh
+dotnet restore src/ArgueBot.sln --locked-mode
+dotnet build src/ArgueBot.sln -c Release --no-restore
+dotnet run --project src/Test.Automated -c Release -f net10.0
+dotnet test src/Test.Xunit -c Release -f net10.0
+dotnet test src/Test.Nunit -c Release -f net10.0
+```
+
+Use a disposable home for development. The service requires local pairing and stores session digests, conversations, messages, events, run checkpoints and immutable participant snapshots in its database. It binds only to 127.0.0.1. No application version was changed.
+
+```sh
+dotnet run --project src/ArgueBot.Server -c Release -f net10.0 -- --home .run/home --port 4417
+dotnet run --project src/ArgueBot.Cli -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417 conversations create "What should we build?"
+dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417
+```
+
+Local clients exchange the protected `.run/home/runtime/pairing-code` for a revocable session. Every exchange rotates the code. The server must currently be started separately. For a remote client, set `ARGUEBOT_TOKEN` from an authorized session; the current replacement server is deliberately loopback-only. Never paste real tokens into committed commands or URLs.
+
+CLI `participants add --file profile.json` accepts a profile with name, kind (`cli` or `rest`), protocol provider, executable/ordered arguments or REST endpoint/model, optional workingDirectory, and secretEnvironmentVariable. Prompt content goes over stdin for CLI runners. `.cmd` and `.bat` wrappers are rejected; configure the underlying executable or script host. REST profiles currently support Ollama, OpenAI-compatible, Anthropic and Gemini completion APIs through PolyPrompt. Automatic REST tool execution is disabled.
+
+The offline descriptor suites do not use the user's home or authenticated agent CLIs. To exercise the real PolyPrompt HTTP adapter, start the committed simulation in another terminal:
+
+```sh
+postman simulation run postman/simulations/runners.sim.yaml --port 4491 --output ndjson
+ARGUEBOT_SIMULATION_URL=http://127.0.0.1:4491/ollama dotnet run --project src/Test.Automated -c Release -f net10.0
+```
+
+When the simulation is not configured, those three cases report explicit skips. Successful local fixture/simulation tests do not establish live-provider compatibility or release readiness. Runtime/simulation logs and real captures belong under ignored `.run/`, never in source control.

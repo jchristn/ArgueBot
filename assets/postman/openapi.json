@@ -1,0 +1,675 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ArgueBot replacement API",
+    "version": "0.1.0",
+    "description": "Initial local-service contract under implementation. Legacy API remains separate. Authenticated routes require bearer session; mutations require write permission. No provider/tool execution is triggered by read endpoints."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4317"
+    }
+  ],
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Check local readiness",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "security": [],
+        "parameters": []
+      }
+    },
+    "/v1.0/api/auth/pair": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Exchange protected single-use pairing code",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "security": [],
+        "parameters": []
+      }
+    },
+    "/v1.0/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Read current identity",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1.0/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke this session",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1.0/api/conversations": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Search owned conversations",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      },
+      "post": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Create conversation",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Read conversation",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Update with expected revision",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Delete stopped conversation",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}/messages": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Read ordered history",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "Append idempotent message",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Read committed events after cursor",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}/runs": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Read execution history",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Create and start snapshot-backed run",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}/runs/{runId}": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Read execution checkpoint",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/conversations/{conversationId}/runs/{runId}/actions": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Apply moderator command",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1.0/api/participants": {
+      "get": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Read runner profiles",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      },
+      "post": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Create runner profile",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1.0/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Read nonsecret bootstrap settings",
+        "responses": {
+          "200": {
+            "description": "Success; see REST_API.md for current DTO shape"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session missing or expired"
+          },
+          "403": {
+            "description": "Insufficient permission"
+          },
+          "404": {
+            "description": "Resource not owned or not found"
+          },
+          "409": {
+            "description": "State, revision, or command conflict"
+          }
+        },
+        "parameters": []
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

@@ -5,3 +5,16 @@ dist/
 !.env.example
 *.tsbuildinfo
 arguebot-transcript-*.md
+
+# Replacement runtime, isolated evidence, and local state
+**/bin/
+**/obj/
+.run/
+**/TestResults/
+dashboard/node_modules/
+dashboard/dist/
+installers/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal

@@ -1,0 +1,5 @@
+simulation: arguebot-runner-contracts
+routing: path
+mocks:
+  - routeKey: ollama
+    path: ../mocks/ollama/config.yaml

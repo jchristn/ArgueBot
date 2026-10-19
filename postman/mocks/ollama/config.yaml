@@ -1,0 +1,9 @@
+version: 1
+name: Ollama completion contract fixtures
+slug: arguebot-ollama
+interceptRequests: true
+protocol: http
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

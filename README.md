@@ -19,6 +19,10 @@
 
 ---
 
+## Conversation runtime rewrite
+
+A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners and shared conversation interfaces are being implemented. The existing npm and launch-script paths below still run the current TypeScript application. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations.
+
 ## Why ArgueBot?
 
 You ask an AI a question and get a confident answer. But is it the *right* answer? A single model gives you a single perspective. It won't challenge its own assumptions, probe its own blind spots, or stress-test its own reasoning.
@@ -68,7 +72,7 @@ Responses stream in real-time so you're never staring at a blank screen.
 
 ## Two Ways to Run
 
-ArgueBot has two interfaces: a **terminal UI (TUI)** and a **web GUI** in your browser. Both run the same debate engine, prompts, and consensus rules -- pick whichever you prefer. Complete [Getting Started](#getting-started) first, then launch either one.
+ArgueBot has two interfaces: a **terminal UI (TUI)** and a **web GUI** in your browser. They currently use separate orchestration loops with shared prompt and consensus helpers. The replacement described above unifies execution and persistence. Complete [Getting Started](#getting-started) first, then launch either one.
 
 | | **Terminal UI (TUI)** | **Web GUI** |
 |---|---|---|

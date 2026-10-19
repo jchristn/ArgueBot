@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUIKit" Version="1.10.0" />
+    <ProjectReference Include="../ArgueBot.Client/ArgueBot.Client.csproj" />
+  </ItemGroup>
+</Project>
