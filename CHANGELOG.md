@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Scoped authorization evaluator and shared truth-table coverage for explicit deny, inheritance, ownership narrowing, administrator bypass and credential owner ceilings. Stored role management and endpoint integration remain in progress.
+
 - Background generation now checks current identity execution authority before attempts and during streaming. Logout leaves accepted work running; account disablement or role revocation interrupts it, preserves provenance and pauses without replay. Denials have independent audit and bounded metrics.
 
 - Optional loopback HTTPS with operator-provisioned PFX and password environment reference. Password exchange requires TLS; native local trust can use an exact protected home/endpoint certificate pin while retaining name and validity checks. TLS private keys require encrypted opt-in recovery.
