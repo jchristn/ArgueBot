@@ -194,10 +194,44 @@ namespace Test.Shared
                     await target.RestoreSnapshotAsync(snapshot, token).ConfigureAwait(false);
                     await target.InitializeAsync(token).ConfigureAwait(false);
                     if ((await target.ReadConversationAsync(Owner(), original.Id, token).ConfigureAwait(false)).Title != original.Title || (await target.ReadMessagesAsync(Owner(), original.Id, token).ConfigureAwait(false)).Single().Content != "Exact Unicode and newlines.\nمرحبا") throw new InvalidDataException("Portable restore changed conversation content.");
+                    string historical = Path.Combine(root, "schema-four.jsonl");
+                    await HistoricalSnapshotAsync(snapshot, historical, token).ConfigureAwait(false);
+                    await target.RestoreSnapshotAsync(historical, token).ConfigureAwait(false);
+                    string intermediate = Path.Combine(root, "before-historical-upgrade.jsonl");
+                    await target.ExportSnapshotAsync(intermediate, token).ConfigureAwait(false);
+                    await SnapshotVerifier.ValidateAsync(intermediate, token).ConfigureAwait(false);
+                    await target.InitializeAsync(token).ConfigureAwait(false);
+                    SessionMethods restoredSessions = new SessionMethods(target, new TokenProtector(targetPaths));
+                    string restoredSession = await restoredSessions.IssueLocalAsync(token).ConfigureAwait(false);
+                    if (!(await restoredSessions.AuthenticateAsync(restoredSession, token).ConfigureAwait(false))!.IsAdmin) throw new InvalidDataException("Historical restore failed to migrate explicit owner privileges.");
                     if ((await target.EnumerateConversationsAsync(Owner(), token: token).ConfigureAwait(false)).TotalCount != 1) throw new InvalidDataException("Restore merged unintended target data.");
                 }
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+        private static async Task HistoricalSnapshotAsync(string source, string destination, CancellationToken token)
+        {
+            List<string> lines = new List<string>(); List<int> removed = new List<int>(); long rows = 0;
+            using (IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+            {
+                foreach (string line in await File.ReadAllLinesAsync(source, token).ConfigureAwait(false))
+                {
+                    BackupRecord record = JsonSerializer.Deserialize<BackupRecord>(line)!;
+                    if (record.Kind == "header") record.SchemaVersion = 4;
+                    if (record.Kind == "table" && record.Table == "users")
+                    {
+                        removed = record.Columns.Select((name, index) => new KeyValuePair<string, int>(name, index)).Where(column => column.Key == "is_admin" || column.Key == "is_tenant_admin" || column.Key == "protected").Select(column => column.Value).OrderByDescending(index => index).ToList();
+                        foreach (int index in removed) record.Columns.RemoveAt(index);
+                    }
+                    if (record.Kind == "row" && record.Table == "users") foreach (int index in removed) record.Values.RemoveAt(index);
+                    if (record.Kind == "row" && record.Table == "schema_migrations" && record.Values[0] == "5") continue;
+                    if (record.Kind == "row") rows++;
+                    if (record.Kind == "footer") { record.TotalRows = rows; record.Digest = Convert.ToHexString(hash.GetHashAndReset()); }
+                    string serialized = JsonSerializer.Serialize(record); lines.Add(serialized);
+                    if (record.Kind != "footer") hash.AppendData(Encoding.UTF8.GetBytes(serialized + "\n"));
+                }
+            }
+            await File.WriteAllTextAsync(destination, string.Join("\n", lines) + "\n", token).ConfigureAwait(false);
         }
         private static async Task InvalidConstraintSnapshotAsync(string source, string destination, CancellationToken token)
         {

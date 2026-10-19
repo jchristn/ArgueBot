@@ -38,12 +38,12 @@ namespace ArgueBot.Core.Database.Implementations
             SessionClaims? claims = _Protector.Unprotect(secret);
             if (claims == null) return null;
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT s.tenant_id,s.user_id,u.role FROM auth_sessions s JOIN users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=@hash AND s.id=@session AND s.tenant_id=@tenant AND s.user_id=@user AND s.active=1 AND u.active=1 AND t.active=1 AND s.expires_utc>@now", P("hash", Hash(secret), "session", claims.SessionId, "tenant", claims.TenantId, "user", claims.UserId)))
+            using (DbCommand command = Command(connection, null, "SELECT s.tenant_id,s.user_id,u.role,u.is_admin,u.is_tenant_admin FROM auth_sessions s JOIN users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=@hash AND s.id=@session AND s.tenant_id=@tenant AND s.user_id=@user AND s.active=1 AND u.active=1 AND t.active=1 AND s.expires_utc>@now", P("hash", Hash(secret), "session", claims.SessionId, "tenant", claims.TenantId, "user", claims.UserId)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) return null;
                 string role = S(reader, "role");
-                return new RequestContext { TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Role = role, IsAuthenticated = true, IsAdmin = role == "admin", IsTenantAdmin = role == "admin" };
+                return new RequestContext { TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Role = role, IsAuthenticated = true, IsAdmin = Convert.ToInt32(reader["is_admin"], CultureInfo.InvariantCulture) != 0, IsTenantAdmin = Convert.ToInt32(reader["is_tenant_admin"], CultureInfo.InvariantCulture) != 0 };
             }
         }
         /// <summary>Revoke a session immediately.</summary>

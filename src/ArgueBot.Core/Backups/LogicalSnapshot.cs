@@ -44,13 +44,18 @@ namespace ArgueBot.Core.Backups
                         using (DbCommand command = Command(connection, transaction, "SELECT * FROM " + table + " ORDER BY " + (table == "schema_migrations" ? "version" : "id")))
                         using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                         {
-                            List<string> columns = new List<string>();
-                            for (int index = 0; index < reader.FieldCount; index++) columns.Add(reader.GetName(index));
+                            List<string> columns = new List<string>(); List<int> ordinals = new List<int>();
+                            Dictionary<string, bool> declared = BackupSchema.ColumnsAtVersion(table, version);
+                            for (int index = 0; index < reader.FieldCount; index++)
+                            {
+                                string column = reader.GetName(index);
+                                if (declared.ContainsKey(BackupSchema.Normalize(table, column))) { columns.Add(column); ordinals.Add(index); }
+                            }
                             await RecordAsync(output, hash, new BackupRecord { Kind = "table", Table = table, Columns = columns }, token).ConfigureAwait(false);
                             while (await reader.ReadAsync(token).ConfigureAwait(false))
                             {
                                 List<string?> values = new List<string?>();
-                                for (int index = 0; index < reader.FieldCount; index++) values.Add(reader.IsDBNull(index) ? null : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture));
+                                foreach (int index in ordinals) values.Add(reader.IsDBNull(index) ? null : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture));
                                 await RecordAsync(output, hash, new BackupRecord { Kind = "row", Table = table, Values = values }, token).ConfigureAwait(false); rows++;
                             }
                         }
@@ -85,7 +90,7 @@ namespace ArgueBot.Core.Backups
                 {
                     if (!schema.ContainsKey(record.Table) || !seen.Add(record.Table) || order.IndexOf(record.Table) <= position || record.Columns == null) throw new InvalidDataException("Backup table inventory is invalid.");
                     position = order.IndexOf(record.Table); table = record.Table; columns = record.Columns.Select(column => BackupSchema.Normalize(table, column)).ToList();
-                    if (columns.Count != columns.Distinct(StringComparer.Ordinal).Count() || !columns.OrderBy(column => column, StringComparer.Ordinal).SequenceEqual(schema[table].Keys.OrderBy(column => column, StringComparer.Ordinal))) throw new InvalidDataException("Backup column inventory does not match its declared schema.");
+                    if (columns.Count != columns.Distinct(StringComparer.Ordinal).Count() || !columns.OrderBy(column => column, StringComparer.Ordinal).SequenceEqual(BackupSchema.ColumnsAtVersion(table, version).Keys.OrderBy(column => column, StringComparer.Ordinal))) throw new InvalidDataException("Backup column inventory does not match its declared schema.");
                 }
                 else if (record.Kind == "row")
                 {

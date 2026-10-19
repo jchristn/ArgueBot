@@ -92,6 +92,14 @@ namespace ArgueBot.Core.Database
                             {
                                 foreach (string statement in migration.Statements)
                                 {
+                                    if (statement.StartsWith("ALTER TABLE users ADD COLUMN ", StringComparison.Ordinal))
+                                    {
+                                        string column = statement.Split(' ')[5]; bool present = false;
+                                        using (DbCommand inspect = Command(connection, transaction, "SELECT * FROM users WHERE 1=0"))
+                                        using (DbDataReader columns = await inspect.ExecuteReaderAsync(token).ConfigureAwait(false))
+                                        { for (int index = 0; index < columns.FieldCount; index++) if (columns.GetName(index) == column) present = true; }
+                                        if (present) continue;
+                                    }
                                     if (migration.Version == 2)
                                     {
                                         string table = statement.Contains("messages", StringComparison.Ordinal) ? "messages" : "events";
@@ -107,7 +115,7 @@ namespace ArgueBot.Core.Database
                             await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO schema_migrations(version,applied_utc) VALUES(@version,@now)", token, P("version", migration.Version)).ConfigureAwait(false);
                         }
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO tenants(id,name,created_utc,updated_utc) VALUES('ten_local','Local',@now,@now)", token).ConfigureAwait(false);
-                        await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO users(id,tenant_id,name,role,created_utc,updated_utc) VALUES('usr_local','ten_local','Local owner','admin',@now,@now)", token).ConfigureAwait(false);
+                        await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO users(id,tenant_id,name,role,is_admin,is_tenant_admin,protected,created_utc,updated_utc) VALUES('usr_local','ten_local','Local owner','admin',1,1,1,@now,@now)", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         transaction.Commit();

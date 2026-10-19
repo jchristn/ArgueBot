@@ -18,6 +18,12 @@ namespace ArgueBot.Core.Backups
             }
             return tables;
         }
+        internal static Dictionary<string, bool> ColumnsAtVersion(string table, int version)
+        {
+            Dictionary<string, bool> columns = Tables()[table];
+            if (table == "users" && version < 5) { columns.Remove("is_admin"); columns.Remove("is_tenant_admin"); columns.Remove("protected"); }
+            return columns;
+        }
         internal static int IntroducedVersion(string table)
         { return table.StartsWith("backup_", StringComparison.Ordinal) ? 4 : table.StartsWith("request_history", StringComparison.Ordinal) ? 3 : 1; }
         internal static string Normalize(string table, string column)

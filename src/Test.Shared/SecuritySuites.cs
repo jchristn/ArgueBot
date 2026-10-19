@@ -10,6 +10,9 @@ namespace Test.Shared
     using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Security;
     using Touchstone.Core;
+    using Microsoft.Data.Sqlite;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
 
     /// <summary>Cryptographic and server-side session lifecycle tests using disposable keys and databases.</summary>
     public static class SecuritySuites
@@ -17,7 +20,41 @@ namespace Test.Shared
         /// <summary>Reusable security descriptors.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "AdminBoundary", "Session privileges follow explicit flags and current active user and tenant state", AdminBoundaryAsync), new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+        }
+        private static async Task AdminBoundaryAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-flags-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(home);
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(paths))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    SessionMethods sessions = new SessionMethods(database, new TokenProtector(paths));
+                    string session = await sessions.IssueLocalAsync(token).ConfigureAwait(false);
+                    if (!(await sessions.AuthenticateAsync(session, token).ConfigureAwait(false))!.IsAdmin) throw new InvalidDataException("The seeded owner lost its explicit system administrator flag.");
+                    using (SqliteConnection fixture = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = paths.DatabaseFile, Pooling = false }.ToString()))
+                    {
+                        await fixture.OpenAsync(token).ConfigureAwait(false);
+                        using (SqliteCommand command = fixture.CreateCommand())
+                        {
+                            command.CommandText = "UPDATE users SET is_admin=0,is_tenant_admin=1 WHERE id='usr_local';"; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                            RequestContext tenantAdmin = await sessions.AuthenticateAsync(session, token).ConfigureAwait(false) ?? throw new InvalidDataException("Tenant administrator session was rejected.");
+                            if (tenantAdmin.IsAdmin || !tenantAdmin.IsTenantAdmin || tenantAdmin.Role != "admin") throw new InvalidDataException("The admin role name escalated a tenant principal to system administrator.");
+                            bool denied = false;
+                            try { await database.Backups.EnumerateAsync(tenantAdmin, token: token).ConfigureAwait(false); }
+                            catch (DomainException exception) when (exception.StatusCode == 403) { denied = true; }
+                            if (!denied) throw new InvalidDataException("A tenant administrator could enumerate complete-service archives.");
+                            command.CommandText = "UPDATE users SET active=0 WHERE id='usr_local';"; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                            if (await sessions.AuthenticateAsync(session, token).ConfigureAwait(false) != null) throw new InvalidDataException("An inactive user retained its existing session.");
+                            command.CommandText = "UPDATE users SET active=1 WHERE id='usr_local'; UPDATE tenants SET active=0 WHERE id='ten_local';"; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                            if (await sessions.AuthenticateAsync(session, token).ConfigureAwait(false) != null) throw new InvalidDataException("An inactive tenant retained its existing session.");
+                        }
+                    }
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task ProtectionAsync(CancellationToken token)
         {
