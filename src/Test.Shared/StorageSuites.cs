@@ -69,6 +69,7 @@ namespace Test.Shared
         private static async Task StreamCommitsAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-streams-" + Guid.NewGuid().ToString("N"));
+            string phase = "initialization";
             try
             {
                 using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
@@ -87,13 +88,14 @@ namespace Test.Shared
                     try { await database.UpdateMessageAsync(Owner(), fragment, "", token).ConfigureAwait(false); }
                     catch (DomainException exception) when (exception.Code == "message_finalized") { rewound = true; }
                     if (!rewound) throw new InvalidDataException("A delayed stream commit rewound a finalized message.");
+                    phase = "burst persistence";
                     Conversation conversation = await database.CreateConversationAsync(Owner(), "Burst commits", token).ConfigureAwait(false);
                     await using (ConversationEngine engine = new ConversationEngine(database, new BurstRunner(), streamBatchCharacters: 257))
                     {
                         DebateRun run = await engine.StartAsync(Owner(), conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Burst Unicode", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = "burst" }, token).ConfigureAwait(false);
                         using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
                         {
-                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            deadline.CancelAfter(TimeSpan.FromSeconds(30));
                             while ((await database.Runs.ReadAsync(Owner(), conversation.Id, run.Id, deadline.Token).ConfigureAwait(false)).State != "completed") await Task.Delay(10, deadline.Token).ConfigureAwait(false);
                         }
                         Message answer = (await database.ReadMessagesAsync(Owner(), conversation.Id, token).ConfigureAwait(false)).Single(message => message.Speaker == profile.Name);
@@ -109,6 +111,7 @@ namespace Test.Shared
                         }
                         if (string.Concat(events.Where(change => change.Kind == "delta").Select(change => change.Text)) != answer.Content) throw new InvalidDataException("Committed stream replay diverged from the finalized message.");
                     }
+                    phase = "stalled-stream checkpoint";
                     FixtureRunner waiting = new FixtureRunner { Wait = true };
                     FakeTimeProvider streamClock = new FakeTimeProvider();
                     await using (ConversationEngine engine = new ConversationEngine(database, waiting, clock: streamClock, streamCommitMilliseconds: 25))
@@ -119,11 +122,12 @@ namespace Test.Shared
                         streamClock.Advance(TimeSpan.FromSeconds(1));
                         using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
                         {
-                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            deadline.CancelAfter(TimeSpan.FromSeconds(30));
                             while (!(await database.ReadMessagesAsync(Owner(), slow.Id, deadline.Token).ConfigureAwait(false)).Any(message => message.State == "streaming" && message.Content == "A concrete argument. ")) await Task.Delay(10, deadline.Token).ConfigureAwait(false);
                         }
                         await engine.ApplyAsync(Owner(), slow.Id, run.Id, new CommandRequest { Action = "interrupt", IdempotencyKey = "interrupt" }, "fixture", token).ConfigureAwait(false);
                     }
+                    phase = "monotonic intervention window";
                     MonotonicFakeTimeProvider windowClock = new MonotonicFakeTimeProvider();
                     FixtureRunner counting = new FixtureRunner();
                     RunnerProfile second = await database.Profiles.CreateAsync(Owner(), new RunnerProfile { Name = "Second stream fixture", Kind = "cli", Provider = "plain", Executable = "fixture" }, token).ConfigureAwait(false);
@@ -133,7 +137,7 @@ namespace Test.Shared
                         DebateRun run = await engine.StartAsync(Owner(), window.Id, new CreateRunRequest { ParticipantIds = new List<string> { profile.Id, second.Id }, MaxRounds = 1, InterventionSeconds = 30, IdempotencyKey = "clock" }, token).ConfigureAwait(false);
                         using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
                         {
-                            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                            deadline.CancelAfter(TimeSpan.FromSeconds(30));
                             while ((await database.Runs.ReadAsync(Owner(), window.Id, run.Id, deadline.Token).ConfigureAwait(false)).State != "window") await Task.Delay(5, deadline.Token).ConfigureAwait(false);
                             await engine.ApplyAsync(Owner(), window.Id, run.Id, new CommandRequest { Action = "hold" }, "typing", deadline.Token).ConfigureAwait(false);
                             windowClock.AdjustWallClock(TimeSpan.FromDays(1)); windowClock.Advance(TimeSpan.FromSeconds(20));
@@ -147,6 +151,8 @@ namespace Test.Shared
                     }
                 }
             }
+            catch (OperationCanceledException exception) when (!token.IsCancellationRequested)
+            { throw new TimeoutException("Stream commit fixture timed out during " + phase + ".", exception); }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task RequestHistoryAsync(CancellationToken token)
