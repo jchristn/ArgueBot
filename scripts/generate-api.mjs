@@ -32,7 +32,7 @@ for (const [field,minimum,maximum,value] of [['historyPreviewCodePoints',128,163
   Object.assign(schemas.ServiceSettings.properties[field],{minimum,maximum,default:value});
   Object.assign(schemas.SettingsUpdate.properties[field],{minimum,maximum});
 }
-for (const name of ['UserRequest','LoginRequest']) Object.assign(schemas[name].properties.passwordSha256,{writeOnly:true,minLength:64,maxLength:64,pattern:'^[A-Fa-f0-9]{64}$'});
+for (const name of ['UserRequest','LoginRequest']) Object.assign(schemas[name].properties.passwordSha256,{writeOnly:true,minLength:64,maxLength:64,pattern:'^[A-Fa-f0-9]{64}$',description:'Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.'});
 Object.assign(schemas.UserRequest.properties.name,{minLength:1,maxLength:200});
 Object.assign(schemas.UserRequest.properties.email,{format:'email',maxLength:254});
 Object.assign(schemas.UserRequest.properties.role,{enum:['viewer','operator','admin'],default:'viewer'});
@@ -81,7 +81,7 @@ for (const operation of operations) {
   for (const key of query) params.push({name:key,in:'query',required:route.endsWith('/summary') && ['fromUtc','toUtc'].includes(key),schema:['pageNumber','pageSize'].includes(key)?{type:'integer',minimum:1,...(key==='pageSize'?{maximum:100,default:25}:{default:1})}:['status','bucketMinutes','after','throughSequence'].includes(key)?{type:'integer',minimum:['after','throughSequence'].includes(key)?0:1,...(['after','throughSequence'].includes(key)?{format:'int64'}:{})}:['archived','tail'].includes(key)?{type:'boolean',default:false}:{type:'string'},description:'Backend filter; date/time values use UTC ISO 8601.'});
   if (route === '/health') {
     const challenge = params.find(parameter => parameter.name === 'challenge');
-    challenge.schema = {type:'string',pattern:'^[A-Fa-f0-9]{64}$',minLength:64,maxLength:64};
+    challenge.schema = {type:'string',pattern:'^[A-Fa-f0-9]{64}$',description:'Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.',minLength:64,maxLength:64};
     challenge.description = 'Optional fresh random 32-byte hex nonce. The listener returns homeProof bound to this challenge, actual port and private local-home key. This is local process attestation, not user authentication.';
   }
   if (response === 'MessagePage') {

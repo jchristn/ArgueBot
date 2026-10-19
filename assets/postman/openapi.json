@@ -42,6 +42,7 @@
             "schema": {
               "type": "string",
               "pattern": "^[A-Fa-f0-9]{64}$",
+              "description": "Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.",
               "minLength": 64,
               "maxLength": 64
             },
@@ -6388,7 +6389,7 @@
           },
           "passwordSha256": {
             "type": "string",
-            "description": "Sixty-four hexadecimal SHA-256 password-equivalent characters. Treat this value as a password.",
+            "description": "Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.",
             "writeOnly": true,
             "minLength": 64,
             "maxLength": 64,
@@ -6919,7 +6920,7 @@
           "passwordSha256": {
             "type": "string",
             "nullable": true,
-            "description": "Optional new SHA-256 password-equivalent hexadecimal material. Omit to preserve the password. Never returned.",
+            "description": "Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.",
             "writeOnly": true,
             "minLength": 64,
             "maxLength": 64,

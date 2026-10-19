@@ -882,7 +882,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | tenantId | string | Explicit tenant identifier. |
 | email | string | Tenant-local email address. |
-| passwordSha256 | string | Sixty-four hexadecimal SHA-256 password-equivalent characters. Treat this value as a password. |
+| passwordSha256 | string | Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned. |
 
 ### Message
 
@@ -1058,7 +1058,7 @@ Complete metadata replacement. Omit passwordSha256 to preserve its password; a n
 | isTenantAdmin | boolean | Tenant administrator flag. |
 | active | boolean | Enable authentication; disabling invalidates existing sessions. |
 | expectedRevision | integer | Expected revision for updates; zero for creation. |
-| passwordSha256 | string (nullable) | Optional new SHA-256 password-equivalent hexadecimal material. Omit to preserve the password. Never returned. |
+| passwordSha256 | string (nullable) | Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned. |
 
 ### ServiceSettings
 

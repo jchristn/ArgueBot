@@ -10,6 +10,7 @@ namespace ArgueBot.Core.Database.Implementations
     using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Security;
     using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
@@ -60,11 +61,12 @@ namespace ArgueBot.Core.Database.Implementations
         public async Task<UserRecord> CreateAsync(RequestContext context, UserRequest request, CancellationToken token = default)
         {
             RequireAdmin(context); Validate(context, request);
+            PasswordVerifier? password = request.PasswordSha256 == null ? null : PasswordVerifier.Create(request.PasswordSha256);
             string id = Ids.New("usr_");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 await CheckEmailAsync(connection, transaction, context.TenantId, request.Email, id, token).ConfigureAwait(false);
-                await ExecuteAsync(connection, transaction, "INSERT INTO users(id,tenant_id,name,email,password_sha256,role,is_admin,is_tenant_admin,active,created_utc,updated_utc) VALUES(@id,@tenant,@name,@email,@password,@role,@admin,@tenantadmin,@active,@now,@now)", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", request.PasswordSha256?.ToUpperInvariant() ?? "", "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO users(id,tenant_id,name,email,password_sha256,password_salt,password_iterations,role,is_admin,is_tenant_admin,active,created_utc,updated_utc) VALUES(@id,@tenant,@name,@email,@password,@salt,@iterations,@role,@admin,@tenantadmin,@active,@now,@now)", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", password?.Hash ?? "", "salt", password?.Salt ?? "", "iterations", password?.Iterations ?? 0, "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
                 await AuditMethods.AppendAsync(connection, transaction, context, "user.create", "created", "User", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadAsync(context, id, token).ConfigureAwait(false);
@@ -73,6 +75,7 @@ namespace ArgueBot.Core.Database.Implementations
         public async Task<UserRecord> UpdateAsync(RequestContext context, string id, UserRequest request, CancellationToken token = default)
         {
             RequireAdmin(context); Validate(context, request);
+            PasswordVerifier? password = request.PasswordSha256 == null ? null : PasswordVerifier.Create(request.PasswordSha256);
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 UserRecord current;
@@ -83,7 +86,7 @@ namespace ArgueBot.Core.Database.Implementations
                 if (!context.IsAdmin && current.IsAdmin) throw new DomainException(403, "forbidden", "Only a system administrator may modify system administrators.");
                 if (current.Revision != request.ExpectedRevision) throw new DomainException(409, "revision_conflict", "The user changed. Reload before saving.");
                 await CheckEmailAsync(connection, transaction, context.TenantId, request.Email, id, token).ConfigureAwait(false);
-                await ExecuteAsync(connection, transaction, "UPDATE users SET name=@name,email=@email,password_sha256=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_sha256 ELSE CAST(@password AS TEXT) END,role=@role,is_admin=@admin,is_tenant_admin=@tenantadmin,active=@active,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", request.PasswordSha256?.ToUpperInvariant(), "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "UPDATE users SET name=@name,email=@email,password_sha256=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_sha256 ELSE CAST(@password AS TEXT) END,password_salt=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_salt ELSE CAST(@salt AS TEXT) END,password_iterations=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_iterations ELSE @iterations END,role=@role,is_admin=@admin,is_tenant_admin=@tenantadmin,active=@active,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", password?.Hash, "salt", password?.Salt, "iterations", password?.Iterations ?? 0, "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
                 if (!request.Active || request.PasswordSha256 != null)
                 {
                     await ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@id AND active=1", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);

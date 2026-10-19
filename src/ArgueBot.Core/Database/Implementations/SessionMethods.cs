@@ -44,17 +44,14 @@ namespace ArgueBot.Core.Database.Implementations
             string issued = "";
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                string user = ""; string stored = new string('0', 64);
+                string user = ""; string stored = ""; string salt = ""; int iterations = 0;
                 if (shape)
                 {
-                    using (DbCommand command = Command(connection, transaction, "SELECT u.id,u.password_sha256 FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=@tenant AND u.email=@email AND u.active=1 AND t.active=1", P("tenant", tenant, "email", email.ToLowerInvariant())))
+                    using (DbCommand command = Command(connection, transaction, "SELECT u.id,u.password_sha256,u.password_salt,u.password_iterations FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=@tenant AND u.email=@email AND u.active=1 AND t.active=1", P("tenant", tenant, "email", email.ToLowerInvariant())))
                     using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                    { if (await reader.ReadAsync(token).ConfigureAwait(false)) { user = S(reader, "id"); stored = S(reader, "password_sha256"); } }
+                    { if (await reader.ReadAsync(token).ConfigureAwait(false)) { user = S(reader, "id"); stored = S(reader, "password_sha256"); salt = S(reader, "password_salt"); iterations = Convert.ToInt32(reader["password_iterations"], CultureInfo.InvariantCulture); } }
                 }
-                byte[] expected = stored.Length == 64 ? Convert.FromHexString(stored) : new byte[32];
-                byte[] supplied = shape ? Convert.FromHexString(password) : new byte[32];
-                bool matches = CryptographicOperations.FixedTimeEquals(expected, supplied);
-                CryptographicOperations.ZeroMemory(expected); CryptographicOperations.ZeroMemory(supplied);
+                bool matches = PasswordVerifier.Matches(password, stored, salt, iterations);
                 RequestContext context = new RequestContext { CorrelationId = correlationId };
                 if (!shape || user.Length == 0 || stored.Length != 64 || !matches)
                 {

@@ -131,6 +131,7 @@ namespace ArgueBot.Core.Database
                                     await ExecuteAsync(connection, transaction, statement, token).ConfigureAwait(false);
                                 }
                             }
+                            if (migration.Version == 11) await PasswordVerifierMigration.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
                             await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO schema_migrations(version,applied_utc) VALUES(@version,@now)", token, P("version", migration.Version)).ConfigureAwait(false);
                         }
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO tenants(id,name,created_utc,updated_utc) VALUES('ten_local','Local',@now,@now)", token).ConfigureAwait(false);

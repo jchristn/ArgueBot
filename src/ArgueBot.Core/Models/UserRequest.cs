@@ -17,7 +17,7 @@ namespace ArgueBot.Core.Models
         public bool Active { get; set; } = true;
         /// <summary>Expected revision for updates; zero for creation.</summary>
         public int ExpectedRevision { get; set; }
-        /// <summary>Optional new SHA-256 password-equivalent hexadecimal material. Omit to preserve the password. Never returned.</summary>
+        /// <summary>Optional new SHA-256 password-equivalent hexadecimal material. Derived into a salted storage verifier. Omit to preserve the password. Never returned.</summary>
         public string? PasswordSha256 { get; set; }
     }
 }

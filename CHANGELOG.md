@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Schema 11 replaces stored password equivalents with salted PBKDF2-HMAC-SHA256 verifiers. Existing accounts and sessions migrate without password changes; stored verifiers cannot be replayed as login input.
+
 - Scoped authorization evaluator and shared truth-table coverage for explicit deny, inheritance, ownership narrowing, administrator bypass and credential owner ceilings. Stored role management and endpoint integration remain in progress.
 
 - Background generation now checks current identity execution authority before attempts and during streaming. Logout leaves accepted work running; account disablement or role revocation interrupts it, preserves provenance and pauses without replay. Denials have independent audit and bounded metrics.
