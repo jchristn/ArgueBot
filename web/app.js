@@ -5,6 +5,53 @@ const SETTINGS_KEY = "arguebot.settings";
 
 const $ = (id) => document.getElementById(id);
 
+// Keep the theme preference separate from debate settings.
+const themeMedia = window.matchMedia("(prefers-color-scheme: light)");
+let savedTheme;
+try { savedTheme = localStorage.getItem("arguebot.theme"); } catch { /* Storage may be unavailable. */ }
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const toggle = $("theme-toggle");
+  const light = theme === "light";
+  toggle.title = toggle.ariaLabel = `Switch to ${light ? "dark" : "light"} mode`;
+  toggle.innerHTML = light
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>';
+}
+applyTheme(savedTheme === "light" || savedTheme === "dark" ? savedTheme : themeMedia.matches ? "light" : "dark");
+$("theme-toggle").addEventListener("click", () => {
+  savedTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  applyTheme(savedTheme);
+  try { localStorage.setItem("arguebot.theme", savedTheme); } catch { /* Still works for this page. */ }
+});
+themeMedia.addEventListener("change", (event) => {
+  if (savedTheme !== "light" && savedTheme !== "dark") applyTheme(event.matches ? "light" : "dark");
+});
+
+// Labels share their field's help, including when hovering over label text.
+for (const label of document.querySelectorAll("label")) {
+  label.title = label.querySelector("input, select, textarea")?.title || "";
+}
+// Cover links and informational labels inserted by streamed debate content.
+function addContentHelp(root) {
+  for (const el of root.querySelectorAll("a, .label, .turn-speaker, .turn-meta, .turn-tag, .round-divider, .chip, option")) {
+    if (el.title) continue;
+    el.title = el.matches("a") ? `Open ${el.textContent.trim() || "link"}`
+      : el.matches("option") ? `Select ${el.textContent.trim()}`
+      : el.matches(".turn-meta") ? "Time taken to generate this response"
+      : el.matches(".turn-speaker") ? `Author of this message: ${el.textContent.trim()}`
+      : el.matches(".turn-tag") ? `Message type: ${el.textContent.trim()}`
+      : el.matches(".label") ? "The topic being debated"
+      : el.matches(".chip") ? `Debate participant: ${el.textContent.trim()}`
+      : `Messages in ${el.textContent.trim()}`;
+  }
+}
+new MutationObserver((records) => {
+  for (const record of records) {
+    if (record.type === "childList") addContentHelp(record.target);
+  }
+}).observe(document.body, { childList: true, subtree: true });
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -240,6 +287,10 @@ function renderAgentGrid() {
     card.className = `agent-card${order >= 0 ? " selected" : ""}`;
     card.style.setProperty("--agent-color", agentColor(agent.name));
     card.disabled = !ready;
+    card.title = !ready ? `${agent.label}: ${agent.setupError || "CLI is not installed"}`
+      : order >= 0 ? `Remove ${agent.label} from the debate (speaking position ${order + 1})`
+      : `Add ${agent.label} as the next speaker`;
+    card.setAttribute("aria-pressed", String(order >= 0));
     card.innerHTML = `
       <span class="agent-name">${escapeHtml(agent.label)}</span>
       <span class="agent-state ${ready ? "" : "bad"}">${ready ? "Ready" : agent.installed ? "Needs setup" : "Not installed"}</span>
@@ -612,6 +663,19 @@ function button(label, onClick, className = "") {
   el.type = "button";
   el.className = `btn ${className}`;
   el.textContent = label;
+  el.title = {
+    "+2 rounds": "Add two rounds to the debate limit.",
+    "End debate": "Stop the debate and allow follow-up questions.",
+    "Cut in": "Interrupt the current speaker so you can step in now.",
+    "Don't pause": "Cancel the requested pause after this turn.",
+    "Pause after turn": "Let the current speaker finish, then pause the debate.",
+    "Continue now": "Skip the remaining countdown and start the next turn.",
+    "Finish now": "Skip the remaining countdown and finish the debate.",
+    "Pause": "Hold the debate until you resume it.",
+    "Resume": "Resume the debate from the next turn.",
+    "Stop answer": "Interrupt the current follow-up answer.",
+    "Keep debating (+2 rounds)": "Reopen the debate with two additional rounds.",
+  }[label] || label;
   el.addEventListener("click", onClick);
   return el;
 }
@@ -740,6 +804,11 @@ function renderComposer() {
   }[status.phase];
 
   const busy = status.phase === "followup";
+  input.title = busy ? `Wait for ${active} to finish answering.`
+    : `${input.placeholder} Enter to send; Shift + Enter for a newline.`;
+  $("composer-send").title = busy ? `Wait for ${active} to finish answering.`
+    : debating ? `Send a ${steer ? "private directive to the next speaker" : "note visible to every agent"}.`
+    : "Send a follow-up question to the selected agent.";
   input.disabled = busy;
   $("composer-send").disabled = busy;
 

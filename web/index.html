@@ -15,12 +15,15 @@
       </a>
       <div class="topbar-debate" id="topbar-debate" hidden>
         <div class="topbar-participants" id="topbar-participants"></div>
-        <div class="round-indicator" id="round-indicator"></div>
-        <div class="phase-pill" id="phase-pill"></div>
+        <div class="round-indicator" id="round-indicator" title="Current debate round and maximum number of rounds."></div>
+        <div class="phase-pill" id="phase-pill" title="Current debate state."></div>
       </div>
-      <div class="topbar-actions" id="topbar-actions" hidden>
-        <a class="btn btn-ghost" id="download-transcript" href="#" download>Download transcript</a>
-        <a class="btn btn-ghost" href="/">New debate</a>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-icon" id="theme-toggle" title="Switch to light mode" aria-label="Switch to light mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+        <div class="topbar-actions" id="topbar-actions" hidden>
+          <a class="btn btn-ghost btn-icon" id="download-transcript" href="#" download title="Download this debate as a Markdown transcript" aria-label="Download transcript"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></a>
+          <a class="btn btn-ghost btn-icon" href="/" title="Open setup for a new debate" aria-label="New debate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+        </div>
       </div>
     </header>
 
@@ -35,47 +38,47 @@
         <div class="agent-grid" id="agent-grid"></div>
 
         <h2>2. What's the topic?</h2>
-        <textarea id="topic" rows="5" placeholder="e.g. Should we split our monolith's billing module into its own service now, or wait until after the Q3 launch?"></textarea>
+        <textarea aria-label="Debate topic" id="topic" title="Describe the question or decision the agents should debate. Press Ctrl or Command + Enter to start." rows="5" placeholder="e.g. Should we split our monolith's billing module into its own service now, or wait until after the Q3 launch?"></textarea>
         <p class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to start</p>
 
         <details class="settings" open>
-          <summary>3. Settings</summary>
+          <summary title="Expand or collapse debate settings">3. Settings</summary>
           <p class="hint">The same options as the terminal flags. Your choices are remembered in this browser; flags passed when starting the server (e.g. <code>./go-web.sh --rounds 8</code>) take precedence.</p>
           <div class="settings-grid">
             <label>
               <span>Max rounds <code>--rounds</code></span>
-              <input type="number" id="max-rounds" min="1" max="50" />
+              <input type="number" id="max-rounds" title="Maximum number of rounds before the debate ends; each agent speaks once per round." min="1" max="50" />
             </label>
             <label>
               <span>Pause between turns, seconds <code>--timeout</code></span>
-              <input type="number" id="intervention-seconds" min="0" max="600" />
+              <input type="number" id="intervention-seconds" title="Seconds to wait between turns so you can add a note or directive." min="0" max="600" />
             </label>
             <label>
               <span>Agent response timeout, seconds <code>--agent-timeout</code></span>
-              <input type="number" id="agent-timeout-seconds" min="10" max="3600" />
+              <input type="number" id="agent-timeout-seconds" title="Maximum seconds to wait for each agent response before timing out." min="10" max="3600" />
             </label>
             <label>
               <span>Follow-up / summary agent <code>--summary</code></span>
-              <select id="summary-agent"></select>
+              <select id="summary-agent" title="Choose the agent selected by default for follow-up questions and summaries."></select>
             </label>
             <label class="span-2">
               <span>Working directory the agents run in</span>
-              <input type="text" id="cwd" spellcheck="false" />
+              <input type="text" id="cwd" title="Working directory used by the agent CLIs and their tools." spellcheck="false" />
             </label>
             <label class="checkbox span-2">
-              <input type="checkbox" id="yolo" />
+              <input type="checkbox" id="yolo" title="Allow agent tools to run without confirmation; agents may change files in the working directory." />
               <span><strong>YOLO mode</strong> <code>--yolo</code> — let agent CLIs run tools without confirmation. Only use in a directory you don't mind them changing.</span>
             </label>
             <label class="checkbox span-2">
-              <input type="checkbox" id="verbose" />
+              <input type="checkbox" id="verbose" title="Include low-level agent status and event messages in the debate feed." />
               <span><strong>Verbose</strong> <code>--verbose</code> — show low-level agent status and event messages in the feed.</span>
             </label>
           </div>
-          <button type="button" class="btn btn-ghost" id="reset-settings">Reset to defaults</button>
+          <button type="button" class="btn btn-ghost" id="reset-settings" title="Clear saved debate settings and restore server defaults; server flags still take precedence.">Reset to defaults</button>
         </details>
 
         <div class="setup-error" id="setup-error" hidden></div>
-        <button class="btn btn-primary btn-large" id="start-button" disabled>Start debate</button>
+        <button class="btn btn-primary btn-large" id="start-button" title="Start the debate after selecting at least two agents and entering a topic." disabled>Start debate</button>
       </section>
 
       <section class="recent" id="recent" hidden>
@@ -90,9 +93,9 @@
 
       <div class="dock">
         <div class="control-bar" id="control-bar">
-          <div class="control-status" id="control-status"></div>
+          <div class="control-status" id="control-status" title="Current activity and what happens next."></div>
           <div class="control-buttons" id="control-buttons"></div>
-          <div class="countdown" id="countdown"><div class="countdown-fill" id="countdown-fill"></div></div>
+          <div class="countdown" id="countdown" title="Time remaining before the next turn; start typing to hold the countdown."><div class="countdown-fill" id="countdown-fill"></div></div>
         </div>
         <div class="queued" id="queued" hidden></div>
         <form class="composer" id="composer">
@@ -100,9 +103,9 @@
             <button type="button" class="mode active" data-mode="note" title="Added to the transcript for every agent to see">Note</button>
             <button type="button" class="mode" data-mode="steer" title="A private directive for the next speaker only">Steer</button>
           </div>
-          <select id="followup-agent" class="followup-agent" hidden title="Who answers"></select>
-          <textarea id="composer-input" rows="1" placeholder="Type to step in…"></textarea>
-          <button type="submit" class="btn btn-primary" id="composer-send">Send</button>
+          <select id="followup-agent" class="followup-agent" hidden title="Choose which agent answers your follow-up question" aria-label="Follow-up agent"></select>
+          <textarea aria-label="Message to the debate" id="composer-input" title="Write a note, private directive, follow-up question, or slash command. Enter sends; Shift + Enter adds a newline." rows="1" placeholder="Type to step in…"></textarea>
+          <button type="submit" class="btn btn-primary" id="composer-send" title="Send your note, directive, or follow-up question.">Send</button>
         </form>
         <div class="composer-hint" id="composer-hint"></div>
       </div>

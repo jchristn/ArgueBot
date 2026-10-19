@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0f1115;
   --bg-raised: #171a21;
   --bg-sunken: #0b0d10;
@@ -897,3 +898,28 @@ textarea:focus {
     max-width: 100%;
   }
 }
+
+/* Theme colors also apply to native form controls. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f6fa;
+  --bg-raised: #ffffff;
+  --bg-sunken: #edf0f5;
+  --border: #dce0e8;
+  --border-strong: #bcc4d1;
+  --text: #202632;
+  --text-muted: #505d70;
+  --text-faint: #5d687b;
+  --accent: #3865c1;
+  --danger: #b72c49;
+  --success: #237747;
+  --warning: #8b5b0c;
+  --claude: #a5492b;
+  --codex: #187d63;
+  --gemini: #5961bf;
+  --user: #8b5b0c;
+}
+:root[data-theme="light"] .btn-primary { color: #fff; }
+.btn-icon { width: 38px; height: 38px; padding: 8px; justify-content: center; flex: none; }
+.btn-icon svg { width: 20px; height: 20px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
