@@ -4,8 +4,13 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Radiant" Version="0.1.3" />
     <PackageReference Include="Watson" Version="7.1.1" />
     <ProjectReference Include="../ArgueBot.Core/ArgueBot.Core.csproj" />
     <ProjectReference Include="../ArgueBot.Runners/ArgueBot.Runners.csproj" />
   </ItemGroup>
+  <ItemGroup Condition="Exists('../../dashboard/dist/index.html')">
+    <Content Include="../../dashboard/dist/**/*" Link="dashboard/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/postman/openapi.json" LogicalName="ArgueBot.openapi.json" /></ItemGroup>
 </Project>

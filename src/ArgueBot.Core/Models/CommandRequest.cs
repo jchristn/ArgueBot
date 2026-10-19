@@ -6,17 +6,21 @@ namespace ArgueBot.Core.Models
     /// <summary>CommandRequest transport and domain data.</summary>
     public sealed class CommandRequest
     {
+        private string _Action = "";
+        private string _Text = "";
+        private string _IdempotencyKey = "";
+
         /// <summary>Requested operation.</summary>
-        public string Action { get; set; } = "";
+        public string Action { get { return _Action; } set { ArgumentNullException.ThrowIfNull(value); _Action = value; } }
 
         /// <summary>User text.</summary>
-        public string Text { get; set; } = "";
+        public string Text { get { return _Text; } set { ArgumentNullException.ThrowIfNull(value); _Text = value; } }
 
         /// <summary>Target profile.</summary>
         public string? RecipientId { get; set; }
 
         /// <summary>Unique command key.</summary>
-        public string IdempotencyKey { get; set; } = "";
+        public string IdempotencyKey { get { return _IdempotencyKey; } set { ArgumentNullException.ThrowIfNull(value); _IdempotencyKey = value; } }
 
         /// <summary>Expected resource revision.</summary>
         public long? Revision { get; set; }

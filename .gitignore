@@ -18,3 +18,6 @@ installers/
 *.db-wal
 *.db-shm
 *.db-journal
+dashboard/test-results/
+dashboard/playwright-report/
+test-results/

@@ -12,7 +12,11 @@ namespace Test.Shared
             get
             {
                 List<TestSuiteDescriptor> suites = new List<TestSuiteDescriptor>(StorageSuites.All);
-                suites.AddRange(RunnerSuites.All); return suites;
+#if NET10_0_OR_GREATER
+                suites.AddRange(TerminalSuites.All);
+#endif
+                suites.AddRange(ConfigurationSuites.All);
+                suites.AddRange(SecuritySuites.All); suites.AddRange(RunnerSuites.All); suites.AddRange(ProviderSuites.All); return suites;
             }
         }
     }

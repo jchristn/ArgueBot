@@ -1,6 +1,6 @@
 # Replacement runtime development
 
-The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, additional database drivers, dashboard, packaging and acceptance gates remain open in IMPROVEMENTS.md.
+The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, provider backup/restore, full dashboard/TUI parity, packaging and acceptance gates remain open in IMPROVEMENTS.md.
 
 Build from the repository root with .NET 10 (and .NET 8 for reusable-library tests):
 
@@ -32,3 +32,16 @@ ARGUEBOT_SIMULATION_URL=http://127.0.0.1:4491/ollama dotnet run --project src/Te
 ```
 
 When the simulation is not configured, those three cases report explicit skips. Successful local fixture/simulation tests do not establish live-provider compatibility or release readiness. Runtime/simulation logs and real captures belong under ignored `.run/`, never in source control.
+
+
+The React dashboard is served by the replacement listener after `cd dashboard && npm ci && npm run build` and a server build. For the Vite development server, start the API on 4417, then run `npm run dev` in `dashboard`. The local browser pairs with the current code from its service home. Theme, icon-only transcript/new-run actions, and help text are browser regression requirements.
+
+Dashboard validation uses `npm run i18n:check`, `npm run lint`, `npm run test:ci`, and `npm run test:e2e`. The browser harness starts a separate service on 4420 and stores fixtures/screenshots beneath ignored `.run/`. Run `npx playwright install chromium` once. Component and browser suites have separate discovery patterns. API artifacts regenerate together with `node scripts/generate-api.mjs` from the repository root; the authoritative served document is `/openapi.json`.
+
+Build the solution before setting `ARGUEBOT_CLI_FIXTURE` to the absolute path of `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. The shared suite then verifies capture failures against real child processes, including a malformed process that stays alive and stderr overflow. Missing optional integrations report skips. .NET 10 also renders the actual TUIKit shell headlessly and audits focus and theme controls; library and storage suites also run on .NET 8.
+
+The terminal uses Ctrl+B to choose two or three debate participants, Ctrl+R for moderator controls, Ctrl+A for a follow-up, Ctrl+F for search and archive scope, and Alt+Left/Right for history pages. Ctrl+Q detaches without stopping service-owned work. Profile configuration currently uses the web or console interface. Remaining terminal screen and localization gaps are tracked in the plan.
+
+For real MySQL/PostgreSQL contract tests, start only the disposable fixtures with `docker compose -f docker/providers/compose.yaml up -d --wait`. Set `ARGUEBOT_TEST_MYSQL` or `ARGUEBOT_TEST_POSTGRESQL` to that fixture's connection string. The checked-in Compose passwords are fake, isolated test credentials. SQL Server requires separate explicit license acceptance before its container starts. Existing server-provider databases are not reset or migrated automatically by this test workflow.
+
+The CI workflow runs on every push and pull request. It builds and executes console/xUnit/NUnit on Windows, macOS and Linux, and runs dashboard checks/browser journeys plus API artifact drift on Linux. The external-provider, benchmark, packaging and full acceptance CI gates remain to be added. See [operations](OPERATIONS.md) for local observability and settings behavior.

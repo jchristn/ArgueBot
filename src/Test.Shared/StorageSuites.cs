@@ -6,6 +6,7 @@ namespace Test.Shared
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Models;
@@ -22,14 +23,47 @@ namespace Test.Shared
             {
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Storage", "Durable conversations", new List<TestCaseDescriptor>
                 {
+                    new TestCaseDescriptor("Storage", "RequestHistory", "Request metadata paging, private detail, isolation, empty buckets and retention", RequestHistoryAsync),
                     new TestCaseDescriptor("Storage", "RoundTrip", "History, receipts, search, backup and tenant isolation", RoundTripAsync),
                     new TestCaseDescriptor("Storage", "RunRecovery", "Immutable snapshots and interrupted run recovery", RunRecoveryAsync),
                     new TestCaseDescriptor("Storage", "ExclusiveHome", "Exclusive application-home ownership", ExclusiveHomeAsync),
-                    new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync)
+                    new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync),
+                    new TestCaseDescriptor("Storage", "SchemaUpgrade", "Historical schema upgrade creates backup and rejects future schemas", SchemaUpgradeAsync)
                 }) };
             }
         }
         private static RequestContext Owner() { return new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" }; }
+        private static async Task RequestHistoryAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-history-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    DateTime start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                    RequestHistoryEntry entry = new RequestHistoryEntry { TenantId = "ten_local", UserId = "usr_local", Method = "GET", Path = "/fixture", Status = 200, RawResponseBody = "redacted diagnostic", CreatedUtc = start.AddMinutes(5), Headers = new List<CapturedHeader> { new CapturedHeader { Name = "Authorization", Value = "[redacted]" } } };
+                    await database.History.InsertAsync(entry, token).ConfigureAwait(false);
+                    await database.History.InsertAsync(new RequestHistoryEntry { TenantId = "ten_foreign", UserId = "usr_foreign", Method = "GET", Path = "/foreign", Status = 500, CreatedUtc = start }, token).ConfigureAwait(false);
+                    HistoryPage page = await database.History.EnumerateAsync(Owner(), new HistoryFilter { Search = "fixture" }, token).ConfigureAwait(false);
+                    if (page.TotalCount != 1 || page.Items.Count != 1 || page.Items[0].RawResponseBody.Length != 0 || page.Items[0].Headers.Count != 0) throw new InvalidDataException("History list exposed detail or returned incorrect totals.");
+                    RequestHistoryEntry detail = await database.History.ReadAsync(Owner(), entry.Id, token).ConfigureAwait(false);
+                    if (detail.RawResponseBody != entry.RawResponseBody || detail.Headers.Count != 1 || detail.Headers[0].Value != "[redacted]") throw new InvalidDataException("Diagnostic detail did not round trip.");
+                    HistoryPage all = await database.History.EnumerateAsync(Owner(), new HistoryFilter(), token).ConfigureAwait(false);
+                    if (all.TotalCount != 1) throw new InvalidDataException("History crossed tenant boundary.");
+                    List<ActivityBucket> buckets = await database.History.SummaryAsync(Owner(), start, start.AddHours(3), 60, token).ConfigureAwait(false);
+                    if (buckets.Count != 3 || buckets[0].Success != 1 || buckets[0].Failure != 0 || buckets[1].Success != 0 || buckets[2].Failure != 0) throw new InvalidDataException("Summary omitted empty buckets or crossed tenant boundary.");
+                    RequestContext viewer = Owner(); viewer.Role = "viewer";
+                    bool denied = false;
+                    try { await database.History.ReadAsync(viewer, entry.Id, token).ConfigureAwait(false); }
+                    catch (DomainException ex) when (ex.StatusCode == 403) { denied = true; }
+                    if (!denied) throw new InvalidDataException("Viewer read operational diagnostics.");
+                    await database.History.PruneAsync(start.AddMinutes(10), token).ConfigureAwait(false);
+                    if ((await database.History.EnumerateAsync(Owner(), new HistoryFilter(), token).ConfigureAwait(false)).TotalCount != 0) throw new InvalidDataException("Retention did not remove expired captures.");
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
         private static async Task RoundTripAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-test-" + Guid.NewGuid().ToString("N"));
@@ -94,6 +128,43 @@ namespace Test.Shared
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
+        private static async Task SchemaUpgradeAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(home); paths.EnsureDirectories();
+                using (SqliteConnection connection = new SqliteConnection("Data Source=" + paths.DatabaseFile + ";Pooling=False"))
+                {
+                    await connection.OpenAsync(token).ConfigureAwait(false);
+                    using (SqliteCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "sqlite-schema-v1.sql"), token).ConfigureAwait(false);
+                        await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                    }
+                }
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(paths))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    if (Directory.GetFiles(Path.Combine(home, "backups"), "before-schema-1-*.db").Length != 1) throw new InvalidDataException("Upgrade did not make a backup.");
+                    Conversation conversation = await database.CreateConversationAsync(Owner(), "migrated", token).ConfigureAwait(false);
+                    await database.AppendMessageAsync(Owner(), new Message { ConversationId = conversation.Id, Content = "new schema message" }, token: token).ConfigureAwait(false);
+                }
+                using (SqliteConnection connection = new SqliteConnection("Data Source=" + paths.DatabaseFile + ";Pooling=False"))
+                {
+                    await connection.OpenAsync(token).ConfigureAwait(false);
+                    using (SqliteCommand command = connection.CreateCommand()) { command.CommandText = "INSERT INTO schema_migrations(version,applied_utc) VALUES(999,'future')"; await command.ExecuteNonQueryAsync(token).ConfigureAwait(false); }
+                }
+                bool rejected = false;
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(paths))
+                {
+                    try { await database.InitializeAsync(token).ConfigureAwait(false); }
+                    catch (InvalidDataException) { rejected = true; }
+                }
+                if (!rejected) throw new InvalidDataException("Future schema was accepted.");
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
         private static async Task EngineAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-test-" + Guid.NewGuid().ToString("N"));
@@ -120,6 +191,13 @@ namespace Test.Shared
                         run = await WaitStateAsync(database, context, conversation.Id, run.Id, "completed", token).ConfigureAwait(false);
                         List<Message> messages = await database.ReadMessagesAsync(context, conversation.Id, token).ConfigureAwait(false);
                         if (run.Outcome != "max_rounds" || messages.Count(item => item.State == "completed") != 2 || messages.Count(item => item.State == "interrupted") != 1) throw new InvalidDataException("Resumed execution did not preserve partial and final turns.");
+                        one.Name = "edited"; await database.Profiles.UpdateAsync(context, one.Id, one, token).ConfigureAwait(false);
+                        DebateRun historical = await database.Runs.ReadAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false);
+                        if (historical.Participants[0].Name != "one") throw new InvalidDataException("Profile edit rewrote history.");
+                        DebateRun followup = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Summarize the disagreement.", ParticipantIds = new List<string> { one.Id }, IdempotencyKey = "followup" }, token).ConfigureAwait(false);
+                        followup = await WaitStateAsync(database, context, conversation.Id, followup.Id, "completed", token).ConfigureAwait(false);
+                        messages = await database.ReadMessagesAsync(context, conversation.Id, token).ConfigureAwait(false);
+                        if (followup.Mode != "followup" || messages.Count(item => item.Kind == "question") != 1 || messages.Count(item => item.Kind == "final") != 1) throw new InvalidDataException("Follow-up question and answer were not persisted.");
                     }
                     finally { await engine.DisposeAsync().ConfigureAwait(false); }
                 }

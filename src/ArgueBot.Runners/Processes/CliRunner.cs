@@ -33,9 +33,9 @@ namespace ArgueBot.Runners.Processes
                 {
                     StringBuilder prompt = new StringBuilder(instructions);
                     foreach (Message message in history) prompt.Append("\n\n[").Append(message.Speaker).Append("]\n").Append(message.Content);
-                    Task input = SendInputAsync(process, prompt.ToString(), execution);
-                    Task output = ReadOutputAsync(process.StandardOutput, profile, onText, execution);
-                    Task errors = DrainErrorsAsync(process.StandardError, profile.MaxOutputBytes, execution);
+                    Task input = FailFastAsync(SendInputAsync(process, prompt.ToString(), execution), process);
+                    Task output = FailFastAsync(ReadOutputAsync(process.StandardOutput, profile, onText, execution), process);
+                    Task errors = FailFastAsync(DrainErrorsAsync(process.StandardError, profile.MaxOutputBytes, execution), process);
                     try
                     {
                         await Task.WhenAll(input, output, errors, process.WaitForExitAsync(execution)).ConfigureAwait(false);
@@ -46,6 +46,11 @@ namespace ArgueBot.Runners.Processes
                     finally { if (!process.HasExited) Kill(process); }
                 }
             }
+        }
+        private static async Task FailFastAsync(Task operation, Process process)
+        {
+            try { await operation.ConfigureAwait(false); }
+            catch { Kill(process); throw; }
         }
         private static List<string> Defaults(string provider)
         {

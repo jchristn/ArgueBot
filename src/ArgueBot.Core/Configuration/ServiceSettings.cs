@@ -3,13 +3,28 @@ namespace ArgueBot.Core.Configuration
     using System;
     using System.IO;
     using System.Text.Json;
+    using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
     public sealed class ServiceSettings
     {
+        private TelemetrySettings _Telemetry = new TelemetrySettings();
+        private DatabaseSettings _Database = new DatabaseSettings();
+
         private int _Port = 4317;
+        /// <summary>Process telemetry collection and export settings.</summary>
+        public TelemetrySettings Telemetry { get { return _Telemetry; } set { ArgumentNullException.ThrowIfNull(value); _Telemetry = value; } }
+        /// <summary>Capture HTTP request history by default.</summary>
+        public bool RequestHistoryEnabled { get; set; } = true;
+        /// <summary>Capture prefix limit in bytes, default 32768.</summary>
+        public int RequestHistoryBodyBytes { get; set; } = 32768;
+        /// <summary>Request history retention in days, default thirty.</summary>
+        public int RequestHistoryRetentionDays { get; set; } = 30;
+        /// <summary>Persistent database configuration. SQLite is the local default.</summary>
+        public DatabaseSettings Database { get { return _Database; } set { ArgumentNullException.ThrowIfNull(value); _Database = value; } }
         /// <summary>Loopback service port, default 4317, allowed 1 through 65535.</summary>
         public int Port { get { return _Port; } set { if (value < 1 || value > 65535) throw new ArgumentOutOfRangeException(nameof(value)); _Port = value; } }
         /// <summary>Default maximum concurrent conversations.</summary>
@@ -23,7 +38,9 @@ namespace ArgueBot.Core.Configuration
             if (File.Exists(paths.SettingsFile))
             {
                 string text = await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false);
-                return JsonSerializer.Deserialize<ServiceSettings>(text) ?? throw new InvalidDataException("Settings cannot be null.");
+                ServiceSettings loaded = JsonSerializer.Deserialize<ServiceSettings>(text, SerializerOptions()) ?? throw new InvalidDataException("Settings cannot be null.");
+                loaded.Validate();
+                return loaded;
             }
             ServiceSettings settings = new ServiceSettings();
             await settings.SaveAsync(paths, token).ConfigureAwait(false);
@@ -32,11 +49,36 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Atomically replace the settings file.</summary>
         public async Task SaveAsync(ArgueBotPaths paths, CancellationToken token = default)
         {
-            if (MaxConcurrentRuns < 1 || MaxConcurrentRuns > 64) throw new ArgumentOutOfRangeException(nameof(MaxConcurrentRuns));
-            string temporary = paths.SettingsFile + ".tmp";
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }), token).ConfigureAwait(false);
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.Move(temporary, paths.SettingsFile, true);
+            Validate();
+            paths.EnsureDirectories();
+            string temporary = paths.SettingsFile + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(this, SerializerOptions()), token).ConfigureAwait(false);
+                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                token.ThrowIfCancellationRequested();
+                File.Move(temporary, paths.SettingsFile, true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
+        /// <summary>Validate settings before they can become the next startup configuration.</summary>
+        public void Validate()
+        {
+            if (MaxConcurrentRuns < 1 || MaxConcurrentRuns > 64) throw new ArgumentOutOfRangeException(nameof(MaxConcurrentRuns));
+            if (RequestHistoryBodyBytes < 0 || RequestHistoryBodyBytes > 1048576) throw new ArgumentOutOfRangeException(nameof(RequestHistoryBodyBytes));
+            if (RequestHistoryRetentionDays < 1 || RequestHistoryRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(RequestHistoryRetentionDays));
+            ArgumentNullException.ThrowIfNull(Database);
+            ArgumentNullException.ThrowIfNull(Telemetry);
+            if (!Enum.IsDefined(Database.Type)) throw new ArgumentOutOfRangeException(nameof(Database.Type));
+            if (Database.ConnectionEnvironmentVariable.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(Database.ConnectionEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]*$")) throw new ArgumentException("Use an environment variable name for the database credential reference.");
+            if (!Uri.TryCreate(Telemetry.Endpoint, UriKind.Absolute, out Uri? endpoint) || (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps) || endpoint.UserInfo.Length > 0 || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0) throw new ArgumentException("Telemetry endpoint must be an HTTP URL without embedded credentials.");
+        }
+        private static JsonSerializerOptions SerializerOptions()
+        {
+            JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true, PropertyNameCaseInsensitive = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+            options.Converters.Add(new JsonStringEnumConverter());
+            return options;
+        }
+
     }
 }

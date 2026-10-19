@@ -1,0 +1,7 @@
+FROM prom/prometheus:v3.5.4 AS upstream
+FROM curlimages/curl:8.10.1
+COPY --from=upstream /bin/prometheus /usr/local/bin/prometheus
+USER root
+RUN mkdir /prometheus && chown 100:101 /prometheus
+USER 100:101
+ENTRYPOINT ["/usr/local/bin/prometheus"]

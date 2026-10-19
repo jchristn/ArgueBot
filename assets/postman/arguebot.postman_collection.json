@@ -1,0 +1,1079 @@
+{
+  "info": {
+    "name": "ArgueBot local conversation service",
+    "description": "Runnable local contract coverage. Set baseUrl, pairingCode or token. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4317"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "pairingCode",
+      "value": ""
+    },
+    {
+      "key": "conversationId",
+      "value": ""
+    },
+    {
+      "key": "conversationRevision",
+      "value": "1"
+    },
+    {
+      "key": "profileId",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "requestId",
+      "value": ""
+    },
+    {
+      "key": "settingsRevision",
+      "value": ""
+    },
+    {
+      "key": "allowExecution",
+      "value": "false"
+    },
+    {
+      "key": "simulationEndpoint",
+      "value": "http://127.0.0.1:4491/ollama"
+    },
+    {
+      "key": "fromUtc",
+      "value": "2026-01-01T00:00:00Z"
+    },
+    {
+      "key": "toUtc",
+      "value": "2026-01-02T00:00:00Z"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Lifecycle operations for health. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Check readiness without authentication",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/health",
+            "description": "Public local endpoint. Read permission required. Check readiness without authentication",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "Lifecycle operations for authentication. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Exchange the current single-use local pairing code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/auth/pair",
+            "description": "Public local endpoint. Mutation permission required; service settings/restart require administrator. Exchange the current single-use local pairing code",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{pairingCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('pairingCode')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('token',pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read the active principal and tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/auth/me",
+            "description": "Requires an active bearer session. Read permission required. Read the active principal and tenant"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "description": "Lifecycle operations for conversations. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Create a persistent conversation without starting any model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Create a persistent conversation without starting any model",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example architecture decision\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('conversationId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search owned titles and message content with exact totals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations",
+            "description": "Requires an active bearer session. Read permission required. Search owned titles and message content with exact totals"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read an owned conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
+            "description": "Requires an active bearer session. Read permission required. Read an owned conversation"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change title, pin or archive using an expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Change title, pin or archive using an expected revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated example decision\",\n  \"pinned\": true,\n  \"archived\": false,\n  \"revision\": \"{{conversationRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "description": "Lifecycle operations for messages. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read ordered owned history including owner-visible directives",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
+            "description": "Requires an active bearer session. Read permission required. Read ordered owned history including owner-visible directives"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Append a public note with command deduplication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Append a public note with command deduplication",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Consider reversibility and ownership.\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "description": "Lifecycle operations for events. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/events",
+            "description": "Requires an active bearer session. Read permission required. Read committed events after a cursor; Accept text/event-stream enables resumable SSE"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Participants",
+      "description": "Lifecycle operations for participants. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Create a reusable direct CLI or PolyPrompt completion profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/participants",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Create a reusable direct CLI or PolyPrompt completion profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example REST participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"timeoutSeconds\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('profileId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List current runner profiles; excludes historical snapshots",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/participants",
+            "description": "Requires an active bearer session. Read permission required. List current runner profiles; excludes historical snapshots"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit a reusable profile without changing historical run snapshots",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Edit a reusable profile without changing historical run snapshots",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated example participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Runs",
+      "description": "Lifecycle operations for runs. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read execution history and immutable participants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
+            "description": "Requires an active bearer session. Read permission required. Read execution history and immutable participants"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start a debate or single-participant follow-up with a durable receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Start a debate or single-participant follow-up with a durable receipt",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"followup\",\n  \"question\": \"Summarize the options.\",\n  \"participantIds\": [\n    \"{{profileId}}\"\n  ],\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
+                  "if(pm.response.code===202) pm.collectionVariables.set('runId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a durable checkpoint and current revision",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}",
+            "description": "Requires an active bearer session. Read permission required. Read a durable checkpoint and current revision"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"stop\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Request History",
+      "description": "Lifecycle operations for request history. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Inspect scoped request metadata with backend filtering and paging",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/request-history",
+            "description": "Requires an active bearer session. Read permission required. Inspect scoped request metadata with backend filtering and paging"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Return zero-filled UTC activity buckets for a bounded range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes=60",
+            "description": "Requires an active bearer session. Read permission required. Return zero-filled UTC activity buckets for a bounded range"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read redacted request and response headers and body prefixes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
+            "description": "Requires an active bearer session. Read permission required. Read redacted request and response headers and body prefixes"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('requestId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete one authorized retained request capture",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Delete one authorized retained request capture"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('requestId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "description": "Lifecycle operations for settings. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read redacted file settings, revision and restart metadata",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/settings",
+            "description": "Requires an active bearer session. Read permission required. Read redacted file settings, revision and restart metadata"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('settingsRevision',pm.response.json().revision);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atomically update allowlisted nonsecret settings using its revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/settings",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Atomically update allowlisted nonsecret settings using its revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revision\": \"{{settingsRevision}}\",\n  \"port\": 4317,\n  \"maxConcurrentRuns\": 4,\n  \"allowCli\": true,\n  \"databaseType\": \"Sqlite\",\n  \"connectionEnvironmentVariable\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('settingsRevision',pm.response.json().revision);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/settings/restart",
+            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "description": "Lifecycle operations for cleanup. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Delete a reusable participant, preserving historical snapshots",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Delete a reusable participant, preserving historical snapshots"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Permanently delete a stopped conversation and its retained messages/events",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Permanently delete a stopped conversation and its retained messages/events"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke the current session immediately",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/auth/logout",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Revoke the current session immediately",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

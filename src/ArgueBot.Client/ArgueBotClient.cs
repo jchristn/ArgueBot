@@ -20,7 +20,12 @@ namespace ArgueBot.Client
         /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317.</summary>
         public ArgueBotClient(string endpoint = "http://127.0.0.1:4317")
         {
-            _Http = new HttpClient { BaseAddress = new Uri(endpoint.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(30) };
+            Uri address = new Uri(endpoint.TrimEnd('/') + "/", UriKind.Absolute);
+            if ((address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps) || address.UserInfo.Length > 0 || address.Query.Length > 0 || address.Fragment.Length > 0)
+                throw new ArgumentException("Use an HTTP service URL without embedded credentials, query or fragment.", nameof(endpoint));
+            if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps)
+                throw new ArgumentException("Remote service connections require HTTPS.", nameof(endpoint));
+            _Http = new HttpClient { BaseAddress = address, Timeout = TimeSpan.FromSeconds(30) };
             _Http.DefaultRequestHeaders.Add("x-client-id", Guid.NewGuid().ToString("N"));
         }
         /// <summary>Use an existing session. Secrets are never included in URLs.</summary>
@@ -69,6 +74,8 @@ namespace ArgueBot.Client
         /// <summary>Read a typed API response and normalize safe domain failures.</summary>
         public async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, CancellationToken token = default)
         {
+            if (Uri.TryCreate(path, UriKind.Absolute, out Uri? absolute) || path.StartsWith("//", StringComparison.Ordinal) || path.Contains('\\'))
+                throw new ArgumentException("API paths must be relative to the configured service.", nameof(path));
             using (HttpRequestMessage request = new HttpRequestMessage(method, path))
             {
                 if (body != null) request.Content = JsonContent.Create(body, options: _Json);

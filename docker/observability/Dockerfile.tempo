@@ -1,0 +1,7 @@
+FROM grafana/tempo:2.6.1 AS upstream
+FROM curlimages/curl:8.10.1
+COPY --from=upstream /tempo /usr/local/bin/tempo
+USER root
+RUN mkdir -p /var/tempo && chown 100:101 /var/tempo
+USER 100:101
+ENTRYPOINT ["/usr/local/bin/tempo"]

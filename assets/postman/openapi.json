@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "ArgueBot replacement API",
+    "title": "ArgueBot API",
     "version": "0.1.0",
-    "description": "Initial local-service contract under implementation. Legacy API remains separate. Authenticated routes require bearer session; mutations require write permission. No provider/tool execution is triggered by read endpoints."
+    "description": "Shared conversation service under implementation. Local pairing is loopback/origin restricted. All private operations require an active revocable bearer session. Credentials never appear in URLs."
   },
   "servers": [
     {
@@ -18,204 +18,592 @@
   "paths": {
     "/health": {
       "get": {
+        "operationId": "get_health",
         "tags": [
           "Health"
         ],
-        "summary": "Check local readiness",
+        "summary": "Check readiness without authentication",
+        "description": "Public local endpoint. Read permission required.",
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful check readiness without authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
-        "security": [],
-        "parameters": []
+        "security": []
       }
     },
     "/v1.0/api/auth/pair": {
       "post": {
+        "operationId": "post_v1_0_api_auth_pair",
         "tags": [
-          "Auth"
+          "Authentication"
         ],
-        "summary": "Exchange protected single-use pairing code",
+        "summary": "Exchange the current single-use local pairing code",
+        "description": "Public local endpoint. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful exchange the current single-use local pairing code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairResponse"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": [],
-        "parameters": []
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairRequest"
+              },
+              "example": {
+                "code": "{{pairingCode}}"
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/api/auth/me": {
       "get": {
+        "operationId": "get_v1_0_api_auth_me",
         "tags": [
-          "Auth"
+          "Authentication"
         ],
-        "summary": "Read current identity",
+        "summary": "Read the active principal and tenant",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful read the active principal and tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestContext"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
-        },
-        "parameters": []
-      }
-    },
-    "/v1.0/api/auth/logout": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Revoke this session",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
-        "parameters": []
+        }
       }
     },
     "/v1.0/api/conversations": {
-      "get": {
-        "tags": [
-          "Conversations"
-        ],
-        "summary": "Search owned conversations",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
-        "parameters": []
-      },
       "post": {
+        "operationId": "post_v1_0_api_conversations",
         "tags": [
           "Conversations"
         ],
-        "summary": "Create conversation",
+        "summary": "Create a persistent conversation without starting any model",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
         "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+          "201": {
+            "description": "Successful create a persistent conversation without starting any model",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
-        "parameters": []
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRequest"
+              },
+              "example": {
+                "title": "Example architecture decision"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_v1_0_api_conversations",
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Search owned titles and message content with exact totals",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful search owned titles and message content with exact totals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}": {
       "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_",
         "tags": [
           "Conversations"
         ],
-        "summary": "Read conversation",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Read an owned conversation",
+        "description": "Requires an active bearer session. Read permission required.",
         "parameters": [
           {
             "name": "conversationId",
@@ -223,35 +611,110 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read an owned conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
       },
       "put": {
+        "operationId": "put_v1_0_api_conversations_conversationId_",
         "tags": [
           "Conversations"
         ],
-        "summary": "Update with expected revision",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Change title, pin or archive using an expected revision",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
         "parameters": [
           {
             "name": "conversationId",
@@ -259,35 +722,126 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful change title, pin or archive using an expected revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationRequest"
+              },
+              "example": {
+                "title": "Updated example decision",
+                "pinned": true,
+                "archived": false,
+                "revision": "{{conversationRevision}}"
+              }
+            }
+          }
+        }
       },
       "delete": {
+        "operationId": "delete_v1_0_api_conversations_conversationId_",
         "tags": [
-          "Conversations"
+          "Cleanup"
         ],
-        "summary": "Delete stopped conversation",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Permanently delete a stopped conversation and its retained messages/events",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
         "parameters": [
           {
             "name": "conversationId",
@@ -295,37 +849,112 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful permanently delete a stopped conversation and its retained messages/events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}/messages": {
       "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_messages",
         "tags": [
           "Messages"
         ],
-        "summary": "Read ordered history",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Read ordered owned history including owner-visible directives",
+        "description": "Requires an active bearer session. Read permission required.",
         "parameters": [
           {
             "name": "conversationId",
@@ -333,35 +962,113 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read ordered owned history including owner-visible directives",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Message"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
       },
       "post": {
+        "operationId": "post_v1_0_api_conversations_conversationId_messages",
         "tags": [
           "Messages"
         ],
-        "summary": "Append idempotent message",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Append a public note with command deduplication",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
         "parameters": [
           {
             "name": "conversationId",
@@ -369,37 +1076,127 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful append a public note with command deduplication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandRequest"
+              },
+              "example": {
+                "action": "note",
+                "text": "Consider reversibility and ownership.",
+                "idempotencyKey": "{{$guid}}"
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}/events": {
       "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_events",
         "tags": [
           "Events"
         ],
-        "summary": "Read committed events after cursor",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+        "description": "Requires an active bearer session. Read permission required.",
         "parameters": [
           {
             "name": "conversationId",
@@ -407,37 +1204,617 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "Accept",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "application/json",
+                "text/event-stream"
+              ]
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "SSE cursor formatted conversationId:sequence; foreign conversation cursors fail."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read committed events after a cursor; accept text/event-stream enables resumable sse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DurableEvent"
+                  }
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "id: cnv_example:1\nevent: change\ndata: {\"sequence\":1,\"kind\":\"message\"}\n\n"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
+      }
+    },
+    "/v1.0/api/participants": {
+      "post": {
+        "operationId": "post_v1_0_api_participants",
+        "tags": [
+          "Participants"
+        ],
+        "summary": "Create a reusable direct CLI or PolyPrompt completion profile",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create a reusable direct cli or polyprompt completion profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunnerProfile"
+              },
+              "example": {
+                "name": "Example REST participant",
+                "kind": "rest",
+                "provider": "ollama",
+                "endpoint": "{{simulationEndpoint}}",
+                "model": "fixture",
+                "timeoutSeconds": 5
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_v1_0_api_participants",
+        "tags": [
+          "Participants"
+        ],
+        "summary": "List current runner profiles; excludes historical snapshots",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful list current runner profiles; excludes historical snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunnerProfile"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/participants/{profileId}": {
+      "put": {
+        "operationId": "put_v1_0_api_participants_profileId_",
+        "tags": [
+          "Participants"
+        ],
+        "summary": "Edit a reusable profile without changing historical run snapshots",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful edit a reusable profile without changing historical run snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunnerProfile"
+              },
+              "example": {
+                "name": "Updated example participant",
+                "kind": "rest",
+                "provider": "ollama",
+                "endpoint": "{{simulationEndpoint}}",
+                "model": "fixture",
+                "enabled": true
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v1_0_api_participants_profileId_",
+        "tags": [
+          "Cleanup"
+        ],
+        "summary": "Delete a reusable participant, preserving historical snapshots",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful delete a reusable participant, preserving historical snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}/runs": {
       "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_runs",
         "tags": [
           "Runs"
         ],
-        "summary": "Read execution history",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Read execution history and immutable participants",
+        "description": "Requires an active bearer session. Read permission required.",
         "parameters": [
           {
             "name": "conversationId",
@@ -445,35 +1822,113 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read execution history and immutable participants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DebateRun"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
       },
       "post": {
+        "operationId": "post_v1_0_api_conversations_conversationId_runs",
         "tags": [
           "Runs"
         ],
-        "summary": "Create and start snapshot-backed run",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Start a debate or single-participant follow-up with a durable receipt",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
         "parameters": [
           {
             "name": "conversationId",
@@ -481,37 +1936,130 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful start a debate or single-participant follow-up with a durable receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebateRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRunRequest"
+              },
+              "example": {
+                "mode": "followup",
+                "question": "Summarize the options.",
+                "participantIds": [
+                  "{{profileId}}"
+                ],
+                "idempotencyKey": "{{$guid}}"
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}/runs/{runId}": {
       "get": {
+        "operationId": "get_v1_0_api_conversations_conversationId_runs_runId_",
         "tags": [
           "Runs"
         ],
-        "summary": "Read execution checkpoint",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Read a durable checkpoint and current revision",
+        "description": "Requires an active bearer session. Read permission required.",
         "parameters": [
           {
             "name": "conversationId",
@@ -519,7 +2067,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Identifier in the authenticated ownership scope."
           },
           {
             "name": "runId",
@@ -527,37 +2076,112 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a durable checkpoint and current revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebateRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/v1.0/api/conversations/{conversationId}/runs/{runId}/actions": {
       "post": {
+        "operationId": "post_v1_0_api_conversations_conversationId_runs_runId_actions",
         "tags": [
           "Runs"
         ],
-        "summary": "Apply moderator command",
-        "responses": {
-          "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "401": {
-            "description": "Session missing or expired"
-          },
-          "403": {
-            "description": "Insufficient permission"
-          },
-          "404": {
-            "description": "Resource not owned or not found"
-          },
-          "409": {
-            "description": "State, revision, or command conflict"
-          }
-        },
+        "summary": "Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
         "parameters": [
           {
             "name": "conversationId",
@@ -565,7 +2189,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Identifier in the authenticated ownership scope."
           },
           {
             "name": "runId",
@@ -573,94 +2198,1095 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
             }
           }
-        ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandRequest"
+              },
+              "example": {
+                "action": "stop",
+                "idempotencyKey": "{{$guid}}"
+              }
+            }
+          }
+        }
       }
     },
-    "/v1.0/api/participants": {
+    "/v1.0/api/request-history": {
       "get": {
+        "operationId": "get_v1_0_api_request_history",
         "tags": [
-          "Configuration"
+          "Request History"
         ],
-        "summary": "Read runner profiles",
+        "summary": "Inspect scoped request metadata with backend filtering and paging",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful inspect scoped request metadata with backend filtering and paging",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryPage"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
-        },
-        "parameters": []
+        }
+      }
+    },
+    "/v1.0/api/request-history/summary": {
+      "get": {
+        "operationId": "get_v1_0_api_request_history_summary",
+        "tags": [
+          "Request History"
+        ],
+        "summary": "Return zero-filled UTC activity buckets for a bounded range",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "fromUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "toUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "bucketMinutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful return zero-filled utc activity buckets for a bounded range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActivityBucket"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/request-history/{requestId}": {
+      "get": {
+        "operationId": "get_v1_0_api_request_history_requestId_",
+        "tags": [
+          "Request History"
+        ],
+        "summary": "Read redacted request and response headers and body prefixes",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read redacted request and response headers and body prefixes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestHistoryEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       },
-      "post": {
+      "delete": {
+        "operationId": "delete_v1_0_api_request_history_requestId_",
         "tags": [
-          "Configuration"
+          "Request History"
         ],
-        "summary": "Create runner profile",
+        "summary": "Delete one authorized retained request capture",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful delete one authorized retained request capture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionResponse"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
-        },
-        "parameters": []
+        }
       }
     },
     "/v1.0/api/settings": {
       "get": {
+        "operationId": "get_v1_0_api_settings",
         "tags": [
           "Settings"
         ],
-        "summary": "Read nonsecret bootstrap settings",
+        "summary": "Read redacted file settings, revision and restart metadata",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "Success; see REST_API.md for current DTO shape"
+            "description": "Successful read redacted file settings, revision and restart metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsView"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Session missing or expired"
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "403": {
-            "description": "Insufficient permission"
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "404": {
-            "description": "Resource not owned or not found"
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           },
           "409": {
-            "description": "State, revision, or command conflict"
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_settings",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Atomically update allowlisted nonsecret settings using its revision",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful atomically update allowlisted nonsecret settings using its revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
-        "parameters": []
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              },
+              "example": {
+                "revision": "{{settingsRevision}}",
+                "port": 4317,
+                "maxConcurrentRuns": 4,
+                "allowCli": true,
+                "databaseType": "Sqlite",
+                "connectionEnvironmentVariable": ""
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/settings/restart": {
+      "post": {
+        "operationId": "post_v1_0_api_settings_restart",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+        "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Successful drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/auth/logout": {
+      "post": {
+        "operationId": "post_v1_0_api_auth_logout",
+        "tags": [
+          "Cleanup"
+        ],
+        "summary": "Revoke the current session immediately",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful revoke the current session immediately",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevocationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {}
+            }
+          }
+        }
       }
     }
   },
@@ -669,6 +3295,927 @@
       "Bearer": {
         "type": "http",
         "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Acknowledgement": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "description": "The command was accepted."
+          }
+        }
+      },
+      "ActivityBucket": {
+        "type": "object",
+        "properties": {
+          "startUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC bucket boundary."
+          },
+          "success": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nonerror requests in bucket."
+          },
+          "failure": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Failed requests in bucket."
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable error code."
+          },
+          "message": {
+            "type": "string",
+            "description": "Safe explanation."
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "CapturedHeader": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Header name."
+          },
+          "value": {
+            "type": "string",
+            "description": "Redacted header value."
+          },
+          "response": {
+            "type": "boolean",
+            "description": "Whether this is a response header."
+          }
+        }
+      },
+      "CommandRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Requested operation."
+          },
+          "text": {
+            "type": "string",
+            "description": "User text."
+          },
+          "recipientId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Target profile."
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Unique command key."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Expected resource revision."
+          },
+          "rounds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Extension rounds."
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable conversation identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Owning tenant."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Owning user."
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title."
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Whether pinned."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Whether archived."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optimistic revision."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last change time in UTC."
+          }
+        }
+      },
+      "ConversationRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Conversation title/topic."
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Pinned state."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "Archived state."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Expected revision."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "CreateRunRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "Run purpose: debate or followup. Follow-up uses exactly one participant.",
+            "enum": [
+              "debate",
+              "followup"
+            ],
+            "default": "debate"
+          },
+          "question": {
+            "type": "string",
+            "description": "Follow-up question, persisted as a message with this run."
+          },
+          "participantIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ordered profiles."
+          },
+          "maxRounds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Round limit.",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 5
+          },
+          "interventionSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Intervention countdown.",
+            "minimum": 0,
+            "maximum": 600,
+            "default": 10
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Unique command key."
+          }
+        },
+        "required": [
+          "participantIds",
+          "idempotencyKey"
+        ],
+        "description": "Debate requires two or three distinct participant IDs. Followup requires one participant and a nonempty question, and forces one round with no countdown."
+      },
+      "DebateRun": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "Run purpose derived from its immutable participant count."
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable execution identifier."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Containing conversation."
+          },
+          "state": {
+            "type": "string",
+            "description": "Execution state."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "Completion reason."
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current round."
+          },
+          "speakerIndex": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Next participant index."
+          },
+          "maxRounds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Round limit."
+          },
+          "interventionSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Pause between turns."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optimistic run revision."
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunnerProfile"
+            },
+            "description": "Immutable runner snapshots."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC."
+          }
+        }
+      },
+      "DeletionResponse": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "description": "The owned record was deleted."
+          }
+        }
+      },
+      "DurableEvent": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Durable conversation event order."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Containing conversation."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Semantic event type."
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Changed entity."
+          },
+          "text": {
+            "type": "string",
+            "description": "Optional text delta or safe detail."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC."
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Readiness state."
+          },
+          "schema": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current database schema version, independent of product version."
+          }
+        }
+      },
+      "HistoryFilter": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Path search."
+          },
+          "method": {
+            "type": "string",
+            "description": "Optional HTTP method."
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional exact response status."
+          },
+          "fromUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional start UTC."
+          },
+          "toUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional end UTC."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size, 1 to 100."
+          }
+        }
+      },
+      "HistoryPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestHistoryEntry"
+            },
+            "description": "Matching captures."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching records."
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable message identifier."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Containing conversation."
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional run."
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Conversation message order."
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker snapshot."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Semantic message kind."
+          },
+          "content": {
+            "type": "string",
+            "description": "Original message text."
+          },
+          "recipientId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Private directive recipient, if present."
+          },
+          "state": {
+            "type": "string",
+            "description": "Generation lifecycle state."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC."
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conversation"
+            },
+            "description": "Matching conversations."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matches."
+          }
+        }
+      },
+      "RequestContext": {
+        "type": "object",
+        "properties": {
+          "receivedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC request receipt time."
+          },
+          "startedTimestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Monotonic timestamp captured before route execution."
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Resolved tenant."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Authenticated user."
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "description": "System administrator flag."
+          },
+          "isTenantAdmin": {
+            "type": "boolean",
+            "description": "Tenant administrator flag."
+          },
+          "isAuthenticated": {
+            "type": "boolean",
+            "description": "Whether credentials are valid."
+          },
+          "role": {
+            "type": "string",
+            "description": "Effective local role."
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Request correlation identifier."
+          }
+        }
+      },
+      "RequestHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable capture identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Resolved tenant, or null for anonymous system traffic."
+          },
+          "userId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Resolved user if authenticated."
+          },
+          "principalName": {
+            "type": "string",
+            "description": "Safe principal display name."
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method."
+          },
+          "path": {
+            "type": "string",
+            "description": "Route path without query credentials."
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "HTTP response status."
+          },
+          "durationMs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Elapsed milliseconds."
+          },
+          "requestBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Original request size."
+          },
+          "responseBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Original response size where known; minus one means streamed or unknown."
+          },
+          "rawRequestBody": {
+            "type": "string",
+            "description": "Redacted diagnostic request prefix; explicitly unmanaged content."
+          },
+          "rawResponseBody": {
+            "type": "string",
+            "description": "Redacted diagnostic response prefix; explicitly unmanaged content."
+          },
+          "requestTruncated": {
+            "type": "boolean",
+            "description": "Whether request capture is a prefix."
+          },
+          "responseTruncated": {
+            "type": "boolean",
+            "description": "Whether response capture is a prefix."
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Request correlation ID."
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Trace correlation ID."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Request receipt timestamp."
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapturedHeader"
+            },
+            "description": "Redacted structured headers."
+          }
+        }
+      },
+      "RestartResponse": {
+        "type": "object",
+        "properties": {
+          "restarting": {
+            "type": "boolean",
+            "description": "The host is draining and reloading configuration."
+          }
+        }
+      },
+      "RevocationResponse": {
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "type": "boolean",
+            "description": "The session was revoked."
+          }
+        }
+      },
+      "RunnerProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable profile identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Participant display name."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Runner kind: cli or rest.",
+            "enum": [
+              "cli",
+              "rest"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "description": "Protocol adapter."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "REST base URI."
+          },
+          "model": {
+            "type": "string",
+            "description": "REST model identifier."
+          },
+          "executable": {
+            "type": "string",
+            "description": "Direct executable path or name."
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ordered arguments; prompts use standard input."
+          },
+          "workingDirectory": {
+            "type": "string",
+            "description": "Directory on execution host."
+          },
+          "secretEnvironmentVariable": {
+            "type": "string",
+            "description": "Environment reference to credential; never its value."
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum generation seconds.",
+            "minimum": 1,
+            "maximum": 3600,
+            "default": 300
+          },
+          "maxOutputBytes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum captured output bytes.",
+            "minimum": 1024,
+            "maximum": 16777216,
+            "default": 1048576
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether new work can use this profile."
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "provider"
+        ],
+        "description": "CLI requires executable and uses ordered arguments plus stdin. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run."
+      },
+      "ArgueBotPaths": {
+        "type": "object",
+        "properties": {
+          "home": {
+            "type": "string",
+            "description": "Absolute application home."
+          },
+          "databaseFile": {
+            "type": "string",
+            "description": "Default SQLite file."
+          },
+          "settingsFile": {
+            "type": "string",
+            "description": "Service settings file."
+          }
+        }
+      },
+      "ServiceSettings": {
+        "type": "object",
+        "properties": {
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetrySettings",
+            "description": "Process telemetry collection and export settings."
+          },
+          "requestHistoryEnabled": {
+            "type": "boolean",
+            "description": "Capture HTTP request history by default."
+          },
+          "requestHistoryBodyBytes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Capture prefix limit in bytes, default 32768."
+          },
+          "requestHistoryRetentionDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Request history retention in days, default thirty."
+          },
+          "database": {
+            "$ref": "#/components/schemas/DatabaseSettings",
+            "description": "Persistent database configuration. SQLite is the local default."
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Loopback service port, default 4317, allowed 1 through 65535."
+          },
+          "maxConcurrentRuns": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Default maximum concurrent conversations."
+          },
+          "allowCli": {
+            "type": "boolean",
+            "description": "Whether shell-out runners may execute. Default true for local mode only."
+          }
+        }
+      },
+      "TelemetrySettings": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable the collector subscription, default true."
+          },
+          "exportEnabled": {
+            "type": "boolean",
+            "description": "Enable outbound OTLP to the local observability collector, default false outside Compose."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "OTLP gRPC endpoint, default 127.0.0.1:4327 to avoid the application port."
+          }
+        }
+      },
+      "DatabaseSettings": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/DatabaseTypeEnum",
+            "description": "Default embedded provider."
+          },
+          "connectionString": {
+            "type": "string",
+            "description": "SQLite path or server connection string without committed secrets."
+          },
+          "connectionEnvironmentVariable": {
+            "type": "string",
+            "description": "Optional environment variable that overrides ConnectionString."
+          }
+        }
+      },
+      "SchemaMigration": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Monotonic database schema version, independent of product version."
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable upgrade purpose."
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ordered parameterized DDL statements."
+          }
+        }
+      },
+      "PairRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Current single-use code read locally by the owner."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "PairResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Opaque one-hour bearer session token."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "SettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "description": "Expected settings file revision."
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Configured port, from 1 to 65535. Explicit launch flags still win."
+          },
+          "maxConcurrentRuns": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Concurrent conversations, 1 to 64."
+          },
+          "allowCli": {
+            "type": "boolean",
+            "description": "Allow local shell-out execution after restart."
+          },
+          "databaseType": {
+            "$ref": "#/components/schemas/DatabaseTypeEnum",
+            "description": "Selected persistence provider."
+          },
+          "connectionEnvironmentVariable": {
+            "type": "string",
+            "description": "Server environment reference for the connection string."
+          }
+        },
+        "required": [
+          "revision",
+          "port",
+          "maxConcurrentRuns",
+          "allowCli",
+          "databaseType"
+        ]
+      },
+      "SettingsView": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/ServiceSettings",
+            "description": "Editable nonsecret settings. Connection strings are never returned."
+          },
+          "revision": {
+            "type": "string",
+            "description": "Digest of the current settings file for optimistic writes."
+          },
+          "restartRequired": {
+            "type": "boolean",
+            "description": "Whether this file differs from the running configuration."
+          },
+          "portOverridden": {
+            "type": "boolean",
+            "description": "Whether the running port is overridden by an explicit command-line flag."
+          },
+          "effectivePort": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Effective port of this process."
+          },
+          "connectionConfigured": {
+            "type": "boolean",
+            "description": "Whether a private database connection string is configured."
+          }
+        }
+      },
+      "DatabaseTypeEnum": {
+        "type": "string",
+        "enum": [
+          "Sqlite",
+          "Mysql",
+          "Postgresql",
+          "SqlServer"
+        ]
       }
     }
   }

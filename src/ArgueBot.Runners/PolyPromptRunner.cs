@@ -11,6 +11,7 @@ namespace ArgueBot.Runners
     using ArgueBot.Core.Services;
     using PolyPrompt.Clients;
     using PolyPrompt.Models;
+    using SyslogLogging;
 
     /// <summary>PolyPrompt completion adapter. No automatic tool execution, retries, or hidden history.</summary>
     public sealed class PolyPromptRunner : IRunner
@@ -20,9 +21,11 @@ namespace ArgueBot.Runners
         {
             string? secret = profile.SecretEnvironmentVariable.Length == 0 ? null : Environment.GetEnvironmentVariable(profile.SecretEnvironmentVariable);
             if (profile.SecretEnvironmentVariable.Length > 0 && string.IsNullOrEmpty(secret)) throw new DomainException(409, "missing_secret", "The configured credential environment reference is not set on the server.");
-            using (CompletionClientBase client = CreateClient(profile, secret))
+            using (LoggingModule logging = new LoggingModule())
+            using (CompletionClientBase client = CreateClient(profile, secret, logging))
             using (CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
+                logging.Settings.EnableConsole = false;
                 client.MaxCallDetails = 0; client.Model = profile.Model;
                 timeout.CancelAfter(TimeSpan.FromSeconds(profile.TimeoutSeconds));
                 ToolChatRequest request = new ToolChatRequest { Messages = new List<ChatMessage> { ChatMessage.System(instructions) }, ToolChoice = "none" };
@@ -45,14 +48,14 @@ namespace ArgueBot.Runners
                 if (!done || !response.Success) throw new IOException("Provider stream ended without a successful terminal response.");
             }
         }
-        private static CompletionClientBase CreateClient(RunnerProfile profile, string? secret)
+        private static CompletionClientBase CreateClient(RunnerProfile profile, string? secret, LoggingModule logging)
         {
             return profile.Provider switch
             {
-                "ollama" => new OllamaCompletionClient(profile.Endpoint, secret),
-                "openai" => new OpenAiCompletionClient(profile.Endpoint, secret),
-                "anthropic" => new AnthropicCompletionClient(profile.Endpoint, secret),
-                "gemini" => new GeminiCompletionClient(profile.Endpoint, secret),
+                "ollama" => new OllamaCompletionClient(profile.Endpoint, secret, logging),
+                "openai" => new OpenAiCompletionClient(profile.Endpoint, secret, logging),
+                "anthropic" => new AnthropicCompletionClient(profile.Endpoint, secret, logging),
+                "gemini" => new GeminiCompletionClient(profile.Endpoint, secret, logging),
                 _ => throw new DomainException(400, "unsupported_provider", "Completion provider must be ollama, openai, anthropic or gemini.")
             };
         }

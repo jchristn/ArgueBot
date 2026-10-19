@@ -4,6 +4,8 @@ Status: implementation in progress. The legacy application remains runnable. Wor
 
 Verified foundation: .NET solution builds with zero warnings; shared Touchstone descriptors run through console/xUnit/NUnit; SQLite history, receipts, tenant/viewer checks, run snapshots, interrupted recovery, exclusive home ownership and engine interrupt/resume have local test coverage. A local HTTP smoke journey exercised pairing, profiles, a two-participant fixture debate, history and session revocation. Real PolyPrompt transport passed committed Postman simulations for success, rate limiting and broken streams. See docs/DEVELOPMENT.md. Full provider, hosted security, interface, operations and release gates remain open.
 
+Additional verified slices: real MySQL and PostgreSQL lifecycle tests pass alongside SQLite; the generated contract covers 27 implemented operations; the React dashboard has browser journeys for conversation persistence, icon controls, responsive themes, request inspection, API execution and literal argument editing. AES-GCM session nonce/tamper/expiry/rotation/revocation cases pass. Native OTLP export has reached Prometheus, Tempo and Loki in the provisioned local stack. Cross-platform CI is configured but its hosted runs are not yet observed. TUIKit focus and theme checks are being added; all milestone checkboxes remain open until the complete gates pass.
+
 Prepared October 19, 2026 against commit `e4a2f73`. The intended result is one persistent conversation product with a web dashboard, a C# TUIKit terminal application, scriptable console commands, and interchangeable CLI-harness and PolyPrompt model runners.
 
 ## 1. Product direction and delivery rules

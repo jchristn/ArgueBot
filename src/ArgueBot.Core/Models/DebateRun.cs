@@ -6,17 +6,26 @@ namespace ArgueBot.Core.Models
     /// <summary>DebateRun transport and domain data.</summary>
     public sealed class DebateRun
     {
+        private string _Id = "";
+        private string _ConversationId = "";
+        private string _State = "paused";
+        private string _Outcome = "";
+        private List<RunnerProfile> _Participants = new List<RunnerProfile>();
+
+        /// <summary>Run purpose derived from its immutable participant count.</summary>
+        public string Mode { get { return Participants.Count == 1 ? "followup" : "debate"; } }
+
         /// <summary>Stable execution identifier.</summary>
-        public string Id { get; set; } = "";
+        public string Id { get { return _Id; } set { ArgumentNullException.ThrowIfNull(value); _Id = value; } }
 
         /// <summary>Containing conversation.</summary>
-        public string ConversationId { get; set; } = "";
+        public string ConversationId { get { return _ConversationId; } set { ArgumentNullException.ThrowIfNull(value); _ConversationId = value; } }
 
         /// <summary>Execution state.</summary>
-        public string State { get; set; } = "paused";
+        public string State { get { return _State; } set { ArgumentNullException.ThrowIfNull(value); _State = value; } }
 
         /// <summary>Completion reason.</summary>
-        public string Outcome { get; set; } = "";
+        public string Outcome { get { return _Outcome; } set { ArgumentNullException.ThrowIfNull(value); _Outcome = value; } }
 
         /// <summary>Current round.</summary>
         public int Round { get; set; } = 1;
@@ -34,7 +43,7 @@ namespace ArgueBot.Core.Models
         public long Revision { get; set; }
 
         /// <summary>Immutable runner snapshots.</summary>
-        public List<RunnerProfile> Participants { get; set; } = new List<RunnerProfile>();
+        public List<RunnerProfile> Participants { get { return _Participants; } set { ArgumentNullException.ThrowIfNull(value); _Participants = value; } }
 
         /// <summary>Creation time in UTC.</summary>
         public DateTime CreatedUtc { get; set; }

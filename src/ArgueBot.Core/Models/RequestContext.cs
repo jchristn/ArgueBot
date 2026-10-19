@@ -6,11 +6,21 @@ namespace ArgueBot.Core.Models
     /// <summary>RequestContext transport and domain data.</summary>
     public sealed class RequestContext
     {
+        /// <summary>UTC request receipt time.</summary>
+        public DateTime ReceivedUtc { get; set; } = DateTime.UtcNow;
+        /// <summary>Monotonic timestamp captured before route execution.</summary>
+        public long StartedTimestamp { get; set; }
+
+        private string _TenantId = "";
+        private string _UserId = "";
+        private string _Role = "viewer";
+        private string _CorrelationId = "";
+
         /// <summary>Resolved tenant.</summary>
-        public string TenantId { get; set; } = "";
+        public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value; } }
 
         /// <summary>Authenticated user.</summary>
-        public string UserId { get; set; } = "";
+        public string UserId { get { return _UserId; } set { ArgumentNullException.ThrowIfNull(value); _UserId = value; } }
 
         /// <summary>System administrator flag.</summary>
         public bool IsAdmin { get; set; }
@@ -22,10 +32,10 @@ namespace ArgueBot.Core.Models
         public bool IsAuthenticated { get; set; }
 
         /// <summary>Effective local role.</summary>
-        public string Role { get; set; } = "viewer";
+        public string Role { get { return _Role; } set { ArgumentNullException.ThrowIfNull(value); _Role = value; } }
 
         /// <summary>Request correlation identifier.</summary>
-        public string CorrelationId { get; set; } = "";
+        public string CorrelationId { get { return _CorrelationId; } set { ArgumentNullException.ThrowIfNull(value); _CorrelationId = value; } }
 
     }
 }

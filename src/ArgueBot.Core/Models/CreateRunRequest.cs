@@ -6,8 +6,18 @@ namespace ArgueBot.Core.Models
     /// <summary>CreateRunRequest transport and domain data.</summary>
     public sealed class CreateRunRequest
     {
+        private string _Mode = "debate";
+        private string _Question = "";
+        private List<string> _ParticipantIds = new List<string>();
+        private string _IdempotencyKey = "";
+
+        /// <summary>Run purpose: debate or followup. Follow-up uses exactly one participant.</summary>
+        public string Mode { get { return _Mode; } set { ArgumentNullException.ThrowIfNull(value); _Mode = value; } }
+        /// <summary>Follow-up question, persisted as a message with this run.</summary>
+        public string Question { get { return _Question; } set { ArgumentNullException.ThrowIfNull(value); _Question = value; } }
+
         /// <summary>Ordered profiles.</summary>
-        public List<string> ParticipantIds { get; set; } = new List<string>();
+        public List<string> ParticipantIds { get { return _ParticipantIds; } set { ArgumentNullException.ThrowIfNull(value); _ParticipantIds = value; } }
 
         /// <summary>Round limit.</summary>
         public int MaxRounds { get; set; } = 5;
@@ -16,7 +26,7 @@ namespace ArgueBot.Core.Models
         public int InterventionSeconds { get; set; } = 10;
 
         /// <summary>Unique command key.</summary>
-        public string IdempotencyKey { get; set; } = "";
+        public string IdempotencyKey { get { return _IdempotencyKey; } set { ArgumentNullException.ThrowIfNull(value); _IdempotencyKey = value; } }
 
     }
 }

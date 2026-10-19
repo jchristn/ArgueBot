@@ -23,9 +23,15 @@ namespace ArgueBot.Server
                 try
                 {
                     ArgueBotPaths paths = new ArgueBotPaths(home);
-                    ServiceSettings settings = await ServiceSettings.LoadAsync(paths, lifetime.Token).ConfigureAwait(false);
-                    if (port.HasValue) settings.Port = port.Value;
-                    await ArgueBotServer.RunAsync(paths, settings, lifetime.Token).ConfigureAwait(false); return 0;
+                    bool restart;
+                    do
+                    {
+                        ServiceSettings settings = await ServiceSettings.LoadAsync(paths, lifetime.Token).ConfigureAwait(false);
+                        if (port.HasValue) settings.Port = port.Value;
+                        restart = await new ArgueBotServer().RunAsync(paths, settings, lifetime.Token).ConfigureAwait(false);
+                        if (restart && Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true") return 0;
+                    } while (restart && !lifetime.IsCancellationRequested);
+                    return 0;
                 }
                 catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return 130; }
                 catch (Exception ex) when (ex is not OutOfMemoryException) { Console.Error.WriteLine(ex.Message); return 1; }

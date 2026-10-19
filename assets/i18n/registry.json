@@ -1,0 +1,23 @@
+[
+  {
+    "code": "en",
+    "nativeName": "English",
+    "englishName": "English",
+    "dir": "ltr",
+    "fallback": "en"
+  },
+  {
+    "code": "en-XA",
+    "nativeName": "Expanded English",
+    "englishName": "Expansion test",
+    "dir": "ltr",
+    "fallback": "en"
+  },
+  {
+    "code": "ar-XB",
+    "nativeName": "RTL test",
+    "englishName": "RTL test",
+    "dir": "rtl",
+    "fallback": "en"
+  }
+]

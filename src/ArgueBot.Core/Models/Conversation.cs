@@ -6,17 +6,22 @@ namespace ArgueBot.Core.Models
     /// <summary>Conversation transport and domain data.</summary>
     public sealed class Conversation
     {
+        private string _Id = "";
+        private string _TenantId = "";
+        private string _UserId = "";
+        private string _Title = "";
+
         /// <summary>Stable conversation identifier.</summary>
-        public string Id { get; set; } = "";
+        public string Id { get { return _Id; } set { ArgumentNullException.ThrowIfNull(value); _Id = value; } }
 
         /// <summary>Owning tenant.</summary>
-        public string TenantId { get; set; } = "";
+        public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value; } }
 
         /// <summary>Owning user.</summary>
-        public string UserId { get; set; } = "";
+        public string UserId { get { return _UserId; } set { ArgumentNullException.ThrowIfNull(value); _UserId = value; } }
 
         /// <summary>Display title.</summary>
-        public string Title { get; set; } = "";
+        public string Title { get { return _Title; } set { ArgumentNullException.ThrowIfNull(value); _Title = value; } }
 
         /// <summary>Whether pinned.</summary>
         public bool Pinned { get; set; }

@@ -21,6 +21,8 @@ namespace ArgueBot.Tests.Fixtures
                 foreach (byte value in bytes) { await Console.OpenStandardOutput().WriteAsync(new byte[] { value }).ConfigureAwait(false); }
                 return 0;
             }
+            if (mode == "malformed-hang") { Console.WriteLine("{invalid"); await Console.Out.FlushAsync().ConfigureAwait(false); await Task.Delay(Timeout.Infinite).ConfigureAwait(false); return 0; }
+            if (mode == "stderr-hang") { await Console.Error.WriteAsync(new string('x', 16384)).ConfigureAwait(false); await Console.Error.FlushAsync().ConfigureAwait(false); await Task.Delay(Timeout.Infinite).ConfigureAwait(false); return 0; }
             if (mode == "malformed") { Console.WriteLine("{invalid"); return 0; }
             string answer = mode == "consensus" ? "WE HAVE CONSENSUS\nAgreed fixture position.\n" : "A concrete fixture argument.\n";
             foreach (char character in answer)

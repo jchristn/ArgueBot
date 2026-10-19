@@ -1,0 +1,7 @@
+FROM grafana/loki:3.5.5 AS upstream
+FROM curlimages/curl:8.10.1
+COPY --from=upstream /usr/bin/loki /usr/local/bin/loki
+USER root
+RUN mkdir /loki && chown 100:101 /loki
+USER 100:101
+ENTRYPOINT ["/usr/local/bin/loki"]

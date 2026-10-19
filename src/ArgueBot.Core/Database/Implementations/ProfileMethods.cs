@@ -1,21 +1,21 @@
-namespace ArgueBot.Core.Database.Sqlite.Implementations
+namespace ArgueBot.Core.Database.Implementations
 {
     using System;
     using System.Collections.Generic;
+    using System.Data.Common;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
-    using static ArgueBot.Core.Database.Sqlite.SqliteDatabaseDriver;
+    using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Tenant and user-scoped runner profiles with ordered relational arguments.</summary>
     public sealed class ProfileMethods
     {
-        private readonly SqliteDatabaseDriver _Database;
-        internal ProfileMethods(SqliteDatabaseDriver database) { _Database = database; }
+        private readonly DatabaseDriverBase _Database;
+        internal ProfileMethods(DatabaseDriverBase database) { _Database = database; }
 
         /// <summary>Create a profile after validating protocol and resource limits.</summary>
         public async Task<RunnerProfile> CreateAsync(RequestContext context, RunnerProfile profile, CancellationToken token = default)
@@ -30,10 +30,10 @@ namespace ArgueBot.Core.Database.Sqlite.Implementations
         public async Task<List<RunnerProfile>> EnumerateAsync(RequestContext context, CancellationToken token = default)
         {
             List<RunnerProfile> profiles = new List<RunnerProfile>();
-            using (SqliteConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
-                using (SqliteCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND snapshot=0 ORDER BY name,id", P("tenant", context.TenantId, "user", context.UserId)))
-                using (SqliteDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND snapshot=0 ORDER BY name,id", P("tenant", context.TenantId, "user", context.UserId)))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { while (await reader.ReadAsync(token).ConfigureAwait(false)) profiles.Add(Read(reader)); }
                 foreach (RunnerProfile profile in profiles) await LoadArgumentsAsync(connection, null, profile, token).ConfigureAwait(false);
             }
@@ -43,14 +43,40 @@ namespace ArgueBot.Core.Database.Sqlite.Implementations
         /// <summary>Read a profile in the caller's ownership scope.</summary>
         public async Task<RunnerProfile> ReadAsync(RequestContext context, string id, CancellationToken token = default)
         {
-            using (SqliteConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
                 RunnerProfile profile;
-                using (SqliteCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
-                using (SqliteDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Participant profile not found."); profile = Read(reader); }
                 await LoadArgumentsAsync(connection, null, profile, token).ConfigureAwait(false); return profile;
             }
+        }
+
+        /// <summary>Update a reusable profile. Historical run snapshots are never changed.</summary>
+        public async Task<RunnerProfile> UpdateAsync(RequestContext context, string id, RunnerProfile profile, CancellationToken token = default)
+        {
+            RequireWrite(context); Validate(profile);
+            await ReadAsync(context, id, token).ConfigureAwait(false);
+            profile.Id = id;
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                int changed = await ExecuteAsync(connection, transaction, "UPDATE profiles SET name=@name,kind=@kind,provider=@provider,endpoint=@endpoint,model=@model,executable=@exe,cwd=@cwd,secret_env=@secret,timeout_seconds=@timeout,max_output_bytes=@max,enabled=@enabled,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND snapshot=0", token, P("name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
+                if (changed == 0) throw new DomainException(409, "immutable_snapshot", "Historical participant snapshots cannot be edited.");
+                await ExecuteAsync(connection, transaction, "DELETE FROM profile_arguments WHERE tenant_id=@tenant AND profile_id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
+                for (int index = 0; index < profile.Arguments.Count; index++) await ExecuteAsync(connection, transaction, "INSERT INTO profile_arguments(id,tenant_id,profile_id,position,value,created_utc,updated_utc) VALUES(@id,@tenant,@profile,@position,@value,@now,@now)", token, P("id", Ids.New("arg_"), "tenant", context.TenantId, "profile", id, "position", index, "value", profile.Arguments[index])).ConfigureAwait(false);
+            }, token).ConfigureAwait(false);
+            return profile;
+        }
+        /// <summary>Delete a reusable profile while keeping immutable historical snapshots.</summary>
+        public async Task DeleteAsync(RequestContext context, string id, CancellationToken token = default)
+        {
+            RequireWrite(context); await ReadAsync(context, id, token).ConfigureAwait(false);
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                int changed = await ExecuteAsync(connection, transaction, "DELETE FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND snapshot=0", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
+                if (changed == 0) throw new DomainException(409, "immutable_snapshot", "Historical participant snapshots cannot be deleted.");
+            }, token).ConfigureAwait(false);
         }
 
         internal static void Validate(RunnerProfile profile)
@@ -72,19 +98,19 @@ namespace ArgueBot.Core.Database.Sqlite.Implementations
             else throw new DomainException(400, "invalid_runner", "Runner kind must be cli or rest.");
         }
 
-        internal static async Task InsertAsync(SqliteConnection connection, SqliteTransaction transaction, RequestContext context, RunnerProfile profile, bool snapshot, CancellationToken token)
+        internal static async Task InsertAsync(DbConnection connection, DbTransaction transaction, RequestContext context, RunnerProfile profile, bool snapshot, CancellationToken token)
         {
             await ExecuteAsync(connection, transaction, "INSERT INTO profiles(id,tenant_id,user_id,name,kind,provider,endpoint,model,executable,cwd,secret_env,timeout_seconds,max_output_bytes,enabled,snapshot,created_utc,updated_utc) VALUES(@id,@tenant,@user,@name,@kind,@provider,@endpoint,@model,@exe,@cwd,@secret,@timeout,@max,@enabled,@snapshot,@now,@now)", token, P("id", profile.Id, "tenant", context.TenantId, "user", context.UserId, "name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "snapshot", snapshot ? 1 : 0)).ConfigureAwait(false);
             for (int index = 0; index < profile.Arguments.Count; index++) await ExecuteAsync(connection, transaction, "INSERT INTO profile_arguments(id,tenant_id,profile_id,position,value,created_utc,updated_utc) VALUES(@id,@tenant,@profile,@position,@value,@now,@now)", token, P("id", Ids.New("arg_"), "tenant", context.TenantId, "profile", profile.Id, "position", index, "value", profile.Arguments[index])).ConfigureAwait(false);
         }
-        internal static RunnerProfile Read(SqliteDataReader reader)
+        internal static RunnerProfile Read(DbDataReader reader)
         {
             return new RunnerProfile { Id = S(reader, "id"), Name = S(reader, "name"), Kind = S(reader, "kind"), Provider = S(reader, "provider"), Endpoint = S(reader, "endpoint"), Model = S(reader, "model"), Executable = S(reader, "executable"), WorkingDirectory = S(reader, "cwd"), SecretEnvironmentVariable = S(reader, "secret_env"), TimeoutSeconds = reader.GetInt32(reader.GetOrdinal("timeout_seconds")), MaxOutputBytes = reader.GetInt32(reader.GetOrdinal("max_output_bytes")), Enabled = reader.GetInt32(reader.GetOrdinal("enabled")) != 0 };
         }
-        internal static async Task LoadArgumentsAsync(SqliteConnection connection, SqliteTransaction? transaction, RunnerProfile profile, CancellationToken token)
+        internal static async Task LoadArgumentsAsync(DbConnection connection, DbTransaction? transaction, RunnerProfile profile, CancellationToken token)
         {
-            using (SqliteCommand command = Command(connection, transaction, "SELECT value FROM profile_arguments WHERE profile_id=@id ORDER BY position", P("id", profile.Id)))
-            using (SqliteDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, transaction, "SELECT value FROM profile_arguments WHERE profile_id=@id ORDER BY position", P("id", profile.Id)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             { while (await reader.ReadAsync(token).ConfigureAwait(false)) profile.Arguments.Add(reader.GetString(0)); }
         }
     }

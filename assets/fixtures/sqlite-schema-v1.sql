@@ -1,8 +1,4 @@
-namespace ArgueBot.Core.Database.Sqlite.Queries
-{
-    internal static class Schema
-    {
-        internal static readonly string Create = """
+-- Historical fixture from commit 9a3e185, not the current schema.
 CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), name TEXT NOT NULL, role TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(tenant_id,id));
@@ -18,6 +14,4 @@ CREATE INDEX IF NOT EXISTS ix_messages_history ON messages(tenant_id,conversatio
 CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, conversation_id TEXT NOT NULL, sequence INTEGER NOT NULL, kind TEXT NOT NULL, entity_id TEXT NOT NULL, text TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(conversation_id,sequence), FOREIGN KEY(tenant_id,conversation_id) REFERENCES conversations(tenant_id,id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS command_receipts(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, user_id TEXT NOT NULL, conversation_id TEXT NOT NULL, command_key TEXT NOT NULL, digest TEXT NOT NULL, result_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(tenant_id,user_id,conversation_id,command_key), FOREIGN KEY(tenant_id,conversation_id) REFERENCES conversations(tenant_id,id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS audit_events(id TEXT PRIMARY KEY, tenant_id TEXT, user_id TEXT, operation TEXT NOT NULL, outcome TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
-""";
-    }
-}
+INSERT INTO schema_migrations(version,applied_utc) VALUES(1,'2026-10-19T00:00:00Z');
