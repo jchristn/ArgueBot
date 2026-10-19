@@ -165,7 +165,7 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     using (NpgsqlConnection authority = new NpgsqlConnection(Environment.GetEnvironmentVariable(variable)))
-                    { await authority.OpenAsync(token).ConfigureAwait(false); await StoredAuthorizationChecks.RunAsync(database, authority, token).ConfigureAwait(false); }
+                    { await authority.OpenAsync(token).ConfigureAwait(false); await StoredAuthorizationChecks.RunAsync(database, authority, token).ConfigureAwait(false); await RoleChecks.RunAsync(database, authority, token).ConfigureAwait(false); }
                     await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
                     await IdentityChecks.RunAsync(database, new ArgueBotPaths(migrationHome), token).ConfigureAwait(false);
                     await ExecutionIdentityChecks.RunAsync(database, new ArgueBotPaths(migrationHome), token).ConfigureAwait(false);

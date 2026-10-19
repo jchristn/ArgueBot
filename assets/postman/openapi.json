@@ -42,7 +42,6 @@
             "schema": {
               "type": "string",
               "pattern": "^[A-Fa-f0-9]{64}$",
-              "description": "Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned.",
               "minLength": 64,
               "maxLength": 64
             },
@@ -5566,6 +5565,496 @@
           }
         }
       }
+    },
+    "/v1.0/api/roles": {
+      "get": {
+        "operationId": "get_v1_0_api_roles",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Enumerate visible built-in and tenant custom roles",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful enumerate visible built-in and tenant custom roles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_0_api_roles",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Create or clone a tenant custom role",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create or clone a tenant custom role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              },
+              "example": {
+                "name": "Custom {{$guid}}",
+                "active": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/roles/{roleId}": {
+      "get": {
+        "operationId": "get_v1_0_api_roles_roleId_",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Read a visible role definition",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a visible role definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_roles_roleId_",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update or deactivate a tenant custom role",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update or deactivate a tenant custom role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              },
+              "example": {
+                "name": "Updated {{$guid}}",
+                "active": false,
+                "expectedRevision": 1
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6689,6 +7178,115 @@
             "description": "The session was revoked."
           }
         }
+      },
+      "RolePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleRecord"
+            },
+            "description": "Ordered role metadata, including visible built-ins."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested bounded page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching role definitions."
+          }
+        },
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ]
+      },
+      "RoleRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable role identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Owning tenant, or null for globally visible built-ins."
+          },
+          "name": {
+            "type": "string",
+            "description": "Role display name."
+          },
+          "builtin": {
+            "type": "boolean",
+            "description": "Definition is supplied by the platform."
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Normal administration cannot mutate this definition."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether assignments can use this definition."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Optimistic concurrency revision."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp."
+          }
+        },
+        "description": "Global protected built-ins have null tenantId; all created roles are current-tenant custom definitions. Deactivate instead of deleting to preserve historical assignments."
+      },
+      "RoleRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for a tenant custom role.",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the custom role can contribute authority."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current revision required for updates.",
+            "minimum": 0
+          },
+          "cloneRoleId": {
+            "type": "string",
+            "description": "Optional accessible role to copy when creating a custom role; omit for updates.",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "Create optionally clones active permission mappings from an accessible role. Updates replace name/active and require expectedRevision; cloneRoleId is create-only. Built-in names are reserved and built-in definitions are immutable. Current database tenant/system administrator flags are required until full scoped administration integration."
       },
       "RunnerProfile": {
         "type": "object",

@@ -725,6 +725,73 @@
       "query": [],
       "execute": true,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/roles",
+      "group": "Roles",
+      "summary": "Enumerate visible built-in and tenant custom roles",
+      "response": "RolePage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "search",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/roles",
+      "group": "Roles",
+      "summary": "Create or clone a tenant custom role",
+      "response": "RoleRecord",
+      "request": "RoleRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Custom {{$guid}}",
+        "active": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "roleId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/roles/{roleId}",
+      "group": "Roles",
+      "summary": "Read a visible role definition",
+      "response": "RoleRecord",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v1.0/api/roles/{roleId}",
+      "group": "Roles",
+      "summary": "Update or deactivate a tenant custom role",
+      "response": "RoleRecord",
+      "request": "RoleRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Updated {{$guid}}",
+        "active": false,
+        "expectedRevision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
     }
   ]
 }

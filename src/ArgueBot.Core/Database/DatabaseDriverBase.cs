@@ -37,6 +37,8 @@ namespace ArgueBot.Core.Database
         public IProfileMethods Profiles { get; }
         /// <summary>Tenant-scoped identity administration.</summary>
         public IUserMethods Users { get; }
+        /// <summary>Protected role definitions and tenant custom-role lifecycle.</summary>
+        public IRoleMethods Roles { get; }
         /// <summary>Current stored scoped user permissions.</summary>
         public AuthorizationMethods Authorization { get; }
         /// <summary>Execution checkpoint methods.</summary>
@@ -60,6 +62,7 @@ namespace ArgueBot.Core.Database
             _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
             Users = new UserMethods(this);
+            Roles = new RoleMethods(this);
             Authorization = new AuthorizationMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);

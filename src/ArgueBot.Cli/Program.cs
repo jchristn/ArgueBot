@@ -78,6 +78,19 @@ namespace ArgueBot.Cli
                     }
                     else { Help(); return 2; }
                 }
+                else if (command == "roles")
+                {
+                    string root = "v1.0/api/roles";
+                    if (operation == "list") Print(await client.SendAsync<RolePage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
+                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<RoleRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "create" || operation == "update")
+                    {
+                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
+                        RoleRequest request = JsonSerializer.Deserialize<RoleRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed role object.");
+                        Print(await client.SendAsync<RoleRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
+                    }
+                    else { Help(); return 2; }
+                }
                 else if (command == "audit" && operation == "list")
                 {
                     int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
@@ -189,6 +202,10 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   users show ID
   users create JSON|-|--file PATH
   users update ID JSON|-|--file PATH
+  roles list [SEARCH] [PAGE]        Browse built-ins and tenant custom roles.
+  roles show ID
+  roles create JSON|-|--file PATH   Optional cloneRoleId copies a visible definition.
+  roles update ID JSON|-|--file PATH
   audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
   backups list
   backups create JSON|-|--file PATH

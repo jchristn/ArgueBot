@@ -19,6 +19,7 @@ namespace Test.Shared
             using (ArgueBotClient participant = LocalServiceConnector.CreateClient(endpoint, home))
             {
                 await participant.LoginAsync(new LoginRequest { TenantId = "ten_local", Email = email, PasswordSha256 = new string('C', 64) }, token).ConfigureAwait(false);
+                await RoleHttpChecks.RunAsync(owner, participant, token).ConfigureAwait(false);
                 Conversation conversation = await participant.CreateConversationAsync("Native identity stream fixture", token).ConfigureAwait(false);
                 UserPage found = await owner.SendAsync<UserPage>(HttpMethod.Get, "v1.0/api/users?search=" + Uri.EscapeDataString(email), token: token).ConfigureAwait(false);
                 if (found.TotalCount != 1 || found.Items[0].Id != user.Id) throw new InvalidDataException("Public identity search did not decode its email filter exactly once.");

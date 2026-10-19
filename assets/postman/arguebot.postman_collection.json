@@ -60,6 +60,10 @@
       "value": ""
     },
     {
+      "key": "roleId",
+      "value": ""
+    },
+    {
       "key": "settingsRevision",
       "value": ""
     },
@@ -1711,6 +1715,153 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "description": "Lifecycle operations for roles. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Enumerate visible built-in and tenant custom roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/roles",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate visible built-in and tenant custom roles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('Role page preserves bounds and protected built-ins',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);for(const role of page.items){if(role.builtin){pm.expect(role.protected).to.be.true;pm.expect(role.tenantId).to.equal(null);}else pm.expect(role.tenantId).to.be.a('string');}});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create or clone a tenant custom role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/roles",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Create or clone a tenant custom role",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Custom {{$guid}}\",\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('roleId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a visible role definition",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Read a visible role definition"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update or deactivate a tenant custom role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Update or deactivate a tenant custom role",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated {{$guid}}\",\n  \"active\": false,\n  \"expectedRevision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
                 ]
               }
             }

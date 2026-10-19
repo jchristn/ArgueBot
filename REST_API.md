@@ -575,6 +575,63 @@ Success: **200**, response: `UserRecord`. Request: `UserRequest`.
 | --- | --- | --- | --- |
 | userId | path | true | Identifier in the authenticated ownership scope. |
 
+## GET /v1.0/api/roles
+
+Enumerate visible built-in and tenant custom roles. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `RolePage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## POST /v1.0/api/roles
+
+Create or clone a tenant custom role. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **201**, response: `RoleRecord`. Request: `RoleRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Custom {{$guid}}",
+  "active": true
+}
+```
+
+## GET /v1.0/api/roles/{roleId}
+
+Read a visible role definition. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `RoleRecord`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| roleId | path | true | Identifier in the authenticated ownership scope. |
+
+## PUT /v1.0/api/roles/{roleId}
+
+Update or deactivate a tenant custom role. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `RoleRecord`. Request: `RoleRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| roleId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "name": "Updated {{$guid}}",
+  "active": false,
+  "expectedRevision": 1
+}
+```
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -985,6 +1042,44 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | revoked | boolean | The session was revoked. |
+
+### RolePage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Ordered role metadata, including visible built-ins. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Requested bounded page size. |
+| totalCount | integer | Total matching role definitions. |
+
+### RoleRecord
+
+Global protected built-ins have null tenantId; all created roles are current-tenant custom definitions. Deactivate instead of deleting to preserve historical assignments.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable role identifier. |
+| tenantId | string (nullable) | Owning tenant, or null for globally visible built-ins. |
+| name | string | Role display name. |
+| builtin | boolean | Definition is supplied by the platform. |
+| protected | boolean | Normal administration cannot mutate this definition. |
+| active | boolean | Whether assignments can use this definition. |
+| revision | integer | Optimistic concurrency revision. |
+| createdUtc | string | Creation timestamp. |
+| updatedUtc | string | Last update timestamp. |
+
+### RoleRequest
+
+Create optionally clones active permission mappings from an accessible role. Updates replace name/active and require expectedRevision; cloneRoleId is create-only. Built-in names are reserved and built-in definitions are immutable. Current database tenant/system administrator flags are required until full scoped administration integration.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Display name for a tenant custom role. |
+| active | boolean | Whether the custom role can contribute authority. |
+| expectedRevision | integer | Current revision required for updates. |
+| cloneRoleId | string | Optional accessible role to copy when creating a custom role; omit for updates. |
 
 ### RunnerProfile
 

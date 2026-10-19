@@ -49,6 +49,14 @@ try {
   for(let attempt=0;attempt<100;attempt++) { if(await fs.stat(path.join(home,'runtime/service.json')).then(()=>false,()=>true)) break; await delay(50); }
   await fs.writeFile(path.join(home,'arguebot.json'),JSON.stringify({port,tlsEnabled:true}),{mode:0o600});
   check(command(['service','start']).status==='ready', 'Native CLI did not attach to the owner-pinned HTTPS listener.');
+  const builtins = command(['roles','list','Viewer']);
+  check(builtins.items.length===1 && builtins.items[0].builtin && builtins.items[0].protected, 'CLI role inspection lost protected built-ins.');
+  const role = command(['roles','create','-'], {name:'CLI scoped role %+議論',cloneRoleId:builtins.items[0].id});
+  check(role.tenantId==='ten_local' && !role.builtin && !role.protected, 'CLI role clone lost tenant/custom identity.');
+  check(command(['roles','list','%+議論']).items.some(item=>item.id===role.id), 'CLI role search lost literal punctuation/Unicode.');
+  check(command(['roles','show',role.id]).revision===1, 'CLI role read lost its initial revision.');
+  const inactiveRole = command(['roles','update',role.id,'-'], {name:role.name,active:false,expectedRevision:role.revision});
+  check(!inactiveRole.active && inactiveRole.revision===2, 'CLI role deactivation lost optimistic concurrency.');
   const audit = command(['audit','list','session.issue']);
   check(audit.totalCount >= 1 && audit.items.every(item=>item.operation==='session.issue' && item.sessionId), 'CLI audit inspection lost session accounting.');
   const profile = command(['participants','add','-'], {name:'CLI surface fixture',kind:'cli',provider:'plain',executable:'fixture-not-executed',arguments:['','--literal','議論 with spaces']});

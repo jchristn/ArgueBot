@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Authenticated role definition browsing, tenant custom-role creation/cloning and revision-checked deactivation. Built-ins remain immutable, current database administrator authority is rechecked, and changes carry atomic audit events. Permission/assignment editing and complete scoped enforcement remain in progress.
+
 - Schema 12 stores protected built-in roles, tenant permissions, mappings and scoped user assignments. Current-user resolution enforces activity, name fallback, exact scope and deny precedence. Management endpoints and route enforcement remain in progress.
 
 - Schema 11 replaces stored password equivalents with salted PBKDF2-HMAC-SHA256 verifiers. Existing accounts and sessions migrate without password changes; stored verifiers cannot be replayed as login input.
