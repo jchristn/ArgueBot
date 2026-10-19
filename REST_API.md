@@ -4,7 +4,7 @@ The replacement service owns persistent conversations, execution and configurati
 
 Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers and tenant hints are rejected. Password/credential exchange is not yet enabled by this local-only host.
 
-List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions, and note/run creation use idempotency keys. Reusing a creation key with different content returns 409. Moderator controls are state-dependent; their command receipt hardening remains an open plan gate.
+List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
 Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
 
@@ -352,6 +352,12 @@ Success: **200**, response: `DeletionResponse`.
 | --- | --- | --- | --- |
 | conversationId | path | true | Identifier in the authenticated ownership scope. |
 
+## POST /v1.0/api/settings/shutdown
+
+Drain active work and stop the service; a supervisor may restart it. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+
+Success: **202**, response: `Acknowledgement`.
+
 ## POST /v1.0/api/auth/logout
 
 Revoke the current session immediately. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
@@ -415,7 +421,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | action | string | Requested operation. |
 | text | string | User text. |
 | recipientId | string (nullable) | Target profile. |
-| idempotencyKey | string | Unique command key. |
+| idempotencyKey | string | Unique command key, 1 to 200 characters for durable controls and messages; hold/release are transient. |
 | revision | integer (nullable) | Expected resource revision. |
 | rounds | integer | Extension rounds. |
 
@@ -507,6 +513,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | status | string | Readiness state. |
 | schema | integer | Current database schema version, independent of product version. |
+| protocol | integer | HTTP attachment protocol version, separate from schema and product versions. |
 
 ### HistoryFilter
 
@@ -532,6 +539,18 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page. |
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
+
+### LocalServiceDescriptor
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| endpoint | string | Local listener address. |
+| protocol | integer | Attachment protocol, independent of product and schema versions. |
+| instanceId | string | Process instance identifier used when removing stale metadata. |
+| processId | integer | Operating-system process ID for diagnostics, never a substitute for the ownership lock. |
+| startedUtc | string | Service startup time. |
 
 ### Message
 

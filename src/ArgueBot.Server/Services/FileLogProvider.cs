@@ -4,6 +4,7 @@ namespace ArgueBot.Server.Services
     using System.IO;
     using System.Text.Json;
     using Microsoft.Extensions.Logging;
+    using ArgueBot.Core.Configuration;
 
     internal sealed class FileLogProvider : ILoggerProvider
     {
@@ -33,7 +34,7 @@ namespace ArgueBot.Server.Services
                     using (FileStream stream = new FileStream(_Path, FileMode.Append, FileAccess.Write, FileShare.Read))
                     using (StreamWriter writer = new StreamWriter(stream))
                     {
-                        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_Path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                        HomePermissions.File(_Path);
                         writer.WriteLine(record);
                     }
                 }

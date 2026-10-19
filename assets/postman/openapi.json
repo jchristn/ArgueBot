@@ -3175,6 +3175,109 @@
         }
       }
     },
+    "/v1.0/api/settings/shutdown": {
+      "post": {
+        "operationId": "post_v1_0_api_settings_shutdown",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Drain active work and stop the service; a supervisor may restart it",
+        "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator.",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Successful drain active work and stop the service; a supervisor may restart it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/api/auth/logout": {
       "post": {
         "operationId": "post_v1_0_api_auth_logout",
@@ -3379,7 +3482,7 @@
           },
           "idempotencyKey": {
             "type": "string",
-            "description": "Unique command key."
+            "description": "Unique command key, 1 to 200 characters for durable controls and messages; hold/release are transient."
           },
           "revision": {
             "type": "integer",
@@ -3630,6 +3733,11 @@
             "type": "integer",
             "format": "int32",
             "description": "Current database schema version, independent of product version."
+          },
+          "protocol": {
+            "type": "integer",
+            "format": "int32",
+            "description": "HTTP attachment protocol version, separate from schema and product versions."
           }
         }
       },
@@ -3698,6 +3806,34 @@
             "type": "integer",
             "format": "int64",
             "description": "Total matching records."
+          }
+        }
+      },
+      "LocalServiceDescriptor": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Local listener address."
+          },
+          "protocol": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Attachment protocol, independent of product and schema versions."
+          },
+          "instanceId": {
+            "type": "string",
+            "description": "Process instance identifier used when removing stale metadata."
+          },
+          "processId": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Operating-system process ID for diagnostics, never a substitute for the ownership lock."
+          },
+          "startedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Service startup time."
           }
         }
       },
@@ -4212,9 +4348,7 @@
         "type": "string",
         "enum": [
           "Sqlite",
-          "Mysql",
-          "Postgresql",
-          "SqlServer"
+          "Postgresql"
         ]
       }
     }

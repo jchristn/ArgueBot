@@ -56,6 +56,9 @@ namespace ArgueBot.Core.Services
             SemaphoreSlim gate = Gate(conversationId); await gate.WaitAsync(token).ConfigureAwait(false);
             try
             {
+                if ((request.Action == "note" || request.Action == "steer") && await _Database.IsDuplicateMessageAsync(context, new Message { ConversationId = conversationId, RunId = runId, Kind = request.Action, Content = request.Text, RecipientId = request.Action == "steer" ? request.RecipientId : null }, request.IdempotencyKey, token).ConfigureAwait(false)) return;
+                bool durable = request.Action != "hold" && request.Action != "release" && request.Action != "note" && request.Action != "steer";
+                if (durable && await _Database.Runs.IsDuplicateCommandAsync(context, conversationId, runId, request, token).ConfigureAwait(false)) return;
                 DebateRun run = await _Database.Runs.ReadAsync(context, conversationId, runId, token).ConfigureAwait(false);
                 if (request.Revision.HasValue && request.Revision.Value != run.Revision) throw new DomainException(409, "revision_conflict", "Run changed. Refresh its state.");
                 _Workers.TryGetValue(runId, out ExecutionWorker? worker);
@@ -74,43 +77,50 @@ namespace ArgueBot.Core.Services
                         await _Database.AppendMessageAsync(context, new Message { ConversationId = conversationId, RunId = runId, Content = request.Text, Kind = request.Action, RecipientId = request.Action == "steer" ? request.RecipientId : null }, request.IdempotencyKey, token).ConfigureAwait(false);
                         return;
                     case "pause":
-                        if (run.State == "agent_turn" && worker != null) { worker.PauseAfterTurn = true; return; }
-                        if (run.State == "window" || run.State == "queued") { run.State = "paused"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
+                        if (run.State == "agent_turn" && worker != null) { run.State = "pausing"; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false); worker.PauseAfterTurn = true; return; }
+                        if (run.State == "window" || run.State == "queued") { run.State = "paused"; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false); if (worker != null) worker.PauseAfterTurn = true; return; }
                         throw Conflict();
                     case "interrupt":
                         if (worker?.Generation == null) throw Conflict();
+                        run.State = "interrupting"; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false);
                         worker.PauseAfterTurn = true; worker.Generation.Cancel(); return;
                     case "stop":
                         if (run.State == "completed" || run.State == "cancelled" || run.State == "failed") throw Conflict();
-                        if (worker != null && !worker.Completion.IsCompleted) { worker.StopRequested = true; worker.Generation?.Cancel(); }
-                        else { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); }
+                        if (worker != null && !worker.Completion.IsCompleted) { run.State = "stopping"; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false); worker.StopRequested = true; worker.Generation?.Cancel(); }
+                        else { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false); }
                         return;
                     case "continue":
-                        if (run.State == "window" && worker != null) { worker.SkipWindow = true; return; }
+                        if (run.State == "window" && worker != null) { await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false); worker.SkipWindow = true; return; }
                         goto case "resume";
                     case "resume":
                         if (run.State != "paused") throw Conflict();
-                        run.State = "queued"; run.Outcome = ""; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false);
-                        StartWorker(context, run); return;
+                        run.State = "queued"; run.Outcome = ""; await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false);
+                        StartWorker(context, run, true); return;
                     case "extend":
                         if (run.Mode == "followup") throw new DomainException(409, "invalid_state", "Follow-up answers cannot be extended into debate rounds.");
-                        if (request.Rounds < 1 || run.MaxRounds + request.Rounds > 50) throw new DomainException(400, "invalid_rounds", "Extension must keep the total at or below fifty rounds.");
+                        if (request.Rounds < 1 || request.Rounds > 50 - run.MaxRounds) throw new DomainException(400, "invalid_rounds", "Extension must keep the total at or below fifty rounds.");
                         run.MaxRounds += request.Rounds;
                         if (run.State == "completed" && run.Outcome == "max_rounds") { run.State = "queued"; run.Outcome = ""; }
-                        await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false);
-                        if (run.State == "queued") StartWorker(context, run); return;
+                        await _Database.Runs.SaveCommandAsync(context, run, request, token).ConfigureAwait(false);
+                        if (run.State == "queued") StartWorker(context, run, true); return;
                     default: throw new DomainException(400, "unknown_action", "Unknown moderator action.");
                 }
             }
             finally { gate.Release(); }
         }
 
-        private void StartWorker(RequestContext context, DebateRun run)
+        private void StartWorker(RequestContext context, DebateRun run, bool replace = false)
         {
-            if (_Workers.TryGetValue(run.Id, out ExecutionWorker? current) && !current.Completion.IsCompleted) return;
+            Task previous = Task.CompletedTask;
+            if (_Workers.TryGetValue(run.Id, out ExecutionWorker? current) && !current.Completion.IsCompleted)
+            {
+                if (!replace) return;
+                current.PauseAfterTurn = true;
+                previous = current.Completion;
+            }
             ExecutionWorker worker = new ExecutionWorker(); _Workers[run.Id] = worker;
             ProductTelemetry.Runs.Add(1, new KeyValuePair<string, object?>("mode", run.Mode));
-            worker.Completion = Task.Run(() => ExecuteAsync(context, run, worker, _Lifetime.Token), CancellationToken.None);
+            worker.Completion = Task.Run(async () => { await previous.ConfigureAwait(false); await ExecuteAsync(context, run, worker, _Lifetime.Token).ConfigureAwait(false); }, CancellationToken.None);
         }
 
         private async Task ExecuteAsync(RequestContext context, DebateRun run, ExecutionWorker worker, CancellationToken token)
@@ -133,7 +143,7 @@ namespace ArgueBot.Core.Services
                         {
                             run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
-                            if (run.State == "paused") return;
+                            if (worker.PauseAfterTurn || run.State == "paused" || run.State == "completed" || run.State == "cancelled" || run.State == "failed") return;
                             profile = run.Participants[run.SpeakerIndex];
                             contextMessages = (await _Database.ReadMessagesAsync(context, run.ConversationId, token).ConfigureAwait(false)).Where(message => message.State == "completed" && (message.RecipientId == null || message.RecipientId == profile.Id)).ToList();
                             foreach (Message directive in contextMessages.Where(message => message.RecipientId != null))
@@ -161,12 +171,12 @@ namespace ArgueBot.Core.Services
                         catch (OperationCanceledException) { answer.State = "interrupted"; }
                         catch (Exception ex) when (ex is not OutOfMemoryException)
                         { answer.State = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
-                        finally { worker.Generation.Dispose(); worker.Generation = null; }
                         if (failure != null) _Logger.LogWarning("Generation failed {RunId} {Outcome}", run.Id, failure);
                         else _Logger.LogInformation("Generation finished {RunId} {State}", run.Id, answer.State);
                         await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                         try
                         {
+                            worker.Generation?.Dispose(); worker.Generation = null;
                             await _Database.UpdateMessageAsync(context, answer, "", CancellationToken.None).ConfigureAwait(false);
                             run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, CancellationToken.None).ConfigureAwait(false);
                             if (answer.State == "completed")
@@ -185,7 +195,7 @@ namespace ArgueBot.Core.Services
                         }
                         finally { gate.Release(); }
                         DateTime deadline = DateTime.UtcNow.AddSeconds(run.InterventionSeconds);
-                        while (DateTime.UtcNow < deadline && !worker.SkipWindow && !worker.StopRequested)
+                        while (DateTime.UtcNow < deadline && !worker.SkipWindow && !worker.StopRequested && !worker.PauseAfterTurn)
                         {
                             token.ThrowIfCancellationRequested();
                             DateTime now = DateTime.UtcNow;
@@ -193,7 +203,7 @@ namespace ArgueBot.Core.Services
                             if (!worker.Holds.IsEmpty) deadline = now.AddSeconds(run.InterventionSeconds);
                             await Task.Delay(100, token).ConfigureAwait(false);
                             DebateRun latest = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
-                            if (latest.State == "paused") return;
+                            if (latest.State == "paused" || worker.PauseAfterTurn) return;
                         }
                         worker.SkipWindow = false;
                     }

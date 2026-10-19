@@ -10,7 +10,9 @@ namespace ArgueBot.Core.Database.Interfaces
     {
         /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>
         Task<List<Message>> ReadMessagesAsync(RequestContext context, string conversationId, CancellationToken token = default);
-        /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>
+        /// <summary>Recognize a committed message retry including its original run and private recipient.</summary>
+        Task<bool> IsDuplicateMessageAsync(RequestContext context, Message message, string commandKey, CancellationToken token = default);
+        /// <summary>Append a message with an optional atomic command receipt.</summary>
         Task<Message> AppendMessageAsync(RequestContext context, Message message, string commandKey = "", CancellationToken token = default);
         /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>
         Task UpdateMessageAsync(RequestContext context, Message message, string delta, CancellationToken token = default);

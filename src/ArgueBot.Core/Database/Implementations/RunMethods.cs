@@ -7,15 +7,17 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Durable run checkpoints and immutable relational participant snapshots.</summary>
-    public sealed class RunMethods
+    public sealed class RunMethods : IRunMethods
     {
         private readonly DatabaseDriverBase _Database;
         internal RunMethods(DatabaseDriverBase database) { _Database = database; }
@@ -30,7 +32,20 @@ namespace ArgueBot.Core.Database.Implementations
             if (followup && (string.IsNullOrWhiteSpace(request.Question) || request.Question.Length > 1048576)) throw new DomainException(400, "invalid_question", "Provide a follow-up question up to one MiB.");
             if (followup) { request.MaxRounds = 1; request.InterventionSeconds = 0; }
             if ((followup ? request.ParticipantIds.Count != 1 : request.ParticipantIds.Count < 2 || request.ParticipantIds.Count > 3) || request.ParticipantIds.Distinct().Count() != request.ParticipantIds.Count) throw new DomainException(400, "invalid_participants", "Choose two or three distinct participants.");
-            if (request.MaxRounds < 1 || request.MaxRounds > 50 || request.InterventionSeconds < 0 || request.InterventionSeconds > 600 || string.IsNullOrWhiteSpace(request.IdempotencyKey)) throw new DomainException(400, "invalid_run", "Rounds must be 1 to 50, countdown 0 to 600 seconds, and an idempotency key is required.");
+            if (request.MaxRounds < 1 || request.MaxRounds > 50 || request.InterventionSeconds < 0 || request.InterventionSeconds > 600 || string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200) throw new DomainException(400, "invalid_run", "Rounds must be 1 to 50, countdown 0 to 600 seconds, and an idempotency key is required.");
+            string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Mode + ":" + request.Question + ":" + string.Join(",", request.ParticipantIds) + ":" + request.MaxRounds + ":" + request.InterventionSeconds)));
+            string? existingRun = null;
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, null, "SELECT digest,result_id FROM command_receipts WHERE tenant_id=@tenant AND user_id=@user AND conversation_id=@conversation AND command_key=@key", P("tenant", context.TenantId, "user", context.UserId, "conversation", conversationId, "key", request.IdempotencyKey)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (await reader.ReadAsync(token).ConfigureAwait(false))
+                {
+                    if (S(reader, "digest") != digest) throw new DomainException(409, "idempotency_conflict", "Command key already has different input.");
+                    existingRun = S(reader, "result_id");
+                }
+            }
+            if (existingRun != null) return await ReadAsync(context, conversationId, existingRun, token).ConfigureAwait(false);
             List<RunnerProfile> participants = new List<RunnerProfile>();
             foreach (string id in request.ParticipantIds)
             {
@@ -39,7 +54,6 @@ namespace ArgueBot.Core.Database.Implementations
                 profile.Id = Ids.New("par_"); participants.Add(profile);
             }
             string runId = Ids.New("run_");
-            string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Mode + ":" + request.Question + ":" + string.Join(",", request.ParticipantIds) + ":" + request.MaxRounds + ":" + request.InterventionSeconds)));
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 using (DbCommand command = Command(connection, transaction, "SELECT digest,result_id FROM command_receipts WHERE tenant_id=@tenant AND user_id=@user AND conversation_id=@conversation AND command_key=@key", P("tenant", context.TenantId, "user", context.UserId, "conversation", conversationId, "key", request.IdempotencyKey)))
@@ -107,16 +121,48 @@ namespace ArgueBot.Core.Database.Implementations
             }
         }
 
+        /// <summary>Recognize an exact committed command retry before checking its now-stale revision.</summary>
+        public async Task<bool> IsDuplicateCommandAsync(RequestContext context, string conversationId, string runId, CommandRequest request, CancellationToken token = default)
+        {
+            RequireWrite(context);
+            await _Database.ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            ValidateCommandKey(request);
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            { return await ReceiptAsync(connection, null, context, conversationId, runId, request, token).ConfigureAwait(false); }
+        }
+        /// <summary>Atomically persist a moderator checkpoint, durable event and command receipt.</summary>
+        public Task SaveCommandAsync(RequestContext context, DebateRun run, CommandRequest request, CancellationToken token = default)
+        { ValidateCommandKey(request); return SaveCoreAsync(context, run, request, token); }
+        private static void ValidateCommandKey(CommandRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200) throw new DomainException(400, "invalid_key", "Use an idempotency key between 1 and 200 characters.");
+        }
+        private static string CommandDigest(string runId, CommandRequest request)
+        { return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("run-action:" + runId + ":" + JsonSerializer.Serialize(request)))); }
+        private static async Task<bool> ReceiptAsync(DbConnection connection, DbTransaction? transaction, RequestContext context, string conversationId, string runId, CommandRequest request, CancellationToken token)
+        {
+            using (DbCommand command = Command(connection, transaction, "SELECT digest,result_id FROM command_receipts WHERE tenant_id=@tenant AND user_id=@user AND conversation_id=@conversation AND command_key=@key", P("tenant", context.TenantId, "user", context.UserId, "conversation", conversationId, "key", request.IdempotencyKey)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(token).ConfigureAwait(false)) return false;
+                if (S(reader, "digest") != CommandDigest(runId, request) || S(reader, "result_id") != runId) throw new DomainException(409, "idempotency_conflict", "Command key already has different input.");
+                return true;
+            }
+        }
         /// <summary>Persist a checkpoint using the expected revision; emits a durable status event.</summary>
-        public async Task SaveAsync(RequestContext context, DebateRun run, CancellationToken token = default)
+        public Task SaveAsync(RequestContext context, DebateRun run, CancellationToken token = default)
+        { return SaveCoreAsync(context, run, null, token); }
+        private async Task SaveCoreAsync(RequestContext context, DebateRun run, CommandRequest? request, CancellationToken token)
         {
             RequireWrite(context);
             await _Database.ReadConversationAsync(context, run.ConversationId, token).ConfigureAwait(false);
             await _Database.WriteAsync(async (connection, transaction) =>
             {
+                if (request != null && await ReceiptAsync(connection, transaction, context, run.ConversationId, run.Id, request, token).ConfigureAwait(false)) return;
                 int changed = await ExecuteAsync(connection, transaction, "UPDATE runs SET state=@state,outcome=@outcome,round=@round,speaker_index=@speaker,max_rounds=@max,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND conversation_id=@conversation AND revision=@revision", token, P("state", run.State, "outcome", run.Outcome, "round", run.Round, "speaker", run.SpeakerIndex, "max", run.MaxRounds, "tenant", context.TenantId, "id", run.Id, "conversation", run.ConversationId, "revision", run.Revision)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "revision_conflict", "Run changed. Reload before applying another action.");
                 await EventAsync(connection, transaction, context.TenantId, run.ConversationId, "run_status", run.Id, run.State, token).ConfigureAwait(false);
+                if (request != null) await ExecuteAsync(connection, transaction, "INSERT INTO command_receipts(id,tenant_id,user_id,conversation_id,command_key,digest,result_id,created_utc,updated_utc) VALUES(@id,@tenant,@user,@conversation,@key,@digest,@result,@now,@now)", token, P("id", Ids.New("cmd_"), "tenant", context.TenantId, "user", context.UserId, "conversation", run.ConversationId, "key", request.IdempotencyKey, "digest", CommandDigest(run.Id, request), "result", run.Id)).ConfigureAwait(false);
                 run.Revision++;
             }, token).ConfigureAwait(false);
         }

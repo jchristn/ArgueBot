@@ -13,17 +13,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 2
-  mysql:
-    image: mysql:8.4.11
-    environment:
-      MYSQL_DATABASE: arguebot_test
-      MYSQL_USER: arguebot_test
-      MYSQL_PASSWORD: arguebot-provider-fixture-not-for-production
-      MYSQL_ROOT_PASSWORD: arguebot-root-fixture-not-for-production
-    ports:
-      - "127.0.0.1:4451:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
-      interval: 5s
-      timeout: 5s
-      retries: 2

@@ -429,6 +429,20 @@
     },
     {
       "method": "POST",
+      "path": "/v1.0/api/settings/shutdown",
+      "group": "Settings",
+      "summary": "Drain active work and stop the service; a supervisor may restart it",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 202,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
       "path": "/v1.0/api/auth/logout",
       "group": "Cleanup",
       "summary": "Revoke the current session immediately",

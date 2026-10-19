@@ -4,12 +4,8 @@ namespace ArgueBot.Core.Database
     public enum DatabaseTypeEnum
     {
         /// <summary>Embedded local default.</summary>
-        Sqlite,
-        /// <summary>MySQL or MariaDB.</summary>
-        Mysql,
-        /// <summary>PostgreSQL.</summary>
-        Postgresql,
-        /// <summary>Microsoft SQL Server.</summary>
-        SqlServer
+        Sqlite = 0,
+        /// <summary>PostgreSQL. Value 2 preserves existing numeric settings.</summary>
+        Postgresql = 2
     }
 }

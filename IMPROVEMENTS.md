@@ -4,7 +4,7 @@ Status: implementation in progress. The legacy application remains runnable. Wor
 
 Verified foundation: .NET solution builds with zero warnings; shared Touchstone descriptors run through console/xUnit/NUnit; SQLite history, receipts, tenant/viewer checks, run snapshots, interrupted recovery, exclusive home ownership and engine interrupt/resume have local test coverage. A local HTTP smoke journey exercised pairing, profiles, a two-participant fixture debate, history and session revocation. Real PolyPrompt transport passed committed Postman simulations for success, rate limiting and broken streams. See docs/DEVELOPMENT.md. Full provider, hosted security, interface, operations and release gates remain open.
 
-Additional verified slices: real MySQL and PostgreSQL lifecycle tests pass alongside SQLite; the generated contract covers 27 implemented operations; the React dashboard has browser journeys for conversation persistence, icon controls, responsive themes, request inspection, API execution and literal argument editing. AES-GCM session nonce/tamper/expiry/rotation/revocation cases pass. Native OTLP export has reached Prometheus, Tempo and Loki in the provisioned local stack. Cross-platform CI is configured but its hosted runs are not yet observed. TUIKit focus and theme checks are being added; all milestone checkboxes remain open until the complete gates pass.
+Additional verified slices: real PostgreSQL lifecycle tests pass alongside SQLite; the generated contract covers 28 implemented operations; the React dashboard has browser journeys for conversation persistence, icon controls, responsive themes, request inspection, API execution and literal argument editing. AES-GCM session nonce/tamper/expiry/rotation/revocation cases pass. Native OTLP export has reached Prometheus, Tempo and Loki in the provisioned local stack. Hosted CI passed dashboard/browser checks; an initial runtime restore exposed a private-cache TUIKit hash mismatch, now corrected against the published package with an isolated repository cache. TUIKit focus/theme, concurrent service startup/pairing/detachment/shutdown, durable moderator receipts and portable snapshot corruption/rollback tests pass locally; PostgreSQL snapshots restore into SQLite. all milestone checkboxes remain open until the complete gates pass.
 
 Prepared October 19, 2026 against commit `e4a2f73`. The intended result is one persistent conversation product with a web dashboard, a C# TUIKit terminal application, scriptable console commands, and interchangeable CLI-harness and PolyPrompt model runners.
 
@@ -50,7 +50,7 @@ The normative source is `~/Code/Agents/requirements`. The table lists every docu
 | `REPOSITORY_REQUIREMENTS.md` | Source layout, MIT license, API docs, Postman, Docker conventions | P0, P4, P9, P10 repository checks |
 | `CODE_STYLE.md` | Strict C# conventions, public documentation, cancellation, disposal | P0 analyzer configuration and every C# review |
 | `VERSIONING.md` | Human-controlled version changes; approved pre-1.0 releases labeled alpha | P0 release guard and P10 preflight |
-| `BACKEND_ARCHITECTURE.md` | Watson 7.1, typed routes/context, PrettyId, structural tenancy, four database providers | P1 through P4 and provider matrix tests |
+| `BACKEND_ARCHITECTURE.md` | Watson 7.1, typed routes/context, PrettyId, structural tenancy, SQLite and PostgreSQL (user-directed provider scope) | P1 through P4 and provider matrix tests |
 | `BACKEND_TEST_ARCHITECTURE.md` | Touchstone shared descriptors and automated/xUnit/NUnit runners | P0 and P8 |
 | `AUTHENTICATION.md` | Authentication, authorization, accounting, scoped credentials, revocable sessions | P2, P4, security journeys in P8 |
 | `FRONTEND_ARCHITECTURE.md` | React 19, Vite 6, Router 7 baseline, shared fetch client, contexts, route structure | P6 dashboard implementation and build checks |
@@ -65,7 +65,7 @@ The normative source is `~/Code/Agents/requirements`. The table lists every docu
 
 ### Compliance decisions and boundaries
 
-SQLite is the default, but the backend standard explicitly requires `Sqlite`, `Mysql`, `Postgresql`, and `SqlServer` implementations. All four belong in the release scope, with migrations and shared behavioral tests. A SQLite-only milestone is useful internally but is not a compliant final backend.
+SQLite and PostgreSQL are the supported release providers. On October 19, 2026 the user explicitly narrowed the scope: "You only need sqlite and postgres. no need for mysql and sql server." This instruction overrides the four-provider baseline in `BACKEND_ARCHITECTURE.md`; it is an intentional requirements exception, not deferred implementation. Remove the other drivers, packages, configuration options, fixtures and tests. Both supported providers still require migrations, backup/recovery and shared behavioral evidence.
 
 The frontend standard requires React/Vite and a complete operational dashboard. Keeping the existing plain-JavaScript frontend indefinitely would not satisfy it. Authentication, administration, request history, API Explorer, settings, and observability therefore belong in the product plan alongside conversation navigation. No first-pass dashboard is presented as complete with placeholder core workflows.
 
@@ -102,9 +102,7 @@ src/
     Database/
       Interfaces/
       Sqlite/{Implementations,Queries}/
-      Mysql/{Implementations,Queries}/
       Postgresql/{Implementations,Queries}/
-      SqlServer/{Implementations,Queries}/
   ArgueBot.Runners/          process adapters and PolyPrompt adapters
   ArgueBot.Server/           Watson host, routes, composition, background work
   ArgueBot.Client/           typed internal HTTP/event client for console surfaces
@@ -511,7 +509,7 @@ Gate: existing commands still work, the new skeleton builds without warnings, ba
 Implement storage before allowing new runs so the engine never acquires an accidental in-memory-only execution path. Test the default local home through injected temporary paths, not by changing the developer's real files.
 
 - [ ] Implement path resolution, settings authority/precedence, exclusive startup lock, schema discovery and permissions.
-- [ ] Build domain-specific database interfaces, factory and drivers for all four required providers, migrations, seeding and ownership constraints.
+- [ ] Build domain-specific database interfaces, factory and drivers for both supported providers (SQLite and PostgreSQL), migrations, seeding and ownership constraints.
 - [ ] Implement conversation/configuration/message/event/receipt CRUD and backend search/paging/sorting with indexes.
 - [ ] Implement consistent backups, verification, controlled restore, retention and deletion behavior.
 - [ ] Test repeated startup/migrations, crash recovery, lock contention, future schemas, invalid homes, permissions, disk failure, and backup round trips across supported provider workflows.

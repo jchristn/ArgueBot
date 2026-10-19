@@ -21,3 +21,5 @@ installers/
 dashboard/test-results/
 dashboard/playwright-report/
 test-results/
+*.arguedb.jsonl
+*.arguebak

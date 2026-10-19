@@ -19,7 +19,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Target profile.</summary>
         public string? RecipientId { get; set; }
 
-        /// <summary>Unique command key.</summary>
+        /// <summary>Unique command key, 1 to 200 characters for durable controls and messages; hold/release are transient.</summary>
         public string IdempotencyKey { get { return _IdempotencyKey; } set { ArgumentNullException.ThrowIfNull(value); _IdempotencyKey = value; } }
 
         /// <summary>Expected resource revision.</summary>

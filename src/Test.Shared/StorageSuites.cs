@@ -27,6 +27,7 @@ namespace Test.Shared
                     new TestCaseDescriptor("Storage", "RoundTrip", "History, receipts, search, backup and tenant isolation", RoundTripAsync),
                     new TestCaseDescriptor("Storage", "RunRecovery", "Immutable snapshots and interrupted run recovery", RunRecoveryAsync),
                     new TestCaseDescriptor("Storage", "ExclusiveHome", "Exclusive application-home ownership", ExclusiveHomeAsync),
+                    new TestCaseDescriptor("Storage", "CommandReceipts", "Moderator retries do not extend twice; immediate pause/resume retires the old worker", CommandReceiptsAsync),
                     new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync),
                     new TestCaseDescriptor("Storage", "SchemaUpgrade", "Historical schema upgrade creates backup and rejects future schemas", SchemaUpgradeAsync)
                 }) };
@@ -115,6 +116,9 @@ namespace Test.Shared
                     DebateRun run = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false); runId = run.Id;
                     DebateRun repeated = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false);
                     if (run.Id != repeated.Id || run.Participants[0].Id == one.Id || !run.Participants[0].Arguments.SequenceEqual(one.Arguments)) throw new InvalidDataException("Snapshot or run idempotency failed.");
+                    await database.Profiles.DeleteAsync(context, one.Id, token).ConfigureAwait(false);
+                    repeated = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false);
+                    if (repeated.Id != run.Id) throw new InvalidDataException("Deleting the reusable profile broke a committed run retry.");
                     run.State = "agent_turn"; await database.Runs.SaveAsync(context, run, token).ConfigureAwait(false);
                     await database.AppendMessageAsync(context, new Message { ConversationId = conversationId, RunId = run.Id, Content = "partial", State = "streaming", Speaker = "one" }, token: token).ConfigureAwait(false);
                 }
@@ -165,6 +169,55 @@ namespace Test.Shared
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
+        private static async Task CommandReceiptsAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-command-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RequestContext owner = Owner();
+                    RunnerProfile first = await database.Profiles.CreateAsync(owner, new RunnerProfile { Name = "first", Executable = "fixture" }, token).ConfigureAwait(false);
+                    RunnerProfile second = await database.Profiles.CreateAsync(owner, new RunnerProfile { Name = "second", Executable = "fixture" }, token).ConfigureAwait(false);
+                    FixtureRunner runner = new FixtureRunner { Wait = true };
+                    ConversationEngine engine = new ConversationEngine(database, runner, 1);
+                    try
+                    {
+                        Conversation blocker = await database.CreateConversationAsync(owner, "occupy worker capacity", token).ConfigureAwait(false);
+                        DebateRun blocking = await engine.StartAsync(owner, blocker.Id, new CreateRunRequest { ParticipantIds = new List<string> { first.Id, second.Id }, MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "blocker" }, token).ConfigureAwait(false);
+                        await runner.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                        Conversation target = await database.CreateConversationAsync(owner, "queued command fixture", token).ConfigureAwait(false);
+                        DebateRun run = await engine.StartAsync(owner, target.Id, new CreateRunRequest { ParticipantIds = new List<string> { first.Id, second.Id }, MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "target" }, token).ConfigureAwait(false);
+                        CommandRequest extension = new CommandRequest { Action = "extend", Rounds = 2, Revision = run.Revision, IdempotencyKey = "extend-once" };
+                        await engine.ApplyAsync(owner, target.Id, run.Id, extension, "fixture", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(owner, target.Id, run.Id, extension, "fixture", token).ConfigureAwait(false);
+                        run = await database.Runs.ReadAsync(owner, target.Id, run.Id, token).ConfigureAwait(false);
+                        if (run.MaxRounds != 3) throw new InvalidDataException("A duplicate extension changed the round limit twice.");
+                        CommandRequest note = new CommandRequest { Action = "note", Text = "Keep the trade-offs explicit.", Revision = run.Revision, IdempotencyKey = "note-once" };
+                        CommandRequest directive = new CommandRequest { Action = "steer", Text = "Consider the failure case.", RecipientId = run.Participants[0].Id, Revision = run.Revision, IdempotencyKey = "steer-once" };
+                        await engine.ApplyAsync(owner, target.Id, run.Id, note, "fixture", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(owner, target.Id, run.Id, directive, "fixture", token).ConfigureAwait(false);
+                        bool denied = false;
+                        try { await engine.ApplyAsync(owner, target.Id, run.Id, new CommandRequest { Action = "extend", Rounds = 3, IdempotencyKey = extension.IdempotencyKey }, "fixture", token).ConfigureAwait(false); }
+                        catch (DomainException ex) when (ex.Code == "idempotency_conflict") { denied = true; }
+                        if (!denied) throw new InvalidDataException("A reused moderator key accepted changed input.");
+                        await engine.ApplyAsync(owner, target.Id, run.Id, new CommandRequest { Action = "pause", IdempotencyKey = "pause" }, "fixture", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(owner, target.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "resume" }, "fixture", token).ConfigureAwait(false);
+                        runner.Wait = false;
+                        await engine.ApplyAsync(owner, blocker.Id, blocking.Id, new CommandRequest { Action = "stop", IdempotencyKey = "stop-blocker" }, "fixture", token).ConfigureAwait(false);
+                        run = await WaitStateAsync(database, owner, target.Id, run.Id, "completed", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(owner, target.Id, run.Id, note, "fixture", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(owner, target.Id, run.Id, directive, "fixture", token).ConfigureAwait(false);
+                        List<Message> retained = await database.ReadMessagesAsync(owner, target.Id, token).ConfigureAwait(false);
+                        if (retained.Count(message => message.Kind == "note") != 1 || retained.Count(message => message.Kind == "steer") != 1) throw new InvalidDataException("A committed note/directive retry duplicated after completion.");
+                        if (runner.Calls != 7 || run.MaxRounds != 3) throw new InvalidDataException("Immediate resumption lost or duplicated a worker.");
+                    }
+                    finally { await engine.DisposeAsync().ConfigureAwait(false); }
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
         private static async Task EngineAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-test-" + Guid.NewGuid().ToString("N"));
@@ -183,11 +236,11 @@ namespace Test.Shared
                     {
                         DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ParticipantIds = new List<string> { one.Id, two.Id }, MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "engine-run" }, token).ConfigureAwait(false);
                         await runner.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
-                        await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "interrupt" }, "test-client", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "interrupt", IdempotencyKey = "interrupt-fixture" }, "test-client", token).ConfigureAwait(false);
                         run = await WaitStateAsync(database, context, conversation.Id, run.Id, "paused", token).ConfigureAwait(false);
                         if (runner.Calls != 1) throw new InvalidDataException("Interrupted generation was duplicated.");
                         runner.Wait = false;
-                        await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "resume", Revision = run.Revision }, "test-client", token).ConfigureAwait(false);
+                        await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "resume", Revision = run.Revision, IdempotencyKey = "resume-fixture" }, "test-client", token).ConfigureAwait(false);
                         run = await WaitStateAsync(database, context, conversation.Id, run.Id, "completed", token).ConfigureAwait(false);
                         List<Message> messages = await database.ReadMessagesAsync(context, conversation.Id, token).ConfigureAwait(false);
                         if (run.Outcome != "max_rounds" || messages.Count(item => item.State == "completed") != 2 || messages.Count(item => item.State == "interrupted") != 1) throw new InvalidDataException("Resumed execution did not preserve partial and final turns.");

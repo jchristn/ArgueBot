@@ -964,6 +964,31 @@
               }
             }
           ]
+        },
+        {
+          "name": "Drain active work and stop the service; a supervisor may restart it",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/settings/shutdown",
+            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Drain active work and stop the service; a supervisor may restart it"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

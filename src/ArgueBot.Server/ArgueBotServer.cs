@@ -30,7 +30,7 @@ namespace ArgueBot.Server
             using (CancellationTokenSource wake = CancellationTokenSource.CreateLinkedTokenSource(token))
             using (SettingsManager settingsManager = new SettingsManager(paths, settings))
             using (FileStream owner = paths.AcquireLock())
-            using (DatabaseDriverBase database = settings.Database.Type == DatabaseTypeEnum.Sqlite && settings.Database.ConnectionString.Length == 0 && settings.Database.ConnectionEnvironmentVariable.Length == 0 ? new SqliteDatabaseDriver(paths) : DatabaseDriverFactory.Create(settings.Database))
+            using (DatabaseDriverBase database = settings.Database.Type == DatabaseTypeEnum.Sqlite && settings.Database.ConnectionString.Length == 0 && settings.Database.ConnectionEnvironmentVariable.Length == 0 ? new SqliteDatabaseDriver(paths) : DatabaseDriverFactory.Create(settings.Database, Path.Combine(paths.Home, "backups")))
             {
                 telemetry.LoggerFactory?.AddProvider(new FileLogProvider(Path.Combine(paths.Home, "logs")));
                 await database.InitializeAsync(token).ConfigureAwait(false);
@@ -75,7 +75,7 @@ namespace ArgueBot.Server
                                 RequestContext? received = http.Metadata as RequestContext;
                                 context.CorrelationId = received?.CorrelationId ?? Guid.NewGuid().ToString("N"); context.ReceivedUtc = received?.ReceivedUtc ?? DateTime.UtcNow; context.StartedTimestamp = received?.StartedTimestamp ?? Stopwatch.GetTimestamp(); http.Metadata = context;
                             });
-                            server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.SendAsync(http, new HealthResponse()), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
+                            server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.SendAsync(http, new HealthResponse { Status = "ready", Schema = DatabaseSchema.CurrentVersion, Protocol = 1 }), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
                             server.Routes.PreAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/auth/pair", http => Api.GuardAsync(http, async () =>
                             { await Api.SendAsync(http, new PairResponse { Token = await enrollment.PairAsync(Api.Body<PairRequest>(http).Code, http.Token).ConfigureAwait(false) }).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Exchange local single-use code", "Auth"));
                             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/auth/me", http => Api.SendAsync(http, Api.Context(http)), openApiMetadata: OpenApiRouteMetadata.Create("Current identity", "Auth"));
@@ -83,17 +83,20 @@ namespace ArgueBot.Server
                             { string secret = Api.SessionToken(http); await sessions.RevokeAsync(secret, http.Token).ConfigureAwait(false); await Api.SendAsync(http, new RevocationResponse()).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Revoke session", "Auth"));
                             new DashboardRoutes().Register(server);
                             new HistoryRoutes(database, settings).Register(server);
-                            new ConfigurationRoutes(database, settingsManager, () => { restartRequested = true; wake.Cancel(); }).Register(server);
+                            new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
                             new ConversationRoutes(database, engine, sessions).Register(server);
                             ContractRoutes.Register(server);
                             server.UseOpenApi(options => options.DocumentPath = "/openapi.generated.json");
                             server.Start();
-                            telemetry.CreateLogger("ArgueBot.Service").LogInformation("Listener started {Port}", settings.Port);
-                            Console.WriteLine("ArgueBot replacement service: http://127.0.0.1:" + settings.Port + " | home " + paths.Home);
-                            try { await Task.Delay(Timeout.Infinite, wake.Token).ConfigureAwait(false); }
-                            catch (OperationCanceledException) when (wake.IsCancellationRequested) { }
-                            server.Stop();
-                            telemetry.CreateLogger("ArgueBot.Service").LogInformation("Listener stopped {Restart}", restartRequested);
+                            using (LocalServiceRegistration registration = new LocalServiceRegistration(paths, settings.Port))
+                            {
+                                telemetry.CreateLogger("ArgueBot.Service").LogInformation("Listener started {Port}", settings.Port);
+                                Console.WriteLine("ArgueBot replacement service: http://127.0.0.1:" + settings.Port + " | home " + paths.Home);
+                                try { await Task.Delay(Timeout.Infinite, wake.Token).ConfigureAwait(false); }
+                                catch (OperationCanceledException) when (wake.IsCancellationRequested) { }
+                                server.Stop();
+                                telemetry.CreateLogger("ArgueBot.Service").LogInformation("Listener stopped {Restart}", restartRequested);
+                            }
                         }
                     }
                     finally { await engine.DisposeAsync().ConfigureAwait(false); }

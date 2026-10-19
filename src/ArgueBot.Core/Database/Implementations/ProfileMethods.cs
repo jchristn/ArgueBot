@@ -6,13 +6,14 @@ namespace ArgueBot.Core.Database.Implementations
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Tenant and user-scoped runner profiles with ordered relational arguments.</summary>
-    public sealed class ProfileMethods
+    public sealed class ProfileMethods : IProfileMethods
     {
         private readonly DatabaseDriverBase _Database;
         internal ProfileMethods(DatabaseDriverBase database) { _Database = database; }

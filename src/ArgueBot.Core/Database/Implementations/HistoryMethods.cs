@@ -7,13 +7,14 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Structured request capture, authorized inspection, summaries and retention.</summary>
-    public sealed class HistoryMethods
+    public sealed class HistoryMethods : IHistoryMethods
     {
         private readonly DatabaseDriverBase _Database;
         internal HistoryMethods(DatabaseDriverBase database) { _Database = database; }

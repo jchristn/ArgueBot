@@ -25,7 +25,7 @@ namespace ArgueBot.Core.Configuration
             foreach (string directory in new[] { Home, Path.Combine(Home, "runtime"), Path.Combine(Home, "logs"), Path.Combine(Home, "crash-logs"), Path.Combine(Home, "backups"), Path.Combine(Home, "exports"), Path.Combine(Home, "tmp") })
             {
                 Directory.CreateDirectory(directory);
-                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                HomePermissions.Directory(directory);
             }
         }
         /// <summary>Acquire a process-held exclusive lock, not a stale PID-file check.</summary>

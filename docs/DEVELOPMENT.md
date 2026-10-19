@@ -2,6 +2,8 @@
 
 The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, provider backup/restore, full dashboard/TUI parity, packaging and acceptance gates remain open in IMPROVEMENTS.md.
 
+NuGet.Config uses a repository-local ignored package cache and maps packages to nuget.org. Locked hashes are verified against published packages, avoiding same-version private builds in a machine-wide cache.
+
 Build from the repository root with .NET 10 (and .NET 8 for reusable-library tests):
 
 ```sh
@@ -20,7 +22,7 @@ dotnet run --project src/ArgueBot.Cli -c Release -f net10.0 -- --home .run/home 
 dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417
 ```
 
-Local clients exchange the protected `.run/home/runtime/pairing-code` for a revocable session. Every exchange rotates the code. The server must currently be started separately. For a remote client, set `ARGUEBOT_TOKEN` from an authorized session; the current replacement server is deliberately loopback-only. Never paste real tokens into committed commands or URLs.
+Local clients exchange the protected `.run/home/runtime/pairing-code` for a revocable session. Every exchange rotates the code. When --server is omitted, local clients start or attach to the service for their selected home. --no-start requires it to be running. Explicit --server addresses attach without starting processes. Use `service start|status|restart|stop` in the console to manage it. Stopping and restarting require an administrator session. For a remote client, set `ARGUEBOT_TOKEN` from an authorized session; the current replacement server is deliberately loopback-only. Never paste real tokens into committed commands or URLs.
 
 CLI `participants add --file profile.json` accepts a profile with name, kind (`cli` or `rest`), protocol provider, executable/ordered arguments or REST endpoint/model, optional workingDirectory, and secretEnvironmentVariable. Prompt content goes over stdin for CLI runners. `.cmd` and `.bat` wrappers are rejected; configure the underlying executable or script host. REST profiles currently support Ollama, OpenAI-compatible, Anthropic and Gemini completion APIs through PolyPrompt. Automatic REST tool execution is disabled.
 
@@ -42,6 +44,6 @@ Build the solution before setting `ARGUEBOT_CLI_FIXTURE` to the absolute path of
 
 The terminal uses Ctrl+B to choose two or three debate participants, Ctrl+R for moderator controls, Ctrl+A for a follow-up, Ctrl+F for search and archive scope, and Alt+Left/Right for history pages. Ctrl+Q detaches without stopping service-owned work. Profile configuration currently uses the web or console interface. Remaining terminal screen and localization gaps are tracked in the plan.
 
-For real MySQL/PostgreSQL contract tests, start only the disposable fixtures with `docker compose -f docker/providers/compose.yaml up -d --wait`. Set `ARGUEBOT_TEST_MYSQL` or `ARGUEBOT_TEST_POSTGRESQL` to that fixture's connection string. The checked-in Compose passwords are fake, isolated test credentials. SQL Server requires separate explicit license acceptance before its container starts. Existing server-provider databases are not reset or migrated automatically by this test workflow.
+For real PostgreSQL contract tests, start only the disposable fixtures with `docker compose -f docker/providers/compose.yaml up -d --wait`. Set `ARGUEBOT_TEST_POSTGRESQL` to that fixture's connection string. The checked-in Compose passwords are fake, isolated test credentials. SQLite and PostgreSQL are the only supported providers, per the user's explicit scope change. Existing server-provider databases are not reset or migrated automatically by this test workflow.
 
-The CI workflow runs on every push and pull request. It builds and executes console/xUnit/NUnit on Windows, macOS and Linux, and runs dashboard checks/browser journeys plus API artifact drift on Linux. The external-provider, benchmark, packaging and full acceptance CI gates remain to be added. See [operations](OPERATIONS.md) for local observability and settings behavior.
+The CI workflow runs on every push and pull request. It builds and executes console/xUnit/NUnit on Windows, macOS and Linux, and runs dashboard checks/browser journeys plus API artifact drift on Linux. A Linux integration job also runs PostgreSQL lifecycle/snapshot tests and real PolyPrompt transport against the committed Postman fixture implementation. Benchmark, packaging and full acceptance CI gates remain to be added. See [operations](OPERATIONS.md) for local observability and settings behavior.

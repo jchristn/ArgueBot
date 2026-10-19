@@ -11,6 +11,7 @@ namespace ArgueBot.Core.Database
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Database.Interfaces;
@@ -23,21 +24,22 @@ namespace ArgueBot.Core.Database
     public abstract class DatabaseDriverBase : IDisposable, IConversationMethods, IMessageMethods, IEventMethods
     {
         private readonly DatabaseSettings _Settings;
+        private readonly string? _BackupDirectory;
         private readonly SemaphoreSlim _Writer = new SemaphoreSlim(1, 1);
         private bool _Disposed;
         /// <summary>Runner configuration methods.</summary>
-        public ProfileMethods Profiles { get; }
+        public IProfileMethods Profiles { get; }
         /// <summary>Execution checkpoint methods.</summary>
-        public RunMethods Runs { get; }
+        public IRunMethods Runs { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
-        public HistoryMethods History { get; }
+        public IHistoryMethods History { get; }
 
 
         /// <summary>Create a driver. Initialization must run before any other operation.</summary>
-        protected DatabaseDriverBase(DatabaseSettings settings)
+        protected DatabaseDriverBase(DatabaseSettings settings, string? backupDirectory = null)
         {
             ArgumentNullException.ThrowIfNull(settings);
-            _Settings = settings;
+            _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
@@ -57,20 +59,40 @@ namespace ArgueBot.Core.Database
                     if (exists != null)
                     {
                         version = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COALESCE(MAX(version),0) FROM schema_migrations", token).ConfigureAwait(false), CultureInfo.InvariantCulture);
-                        if (version > 3) throw new InvalidDataException("Database was created by a newer ArgueBot schema; restore a compatible backup.");
-                        if (version < 3) await BeforeUpgradeAsync(version, token).ConfigureAwait(false);
+                        if (version > DatabaseSchema.CurrentVersion) throw new InvalidDataException("Database was created by a newer ArgueBot schema; restore a compatible backup.");
+                        if (version < DatabaseSchema.CurrentVersion) await BeforeUpgradeAsync(version, token).ConfigureAwait(false);
                     }
                     using (DbTransaction transaction = connection.BeginTransaction())
                     {
-                        await ExecuteAsync(connection, transaction, SchemaDefinition.Create, token).ConfigureAwait(false);
-                        if (version == 1)
+                        if (exists == null)
                         {
-                            await ExecuteAsync(connection, transaction, "ALTER TABLE messages RENAME COLUMN sequence TO sequence_number; ALTER TABLE events RENAME COLUMN sequence TO sequence_number;", token).ConfigureAwait(false);
+                            await ExecuteAsync(connection, transaction, SchemaDefinition.Create, token).ConfigureAwait(false);
                         }
-                        await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO schema_migrations(version,applied_utc) VALUES(3,@now)", token).ConfigureAwait(false);
+                        foreach (SchemaMigration migration in SchemaMigrations.All)
+                        {
+                            if (migration.Version <= version) continue;
+                            if (exists != null)
+                            {
+                                foreach (string statement in migration.Statements)
+                                {
+                                    if (migration.Version == 2)
+                                    {
+                                        string table = statement.Contains("messages", StringComparison.Ordinal) ? "messages" : "events";
+                                        bool renamed = false;
+                                        using (DbCommand inspect = Command(connection, transaction, "SELECT * FROM " + table + " WHERE 1=0"))
+                                        using (DbDataReader columns = await inspect.ExecuteReaderAsync(token).ConfigureAwait(false))
+                                        { for (int index = 0; index < columns.FieldCount; index++) if (columns.GetName(index) == "sequence_number") renamed = true; }
+                                        if (renamed) continue;
+                                    }
+                                    await ExecuteAsync(connection, transaction, statement, token).ConfigureAwait(false);
+                                }
+                            }
+                            await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO schema_migrations(version,applied_utc) VALUES(@version,@now)", token, P("version", migration.Version)).ConfigureAwait(false);
+                        }
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO tenants(id,name,created_utc,updated_utc) VALUES('ten_local','Local',@now,@now)", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO users(id,tenant_id,name,role,created_utc,updated_utc) VALUES('usr_local','ten_local','Local owner','admin',@now,@now)", token).ConfigureAwait(false);
-                        await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued')", token).ConfigureAwait(false);
+                        await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
+                        await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }
@@ -164,27 +186,47 @@ namespace ArgueBot.Core.Database
             return messages;
         }
 
+        /// <summary>Recognize an exact note/directive retry across run-state and revision changes.</summary>
+        public async Task<bool> IsDuplicateMessageAsync(RequestContext context, Message message, string commandKey, CancellationToken token = default)
+        {
+            RequireWrite(context);
+            await ReadConversationAsync(context, message.ConversationId, token).ConfigureAwait(false);
+            ValidateMessageKey(commandKey);
+            using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+            { return await MessageReceiptAsync(connection, null, context, message, commandKey, token).ConfigureAwait(false) != null; }
+        }
+        private static void ValidateMessageKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key) || key.Length > 200) throw new DomainException(400, "invalid_key", "Use an idempotency key between 1 and 200 characters.");
+        }
+        private static string MessageDigest(Message message)
+        { return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.Kind + "\n" + message.RecipientId + "\n" + message.Content))); }
+        private static async Task<string?> MessageReceiptAsync(DbConnection connection, DbTransaction? transaction, RequestContext context, Message message, string key, CancellationToken token)
+        {
+            using (DbCommand command = Command(connection, transaction, "SELECT r.digest,r.result_id,m.run_id,m.id AS message_id FROM command_receipts r LEFT JOIN messages m ON m.tenant_id=r.tenant_id AND m.id=r.result_id WHERE r.tenant_id=@tenant AND r.user_id=@user AND r.conversation_id=@conversation AND r.command_key=@key", P("tenant", context.TenantId, "user", context.UserId, "conversation", message.ConversationId, "key", key)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(token).ConfigureAwait(false)) return null;
+                if (reader.IsDBNull(reader.GetOrdinal("message_id")) || S(reader, "digest") != MessageDigest(message) || N(reader, "run_id") != message.RunId) throw new DomainException(409, "idempotency_conflict", "Command key was already used with different content or run.");
+                return S(reader, "result_id");
+            }
+        }
         /// <summary>Append a message transactionally with a durable event and optional deduplication receipt.</summary>
         public async Task<Message> AppendMessageAsync(RequestContext context, Message message, string commandKey = "", CancellationToken token = default)
         {
             RequireWrite(context);
             await ReadConversationAsync(context, message.ConversationId, token).ConfigureAwait(false);
             if (message.Content.Length > 1048576) throw new DomainException(400, "message_too_large", "Message exceeds one MiB.");
-            string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.Kind + "\n" + message.RecipientId + "\n" + message.Content)));
+            ArgumentNullException.ThrowIfNull(commandKey);
+            if (commandKey.Length > 0) ValidateMessageKey(commandKey);
+            string digest = MessageDigest(message);
             message.Id = Ids.New("msg_"); message.CreatedUtc = DateTime.UtcNow;
             await WriteAsync(async (connection, transaction) =>
             {
                 if (commandKey.Length > 0)
                 {
-                    using (DbCommand command = Command(connection, transaction, "SELECT digest,result_id FROM command_receipts WHERE tenant_id=@tenant AND user_id=@user AND conversation_id=@conversation AND command_key=@key", P("tenant", context.TenantId, "user", context.UserId, "conversation", message.ConversationId, "key", commandKey)))
-                    using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                    {
-                        if (await reader.ReadAsync(token).ConfigureAwait(false))
-                        {
-                            if (S(reader, "digest") != digest) throw new DomainException(409, "idempotency_conflict", "Command key was already used with different content.");
-                            message.Id = S(reader, "result_id"); return;
-                        }
-                    }
+                    string? existing = await MessageReceiptAsync(connection, transaction, context, message, commandKey, token).ConfigureAwait(false);
+                    if (existing != null) { message.Id = existing; return; }
                 }
                 message.Sequence = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COALESCE(MAX(sequence_number),0)+1 FROM messages WHERE conversation_id=@id", token, P("id", message.ConversationId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 await ExecuteAsync(connection, transaction, "INSERT INTO messages(id,tenant_id,conversation_id,run_id,sequence_number,speaker,kind,content,recipient_id,state,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@run,@seq,@speaker,@kind,@content,@recipient,@state,@now,@now)", token, P("id", message.Id, "tenant", context.TenantId, "conversation", message.ConversationId, "run", message.RunId, "seq", message.Sequence, "speaker", message.Speaker, "kind", message.Kind, "content", message.Content, "recipient", message.RecipientId, "state", message.State)).ConfigureAwait(false);
@@ -221,13 +263,45 @@ namespace ArgueBot.Core.Database
             return events;
         }
 
-        /// <summary>Protect an existing schema before changing it. Server-database migrations require an operator backup.</summary>
-        protected virtual Task BeforeUpgradeAsync(long version, CancellationToken token)
-        { throw new InvalidOperationException("Back up the existing server database and use the documented migration workflow before upgrading schema " + version + "."); }
-
-        /// <summary>Create a consistent provider-specific backup. SQLite supports an online file backup.</summary>
+        /// <summary>Protect an existing schema with a logical snapshot before applying ordered upgrades.</summary>
+        protected virtual async Task BeforeUpgradeAsync(long version, CancellationToken token)
+        {
+            if (_BackupDirectory == null) throw new InvalidOperationException("Configure a protected backup directory before upgrading an existing server database.");
+            Directory.CreateDirectory(_BackupDirectory);
+            HomePermissions.Directory(_BackupDirectory);
+            await new LogicalSnapshot(this, _Settings.Type).ExportAsync(Path.Combine(_BackupDirectory, "before-schema-" + version + "-" + Guid.NewGuid().ToString("N") + ".arguedb.jsonl"), token).ConfigureAwait(false);
+        }
+        /// <summary>Create a consistent driver backup. SQLite overrides this with its native online file format.</summary>
         public virtual Task BackupAsync(string destination, CancellationToken token = default)
-        { throw new NotSupportedException("Use the documented logical/provider-native backup workflow for this database."); }
+        { return ExportSnapshotAsync(destination, token); }
+        /// <summary>Stream a portable, checksummed relational snapshot under the service writer gate.</summary>
+        public async Task ExportSnapshotAsync(string destination, CancellationToken token = default)
+        {
+            await _Writer.WaitAsync(token).ConfigureAwait(false);
+            try { await new LogicalSnapshot(this, _Settings.Type).ExportAsync(destination, token).ConfigureAwait(false); }
+            finally { _Writer.Release(); }
+        }
+        /// <summary>Restore a fully validated snapshot atomically. The caller must own the application home exclusively and stop all execution first.</summary>
+        public async Task RestoreSnapshotAsync(string source, CancellationToken token = default)
+        {
+            string temporary = Path.Combine(Path.GetTempPath(), "arguebot-restore-" + Guid.NewGuid().ToString("N"));
+            if (OperatingSystem.IsWindows()) Directory.CreateDirectory(temporary);
+            else Directory.CreateDirectory(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            HomePermissions.Directory(temporary);
+            string stable = Path.Combine(temporary, "snapshot.jsonl");
+            try
+            {
+                using (FileStream input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous))
+                using (FileStream output = new FileStream(stable, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous))
+                {
+                    HomePermissions.File(stable);
+                    await input.CopyToAsync(output, token).ConfigureAwait(false);
+                }
+                await LogicalSnapshot.ValidateAsync(stable, token).ConfigureAwait(false);
+                await WriteAsync((connection, transaction) => LogicalSnapshot.RestoreAsync(connection, transaction, stable, token), token).ConfigureAwait(false);
+            }
+            finally { Directory.Delete(temporary, true); }
+        }
 
         /// <summary>Reject unauthenticated or read-only mutation requests.</summary>
         public static void RequireWrite(RequestContext context)
@@ -236,11 +310,14 @@ namespace ArgueBot.Core.Database
             if (context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
 
+        /// <summary>Apply provider-specific connection initialization after a successful open.</summary>
+        protected virtual void OnConnectionOpened(DbConnection connection) { }
+
         internal async Task<DbConnection> OpenAsync(CancellationToken token)
         {
             ObjectDisposedException.ThrowIf(_Disposed, this);
             DbConnection connection = DatabaseDriverFactory.CreateConnection(_Settings);
-            try { await connection.OpenAsync(token).ConfigureAwait(false); return connection; }
+            try { await connection.OpenAsync(token).ConfigureAwait(false); OnConnectionOpened(connection); return connection; }
             catch { connection.Dispose(); throw; }
         }
 

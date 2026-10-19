@@ -1,6 +1,7 @@
 namespace ArgueBot.Core.Database.Sqlite
 {
     using System;
+    using System.Data.Common;
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
@@ -10,6 +11,7 @@ namespace ArgueBot.Core.Database.Sqlite
     /// <summary>SQLite implementation with WAL, serialized writes and online backup.</summary>
     public sealed class SqliteDatabaseDriver : DatabaseDriverBase
     {
+        private int _PermissionsApplied;
         /// <summary>Create a driver for an isolated or user application home.</summary>
         public SqliteDatabaseDriver(ArgueBotPaths paths) : this(FromPaths(paths)) { }
         /// <summary>Create a driver with explicit SQLite settings.</summary>
@@ -18,6 +20,12 @@ namespace ArgueBot.Core.Database.Sqlite
         {
             paths.EnsureDirectories();
             return new DatabaseSettings { Type = DatabaseTypeEnum.Sqlite, ConnectionString = new SqliteConnectionStringBuilder { DataSource = paths.DatabaseFile, ForeignKeys = true, DefaultTimeout = 5, Pooling = false }.ToString() };
+        }
+        /// <inheritdoc />
+        protected override void OnConnectionOpened(DbConnection connection)
+        {
+            string file = ((SqliteConnection)connection).DataSource;
+            if (Interlocked.CompareExchange(ref _PermissionsApplied, 1, 0) == 0 && File.Exists(file)) HomePermissions.File(file);
         }
         /// <inheritdoc />
         protected override async Task BeforeUpgradeAsync(long version, CancellationToken token)
@@ -36,9 +44,9 @@ namespace ArgueBot.Core.Database.Sqlite
             using (SqliteConnection source = (SqliteConnection)await OpenAsync(token).ConfigureAwait(false))
             using (SqliteConnection target = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = destination, Pooling = false }.ToString()))
             {
-                await target.OpenAsync(token).ConfigureAwait(false); source.BackupDatabase(target);
+                await target.OpenAsync(token).ConfigureAwait(false); HomePermissions.File(destination); source.BackupDatabase(target);
             }
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(destination, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            HomePermissions.File(destination);
         }
     }
 }

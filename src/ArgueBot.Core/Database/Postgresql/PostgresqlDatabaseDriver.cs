@@ -4,6 +4,6 @@ namespace ArgueBot.Core.Database.Postgresql
     public sealed class PostgresqlDatabaseDriver : DatabaseDriverBase
     {
         /// <summary>Create without implicitly provisioning a database or changing credentials.</summary>
-        public PostgresqlDatabaseDriver(DatabaseSettings settings) : base(settings) { }
+        public PostgresqlDatabaseDriver(DatabaseSettings settings, string? backupDirectory = null) : base(settings, backupDirectory) { }
     }
 }

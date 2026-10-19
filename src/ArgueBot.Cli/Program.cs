@@ -23,27 +23,37 @@ namespace ArgueBot.Cli
                 try { return await ExecuteAsync(args, lifetime.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return 130; }
                 catch (DomainException ex) { Console.Error.WriteLine(ex.Code + ": " + ex.Message); return ex.StatusCode == 400 ? 2 : 1; }
-                catch (Exception ex) when (ex is IOException || ex is System.Net.Http.HttpRequestException || ex is JsonException || ex is ArgumentException)
+                catch (Exception ex) when (ex is IOException || ex is System.Net.Http.HttpRequestException || ex is JsonException || ex is ArgumentException || ex is InvalidOperationException || ex is TimeoutException || ex is FormatException)
                 { Console.Error.WriteLine(ex.Message); return 1; }
             }
         }
         private static async Task<int> ExecuteAsync(string[] args, CancellationToken token)
         {
-            List<string> words = new List<string>(); string? home = null; string server = "http://127.0.0.1:4317"; string? session = Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN");
+            List<string> words = new List<string>(); string? home = null; string? server = null; bool autoStart = true; string? session = Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN");
             for (int index = 0; index < args.Length; index++)
             {
                 if (args[index] == "--home" && index + 1 < args.Length) home = args[++index];
                 else if (args[index] == "--server" && index + 1 < args.Length) server = args[++index];
+                else if (args[index] == "--no-start") autoStart = false;
                 else if (args[index] == "--token-env" && index + 1 < args.Length) session = Environment.GetEnvironmentVariable(args[++index]);
                 else words.Add(args[index]);
             }
             if (words.Count == 0 || words[0] == "--help" || words[0] == "help") { Help(); return 0; }
+            if (words[0] == "service" && words.Count > 1 && words[1] != "start") autoStart = false;
+            server = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, server, autoStart, token).ConfigureAwait(false);
             using (ArgueBotClient client = new ArgueBotClient(server))
             {
                 if (!string.IsNullOrWhiteSpace(session)) client.SetToken(session);
                 else await client.PairLocalAsync(new ArgueBotPaths(home).Home, token).ConfigureAwait(false);
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
-                if (command == "conversations")
+                if (command == "service")
+                {
+                    if (operation == "status" || operation == "start") Print(await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: token).ConfigureAwait(false));
+                    else if (operation == "stop") Print(await client.SendAsync<Acknowledgement>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false));
+                    else if (operation == "restart") Print(await client.SendAsync<RestartResponse>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/restart", token: token).ConfigureAwait(false));
+                    else { Help(); return 2; }
+                }
+                else if (command == "conversations")
                 {
                     switch (operation)
                     {
@@ -101,6 +111,7 @@ namespace ArgueBot.Cli
         {
             Console.WriteLine("""
 ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
+  service start|status|restart|stop
   conversations list [SEARCH]       Search owned history (JSON).
   conversations create TITLE|-|--file PATH
   conversations show ID            Read ordered messages (JSON).
@@ -116,7 +127,8 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
 Local clients exchange the protected home pairing code. Remote clients use
 ARGUEBOT_TOKEN or --token-env. Prompts and JSON may be supplied on stdin.
 Exit codes: 0 success, 1 operation failure, 2 usage, 130 cancelled.
-The service must currently be started separately; see docs/DEVELOPMENT.md.
+Local commands start or attach to the service automatically. --no-start requires
+an existing service. Explicit --server URLs attach without starting processes.
 """);
         }
     }

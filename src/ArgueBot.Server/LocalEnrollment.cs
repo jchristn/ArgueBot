@@ -35,8 +35,10 @@ namespace ArgueBot.Server
         private void Rotate()
         {
             _Code = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-            File.WriteAllText(_Path, _Code);
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_Path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            string temporary = _Path + ".tmp";
+            File.WriteAllText(temporary, _Code);
+            HomePermissions.File(temporary);
+            File.Move(temporary, _Path, true);
         }
         public void Dispose() { _Gate.Dispose(); if (File.Exists(_Path)) File.Delete(_Path); }
     }

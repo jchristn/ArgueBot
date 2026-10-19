@@ -64,7 +64,7 @@ function SettingsForm({ snapshot, onSave }) {
               value={value.databaseType}
               onChange={(event) => change("databaseType", event.target.value)}
             >
-              {["Sqlite", "Mysql", "Postgresql", "SqlServer"].map(
+              {["Sqlite", "Postgresql"].map(
                 (provider) => (
                   <option key={provider}>{provider}</option>
                 ),

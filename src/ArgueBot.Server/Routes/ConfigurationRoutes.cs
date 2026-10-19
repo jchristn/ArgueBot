@@ -13,8 +13,8 @@ namespace ArgueBot.Server.Routes
     {
         private readonly DatabaseDriverBase _Database;
         private readonly SettingsManager _Settings;
-        private readonly Action _Restart;
-        internal ConfigurationRoutes(DatabaseDriverBase database, SettingsManager settings, Action restart) { _Database = database; _Settings = settings; _Restart = restart; }
+        private readonly Action<bool> _Stop;
+        internal ConfigurationRoutes(DatabaseDriverBase database, SettingsManager settings, Action<bool> stop) { _Database = database; _Settings = settings; _Stop = stop; }
         internal void Register(Webserver server)
         {
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/participants", http => Api.GuardAsync(http, async () =>
@@ -30,7 +30,9 @@ namespace ArgueBot.Server.Routes
             server.Routes.PostAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/api/settings", http => Api.GuardAsync(http, async () =>
             { Admin(http); await Api.SendAsync(http, await _Settings.SaveAsync(Api.Body<SettingsUpdate>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Save validated settings using expected file revision", "Settings"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/settings/restart", http => Api.GuardAsync(http, async () =>
-            { Admin(http); await Api.SendAsync(http, new RestartResponse(), 202).ConfigureAwait(false); _Restart(); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and restart the local service", "Settings"));
+            { Admin(http); await Api.SendAsync(http, new RestartResponse(), 202).ConfigureAwait(false); _Stop(true); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and restart the local service", "Settings"));
+            server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/settings/shutdown", http => Api.GuardAsync(http, async () =>
+            { Admin(http); await Api.SendAsync(http, new Acknowledgement(), 202).ConfigureAwait(false); _Stop(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and shut down the local service", "Settings"));
         }
         private static void Admin(HttpContextBase http) { if (!Api.Context(http).IsAdmin) throw new DomainException(403, "forbidden", "Service administration requires an administrator."); }
     }

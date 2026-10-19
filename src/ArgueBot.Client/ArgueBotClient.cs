@@ -34,9 +34,20 @@ namespace ArgueBot.Client
         public async Task PairLocalAsync(string home, CancellationToken token = default)
         {
             if (_Http.BaseAddress == null || !_Http.BaseAddress.IsLoopback) throw new InvalidOperationException("Local code enrollment requires a loopback server.");
-            string code = await File.ReadAllTextAsync(Path.Combine(home, "runtime", "pairing-code"), token).ConfigureAwait(false);
-            EnrollmentResponse response = await SendAsync<EnrollmentResponse>(HttpMethod.Post, "v1.0/api/auth/pair", new EnrollmentRequest { Code = code.Trim() }, token).ConfigureAwait(false);
-            SetToken(response.Token);
+            for (int attempt = 0; ; attempt++)
+            {
+                string code = await File.ReadAllTextAsync(Path.Combine(home, "runtime", "pairing-code"), token).ConfigureAwait(false);
+                try
+                {
+                    EnrollmentResponse response = await SendAsync<EnrollmentResponse>(HttpMethod.Post, "v1.0/api/auth/pair", new EnrollmentRequest { Code = code.Trim() }, token).ConfigureAwait(false);
+                    SetToken(response.Token); return;
+                }
+                catch (DomainException ex) when (ex.Code == "invalid_pairing" && attempt < 2)
+                {
+                    // Another local client may have exchanged the same single-use code first.
+                    await Task.Delay(50, token).ConfigureAwait(false);
+                }
+            }
         }
         /// <summary>List matching conversations from the server, with exact totals.</summary>
         public Task<Page> ConversationsAsync(string search = "", bool archived = false, int page = 1, CancellationToken token = default)
@@ -70,7 +81,7 @@ namespace ArgueBot.Client
         { return SendAsync<DebateRun>(HttpMethod.Post, Root(id) + "/runs", request, token); }
         /// <summary>Apply a moderator command to a run.</summary>
         public async Task ActionAsync(string id, string runId, CommandRequest request, CancellationToken token = default)
-        { await SendAsync<AcceptedResponse>(HttpMethod.Post, Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/actions", request, token).ConfigureAwait(false); }
+        { if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) request.IdempotencyKey = Guid.NewGuid().ToString("N"); await SendAsync<AcceptedResponse>(HttpMethod.Post, Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/actions", request, token).ConfigureAwait(false); }
         /// <summary>Read a typed API response and normalize safe domain failures.</summary>
         public async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, CancellationToken token = default)
         {

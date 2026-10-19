@@ -55,7 +55,7 @@ namespace ArgueBot.Core.Configuration
             try
             {
                 await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(this, SerializerOptions()), token).ConfigureAwait(false);
-                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                HomePermissions.File(temporary);
                 token.ThrowIfCancellationRequested();
                 File.Move(temporary, paths.SettingsFile, true);
             }

@@ -26,4 +26,4 @@ http.createServer((req, res) => {
     if (body.model === 'broken-stream') return res.end();
     res.end(JSON.stringify({ model: body.model, message: { role: 'assistant', content: 'answer.' }, done: true, done_reason: 'stop', prompt_eval_count: 10, eval_count: 2 }) + '\n');
   });
-}).listen(process.env.PORT);
+}).listen(Number(process.env.PORT), '127.0.0.1');

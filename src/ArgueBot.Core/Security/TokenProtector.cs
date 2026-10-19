@@ -17,7 +17,7 @@ namespace ArgueBot.Core.Security
         {
             _Directory = Path.Combine(paths.Home, "keys"); _CurrentFile = Path.Combine(_Directory, "session-current");
             Directory.CreateDirectory(_Directory);
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_Directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            HomePermissions.Directory(_Directory);
             if (!File.Exists(_CurrentFile)) Rotate();
         }
         /// <summary>Rotate the issuing key. Prior keys remain available until all their sessions expire.</summary>
@@ -73,6 +73,6 @@ namespace ArgueBot.Core.Security
             if (key.Length != 32) { CryptographicOperations.ZeroMemory(key); throw new CryptographicException("Session key must contain exactly 32 bytes."); }
             return key;
         }
-        private static void ProtectFile(string path) { if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite); }
+        private static void ProtectFile(string path) { HomePermissions.File(path); }
     }
 }

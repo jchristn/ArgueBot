@@ -69,3 +69,48 @@ jobs:
             .run/browser-report
             .run/browser-results
             .run/screenshots
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgresql:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_DB: arguebot_test
+          POSTGRES_USER: arguebot_test
+          POSTGRES_PASSWORD: arguebot-provider-fixture-not-for-production
+        ports: ['127.0.0.1:4450:5432']
+        options: >-
+          --health-cmd "pg_isready -U arguebot_test -d arguebot_test"
+          --health-interval 5s --health-timeout 5s --health-retries 2
+    env:
+      ARGUEBOT_TEST_POSTGRESQL: Host=127.0.0.1;Port=4450;Database=arguebot_test;Username=arguebot_test;Password=arguebot-provider-fixture-not-for-production
+      ARGUEBOT_SIMULATION_URL: http://127.0.0.1:4491
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.401
+      - run: dotnet restore src/ArgueBot.sln --locked-mode && dotnet build src/ArgueBot.sln -c Release --no-restore
+      - name: Start the committed Postman runner fixture
+        run: |
+          mkdir -p .run test-results
+          PORT=4491 node postman/mocks/ollama/default.js >.run/runner-fixture.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat; then break; fi
+            sleep 1
+          done
+          curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat
+      - name: All supported provider and runner descriptors
+        run: ARGUEBOT_CLI_FIXTURE="$PWD/src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll" dotnet run --project src/Test.Automated -c Release --no-build -- --results test-results/integration.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-evidence
+          path: |
+            test-results
+            .run/runner-fixture.log

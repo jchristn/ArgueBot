@@ -4,6 +4,8 @@ namespace Test.Shared
     using System.Collections.Generic;
     using System.IO;
     using System.Net.Http;
+    using System.Security.AccessControl;
+    using System.Security.Principal;
     using System.Threading;
     using System.Threading.Tasks;
     using ArgueBot.Client;
@@ -17,10 +19,36 @@ namespace Test.Shared
         /// <summary>Configuration descriptors shared by every backend runner.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Configuration", "Safe configuration", new List<TestCaseDescriptor> {
+            get
+            {
+                return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Configuration", "Safe configuration", new List<TestCaseDescriptor> {
+                new TestCaseDescriptor("Configuration", "Permissions", "Application directories and exported files restrict access to the current owner", PermissionsAsync),
                 new TestCaseDescriptor("Configuration", "Settings", "Invalid saves preserve the last configuration; unknown file fields fail visibly", SettingsAsync),
                 new TestCaseDescriptor("Configuration", "ClientOrigin", "Authenticated client refuses unsafe origins and absolute request URLs", ClientOriginAsync)
-            }) }; }
+            }) };
+            }
+        }
+        private static async Task PermissionsAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-permissions-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                new ArgueBotPaths(home).EnsureDirectories();
+                string file = Path.Combine(home, "fixture.txt"); await File.WriteAllTextAsync(file, "fixture", token).ConfigureAwait(false); HomePermissions.File(file);
+                if (OperatingSystem.IsWindows())
+                {
+                    using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                    {
+                        SecurityIdentifier owner = identity.User!;
+                        FileSecurity security = new FileInfo(file).GetAccessControl();
+                        foreach (FileSystemAccessRule rule in security.GetAccessRules(true, true, typeof(SecurityIdentifier)))
+                            if (!rule.IdentityReference.Equals(owner)) throw new InvalidDataException("File ACL grants access to another identity.");
+                        if (!security.AreAccessRulesProtected) throw new InvalidDataException("File ACL inherits broader parent access.");
+                    }
+                }
+                else if (File.GetUnixFileMode(file) != (UnixFileMode.UserRead | UnixFileMode.UserWrite) || File.GetUnixFileMode(home) != (UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute)) throw new InvalidDataException("Application state permissions are broader than owner-only.");
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task SettingsAsync(CancellationToken token)
         {

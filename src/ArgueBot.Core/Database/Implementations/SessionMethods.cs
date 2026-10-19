@@ -7,13 +7,14 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using ArgueBot.Core.Database.Interfaces;
     using ArgueBot.Core.Helpers;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Security;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Revocable opaque local sessions. Only token digests are persisted.</summary>
-    public sealed class SessionMethods
+    public sealed class SessionMethods : ISessionMethods
     {
         private readonly DatabaseDriverBase _Database;
         private readonly TokenProtector _Protector;

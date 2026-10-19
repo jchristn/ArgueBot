@@ -281,5 +281,8 @@
   "home.services": "Local observability",
   "home.services.help": "Start the optional local stack with docker compose up -d --build. These links target its loopback ports.",
   "home.service.open": "Open {name} in the local observability stack.",
-  "home.services.credentials": "Default local Grafana login:"
+  "home.services.credentials": "Default local Grafana login:",
+  "state.pausing": "Pausing after turn",
+  "state.interrupting": "Interrupting",
+  "state.stopping": "Stopping"
 }

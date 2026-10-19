@@ -2,6 +2,11 @@ namespace ArgueBot.Core.Database
 {
     internal static class SchemaDefinition
     {
+        internal static readonly string RequestHistory = """
+CREATE TABLE IF NOT EXISTS request_history(id TEXT PRIMARY KEY, tenant_id TEXT, user_id TEXT, principal_name TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL, status INTEGER NOT NULL, duration_ms INTEGER NOT NULL, request_bytes INTEGER NOT NULL, response_bytes INTEGER NOT NULL, raw_request_body TEXT NOT NULL, raw_response_body TEXT NOT NULL, request_truncated INTEGER NOT NULL, response_truncated INTEGER NOT NULL, correlation_id TEXT NOT NULL, trace_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_request_history_time ON request_history(tenant_id,user_id,created_utc,id);
+CREATE TABLE IF NOT EXISTS request_history_headers(id TEXT PRIMARY KEY, tenant_id TEXT, history_id TEXT NOT NULL REFERENCES request_history(id) ON DELETE CASCADE, name TEXT NOT NULL, value TEXT NOT NULL, response INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
+""";
         internal static readonly string Create = """
 CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_utc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tenants(id TEXT PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL);
