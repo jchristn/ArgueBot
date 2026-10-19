@@ -25,6 +25,15 @@ namespace ArgueBot.Server.Routes
             { await Api.SendAsync(http, await _Database.Roles.ReadAsync(Api.Context(http), Api.Parameter(http, "roleId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read visible role definition", "Roles"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/api/roles/{roleId}", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Roles.UpdateAsync(Api.Context(http), Api.Parameter(http, "roleId"), Api.Body<RoleRequest>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Update custom role under optimistic concurrency", "Roles"));
+            server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/api/roles/{roleId}/permissions", http => Api.GuardAsync(http, async () =>
+            {
+                int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
+                int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
+                bool active = bool.Parse(http.Request.RetrieveQueryValue("active") ?? "true");
+                await Api.SendAsync(http, await _Database.RolePermissions.EnumerateAsync(Api.Context(http), Api.Parameter(http, "roleId"), active, page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+            }), openApiMetadata: OpenApiRouteMetadata.Create("Enumerate role permission mappings", "Roles"));
+            server.Routes.PostAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/api/roles/{roleId}/permissions", http => Api.GuardAsync(http, async () =>
+            { await Api.SendAsync(http, await _Database.RolePermissions.ReplaceAsync(Api.Context(http), Api.Parameter(http, "roleId"), Api.Body<RolePermissionsRequest>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Replace active custom role permissions", "Roles"));
         }
     }
 }

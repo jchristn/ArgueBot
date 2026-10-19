@@ -78,11 +78,36 @@ namespace ArgueBot.Cli
                     }
                     else { Help(); return 2; }
                 }
+                else if (command == "permissions")
+                {
+                    string root = "v1.0/api/permissions";
+                    if (operation == "list") Print(await client.SendAsync<PermissionPage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
+                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<PermissionRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "create" || operation == "update")
+                    {
+                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
+                        PermissionRequest request = JsonSerializer.Deserialize<PermissionRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed permission object.");
+                        Print(await client.SendAsync<PermissionRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
+                    }
+                    else { Help(); return 2; }
+                }
                 else if (command == "roles")
                 {
                     string root = "v1.0/api/roles";
                     if (operation == "list") Print(await client.SendAsync<RolePage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
                     else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<RoleRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "permissions")
+                    {
+                        Require(words, 3); int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
+                        bool active = words.Count <= 4 || bool.Parse(words[4]);
+                        Print(await client.SendAsync<RolePermissionPage>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]) + "/permissions?pageNumber=" + page.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&active=" + active.ToString().ToLowerInvariant(), token: token).ConfigureAwait(false));
+                    }
+                    else if (operation == "set-permissions")
+                    {
+                        Require(words, 4);
+                        RolePermissionsRequest request = JsonSerializer.Deserialize<RolePermissionsRequest>(await TextAsync(words, 3, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed role-permissions object.");
+                        Print(await client.SendAsync<RoleRecord>(System.Net.Http.HttpMethod.Put, root + "/" + Uri.EscapeDataString(words[2]) + "/permissions", request, token).ConfigureAwait(false));
+                    }
                     else if (operation == "create" || operation == "update")
                     {
                         int input = operation == "update" ? 3 : 2; Require(words, input + 1);
@@ -206,6 +231,12 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   roles show ID
   roles create JSON|-|--file PATH   Optional cloneRoleId copies a visible definition.
   roles update ID JSON|-|--file PATH
+  roles permissions ID [PAGE] [true|false]  Inspect active/inactive mappings.
+  roles set-permissions ID JSON|-|--file PATH
+  permissions list [SEARCH] [PAGE]
+  permissions show ID
+  permissions create JSON|-|--file PATH
+  permissions update ID JSON|-|--file PATH
   audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
   backups list
   backups create JSON|-|--file PATH

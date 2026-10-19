@@ -4,6 +4,8 @@
 
 ### In progress
 
+- Tenant permission-definition APIs and console commands, plus revision-checked role-permission replacement and active/inactive mapping inspection. Explicit denies, independent activity, protected definitions, stable historical mapping IDs and atomic audit events are covered on both databases. Remaining editors, assignments and complete route enforcement are in progress.
+
 - Dashboard Roles page and Ctrl+O terminal workflow for protected built-in inspection, custom-role cloning and revision-checked editing/deactivation. Web conflicts preserve drafts; ordinary users cannot expose management controls through direct page navigation.
 
 - Authenticated role definition browsing, tenant custom-role creation/cloning and revision-checked deactivation. Built-ins remain immutable, current database administrator authority is rechecked, and changes carry atomic audit events. Permission/assignment editing and complete scoped enforcement remain in progress.

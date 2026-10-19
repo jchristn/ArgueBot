@@ -21,7 +21,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <inheritdoc />
         public async Task<RolePage> EnumerateAsync(RequestContext context, string search = "", int pageNumber = 1, int pageSize = 25, CancellationToken token = default)
         {
-            await RequireAdminAsync(context, token).ConfigureAwait(false);
+            await AuthorizationAdministration.RequireAsync(_Database, context, token).ConfigureAwait(false);
             if (search == null || search.Length > 200 || pageNumber < 1 || pageSize < 1 || pageSize > 100) throw new DomainException(400, "invalid_filter", "Supply a bounded search and page size one through one hundred.");
             RolePage page = new RolePage { PageNumber = pageNumber, PageSize = pageSize };
             const string filter = "(tenant_id=@tenant OR tenant_id IS NULL) AND instr(lower(name),lower(@search))>0";
@@ -37,18 +37,18 @@ namespace ArgueBot.Core.Database.Implementations
         /// <inheritdoc />
         public async Task<RoleRecord> ReadAsync(RequestContext context, string id, CancellationToken token = default)
         {
-            await RequireAdminAsync(context, token).ConfigureAwait(false);
+            await AuthorizationAdministration.RequireAsync(_Database, context, token).ConfigureAwait(false);
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             { return await ReadAsync(connection, null, context.TenantId, id, token).ConfigureAwait(false); }
         }
         /// <inheritdoc />
         public async Task<RoleRecord> CreateAsync(RequestContext context, RoleRequest request, CancellationToken token = default)
         {
-            await RequireAdminAsync(context, token).ConfigureAwait(false); Validate(request);
+            await AuthorizationAdministration.RequireAsync(_Database, context, token).ConfigureAwait(false); Validate(request);
             string id = Ids.New("rol_");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                await RequireCurrentAdminAsync(connection, transaction, context, token).ConfigureAwait(false);
+                await AuthorizationAdministration.RequireAsync(connection, transaction, context, token).ConfigureAwait(false);
                 await CheckNameAsync(connection, transaction, context.TenantId, request.Name, id, token).ConfigureAwait(false);
                 List<string> permissions = new List<string>();
                 if (request.CloneRoleId.Length > 0)
@@ -69,11 +69,11 @@ namespace ArgueBot.Core.Database.Implementations
         /// <inheritdoc />
         public async Task<RoleRecord> UpdateAsync(RequestContext context, string id, RoleRequest request, CancellationToken token = default)
         {
-            await RequireAdminAsync(context, token).ConfigureAwait(false); Validate(request);
+            await AuthorizationAdministration.RequireAsync(_Database, context, token).ConfigureAwait(false); Validate(request);
             if (request.CloneRoleId.Length > 0) throw new DomainException(400, "invalid_role", "Cloning is available only when creating a role.");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                await RequireCurrentAdminAsync(connection, transaction, context, token).ConfigureAwait(false);
+                await AuthorizationAdministration.RequireAsync(connection, transaction, context, token).ConfigureAwait(false);
                 RoleRecord current = await ReadAsync(connection, transaction, context.TenantId, id, token).ConfigureAwait(false);
                 if (current.Protected || current.Builtin || current.TenantId == null) throw new DomainException(403, "protected_role", "Clone a built-in before customizing it.");
                 if (current.Revision != request.ExpectedRevision) throw new DomainException(409, "revision_conflict", "The role changed. Reload before saving.");
@@ -82,16 +82,6 @@ namespace ArgueBot.Core.Database.Implementations
                 await AuditMethods.AppendAsync(connection, transaction, context, "role.update", "updated", "Role", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadAsync(context, id, token).ConfigureAwait(false);
-        }
-        private async Task RequireAdminAsync(RequestContext context, CancellationToken token)
-        {
-            ResolvedAuthorization resolved = await _Database.Authorization.ResolveUserAsync(context, token).ConfigureAwait(false);
-            if (!resolved.Principal.IsActive || (!resolved.Principal.IsAdmin && !resolved.Principal.IsTenantAdmin)) throw new DomainException(403, "forbidden", "Role administration requires current tenant or system administrator authority.");
-        }
-        private static async Task RequireCurrentAdminAsync(DbConnection connection, DbTransaction transaction, RequestContext context, CancellationToken token)
-        {
-            long active = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=@tenant AND u.id=@user AND u.active=1 AND t.active=1 AND (u.is_admin=1 OR u.is_tenant_admin=1)", token, P("tenant", context.TenantId, "user", context.UserId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
-            if (active != 1) throw new DomainException(403, "forbidden", "Current tenant or system administrator authority is required.");
         }
         private static void Validate(RoleRequest request)
         {
@@ -104,7 +94,7 @@ namespace ArgueBot.Core.Database.Implementations
             long count = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM authorization_roles WHERE tenant_id=@tenant AND lower(name)=lower(@name) AND id<>@id", token, P("tenant", tenant, "name", name.Trim(), "id", id)).ConfigureAwait(false), CultureInfo.InvariantCulture);
             if (count > 0) throw new DomainException(409, "role_name_conflict", "A role with that name already exists in this tenant.");
         }
-        private static async Task<RoleRecord> ReadAsync(DbConnection connection, DbTransaction? transaction, string tenant, string id, CancellationToken token)
+        internal static async Task<RoleRecord> ReadAsync(DbConnection connection, DbTransaction? transaction, string tenant, string id, CancellationToken token)
         {
             using (DbCommand command = Command(connection, transaction, "SELECT * FROM authorization_roles WHERE id=@id AND (tenant_id=@tenant OR tenant_id IS NULL)", P("id", id, "tenant", tenant)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))

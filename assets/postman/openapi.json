@@ -6055,6 +6055,781 @@
           }
         }
       }
+    },
+    "/v1.0/api/permissions": {
+      "get": {
+        "operationId": "get_v1_0_api_permissions",
+        "tags": [
+          "Permissions"
+        ],
+        "summary": "Enumerate visible permission definitions",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful enumerate visible permission definitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_0_api_permissions",
+        "tags": [
+          "Permissions"
+        ],
+        "summary": "Create a tenant custom permission",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create a tenant custom permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRequest"
+              },
+              "example": {
+                "name": "Custom read {{$guid}}",
+                "resourceTypes": [
+                  "Conversation"
+                ],
+                "operations": [
+                  "Read"
+                ],
+                "effect": "Permit",
+                "active": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/permissions/{permissionId}": {
+      "get": {
+        "operationId": "get_v1_0_api_permissions_permissionId_",
+        "tags": [
+          "Permissions"
+        ],
+        "summary": "Read a visible permission definition",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "permissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a visible permission definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_permissions_permissionId_",
+        "tags": [
+          "Permissions"
+        ],
+        "summary": "Update or deactivate a tenant custom permission",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "permissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update or deactivate a tenant custom permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRequest"
+              },
+              "example": {
+                "name": "Updated read {{$guid}}",
+                "resourceTypes": [
+                  "Conversation"
+                ],
+                "operations": [
+                  "Read"
+                ],
+                "effect": "Permit",
+                "active": false,
+                "expectedRevision": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/roles/{roleId}/permissions": {
+      "get": {
+        "operationId": "get_v1_0_api_roles_roleId_permissions",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Enumerate active or inactive role permission mappings",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful enumerate active or inactive role permission mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolePermissionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_roles_roleId_permissions",
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Replace active custom-role permission mappings",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful replace active custom-role permission mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsRequest"
+              },
+              "example": {
+                "permissionIds": [],
+                "expectedRevision": 2
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7023,6 +7798,191 @@
           }
         }
       },
+      "PermissionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionRecord"
+            },
+            "description": "Ordered permission metadata."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Bounded page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching visible permissions."
+          }
+        },
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ]
+      },
+      "PermissionRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable permission identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Owning tenant or null for protected global definitions."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable permission name."
+          },
+          "resourceTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+              "maxLength": 64
+            },
+            "description": "Resource types or All wildcard, bounded to 32 entries.",
+            "minItems": 1,
+            "maxItems": 32
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Read",
+                "Create",
+                "Update",
+                "Delete",
+                "Write",
+                "Execute",
+                "Admin",
+                "All"
+              ]
+            },
+            "description": "Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries.",
+            "minItems": 1,
+            "maxItems": 16
+          },
+          "effect": {
+            "type": "string",
+            "description": "Permit or Deny; explicit matching deny wins.",
+            "enum": [
+              "Permit",
+              "Deny"
+            ]
+          },
+          "requiresOwnership": {
+            "type": "boolean",
+            "description": "Narrow grants to actual resource ownership."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the permission can contribute authority."
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Global seeded permissions cannot be edited through normal administration."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Optimistic concurrency revision."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp."
+          }
+        }
+      },
+      "PermissionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable permission name.",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "resourceTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+              "maxLength": 64
+            },
+            "description": "Resource types or All wildcard, bounded to 32 entries.",
+            "minItems": 1,
+            "maxItems": 32
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Read",
+                "Create",
+                "Update",
+                "Delete",
+                "Write",
+                "Execute",
+                "Admin",
+                "All"
+              ]
+            },
+            "description": "Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries.",
+            "minItems": 1,
+            "maxItems": 16
+          },
+          "effect": {
+            "type": "string",
+            "description": "Permit or Deny; explicit matching deny wins.",
+            "enum": [
+              "Permit",
+              "Deny"
+            ]
+          },
+          "requiresOwnership": {
+            "type": "boolean",
+            "description": "Narrow grants to actual resource ownership."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the permission can contribute authority."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current revision required for an update.",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "resourceTypes",
+          "operations"
+        ],
+        "description": "Tenant custom permit/deny definition. All is an explicit wildcard; Write expands to Create/Update/Delete and grants neither Execute nor Admin. Updates require expectedRevision; protected global definitions are immutable. Disable to preserve historical references."
+      },
       "RequestContext": {
         "type": "object",
         "properties": {
@@ -7211,6 +8171,101 @@
           "pageSize",
           "totalCount"
         ]
+      },
+      "RolePermissionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePermissionRecord"
+            },
+            "description": "Bounded ordered mappings and current permission definitions."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Bounded page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching mappings."
+          },
+          "roleRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Role revision observed with this mapping page."
+          }
+        },
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount",
+          "roleRevision"
+        ]
+      },
+      "RolePermissionRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable mapping identifier."
+          },
+          "roleId": {
+            "type": "string",
+            "description": "Role definition identifier."
+          },
+          "permissionId": {
+            "type": "string",
+            "description": "Referenced permission identifier."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the mapping is active."
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Built-in baseline mappings are protected."
+          },
+          "permission": {
+            "$ref": "#/components/schemas/PermissionRecord",
+            "description": "Current referenced permission metadata; inactive permissions confer no grant."
+          }
+        }
+      },
+      "RolePermissionsRequest": {
+        "type": "object",
+        "properties": {
+          "permissionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Complete desired active mapping set, maximum 128 distinct visible permission IDs.",
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current role revision required for replacement.",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "permissionIds",
+          "expectedRevision"
+        ],
+        "description": "Complete desired active permission mapping set for a tenant custom role. Replacement requires current role revision, refuses foreign IDs and protected changes, deactivates omitted mappings and reuses historical mapping IDs. Permission activity remains independent of mapping activity."
       },
       "RoleRecord": {
         "type": "object",

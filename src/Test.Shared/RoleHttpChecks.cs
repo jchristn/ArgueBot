@@ -24,6 +24,7 @@ namespace Test.Shared
                 await DeniedAsync(async () => { await participant.SendAsync<RolePage>(HttpMethod.Get, "v1.0/api/roles", token: token).ConfigureAwait(false); }, 403).ConfigureAwait(false);
                 await DeniedAsync(async () => { await participant.SendAsync<RoleRecord>(HttpMethod.Post, "v1.0/api/roles", new RoleRequest { Name = "Forbidden role" }, token).ConfigureAwait(false); }, 403).ConfigureAwait(false);
                 await DeniedAsync(async () => { await owner.SendAsync<RoleRecord>(HttpMethod.Put, "v1.0/api/roles/" + page.Items[0].Id, new RoleRequest { Name = "Viewer", ExpectedRevision = 1 }, token).ConfigureAwait(false); }, 403).ConfigureAwait(false);
+                role = await PermissionHttpChecks.RunAsync(owner, participant, role, token).ConfigureAwait(false);
                 RoleRecord read = await owner.SendAsync<RoleRecord>(HttpMethod.Get, "v1.0/api/roles/" + role.Id, token: token).ConfigureAwait(false);
                 if (read.TenantId != "ten_local" || read.Builtin || read.Protected) throw new InvalidDataException("HTTP custom role inherited protected/global metadata.");
                 role = await owner.SendAsync<RoleRecord>(HttpMethod.Put, "v1.0/api/roles/" + role.Id, new RoleRequest { Name = role.Name, Active = false, ExpectedRevision = role.Revision }, token).ConfigureAwait(false);

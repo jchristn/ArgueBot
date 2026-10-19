@@ -49,7 +49,7 @@ namespace ArgueBot.Core.Security
                 if (!grant.Active) continue;
                 if (!ValidId(grant.TenantId)) return Deny("invalid_grant");
                 if (grant.TenantId != target.TenantId) continue;
-                if (!ValidGrant(grant)) return Deny("invalid_grant");
+                if (!IsValidGrant(grant)) return Deny("invalid_grant");
                 relevant.Add(grant);
             }
             HashSet<string> permits = new HashSet<string>(StringComparer.Ordinal); HashSet<string> denies = new HashSet<string>(StringComparer.Ordinal);
@@ -92,7 +92,8 @@ namespace ArgueBot.Core.Security
         {
             return (target.IsPlatform || ValidId(target.TenantId)) && ValidWord(target.ResourceType) && !Equal(target.ResourceType, "All") && target.Operation != null && _Operations.Any(operation => !Equal(operation, "All") && Equal(operation, target.Operation)) && OptionalId(target.ResourceId) && OptionalId(target.OwnerUserId);
         }
-        private static bool ValidGrant(AuthorizationGrant grant)
+        internal static string? CanonicalOperation(string value) { return _Operations.FirstOrDefault(operation => Equal(operation, value)); }
+        internal static bool IsValidGrant(AuthorizationGrant grant)
         {
             if (!ValidId(grant.Id) || !Enum.IsDefined(grant.Effect) || !Enum.IsDefined(grant.Scope) || grant.ResourceTypes == null || grant.Operations == null || grant.ResourceTypes.Count < 1 || grant.ResourceTypes.Count > 32 || grant.Operations.Count < 1 || grant.Operations.Count > 16 || !grant.ResourceTypes.All(ValidWord) || !grant.Operations.All(value => _Operations.Any(operation => Equal(operation, value)))) return false;
             if (grant.Scope == AuthorizationScope.Resource) return ValidId(grant.ResourceId) && !grant.InheritsToChildren;

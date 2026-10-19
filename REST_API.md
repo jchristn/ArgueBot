@@ -632,6 +632,109 @@ Representative request:
 }
 ```
 
+## GET /v1.0/api/permissions
+
+Enumerate visible permission definitions. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `PermissionPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## POST /v1.0/api/permissions
+
+Create a tenant custom permission. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **201**, response: `PermissionRecord`. Request: `PermissionRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Custom read {{$guid}}",
+  "resourceTypes": [
+    "Conversation"
+  ],
+  "operations": [
+    "Read"
+  ],
+  "effect": "Permit",
+  "active": true
+}
+```
+
+## GET /v1.0/api/permissions/{permissionId}
+
+Read a visible permission definition. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `PermissionRecord`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| permissionId | path | true | Identifier in the authenticated ownership scope. |
+
+## PUT /v1.0/api/permissions/{permissionId}
+
+Update or deactivate a tenant custom permission. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `PermissionRecord`. Request: `PermissionRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| permissionId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "name": "Updated read {{$guid}}",
+  "resourceTypes": [
+    "Conversation"
+  ],
+  "operations": [
+    "Read"
+  ],
+  "effect": "Permit",
+  "active": false,
+  "expectedRevision": 1
+}
+```
+
+## GET /v1.0/api/roles/{roleId}/permissions
+
+Enumerate active or inactive role permission mappings. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `RolePermissionPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| roleId | path | true | Identifier in the authenticated ownership scope. |
+| active | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## PUT /v1.0/api/roles/{roleId}/permissions
+
+Replace active custom-role permission mappings. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `RoleRecord`. Request: `RolePermissionsRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| roleId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "permissionIds": [],
+  "expectedRevision": 2
+}
+```
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -984,6 +1087,50 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matches. |
 
+### PermissionPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Ordered permission metadata. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Bounded page size. |
+| totalCount | integer | Total matching visible permissions. |
+
+### PermissionRecord
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable permission identifier. |
+| tenantId | string (nullable) | Owning tenant or null for protected global definitions. |
+| name | string | Human-readable permission name. |
+| resourceTypes | array | Resource types or All wildcard, bounded to 32 entries. |
+| operations | array | Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries. |
+| effect | string | Permit or Deny; explicit matching deny wins. |
+| requiresOwnership | boolean | Narrow grants to actual resource ownership. |
+| active | boolean | Whether the permission can contribute authority. |
+| protected | boolean | Global seeded permissions cannot be edited through normal administration. |
+| revision | integer | Optimistic concurrency revision. |
+| createdUtc | string | Creation timestamp. |
+| updatedUtc | string | Last update timestamp. |
+
+### PermissionRequest
+
+Tenant custom permit/deny definition. All is an explicit wildcard; Write expands to Create/Update/Delete and grants neither Execute nor Admin. Updates require expectedRevision; protected global definitions are immutable. Disable to preserve historical references.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Human-readable permission name. |
+| resourceTypes | array | Resource types or All wildcard, bounded to 32 entries. |
+| operations | array | Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries. |
+| effect | string | Permit or Deny; explicit matching deny wins. |
+| requiresOwnership | boolean | Narrow grants to actual resource ownership. |
+| active | boolean | Whether the permission can contribute authority. |
+| expectedRevision | integer | Current revision required for an update. |
+
 ### RequestContext
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1053,6 +1200,40 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page number. |
 | pageSize | integer | Requested bounded page size. |
 | totalCount | integer | Total matching role definitions. |
+
+### RolePermissionPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Bounded ordered mappings and current permission definitions. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Bounded page size. |
+| totalCount | integer | Total matching mappings. |
+| roleRevision | integer | Role revision observed with this mapping page. |
+
+### RolePermissionRecord
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable mapping identifier. |
+| roleId | string | Role definition identifier. |
+| permissionId | string | Referenced permission identifier. |
+| active | boolean | Whether the mapping is active. |
+| protected | boolean | Built-in baseline mappings are protected. |
+| permission | PermissionRecord | Current referenced permission metadata; inactive permissions confer no grant. |
+
+### RolePermissionsRequest
+
+Complete desired active permission mapping set for a tenant custom role. Replacement requires current role revision, refuses foreign IDs and protected changes, deactivates omitted mappings and reuses historical mapping IDs. Permission activity remains independent of mapping activity.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| permissionIds | array | Complete desired active mapping set, maximum 128 distinct visible permission IDs. |
+| expectedRevision | integer | Current role revision required for replacement. |
 
 ### RoleRecord
 

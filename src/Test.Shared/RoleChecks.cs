@@ -62,6 +62,7 @@ namespace Test.Shared
                 await DeniedAsync(async () => { await database.Roles.CreateAsync(owner, new RoleRequest { Name = "Forbidden clone " + suffix, CloneRoleId = foreignRole }, token).ConfigureAwait(false); }, 404).ConfigureAwait(false);
                 if ((await database.Roles.EnumerateAsync(owner, "Foreign " + suffix, token: token).ConfigureAwait(false)).TotalCount != 0) throw new InvalidDataException("Role list leaked foreign tenant metadata or counts.");
                 if ((await database.Roles.ReadAsync(foreign, foreignRole, token).ConfigureAwait(false)).TenantId != foreign.TenantId) throw new InvalidDataException("Tenant administrator role creation lost its tenant binding.");
+                await PermissionChecks.RunAsync(database, connection, owner, spoofed, foreign, token).ConfigureAwait(false);
             }
             finally
             {

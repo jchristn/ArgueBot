@@ -792,6 +792,122 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/permissions",
+      "group": "Permissions",
+      "summary": "Enumerate visible permission definitions",
+      "response": "PermissionPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "search",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/permissions",
+      "group": "Permissions",
+      "summary": "Create a tenant custom permission",
+      "response": "PermissionRecord",
+      "request": "PermissionRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Custom read {{$guid}}",
+        "resourceTypes": [
+          "Conversation"
+        ],
+        "operations": [
+          "Read"
+        ],
+        "effect": "Permit",
+        "active": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "permissionId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/permissions/{permissionId}",
+      "group": "Permissions",
+      "summary": "Read a visible permission definition",
+      "response": "PermissionRecord",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v1.0/api/permissions/{permissionId}",
+      "group": "Permissions",
+      "summary": "Update or deactivate a tenant custom permission",
+      "response": "PermissionRecord",
+      "request": "PermissionRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Updated read {{$guid}}",
+        "resourceTypes": [
+          "Conversation"
+        ],
+        "operations": [
+          "Read"
+        ],
+        "effect": "Permit",
+        "active": false,
+        "expectedRevision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/roles/{roleId}/permissions",
+      "group": "Roles",
+      "summary": "Enumerate active or inactive role permission mappings",
+      "response": "RolePermissionPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "active",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v1.0/api/roles/{roleId}/permissions",
+      "group": "Roles",
+      "summary": "Replace active custom-role permission mappings",
+      "response": "RoleRecord",
+      "request": "RolePermissionsRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "permissionIds": [],
+        "expectedRevision": 2
+      },
+      "query": [],
+      "execute": false,
+      "save": null
     }
   ]
 }

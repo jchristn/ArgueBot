@@ -108,6 +108,7 @@ namespace ArgueBot.Server
                                 new AuditRoutes(database).Register(server);
                                 new UserRoutes(database).Register(server);
                                 new RoleRoutes(database).Register(server);
+                                new PermissionRoutes(database).Register(server);
                                 new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
                                 new ConversationRoutes(database, engine, sessions, settings).Register(server);
                                 new BackupRoutes(database, backups).Register(server);

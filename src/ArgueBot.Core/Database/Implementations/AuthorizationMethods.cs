@@ -47,7 +47,7 @@ namespace ArgueBot.Core.Database.Implementations
                     {
                         if (assignments.Count == MaximumAssignments) throw Invalid("assignment_limit_exceeded");
                         string scope = S(reader, "resource_scope");
-                        if (!Enum.TryParse(scope, false, out AuthorizationScope parsed) || !Enum.IsDefined(parsed)) throw Invalid("invalid_assignment");
+                        if (scope is not ("Tenant" or "Resource") || !Enum.TryParse(scope, false, out AuthorizationScope parsed) || !Enum.IsDefined(parsed)) throw Invalid("invalid_assignment");
                         assignments.Add(new StoredAssignment { Id = S(reader, "id"), RoleId = S(reader, "role_id"), RoleName = S(reader, "role_name"), Scope = parsed, ResourceId = S(reader, "resource_id"), Inherits = Flag(reader, "inherits") });
                     }
                 }
@@ -94,7 +94,7 @@ namespace ArgueBot.Core.Database.Implementations
                 while (await reader.ReadAsync(token).ConfigureAwait(false))
                 {
                     string effect = S(reader, "effect");
-                    if (!Enum.TryParse(effect, false, out AuthorizationEffect parsed) || !Enum.IsDefined(parsed)) throw Invalid("invalid_permission");
+                    if (effect is not ("Permit" or "Deny") || !Enum.TryParse(effect, false, out AuthorizationEffect parsed) || !Enum.IsDefined(parsed)) throw Invalid("invalid_permission");
                     Add(grants, assignment, tenant, S(reader, "id"), Parse(S(reader, "resource_types")), Parse(S(reader, "operations")), parsed, Flag(reader, "requires_ownership"));
                 }
             }

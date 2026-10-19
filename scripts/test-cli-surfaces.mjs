@@ -57,6 +57,17 @@ try {
   check(command(['roles','show',role.id]).revision===1, 'CLI role read lost its initial revision.');
   const inactiveRole = command(['roles','update',role.id,'-'], {name:role.name,active:false,expectedRevision:role.revision});
   check(!inactiveRole.active && inactiveRole.revision===2, 'CLI role deactivation lost optimistic concurrency.');
+  const permission = command(['permissions','create','-'], {name:'CLI read permission %+議論',resourceTypes:['Conversation'],operations:['Read'],effect:'Permit'});
+  check(permission.tenantId==='ten_local' && permission.effect==='Permit' && !permission.protected, 'CLI permission creation lost tenant/effect metadata.');
+  check(command(['permissions','list','%+議論']).items.some(item=>item.id===permission.id), 'CLI permission search lost literal metadata.');
+  check(command(['permissions','show',permission.id]).operations.includes('Read'), 'CLI permission read lost operation metadata.');
+  const mappedRole = command(['roles','set-permissions',role.id,'-'], {permissionIds:[permission.id],expectedRevision:inactiveRole.revision});
+  check(mappedRole.revision===3 && command(['roles','permissions',role.id]).items.some(item=>item.permissionId===permission.id), 'CLI mapping replacement lost its role revision or referenced permission.');
+  const inactivePermission = command(['permissions','update',permission.id,'-'], {name:permission.name,resourceTypes:permission.resourceTypes,operations:permission.operations,effect:permission.effect,active:false,expectedRevision:permission.revision});
+  check(!inactivePermission.active && inactivePermission.revision===2, 'CLI permission deactivation lost its revision.');
+  check(command(['roles','permissions',role.id]).items.some(item=>item.permissionId===permission.id && !item.permission.active), 'CLI mapping inspection hid permission activity.');
+  command(['roles','set-permissions',role.id,'-'], {permissionIds:[],expectedRevision:mappedRole.revision});
+  check(command(['roles','permissions',role.id,'1','false']).items.some(item=>item.permissionId===permission.id && !item.active), 'CLI replacement discarded inactive mapping history.');
   const audit = command(['audit','list','session.issue']);
   check(audit.totalCount >= 1 && audit.items.every(item=>item.operation==='session.issue' && item.sessionId), 'CLI audit inspection lost session accounting.');
   const profile = command(['participants','add','-'], {name:'CLI surface fixture',kind:'cli',provider:'plain',executable:'fixture-not-executed',arguments:['','--literal','議論 with spaces']});
