@@ -18,7 +18,7 @@ namespace ArgueBot.Tui
         {
             ArgumentNullException.ThrowIfNull(message);
             if (message.ContentTruncated) throw new ArgumentException("Load the full message before opening this reader.", nameof(message));
-            Title = message.Speaker + " | " + message.Kind; FooterHint = "Read only | PgUp/Dn: scroll | Tab: Close | Esc: back";
+            Title = TranscriptFormatter.Heading(message); FooterHint = "Read only | PgUp/Dn: scroll | Tab: Close | Esc: back";
             MaxContentWidth = 80; MaxContentHeight = 22;
             _Editor = new TextEditor { Text = message.Content, IsReadOnly = true, WordWrap = true };
             _Editor.OnFocusChanged(true);

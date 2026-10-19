@@ -4,6 +4,8 @@
 
 ### In progress
 
+- TUI conversation messages use styled speaker headings, local times and spaced separators. Routine completed/note metadata is hidden; interrupted/failed states and preview notices remain visible. Full-message and history headings use the same readable labels.
+
 - The C# TUI opens with a lowercase Ogre ASCII logo in a centered splash modal over the workspace. The modal separates text groups with blank rows and keeps padding below its dismissal hint. It includes version, copyright, license, project URL and configuration/help shortcuts. Any key dismisses it immediately; otherwise it closes after three seconds.
 
 - Scoped user-role assignment APIs and console lifecycle, shared GUID/name/built-in resolution, protected identity/assignment checks, exact resource scope and bounded tenant inheritance. Creation/reactivation enforce the 256-active-assignment limit. Complete domain enforcement and remaining editors are still in progress.

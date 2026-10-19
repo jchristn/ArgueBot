@@ -11,7 +11,9 @@ namespace Test.Shared
     using ArgueBot.Core.Models;
     using ArgueBot.Tui;
     using TUIKit;
+    using TUIKit.Content;
     using TUIKit.Hosting;
+    using TUIKit.Layout;
     using TUIKit.Terminal;
     using TUIKit.Testing;
     using TUIKit.Theming;
@@ -24,7 +26,32 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "Transcript", "Transcript separates speakers and literal content while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task TranscriptAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(80, 30) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme;
+                    Pane pane = app.AddPane("transcript", region => region.FillWidth().FillHeight());
+                    List<Message> messages = new List<Message>
+                    {
+                        new Message { Speaker = "user", Content = "Compare the two approaches. [red] stays literal." },
+                        new Message { Speaker = "Claude", Kind = "answer", Content = "First, consider the trade-offs.\n\nKeep the explanation readable." },
+                        new Message { Speaker = "Codex", Kind = "answer", State = "interrupted", Content = "Partial answer", ContentTruncated = true }
+                    };
+                    TranscriptFormatter.Render(pane, messages, theme);
+                    app.Start(); app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("You", StringComparison.Ordinal) || !screen.Contains("Claude", StringComparison.Ordinal) || !screen.Contains("Interrupted", StringComparison.Ordinal) || !screen.Contains("[red] stays literal", StringComparison.Ordinal) || !screen.Contains("Ctrl+L", StringComparison.Ordinal) || screen.Contains("completed", StringComparison.Ordinal) || screen.Contains("user | note", StringComparison.Ordinal) || screen.Contains("trade-offs.Keep", StringComparison.Ordinal)) throw new InvalidDataException("Transcript lost readable headings, original content or exceptional-state notices.");
+                    if (!TranscriptFormatter.Heading(new Message { Kind = "steer" }).Contains("Private directive", StringComparison.Ordinal)) throw new InvalidDataException("Private directive label disappeared.");
+                    await SaveEvidenceAsync("transcript-" + theme.Name, screen, token).ConfigureAwait(false);
+                    app.Stop();
+                }
+            }
         }
         private static async Task SplashAsync(CancellationToken token)
         {

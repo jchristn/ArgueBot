@@ -24,7 +24,7 @@ namespace ArgueBot.Tui
             {
                 MessagePage result = await _Client.MessagePageAsync(conversationId, page, throughSequence: through, tail: tail, token: _Token).ConfigureAwait(false);
                 page = result.PageNumber; through = result.ThroughSequence; tail = false;
-                List<string> choices = result.Items.Select(message => message.Sequence + " | " + message.Speaker + " | " + message.Kind + (message.ContentTruncated ? " | preview" : "")).ToList();
+                List<string> choices = result.Items.Select(message => TranscriptFormatter.Heading(message) + (message.ContentTruncated ? " (preview)" : "")).ToList();
                 int previous = -1; int next = -1;
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }

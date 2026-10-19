@@ -69,7 +69,7 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+l", () => Launch(HistoryAsync));
             app.Bind("alt+right", () => _Page++);
             app.Bind("alt+left", () => _Page = Math.Max(1, _Page - 1));
-            app.Bind("ctrl+t", () => app.Theme = app.Theme.Name == "Dark" ? Theme.Light : Theme.Dark);
+            app.Bind("ctrl+t", () => { app.Theme = app.Theme.Name == "Dark" ? Theme.Light : Theme.Dark; _LastContent = ""; });
             app.Bind("f1", () => Launch(HelpAsync));
             _Threads.ItemActivated += index => { if (index >= 0 && index < _Conversations.Count) { _Selected = _Conversations[index].Id; _LastContent = ""; } };
             _Composer.Submitted += (_, _) => Launch(SendAsync);
@@ -91,7 +91,7 @@ namespace ArgueBot.Tui
                         _Conversations = page.Items; int index = _Threads.SelectedIndex;
                         _Threads.SetItems(page.Items.Select(item => (item.Pinned ? "* " : "") + item.Title));
                         if (index >= 0 && index < page.Items.Count) _Threads.Select(index);
-                        if (_LastContent != content) { _Transcript.Clear(); _Transcript.WriteLine(content.Length == 0 ? "Create a conversation with Ctrl+N, then send a note or start a debate with Ctrl+B." : content); _LastContent = content; }
+                        if (_LastContent != content) { TranscriptFormatter.Render(_Transcript, messages, _App!.Theme); _LastContent = content; }
                         _Status.RightText = "Connected | " + page.TotalCount + " conversations | Thread page " + _Page + " | " + history.TotalCount + " messages | Ctrl+L history";
                     });
                 }
