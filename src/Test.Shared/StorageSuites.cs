@@ -8,6 +8,7 @@ namespace Test.Shared
     using System.Threading.Tasks;
     using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
@@ -26,6 +27,7 @@ namespace Test.Shared
                     new TestCaseDescriptor("Storage", "RequestHistory", "Request metadata paging, private detail, isolation, empty buckets and retention", RequestHistoryAsync),
                     new TestCaseDescriptor("Storage", "RoundTrip", "History, receipts, search, backup and tenant isolation", RoundTripAsync),
                     new TestCaseDescriptor("Storage", "RunRecovery", "Immutable snapshots and interrupted run recovery", RunRecoveryAsync),
+                    new TestCaseDescriptor("Storage", "ExclusiveDatabase", "SQLite database ownership survives different home settings and releases on disposal", ExclusiveDatabaseAsync),
                     new TestCaseDescriptor("Storage", "ExclusiveHome", "Exclusive application-home ownership", ExclusiveHomeAsync),
                     new TestCaseDescriptor("Storage", "CommandReceipts", "Moderator retries do not extend twice; immediate pause/resume retires the old worker", CommandReceiptsAsync),
                     new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync),
@@ -34,6 +36,34 @@ namespace Test.Shared
             }
         }
         private static RequestContext Owner() { return new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" }; }
+        private static async Task ExclusiveDatabaseAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-db-owner-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ArgueBotPaths paths = new ArgueBotPaths(home); paths.EnsureDirectories();
+                DatabaseSettings settings = new DatabaseSettings { ConnectionString = new SqliteConnectionStringBuilder { DataSource = paths.DatabaseFile, ForeignKeys = true, Pooling = false }.ToString() };
+                using (SqliteDatabaseDriver first = new SqliteDatabaseDriver(paths))
+                {
+                    await first.InitializeAsync(token).ConfigureAwait(false);
+                    await first.InitializeAsync(token).ConfigureAwait(false);
+                    using (DatabaseDriverBase competitor = DatabaseDriverFactory.Create(settings))
+                    {
+                        bool refused = false;
+                        try { await competitor.InitializeAsync(token).ConfigureAwait(false); }
+                        catch (IOException) { refused = true; }
+                        if (!refused) throw new InvalidDataException("Two independently configured drivers owned the same SQLite file.");
+                    }
+                }
+                using (DatabaseDriverBase successor = DatabaseDriverFactory.Create(settings))
+                {
+                    await successor.InitializeAsync(token).ConfigureAwait(false);
+                    Conversation conversation = await successor.CreateConversationAsync(Owner(), "New owner after shutdown", token).ConfigureAwait(false);
+                    if ((await successor.ReadConversationAsync(Owner(), conversation.Id, token).ConfigureAwait(false)).Title != conversation.Title) throw new InvalidDataException("Database ownership was not released cleanly.");
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
         private static async Task RequestHistoryAsync(CancellationToken token)
         {
             string home = Path.Combine(Path.GetTempPath(), "arguebot-history-" + Guid.NewGuid().ToString("N"));

@@ -12,10 +12,33 @@ namespace ArgueBot.Core.Database.Sqlite
     public sealed class SqliteDatabaseDriver : DatabaseDriverBase
     {
         private int _PermissionsApplied;
+        private readonly DatabaseSettings _Settings;
+        private FileStream? _DatabaseOwner;
         /// <summary>Create a driver for an isolated or user application home.</summary>
         public SqliteDatabaseDriver(ArgueBotPaths paths) : this(FromPaths(paths)) { }
         /// <summary>Create a driver with explicit SQLite settings.</summary>
-        public SqliteDatabaseDriver(DatabaseSettings settings) : base(settings) { }
+        public SqliteDatabaseDriver(DatabaseSettings settings) : base(settings) { _Settings = settings; }
+        /// <inheritdoc />
+        protected override Task<DbConnection?> AcquireOwnedWriterAsync(CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (_DatabaseOwner != null) return Task.FromResult<DbConnection?>(null);
+            using (SqliteConnection connection = (SqliteConnection)DatabaseDriverFactory.CreateConnection(_Settings))
+            {
+                SqliteConnectionStringBuilder options = new SqliteConnectionStringBuilder(connection.ConnectionString);
+                if (options.Mode == SqliteOpenMode.Memory || string.IsNullOrWhiteSpace(options.DataSource) || options.DataSource == ":memory:") throw new ArgumentException("Persistent SQLite storage requires an explicit database file.");
+                string file = Path.GetFullPath(options.DataSource) + ".arguebot-owner";
+                try { _DatabaseOwner = new FileStream(file, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); HomePermissions.File(file); }
+                catch (IOException) { throw new IOException("Another ArgueBot service owns this SQLite database, or its ownership file is unavailable. Attach to that service or choose a different database."); }
+            }
+            return Task.FromResult<DbConnection?>(null);
+        }
+        /// <inheritdoc />
+        protected override void Dispose(bool disposing)
+        {
+            try { base.Dispose(disposing); }
+            finally { if (disposing) { _DatabaseOwner?.Dispose(); _DatabaseOwner = null; } }
+        }
         private static DatabaseSettings FromPaths(ArgueBotPaths paths)
         {
             paths.EnsureDirectories();

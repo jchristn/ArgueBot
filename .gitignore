@@ -23,3 +23,5 @@ dashboard/playwright-report/
 test-results/
 *.arguedb.jsonl
 *.arguebak
+
+*.arguebot-owner

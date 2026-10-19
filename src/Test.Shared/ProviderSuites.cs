@@ -1,16 +1,17 @@
 namespace Test.Shared
 {
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Database;
+    using ArgueBot.Core.Database.Sqlite;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
+    using Npgsql;
     using Touchstone.Core;
 
     /// <summary>Real database provider contract tests against explicitly configured disposable databases.</summary>
@@ -27,8 +28,45 @@ namespace Test.Shared
                     string variable = "ARGUEBOT_TEST_" + provider.ToString().ToUpperInvariant();
                     bool missing = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variable));
                     cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => RunAsync(provider, variable, token), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => OwnershipAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
+            }
+        }
+        private static async Task OwnershipAsync(string variable, CancellationToken token)
+        {
+            DatabaseSettings settings = new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = variable };
+            using (DatabaseDriverBase first = DatabaseDriverFactory.Create(settings))
+            {
+                await first.InitializeAsync(token).ConfigureAwait(false);
+                using (DatabaseDriverBase competitor = DatabaseDriverFactory.Create(settings))
+                {
+                    bool refused = false;
+                    try { await competitor.InitializeAsync(token).ConfigureAwait(false); }
+                    catch (IOException) { refused = true; }
+                    if (!refused) throw new InvalidDataException("Two service owners acquired the same PostgreSQL database.");
+                }
+                using (NpgsqlConnection control = new NpgsqlConnection(Environment.GetEnvironmentVariable(variable)))
+                {
+                    await control.OpenAsync(token).ConfigureAwait(false);
+                    using (NpgsqlCommand terminate = new NpgsqlCommand("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND application_name='ArgueBot exclusive writer'", control))
+                    { await terminate.ExecuteNonQueryAsync(token).ConfigureAwait(false); }
+                }
+                RequestContext context = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true };
+                bool lost = false;
+                try { await first.CreateConversationAsync(context, "Must not commit after writer loss", token).ConfigureAwait(false); }
+                catch (Exception exception) when (exception is NpgsqlException || exception is OperationCanceledException || exception is InvalidOperationException) { lost = true; }
+                if (!lost || !first.OwnershipToken.IsCancellationRequested) throw new InvalidDataException("Writer loss did not fail closed and cancel the service ownership signal.");
+                using (DatabaseDriverBase successor = DatabaseDriverFactory.Create(settings))
+                {
+                    await successor.InitializeAsync(token).ConfigureAwait(false);
+                    lost = false;
+                    try { await first.CreateConversationAsync(context, "Old owner must remain fenced", token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { lost = true; }
+                    if (!lost) throw new InvalidDataException("The lost owner transparently reconnected alongside its successor.");
+                    Conversation conversation = await successor.CreateConversationAsync(context, "Successor owns recovered storage", token).ConfigureAwait(false);
+                    await successor.DeleteConversationAsync(context, conversation.Id, token).ConfigureAwait(false);
+                }
             }
         }
         private static async Task RunAsync(DatabaseTypeEnum provider, string variable, CancellationToken token)

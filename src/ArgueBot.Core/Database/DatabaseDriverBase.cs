@@ -1,6 +1,8 @@
 namespace ArgueBot.Core.Database
 {
+    using System;
     using System.Collections.Generic;
+    using System.Data;
     using System.Data.Common;
     using System.Diagnostics;
     using System.Globalization;
@@ -8,9 +10,8 @@ namespace ArgueBot.Core.Database
     using System.Linq;
     using System.Security.Cryptography;
     using System.Text;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
@@ -27,6 +28,11 @@ namespace ArgueBot.Core.Database
         private readonly string? _BackupDirectory;
         private readonly SemaphoreSlim _Writer = new SemaphoreSlim(1, 1);
         private bool _Disposed;
+        private DbConnection? _OwnedWriter;
+        private readonly CancellationTokenSource _Ownership = new CancellationTokenSource();
+        /// <summary>Cancelled when a provider's exclusive writer session is lost. The host must drain and stop its execution workers.</summary>
+        public CancellationToken OwnershipToken { get { return _Ownership.Token; } }
+
         /// <summary>Runner configuration methods.</summary>
         public IProfileMethods Profiles { get; }
         /// <summary>Execution checkpoint methods.</summary>
@@ -56,8 +62,14 @@ namespace ArgueBot.Core.Database
             await _Writer.WaitAsync(token).ConfigureAwait(false);
             try
             {
-                using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+                if (_OwnedWriter == null)
                 {
+                    _OwnedWriter = await AcquireOwnedWriterAsync(token).ConfigureAwait(false);
+                    if (_OwnedWriter != null) _OwnedWriter.StateChange += WriterStateChanged;
+                }
+                using (WriterConnectionLease lease = await OpenWriterAsync(token).ConfigureAwait(false))
+                {
+                    DbConnection connection = lease.Connection;
                     await ExecuteAsync(connection, null, "PRAGMA journal_mode=WAL;", token).ConfigureAwait(false);
                     long version = 0;
                     object? exists = await ScalarAsync(connection, null, "SELECT name FROM sqlite_master WHERE name='schema_migrations'", token).ConfigureAwait(false);
@@ -325,12 +337,30 @@ namespace ArgueBot.Core.Database
             if (context.Role != "admin" && context.Role != "operator") throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
 
+        /// <summary>Optionally acquire an exclusive provider session that is retained for all writes until disposal. Default providers use transient connections.</summary>
+        protected virtual Task<DbConnection?> AcquireOwnedWriterAsync(CancellationToken token) { return Task.FromResult<DbConnection?>(null); }
+        private async Task<WriterConnectionLease> OpenWriterAsync(CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested(); _Ownership.Token.ThrowIfCancellationRequested();
+            if (_OwnedWriter != null)
+            {
+                if (_OwnedWriter.State != ConnectionState.Open) throw new InvalidOperationException("The exclusive database writer session was lost. Restart the service before writing again.");
+                return new WriterConnectionLease(_OwnedWriter, false);
+            }
+            return new WriterConnectionLease(await OpenAsync(token).ConfigureAwait(false), true);
+        }
+        private void WriterStateChanged(object? sender, StateChangeEventArgs change)
+        {
+            if (!_Disposed && change.CurrentState != ConnectionState.Open) _Ownership.Cancel();
+        }
+
         /// <summary>Apply provider-specific connection initialization after a successful open.</summary>
         protected virtual void OnConnectionOpened(DbConnection connection) { }
 
         internal async Task<DbConnection> OpenAsync(CancellationToken token)
         {
             ObjectDisposedException.ThrowIf(_Disposed, this);
+            _Ownership.Token.ThrowIfCancellationRequested();
             DbConnection connection = DatabaseDriverFactory.CreateConnection(_Settings);
             try { await connection.OpenAsync(token).ConfigureAwait(false); OnConnectionOpened(connection); return connection; }
             catch { connection.Dispose(); throw; }
@@ -345,9 +375,11 @@ namespace ArgueBot.Core.Database
                 await _Writer.WaitAsync(token).ConfigureAwait(false);
                 try
                 {
-                    using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
-                    using (DbTransaction transaction = connection.BeginTransaction())
-                    { await action(connection, transaction).ConfigureAwait(false); transaction.Commit(); outcome = "success"; }
+                    using (WriterConnectionLease lease = await OpenWriterAsync(token).ConfigureAwait(false))
+                    {
+                        using (DbTransaction transaction = lease.Connection.BeginTransaction())
+                        { await action(lease.Connection, transaction).ConfigureAwait(false); transaction.Commit(); outcome = "success"; }
+                    }
                 }
                 catch { activity?.SetStatus(ActivityStatusCode.Error); throw; }
                 finally
@@ -394,6 +426,6 @@ namespace ArgueBot.Core.Database
         /// <summary>Release synchronization resources after all operations have stopped.</summary>
         public void Dispose() { Dispose(true); GC.SuppressFinalize(this); }
         /// <summary>Release owned managed synchronization resources.</summary>
-        protected virtual void Dispose(bool disposing) { if (_Disposed) return; _Disposed = true; if (disposing) _Writer.Dispose(); }
+        protected virtual void Dispose(bool disposing) { if (_Disposed) return; _Disposed = true; if (disposing) { _OwnedWriter?.Dispose(); _Ownership.Dispose(); _Writer.Dispose(); } }
     }
 }

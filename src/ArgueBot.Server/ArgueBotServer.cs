@@ -1,15 +1,15 @@
 namespace ArgueBot.Server
 {
+    using System;
     using System.Diagnostics;
     using System.IO;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
+    using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
     using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Database.Sqlite;
-    using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Security;
     using ArgueBot.Core.Services;
@@ -17,9 +17,9 @@ namespace ArgueBot.Server
     using ArgueBot.Server.Routes;
     using ArgueBot.Server.Services;
     using Radiant;
-    using WatsonWebserver.Core.OpenApi;
-    using WatsonWebserver.Core;
     using WatsonWebserver;
+    using WatsonWebserver.Core;
+    using WatsonWebserver.Core.OpenApi;
 
     internal sealed class ArgueBotServer
     {
@@ -34,6 +34,7 @@ namespace ArgueBot.Server
             {
                 telemetry.LoggerFactory?.AddProvider(new FileLogProvider(Path.Combine(paths.Home, "logs")));
                 await database.InitializeAsync(token).ConfigureAwait(false);
+                using (CancellationTokenRegistration ownership = database.OwnershipToken.Register(() => wake.Cancel()))
                 await using (BackupManager backups = new BackupManager(database, paths))
                 {
                     await backups.InitializeAsync(token).ConfigureAwait(false);
@@ -98,12 +99,14 @@ namespace ArgueBot.Server
                                     Console.WriteLine("ArgueBot replacement service: http://127.0.0.1:" + settings.Port + " | home " + paths.Home);
                                     try { await Task.Delay(Timeout.Infinite, wake.Token).ConfigureAwait(false); }
                                     catch (OperationCanceledException) when (wake.IsCancellationRequested) { }
+                                    if (database.OwnershipToken.IsCancellationRequested) telemetry.CreateLogger("ArgueBot.Service").LogError("Exclusive database ownership was lost; stopping listener and execution workers.");
                                     server.Stop();
                                     telemetry.CreateLogger("ArgueBot.Service").LogInformation("Listener stopped {Restart}", restartRequested);
                                 }
                             }
                         }
                         finally { await engine.DisposeAsync().ConfigureAwait(false); }
+                        if (database.OwnershipToken.IsCancellationRequested) throw new IOException("Exclusive database ownership was lost. The service stopped without reconnecting its writer.");
                     }
                 }
             }
