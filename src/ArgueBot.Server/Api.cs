@@ -14,8 +14,7 @@ namespace ArgueBot.Server
         internal static readonly JsonSerializerOptions Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
         internal static string SessionToken(HttpContextBase http)
         {
-            string bearer = http.Request.Headers["Authorization"] ?? "";
-            return bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? bearer.Substring(7) : http.Request.Headers["x-token"] ?? "";
+            return SessionAuthentication.Read(http.Request.Headers);
         }
         internal static RequestContext Context(HttpContextBase http) { return http.Metadata as RequestContext ?? throw new DomainException(401, "unauthenticated", "Authentication required."); }
         internal static string Parameter(HttpContextBase http, string name) { return http.Request.Url.Parameters[name] ?? throw new DomainException(400, "missing_parameter", "Required route parameter is missing."); }

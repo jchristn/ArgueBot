@@ -19,6 +19,7 @@ const Participants = lazy(() => import("./views/Participants.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Backups = lazy(() => import("./views/Backups.jsx"));
+const Audit = lazy(() => import("./views/Audit.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
 function Language() {
   const { t } = useTranslation();
@@ -132,6 +133,7 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
         ["explorer", "explorer.title", "grid"],
         ["settings", "nav.settings", "settings"],
         ["backups", "backups.title", "download"],
+        ...(user.isAdmin || user.isTenantAdmin ? [["audit", "audit.title", "users"]] : []),
       ],
     },
   ];
@@ -292,6 +294,7 @@ export default function App() {
               <Route path="/dashboard/explorer" element={<ApiExplorer />} />
               <Route path="/dashboard/settings" element={<Settings />} />
               <Route path="/dashboard/backups" element={<Backups />} />
+              <Route path="/dashboard/audit" element={<Audit />} />
               <Route
                 path="*"
                 element={<Navigate to="/dashboard/home" replace />}

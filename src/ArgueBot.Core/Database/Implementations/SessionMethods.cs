@@ -29,6 +29,7 @@ namespace ArgueBot.Core.Database.Implementations
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 await ExecuteAsync(connection, transaction, "INSERT INTO auth_sessions(id,tenant_id,user_id,token_hash,expires_utc,created_utc,updated_utc) VALUES(@id,'ten_local','usr_local',@hash,@expires,@now,@now)", token, P("id", sessionId, "hash", Hash(secret), "expires", expiry.ToString("O", CultureInfo.InvariantCulture))).ConfigureAwait(false);
+                await AuditMethods.AppendAsync(connection, transaction, new RequestContext { IsAuthenticated = true, TenantId = "ten_local", UserId = "usr_local", SessionId = sessionId, AuthScheme = "LocalEnrollment" }, "session.issue", "issued", "Session", sessionId, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return secret;
         }
@@ -43,13 +44,18 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) return null;
                 string role = S(reader, "role");
-                return new RequestContext { TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Role = role, IsAuthenticated = true, IsAdmin = Convert.ToInt32(reader["is_admin"], CultureInfo.InvariantCulture) != 0, IsTenantAdmin = Convert.ToInt32(reader["is_tenant_admin"], CultureInfo.InvariantCulture) != 0 };
+                return new RequestContext { SessionId = claims.SessionId, TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Role = role, IsAuthenticated = true, IsAdmin = Convert.ToInt32(reader["is_admin"], CultureInfo.InvariantCulture) != 0, IsTenantAdmin = Convert.ToInt32(reader["is_tenant_admin"], CultureInfo.InvariantCulture) != 0 };
             }
         }
         /// <summary>Revoke a session immediately.</summary>
         public Task RevokeAsync(string secret, CancellationToken token = default)
         {
-            return _Database.WriteAsync(async (connection, transaction) => { await ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,updated_utc=@now WHERE token_hash=@hash", token, P("hash", Hash(secret))).ConfigureAwait(false); }, token);
+            return _Database.WriteAsync(async (connection, transaction) =>
+            {
+                SessionClaims? claims = _Protector.Unprotect(secret);
+                int changed = await ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,updated_utc=@now WHERE token_hash=@hash AND active=1", token, P("hash", Hash(secret))).ConfigureAwait(false);
+                if (changed != 0 && claims != null) await AuditMethods.AppendAsync(connection, transaction, new RequestContext { IsAuthenticated = true, TenantId = claims.TenantId, UserId = claims.UserId, SessionId = claims.SessionId }, "session.revoke", "revoked", "Session", claims.SessionId, "", token).ConfigureAwait(false);
+            }, token);
         }
         private static string Hash(string value) { return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))); }
     }

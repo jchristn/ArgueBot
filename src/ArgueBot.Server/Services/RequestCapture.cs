@@ -21,10 +21,11 @@ namespace ArgueBot.Server.Services
         internal RequestCapture(DatabaseDriverBase database, ServiceSettings settings, ArgueBotPaths paths) { _Database = database; _Settings = settings; _LogFile = Path.Combine(paths.Home, "logs", "capture-errors.log"); }
         internal async Task CaptureAsync(HttpContextBase http)
         {
-            if (!_Settings.RequestHistoryEnabled) return;
             try
             {
                 RequestContext context = http.Metadata as RequestContext ?? new RequestContext();
+                if (http.Response.StatusCode == 401 || http.Response.StatusCode == 403) await _Database.Audit.RecordDeniedRequestAsync(context, http.Response.StatusCode, CancellationToken.None).ConfigureAwait(false);
+                if (!_Settings.RequestHistoryEnabled) return;
                 int limit = Math.Clamp(_Settings.RequestHistoryBodyBytes, 0, 1048576);
                 string request = CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");
                 string response = ""; long responseBytes = http.Response.ServerSentEvents ? -1 : http.Response.ContentLength;

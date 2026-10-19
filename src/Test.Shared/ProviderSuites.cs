@@ -164,6 +164,7 @@ namespace Test.Shared
                 using (DatabaseDriverBase database = DatabaseDriverFactory.Create(settings, migrationHome))
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
+                    await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
                     RequestContext context = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true };
                     BackupEntry archiveRecord = await database.Backups.CreateAsync(context, "Provider recovery 議論", true, false, token).ConfigureAwait(false);
                     try

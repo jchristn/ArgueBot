@@ -38,6 +38,8 @@ async function completed(id, expected = "completed") {
 try {
   started = true;
   check(command(['service','start']).status==='ready', 'CLI did not attach to its isolated service.');
+  const audit = command(['audit','list','session.issue']);
+  check(audit.totalCount >= 1 && audit.items.every(item=>item.operation==='session.issue' && item.sessionId), 'CLI audit inspection lost session accounting.');
   const profile = command(['participants','add','-'], {name:'CLI surface fixture',kind:'cli',provider:'plain',executable:'fixture-not-executed',arguments:['','--literal','議論 with spaces']});
   check(typeof profile.id==='string' && profile.id.length>0 && profile.id.length<=64, 'Participant creation did not return an identifier.');
   profile.name = 'Edited CLI fixture';

@@ -24,7 +24,46 @@ namespace Test.Shared
         /// <summary>Lifecycle descriptors require the solution's Release service build.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Service", "Local service lifecycle", new List<TestCaseDescriptor> { new TestCaseDescriptor("Service", "StartAttach", "Concurrent startup, rotated pairing, client detachment and shared history", StartAttachAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Service", "Local service lifecycle", new List<TestCaseDescriptor> { new TestCaseDescriptor("Service", "SessionCarriers", "HTTP session carriers reject contradictions and audit denials with capture disabled", SessionCarriersAsync), new TestCaseDescriptor("Service", "StartAttach", "Concurrent startup, rotated pairing, client detachment and shared history", StartAttachAsync) }) }; }
+        }
+        private static async Task SessionCarriersAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-http-auth-" + Guid.NewGuid().ToString("N"));
+            Process? service = null;
+            try
+            {
+                TcpListener listener = new TcpListener(IPAddress.Loopback, 0); listener.Start(); int port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
+                await new ServiceSettings { Port = port, RequestHistoryEnabled = false }.SaveAsync(new ArgueBotPaths(home), token).ConfigureAwait(false);
+                string endpoint = await LocalServiceConnector.ConnectAsync(home, token: token).ConfigureAwait(false);
+                string descriptorFile = Path.Combine(home, "runtime", "service.json");
+                for (int retry = 0; retry < 40 && !File.Exists(descriptorFile); retry++) await Task.Delay(25, token).ConfigureAwait(false);
+                LocalServiceDescriptor descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(descriptorFile, token).ConfigureAwait(false)) ?? throw new InvalidDataException("No service descriptor.");
+                service = Process.GetProcessById(descriptor.ProcessId);
+                await SessionHttpChecks.RunAsync(endpoint, home, token).ConfigureAwait(false);
+                using (ArgueBotClient client = new ArgueBotClient(endpoint))
+                {
+                    await client.PairLocalAsync(home, token).ConfigureAwait(false);
+                    AuditPage denials = new AuditPage();
+                    for (int retry = 0; retry < 40; retry++)
+                    {
+                        denials = await client.SendAsync<AuditPage>(HttpMethod.Get, "v1.0/api/audit?operation=http.authorization&pageSize=100", token: token).ConfigureAwait(false);
+                        if (denials.TotalCount >= 15) break;
+                        await Task.Delay(25, token).ConfigureAwait(false);
+                    }
+                    if (denials.TotalCount < 15 || denials.Items.Any(item => item.Outcome != "denied")) throw new InvalidDataException("HTTP denials were not durably audited with request capture disabled.");
+                    AuditPage revoked = await client.SendAsync<AuditPage>(HttpMethod.Get, "v1.0/api/audit?operation=session.revoke", token: token).ConfigureAwait(false);
+                    if (revoked.TotalCount != 1 || revoked.Items.Single().SessionId.Length == 0) throw new InvalidDataException("Session revocation lost atomic security accounting.");
+                    HistoryPage history = await client.SendAsync<HistoryPage>(HttpMethod.Get, "v1.0/api/request-history", token: token).ConfigureAwait(false);
+                    if (history.TotalCount != 0) throw new InvalidDataException("Disabled request capture retained traffic.");
+                    await client.SendAsync<Acknowledgement>(HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false);
+                }
+                using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token)) { deadline.CancelAfter(TimeSpan.FromSeconds(5)); await service.WaitForExitAsync(deadline.Token).ConfigureAwait(false); }
+            }
+            finally
+            {
+                if (service != null) { if (!service.HasExited) service.Kill(true); await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); service.Dispose(); }
+                if (Directory.Exists(home)) Directory.Delete(home, true);
+            }
         }
         private static async Task<BackupOperation> AwaitRecoveryAsync(ArgueBotClient client, string id, CancellationToken token)
         {

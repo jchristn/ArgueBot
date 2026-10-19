@@ -24,7 +24,32 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task AuditDetailsAsync(CancellationToken token)
+        {
+            foreach (Theme theme in new[] { Theme.Light, Theme.Dark })
+            {
+                HeadlessBackend backend = new HeadlessBackend(60, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.Start();
+                    AuditEntry entry = new AuditEntry { Id = "aud_fixture", Operation = "session.issue", Outcome = "issued", TenantId = "ten_local", UserId = "usr_local", SessionId = "ses_fixture" };
+                    AuditDetails details = new AuditDetails(entry);
+                    FormDialog<AuditEntry> dialog = new FormDialog<AuditEntry>("Immutable security event", details.Form, () => entry, readOnly: true);
+                    Task<AuditEntry?> result = app.ShowAsync<AuditEntry>(dialog);
+                    dialog.HandlePaste("attempted edit");
+                    if (((TextField)details.Form.GetField(0)).Value != entry.Id || !((TextField)details.Form.GetField(0)).IsReadOnly) throw new InvalidDataException("Security accounting could be edited in its inspector.");
+                    for (int index = 0; index < details.Form.FieldCount + 1; index++) { backend.FeedKey("tab"); app.PumpInputOnce(); }
+                    app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("Close", StringComparison.Ordinal) || !screen.Contains("Back", StringComparison.Ordinal) || screen.Contains("Save", StringComparison.Ordinal)) throw new InvalidDataException("Read-only inspection did not expose clear close actions.");
+                    await SaveEvidenceAsync("audit-" + theme.Name, screen, token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); app.PumpInputOnce(); app.PumpInputOnce();
+                    if (await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false) != null) throw new InvalidDataException("Closing read-only inspection returned a mutation.");
+                    app.Stop();
+                }
+            }
         }
         private static async Task SaveEvidenceAsync(string name, string content, CancellationToken token)
         {

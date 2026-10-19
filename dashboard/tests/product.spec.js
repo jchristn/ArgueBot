@@ -299,3 +299,24 @@ test("create, verify, download and delete a recovery archive", async ({
     .click();
   await expect(row).toHaveCount(0);
 });
+
+test("inspect immutable security accounting and filter empty results", async ({ page }) => {
+  await enroll(page);
+  expect((await page.request.get("/v1.0/api/auth/me")).status()).toBe(401);
+  await page.getByRole("link", { name: "Security audit", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Security audit", exact: true })).toBeVisible();
+  await page.getByRole("searchbox", { name: "Operation code" }).fill("http.authorization");
+  await expect(page.getByRole("cell", { name: "http.authorization", exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Inspect security event", exact: true }).first().click();
+  await expect(page.getByRole("dialog")).toContainText("Audit events cannot be edited or deleted");
+  await expect(page.getByRole("dialog")).toContainText("Safe error code");
+  await page.keyboard.press("Escape");
+  for (const theme of ["light", "dark"]) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const current = await page.locator("html").getAttribute("data-theme");
+    if (current !== theme) await page.getByRole("button", { name: /Switch to .* mode/ }).click();
+    await page.screenshot({ path: path.join(process.env.ARGUEBOT_E2E_SCREENSHOTS || "../.run/screenshots", `audit-390-${theme}.png`), fullPage: true });
+  }
+  await page.getByRole("searchbox", { name: "Operation code" }).fill("no-such-security-operation");
+  await expect(page.getByText("No security events match this operation.")).toBeVisible();
+});

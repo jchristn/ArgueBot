@@ -61,7 +61,7 @@ namespace ArgueBot.Server
                                 server.Routes.Preflight = http => Api.GuardAsync(http, async () =>
                                 {
                                     await LocalHttpPolicy.ValidateAsync(http, settings.Port).ConfigureAwait(false);
-                                    http.Response.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, x-client-id, Last-Event-ID";
+                                    http.Response.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, x-token, x-tenant-guid, x-tenant-id, x-client-id, Last-Event-ID";
                                     http.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
                                     await Api.SendAsync(http, new { }, 204).ConfigureAwait(false);
                                 });
@@ -69,17 +69,13 @@ namespace ArgueBot.Server
                                 server.Routes.PostRouting = capture.CaptureAsync;
                                 server.Routes.AuthenticateRequest = http => Api.GuardAsync(http, async () =>
                                 {
-                                    string bearer = http.Request.Headers["Authorization"] ?? "";
-                                    string alternate = http.Request.Headers["x-token"] ?? "";
-                                    if (bearer.Length > 0 && !bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) throw new DomainException(401, "unsupported_auth", "Use a bearer session for this local service.");
-                                    string secret = bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? bearer.Substring(7) : alternate;
-                                    if (alternate.Length > 0 && secret != alternate) throw new DomainException(401, "conflicting_auth", "Token carriers disagree.");
+                                    string secret = Api.SessionToken(http);
                                     RequestContext? context = await sessions.AuthenticateAsync(secret, http.Token).ConfigureAwait(false);
-                                    if (context == null) throw new DomainException(401, "unauthenticated", "Pair locally or provide a valid bearer session.");
-                                    string? tenant = http.Request.Headers["x-tenant-guid"];
-                                    if (!string.IsNullOrEmpty(tenant) && tenant != context.TenantId) throw new DomainException(403, "tenant_conflict", "Tenant hints disagree.");
+                                    if (context == null) throw new DomainException(401, "unauthenticated", "Pair locally or provide a valid enrolled session.");
+                                    context.AuthScheme = http.Request.Headers["Authorization"] == null ? "XToken" : "BearerToken";
                                     RequestContext? received = http.Metadata as RequestContext;
                                     context.CorrelationId = received?.CorrelationId ?? Guid.NewGuid().ToString("N"); context.ReceivedUtc = received?.ReceivedUtc ?? DateTime.UtcNow; context.StartedTimestamp = received?.StartedTimestamp ?? Stopwatch.GetTimestamp(); http.Metadata = context;
+                                    SessionAuthentication.BindTenant(http.Request.Headers, context);
                                 });
                                 server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.GuardAsync(http, async () =>
                                 {
@@ -94,6 +90,7 @@ namespace ArgueBot.Server
                                 { string secret = Api.SessionToken(http); await sessions.RevokeAsync(secret, http.Token).ConfigureAwait(false); await Api.SendAsync(http, new RevocationResponse()).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Revoke session", "Auth"));
                                 new DashboardRoutes().Register(server);
                                 new HistoryRoutes(database, settings).Register(server);
+                                new AuditRoutes(database).Register(server);
                                 new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
                                 new ConversationRoutes(database, engine, sessions).Register(server);
                                 new BackupRoutes(database, backups).Register(server);

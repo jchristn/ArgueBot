@@ -54,6 +54,11 @@ namespace ArgueBot.Cli
                     else if (operation == "restart") Print(await client.SendAsync<RestartResponse>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/restart", token: token).ConfigureAwait(false));
                     else { Help(); return 2; }
                 }
+                else if (command == "audit" && operation == "list")
+                {
+                    int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
+                    Print(await client.SendAsync<AuditPage>(System.Net.Http.HttpMethod.Get, "v1.0/api/audit?operation=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + page, token: token).ConfigureAwait(false));
+                }
                 else if (command == "backups")
                 {
                     string root = "v1.0/api/backups";
@@ -146,6 +151,7 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   conversations rename ID TITLE
   conversations archive ID
   conversations export ID          Markdown to stdout.
+  audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
   backups list
   backups create JSON|-|--file PATH
   backups verify|restore BACKUP JSON|-|--file PATH

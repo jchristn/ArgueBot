@@ -2,7 +2,7 @@
 
 The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in `IMPROVEMENTS.md` and `docs/DEVELOPMENT.md`.
 
-Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers and tenant hints are rejected. Password/credential exchange is not yet enabled by this local-only host.
+Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. Password/credential exchange is not yet enabled by this local-only host.
 
 List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation.
 
@@ -490,6 +490,18 @@ Success: **200**, response: `BackupOperationPage`.
 | pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 
+## GET /v1.0/api/audit
+
+Inspect append-only tenant security events; system administrators can inspect all tenants. Requires an active bearer session. Read permission required.
+
+Success: **200**, response: `AuditPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| operation | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -521,6 +533,36 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | code | string | Stable error code. |
 | message | string | Safe explanation. |
 | requestId | string | Correlation identifier. |
+
+### AuditEntry
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Immutable event identifier. |
+| tenantId | string (nullable) | Resolved tenant, or null for unauthenticated/system events. |
+| userId | string (nullable) | Validated actor, never an untrusted request hint. |
+| operation | string | Bounded semantic security operation. |
+| outcome | string | Semantic result without credentials or request content. |
+| sessionId | string | Session identifier where known; never the token. |
+| authScheme | string | Validated authentication carrier where known. |
+| correlationId | string | Request correlation identifier where available. |
+| resourceType | string | Semantic resource type. |
+| resourceId | string | Target identifier where known. |
+| errorCode | string | Safe failure code, empty on success. |
+| createdUtc | string | Event timestamp in UTC. |
+
+### AuditPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Matching immutable audit events. |
+| pageNumber | integer | One-based page. |
+| pageSize | integer | Page size. |
+| totalCount | integer | Total matching records. |
 
 ### BackupEntry
 
@@ -758,6 +800,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | receivedUtc | string | UTC request receipt time. |
 | startedTimestamp | integer | Monotonic timestamp captured before route execution. |
+| sessionId | string | Resolved revocable session identifier; empty for non-session internal calls. |
+| authScheme | string | Validated transport carrier: BearerToken or XToken for enrolled HTTP sessions. |
 | tenantId | string | Resolved tenant. |
 | userId | string | Authenticated user. |
 | isAdmin | boolean | System administrator flag. |
@@ -907,6 +951,10 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | portOverridden | boolean | Whether the running port is overridden by an explicit command-line flag. |
 | effectivePort | integer | Effective port of this process. |
 | connectionConfigured | boolean | Whether a private database connection string is configured. |
+
+## Security accounting
+
+The append-only audit route permits tenant administrators to inspect their own tenant and system administrators to inspect all events, including anonymous failures. Session issuance/revocation and HTTP 401/403 denials are recorded independently of optional request capture. Audit inspection supports an exact operation filter and bounded paging. No HTTP edit/delete route exists. Direct privileged database access is outside application-level immutability; comprehensive credential/RBAC/administrative accounting remains under implementation.
 
 ## Streaming and recovery
 

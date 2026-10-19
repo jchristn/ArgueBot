@@ -1439,6 +1439,37 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Security accounting",
+      "description": "Lifecycle operations for security accounting. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Inspect append-only tenant security events; system administrators can inspect all tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/audit",
+            "description": "Requires an active bearer session. Read permission required. Inspect append-only tenant security events; system administrators can inspect all tenants"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

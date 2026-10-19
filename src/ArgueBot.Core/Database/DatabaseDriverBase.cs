@@ -41,6 +41,8 @@ namespace ArgueBot.Core.Database
         public IHistoryMethods History { get; }
         /// <summary>Global administrator recovery inventory and operation lifecycle.</summary>
         public IBackupMethods Backups { get; }
+        /// <summary>Append-only security accounting and scoped inspection.</summary>
+        public IAuditMethods Audit { get; }
         /// <summary>Effective running storage provider.</summary>
         public DatabaseTypeEnum ProviderType { get { return _Settings.Type; } }
 
@@ -54,6 +56,7 @@ namespace ArgueBot.Core.Database
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
             Backups = new BackupMethods(this);
+            Audit = new AuditMethods(this);
         }
 
         /// <summary>Initialize idempotently and reconcile interrupted generations. Never downgrade a future schema.</summary>

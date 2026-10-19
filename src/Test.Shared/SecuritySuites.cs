@@ -5,14 +5,14 @@ namespace Test.Shared
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
+    using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database.Implementations;
     using ArgueBot.Core.Database.Sqlite;
-    using ArgueBot.Core.Security;
-    using Touchstone.Core;
-    using Microsoft.Data.Sqlite;
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Security;
     using ArgueBot.Core.Services;
+    using Touchstone.Core;
 
     /// <summary>Cryptographic and server-side session lifecycle tests using disposable keys and databases.</summary>
     public static class SecuritySuites
@@ -20,7 +20,20 @@ namespace Test.Shared
         /// <summary>Reusable security descriptors.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "AdminBoundary", "Session privileges follow explicit flags and current active user and tenant state", AdminBoundaryAsync), new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Security", "Session protection", new List<TestCaseDescriptor> { new TestCaseDescriptor("Security", "Audit", "Append-only audit inspection enforces explicit flags, tenant scope and anonymous accounting", AuditAsync), new TestCaseDescriptor("Security", "AdminBoundary", "Session privileges follow explicit flags and current active user and tenant state", AdminBoundaryAsync), new TestCaseDescriptor("Security", "Protection", "Random nonce, tamper rejection, expiry, key rotation and revocation", ProtectionAsync) }) }; }
+        }
+        private static async Task AuditAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-audit-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    await AuditChecks.RunAsync(database, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task AdminBoundaryAsync(CancellationToken token)
         {

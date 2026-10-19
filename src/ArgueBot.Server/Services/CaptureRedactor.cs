@@ -10,7 +10,7 @@ namespace ArgueBot.Server.Services
         internal static bool Sensitive(string name)
         {
             string value = name.Replace("-", "").Replace("_", "");
-            return value.Contains("authorization", StringComparison.OrdinalIgnoreCase) || value.Contains("cookie", StringComparison.OrdinalIgnoreCase) || value.Contains("password", StringComparison.OrdinalIgnoreCase) || value.Contains("secret", StringComparison.OrdinalIgnoreCase) || value.Contains("apikey", StringComparison.OrdinalIgnoreCase) || value.Contains("token", StringComparison.OrdinalIgnoreCase) || value.Equals("code", StringComparison.OrdinalIgnoreCase);
+            return value.Contains("signature", StringComparison.OrdinalIgnoreCase) || value.Contains("authorization", StringComparison.OrdinalIgnoreCase) || value.Contains("cookie", StringComparison.OrdinalIgnoreCase) || value.Contains("password", StringComparison.OrdinalIgnoreCase) || value.Contains("secret", StringComparison.OrdinalIgnoreCase) || value.Contains("apikey", StringComparison.OrdinalIgnoreCase) || value.Contains("token", StringComparison.OrdinalIgnoreCase) || value.Equals("code", StringComparison.OrdinalIgnoreCase);
         }
         internal static string Body(string raw, string contentType)
         {

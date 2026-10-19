@@ -19,3 +19,4 @@
 - Recovery now includes paginated durable-job browsing in web/console/TUI, masked terminal recovery forms, and headless frame evidence in runtime CI. Console participant update/delete commands complement the existing create/list commands.
 - Windows background service launches restrict inherited handles to the null device, preventing service lifetime from retaining client capture pipes. Cross-platform CLI smoke now uses a home with spaces and Unicode.
 - Local clients verify port-bound home proofs before reusing owner-protected CLI sessions; frequent commands retain enrollment rate limits and current-privilege checks. Offline snapshot restoration revokes recovered sessions.
+- Session authentication rejects unsupported mixed schemes and duplicate/conflicting tenant or token headers. Append-only security accounting records issuance/revocation atomically and HTTP denials independently of request capture, with scoped inspection in web, console and terminal.

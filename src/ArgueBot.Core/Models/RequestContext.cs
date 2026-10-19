@@ -16,6 +16,13 @@ namespace ArgueBot.Core.Models
         private string _Role = "viewer";
         private string _CorrelationId = "";
 
+        private string _SessionId = "";
+        private string _AuthScheme = "";
+        /// <summary>Resolved revocable session identifier; empty for non-session internal calls.</summary>
+        public string SessionId { get { return _SessionId; } set { ArgumentNullException.ThrowIfNull(value); _SessionId = value; } }
+        /// <summary>Validated transport carrier: BearerToken or XToken for enrolled HTTP sessions.</summary>
+        public string AuthScheme { get { return _AuthScheme; } set { ArgumentNullException.ThrowIfNull(value); _AuthScheme = value; } }
+
         /// <summary>Resolved tenant.</summary>
         public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value; } }
 

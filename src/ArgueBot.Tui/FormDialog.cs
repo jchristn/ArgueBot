@@ -21,13 +21,15 @@ namespace ArgueBot.Tui
         private Theme _Theme = Theme.Dark;
         /// <inheritdoc />
         public override bool CanClose { get { return !_Busy; } }
-        internal FormDialog(string title, Form form, Func<T> extract, TuiApplication? application = null, Func<T, Task>? submit = null)
+        internal FormDialog(string title, Form form, Func<T> extract, TuiApplication? application = null, Func<T, Task>? submit = null, bool readOnly = false)
         {
             if ((application == null) != (submit == null)) throw new ArgumentException("A service submit action requires a UI dispatcher.");
             _Application = application; _Submit = submit;
-            Title = title; FooterHint = "Tab: next field | Ctrl+S: save | Esc: cancel";
+            Title = title; FooterHint = readOnly ? "Tab: next field | Ctrl+S: close | Esc: back" : "Tab: next field | Ctrl+S: save | Esc: cancel";
             MaxContentWidth = 76; MaxContentHeight = 24;
-            _Form = form; _Form.ShowButtons = true; _Form.ShowFieldErrors = true;
+            _Form = form;
+            if (readOnly) { _Form.SubmitLabel = "Close"; _Form.CancelLabel = "Back"; }
+            _Form.ShowButtons = true; _Form.ShowFieldErrors = true;
             _Form.SubmitKey = KeyChord.Parse("ctrl+s"); _Form.CancelKey = KeyChord.Parse("escape");
             _Form.SubmitRequested += (_, _) =>
             {

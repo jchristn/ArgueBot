@@ -13,6 +13,9 @@
   "security": [
     {
       "Bearer": []
+    },
+    {
+      "XToken": []
     }
   ],
   "paths": {
@@ -4487,6 +4490,139 @@
           }
         }
       }
+    },
+    "/v1.0/api/audit": {
+      "get": {
+        "operationId": "get_v1_0_api_audit",
+        "tags": [
+          "Security accounting"
+        ],
+        "summary": "Inspect append-only tenant security events; system administrators can inspect all tenants",
+        "description": "Requires an active bearer session. Read permission required.",
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful inspect append-only tenant security events; system administrators can inspect all tenants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4494,6 +4630,11 @@
       "Bearer": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "XToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-token"
       }
     },
     "schemas": {
@@ -4540,6 +4681,89 @@
           "requestId": {
             "type": "string",
             "description": "Correlation identifier."
+          }
+        }
+      },
+      "AuditEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Immutable event identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Resolved tenant, or null for unauthenticated/system events."
+          },
+          "userId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Validated actor, never an untrusted request hint."
+          },
+          "operation": {
+            "type": "string",
+            "description": "Bounded semantic security operation."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "Semantic result without credentials or request content."
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Session identifier where known; never the token."
+          },
+          "authScheme": {
+            "type": "string",
+            "description": "Validated authentication carrier where known."
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Request correlation identifier where available."
+          },
+          "resourceType": {
+            "type": "string",
+            "description": "Semantic resource type."
+          },
+          "resourceId": {
+            "type": "string",
+            "description": "Target identifier where known."
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "Safe failure code, empty on success."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Event timestamp in UTC."
+          }
+        }
+      },
+      "AuditPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "description": "Matching immutable audit events."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total matching records."
           }
         }
       },
@@ -5175,6 +5399,14 @@
             "type": "integer",
             "format": "int64",
             "description": "Monotonic timestamp captured before route execution."
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Resolved revocable session identifier; empty for non-session internal calls."
+          },
+          "authScheme": {
+            "type": "string",
+            "description": "Validated transport carrier: BearerToken or XToken for enrolled HTTP sessions."
           },
           "tenantId": {
             "type": "string",

@@ -32,7 +32,7 @@ jobs:
           $env:ARGUEBOT_CLI_FIXTURE = Join-Path $PWD 'src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll'
           dotnet run --project src/Test.Automated -c Release --no-build -- --results test-results/console.json
           exit $LASTEXITCODE
-      - name: CLI participant and recovery lifecycle smoke
+      - name: CLI participant, audit and recovery lifecycle smoke
         run: node scripts/test-cli-surfaces.mjs
       - name: xUnit shared suite on both supported runtimes
         run: dotnet test src/Test.Xunit -c Release --no-build --logger trx --results-directory test-results/xunit

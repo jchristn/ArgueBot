@@ -52,7 +52,7 @@ namespace ArgueBot.Tui
             _Transcript = app.AddPane("transcript", region => region.FillWidth(28, 0).FillHeight(0, 4).WithBorder(BorderStyle.Line, "Shared debate history"));
             app.AddWidget("composer", _Composer, region => region.BottomAnchored(1, 3).FillWidth().WithBorder(BorderStyle.Line, "Note: Enter sends").WithPadding(0));
             app.AddWidget("status", _Status, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(0));
-            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+e", "Participants").AddAppHint("ctrl+k", "Recovery").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
+            app.BindKeyHints(_Status).AddAppHint("ctrl+n", "New conversation").AddAppHint("ctrl+b", "Start debate").AddAppHint("ctrl+p", "Pause/resume").AddAppHint("ctrl+r", "Run controls").AddAppHint("ctrl+f", "Search").AddAppHint("ctrl+a", "Follow-up").AddAppHint("ctrl+e", "Participants").AddAppHint("ctrl+k", "Recovery").AddAppHint("ctrl+j", "Security audit").AddAppHint("ctrl+t", "Theme").AddAppHint("f1", "Help").AddAppHint("ctrl+q", "Quit");
             app.Bind("ctrl+q", app.Quit);
             app.Bind("ctrl+n", () => Launch(NewAsync));
             app.Bind("ctrl+b", () => Launch(StartAsync));
@@ -62,6 +62,7 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+f", () => Launch(SearchAsync));
             app.Bind("ctrl+e", () => Launch(ParticipantsAsync));
             app.Bind("ctrl+k", () => Launch(RecoveryAsync));
+            app.Bind("ctrl+j", () => Launch(AuditAsync));
             app.Bind("alt+right", () => _Page++);
             app.Bind("alt+left", () => _Page = Math.Max(1, _Page - 1));
             app.Bind("ctrl+t", () => app.Theme = app.Theme.Name == "Dark" ? Theme.Light : Theme.Dark);
@@ -107,6 +108,11 @@ namespace ArgueBot.Tui
                     catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
                 }
             }
+        }
+        private async Task AuditAsync()
+        {
+            if (_App == null) return;
+            await new AuditWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token).RunAsync().ConfigureAwait(false);
         }
         private async Task RecoveryAsync()
         {
@@ -243,7 +249,7 @@ namespace ArgueBot.Tui
         }
         private async Task HelpAsync()
         {
-            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Ctrl+E manages CLI/REST participants and literal arguments; Ctrl+K opens administrator backup/recovery; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
+            if (_App != null) await UiAsync(() => _App.ConfirmAsync("Tab moves focus. Enter opens a selected conversation or sends a note. Ctrl+N creates a conversation; Ctrl+B selects two or three debaters; Ctrl+R opens all run controls; Ctrl+A asks a follow-up; Ctrl+F searches; Ctrl+E manages CLI/REST participants and literal arguments; Ctrl+K opens administrator backup/recovery; Ctrl+J inspects scoped security audit events; Alt+Left/Right changes history pages; Ctrl+P pauses/resumes; Ctrl+T changes theme; Ctrl+Q detaches without stopping background work. The service continues running when you detach.", "Close", "Close")).ConfigureAwait(false);
         }
     }
 }

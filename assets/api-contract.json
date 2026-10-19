@@ -596,6 +596,24 @@
       ],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/audit",
+      "group": "Security accounting",
+      "summary": "Inspect append-only tenant security events; system administrators can inspect all tenants",
+      "response": "AuditPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "operation",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
     }
   ]
 }
