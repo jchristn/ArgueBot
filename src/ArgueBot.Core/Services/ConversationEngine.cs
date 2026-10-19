@@ -158,9 +158,10 @@ namespace ArgueBot.Core.Services
                             if (worker.PauseAfterTurn || run.State == "paused" || run.State == "completed" || run.State == "cancelled" || run.State == "failed") return;
                             if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             profile = run.Participants[run.SpeakerIndex];
-                            contextMessages = (await _Database.ReadMessagesAsync(context, run.ConversationId, token).ConfigureAwait(false)).Where(message => message.State == "completed" && (message.RecipientId == null || message.RecipientId == profile.Id)).ToList();
                             prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + run.Question + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
                             if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + run.Question;
+                            if (prompt.Length > _ContextMaxCharacters) throw new DomainException(409, "context_budget_exceeded", "The system prompt exceeds the configured context budget. No model was invoked.");
+                            contextMessages = await _Database.ReadGenerationContextAsync(context, run.ConversationId, profile.Id, _ContextMaxCharacters - prompt.Length, _ContextMaxMessages, token).ConfigureAwait(false);
                             GenerationWork work = await _Database.Attempts.BeginAsync(context, run, contextMessages, prompt, _ContextMaxCharacters, _ContextMaxMessages, token).ConfigureAwait(false);
                             answer = work.Answer; attempt = work.Attempt;
                             worker.Generation = CancellationTokenSource.CreateLinkedTokenSource(token);

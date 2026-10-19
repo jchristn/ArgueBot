@@ -8,7 +8,7 @@ namespace ArgueBot.Core.Database.Postgresql.Queries
             if (sql.StartsWith("PRAGMA", System.StringComparison.Ordinal)) return "SELECT 1;";
             sql = sql.Replace("SELECT name FROM sqlite_master WHERE name='schema_migrations'", "SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema() AND table_name='schema_migrations'");
             if (sql.StartsWith("INSERT OR IGNORE", System.StringComparison.Ordinal)) return sql.Replace("INSERT OR IGNORE", "INSERT") + " ON CONFLICT DO NOTHING";
-            return TypedSchema(sql.Replace("instr(", "strpos("));
+            return TypedSchema(sql.Replace("instr(", "strpos(").Replace("length(CAST(content AS BLOB))", "octet_length(convert_to(content,'UTF8'))"));
         }
         private static string TypedSchema(string sql)
         {

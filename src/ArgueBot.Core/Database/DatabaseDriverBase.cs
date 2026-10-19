@@ -223,10 +223,54 @@ namespace ArgueBot.Core.Database
             using (DbCommand command = Command(connection, null, "SELECT * FROM messages WHERE tenant_id=@tenant AND conversation_id=@id ORDER BY sequence_number", P("tenant", context.TenantId, "id", conversationId)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
-                while (await reader.ReadAsync(token).ConfigureAwait(false)) messages.Add(new Message { Id = S(reader, "id"), ConversationId = conversationId, RunId = N(reader, "run_id"), Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Speaker = S(reader, "speaker"), Kind = S(reader, "kind"), Content = S(reader, "content"), RecipientId = N(reader, "recipient_id"), State = S(reader, "state"), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) });
+                while (await reader.ReadAsync(token).ConfigureAwait(false)) messages.Add(ReadMessage(reader, conversationId));
             }
             return messages;
         }
+
+        /// <summary>Prepare exact model context without materializing the full transcript. Metadata bounds eligible rows and UTF-8 payload size before content reads; the final UTF-16 check never truncates or silently omits a source.</summary>
+        public async Task<List<Message>> ReadGenerationContextAsync(RequestContext context, string conversationId, string participantId, int characterBudget, int maxMessages, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(participantId);
+            if (characterBudget < 0 || characterBudget > 16777216 || maxMessages < 1 || maxMessages > 10000) throw new ArgumentOutOfRangeException(nameof(characterBudget));
+            await ReadConversationAsync(context, conversationId, token).ConfigureAwait(false);
+            List<string> identifiers = new List<string>(); List<Message> messages = new List<Message>(); long bytes = 0;
+            const string scope = "tenant_id=@tenant AND conversation_id=@conversation AND state='completed' AND (recipient_id IS NULL OR recipient_id=@participant)";
+            using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
+            {
+                using (DbCommand command = Command(connection, null, "SELECT id,length(CAST(content AS BLOB)) AS payload_bytes FROM messages WHERE " + scope + " ORDER BY sequence_number LIMIT @limit", P("tenant", context.TenantId, "conversation", conversationId, "participant", participantId, "limit", maxMessages + 1)))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                    {
+                        identifiers.Add(reader.GetString(0)); bytes = checked(bytes + Convert.ToInt64(reader.GetValue(1), CultureInfo.InvariantCulture));
+                        // UTF-8 requires at most three bytes per UTF-16 code unit. This is a conservative memory bound, not a token estimate.
+                        if (identifiers.Count > maxMessages || bytes > (long)characterBudget * 3) throw ContextBudgetExceeded();
+                    }
+                }
+                if (identifiers.Count == 0) return messages;
+                Dictionary<string, object?> values = P("tenant", context.TenantId, "conversation", conversationId, "participant", participantId);
+                List<string> placeholders = new List<string>();
+                for (int index = 0; index < identifiers.Count; index++) { string name = "source" + index.ToString(CultureInfo.InvariantCulture); placeholders.Add("@" + name); values.Add(name, identifiers[index]); }
+                using (DbCommand command = Command(connection, null, "SELECT * FROM messages WHERE " + scope + " AND id IN (" + string.Join(",", placeholders) + ") ORDER BY sequence_number", values))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    long characters = 0;
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                    {
+                        Message message = ReadMessage(reader, conversationId); characters = checked(characters + message.Content.Length);
+                        if (characters > characterBudget) throw ContextBudgetExceeded();
+                        messages.Add(message);
+                    }
+                }
+                if (messages.Count != identifiers.Count) throw new DomainException(409, "context_changed", "Selected context changed during preparation. Refresh and retry.");
+            }
+            return messages;
+        }
+        private static DomainException ContextBudgetExceeded()
+        { return new DomainException(409, "context_budget_exceeded", "The selected conversation context exceeds the configured budget. No model was invoked and no transcript text was dropped."); }
+        private static Message ReadMessage(DbDataReader reader, string conversationId)
+        { return new Message { Id = S(reader, "id"), ConversationId = conversationId, RunId = N(reader, "run_id"), Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Speaker = S(reader, "speaker"), Kind = S(reader, "kind"), Content = S(reader, "content"), RecipientId = N(reader, "recipient_id"), State = S(reader, "state"), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) }; }
 
         /// <summary>Recognize an exact note/directive retry across run-state and revision changes.</summary>
         public async Task<bool> IsDuplicateMessageAsync(RequestContext context, Message message, string commandKey, CancellationToken token = default)
@@ -296,7 +340,7 @@ namespace ArgueBot.Core.Database
                     currentContent = S(reader, "content"); currentState = S(reader, "state");
                 }
                 if (currentContent == message.Content && currentState == message.State) return;
-                if (currentState != "streaming" && message.State != "consumed" && message.State != currentState) throw new DomainException(409, "message_finalized", "Finalized message state cannot be rewound.");
+                if (currentState != "streaming") throw new DomainException(409, "message_finalized", "Finalized message content and state are immutable; directive consumption belongs to atomic attempt completion.");
                 string prefix = message.Content.Substring(0, message.Content.Length - delta.Length);
                 if (currentContent != prefix) throw new DomainException(409, "stream_revision_conflict", "The fragment does not extend the committed message. Reconcile its snapshot.");
                 await ExecuteAsync(connection, transaction, "UPDATE messages SET content=@content,state=@state,updated_utc=@now WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@id", token, P("content", message.Content, "state", message.State, "tenant", context.TenantId, "conversation", message.ConversationId, "id", message.Id)).ConfigureAwait(false);

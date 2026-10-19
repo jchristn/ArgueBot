@@ -31,6 +31,22 @@ namespace Test.Shared
                 try { await database.Attempts.BeginAsync(owner, run, new[] { other }, "fixture system prompt", 10000, 100, token).ConfigureAwait(false); }
                 catch (DomainException exception) when (exception.Code == "context_changed") { rejected = true; }
                 if (!rejected || (await database.Attempts.EnumerateAsync(owner, conversation.Id, run.Id, token: token).ConfigureAwait(false)).TotalCount != 0 || (await database.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false)).Count != 3) throw new InvalidDataException("Rejected private context leaked a checkpoint or answer.");
+                Message unicode = await database.AppendMessageAsync(owner, new Message { ConversationId = conversation.Id, Content = "議論🙂مرحبا" }, token: token).ConfigureAwait(false);
+                int exactCharacters = note.Content.Length + directive.Content.Length + unicode.Content.Length;
+                List<Message> prepared = await database.ReadGenerationContextAsync(owner, conversation.Id, run.Participants[0].Id, exactCharacters, 3, token).ConfigureAwait(false);
+                if (!prepared.Select(message => message.Id).SequenceEqual(new[] { note.Id, directive.Id, unicode.Id }) || prepared.Last().Content != unicode.Content) throw new InvalidDataException("Bounded context preparation changed Unicode, chronology or recipient visibility.");
+                foreach (bool countLimit in new[] { false, true })
+                {
+                    rejected = false;
+                    try { await database.ReadGenerationContextAsync(owner, conversation.Id, run.Participants[0].Id, countLimit ? exactCharacters : exactCharacters - 1, countLimit ? 2 : 3, token).ConfigureAwait(false); }
+                    catch (DomainException exception) when (exception.Code == "context_budget_exceeded") { rejected = true; }
+                    if (!rejected) throw new InvalidDataException("Context preparation silently truncated an over-budget character/message selection.");
+                }
+                string originalUnicode = unicode.Content; unicode.Content += "changed";
+                rejected = false;
+                try { await database.UpdateMessageAsync(owner, unicode, "changed", token).ConfigureAwait(false); }
+                catch (DomainException exception) when (exception.Code == "message_finalized") { rejected = true; }
+                if (!rejected || (await database.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false)).Single(message => message.Id == unicode.Id).Content != originalUnicode) throw new InvalidDataException("A completed source changed after its context metadata was captured.");
                 rejected = false;
                 try { await database.Attempts.BeginAsync(owner, run, new[] { note, directive }, "fixture system prompt", 10000, 1, token).ConfigureAwait(false); }
                 catch (DomainException exception) when (exception.Code == "context_budget_exceeded") { rejected = true; }
