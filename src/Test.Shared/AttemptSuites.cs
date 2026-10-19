@@ -125,7 +125,8 @@ namespace Test.Shared
         {
             using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                // Durable filesystem commits on hosted Windows runners are not a latency benchmark.
+                deadline.CancelAfter(TimeSpan.FromSeconds(30));
                 while ((await database.Runs.ReadAsync(context, run.ConversationId, run.Id, deadline.Token).ConfigureAwait(false)).State != state) await Task.Delay(10, deadline.Token).ConfigureAwait(false);
             }
         }
