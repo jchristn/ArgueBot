@@ -18,7 +18,7 @@ namespace ArgueBot.Tui
         private bool _Busy;
         private string _Error = "";
         private CellStyle _ErrorStyle;
-        private Theme _Theme = Theme.Dark;
+        private Theme _Theme = TerminalTheme.Dark;
         /// <inheritdoc />
         public override bool CanClose { get { return !_Busy; } }
         internal FormDialog(string title, Form form, Func<T> extract, TuiApplication? application = null, Func<T, Task>? submit = null, bool readOnly = false)
@@ -84,6 +84,7 @@ namespace ArgueBot.Tui
         protected override void RenderContent(ISurface content)
         {
             _Scroll.ApplyTheme(_Theme);
+            TerminalTheme.ApplyInputs(_Form, _Theme);
             int width = Math.Max(1, content.Size.Width); int lines = HeaderLines(width);
             string message = _Busy ? "Saving on the service machine..." : _Error;
             for (int row = 0; row < lines; row++)

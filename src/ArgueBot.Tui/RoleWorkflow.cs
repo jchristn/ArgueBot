@@ -20,7 +20,7 @@ namespace ArgueBot.Tui
         { _Client = client; _Application = application; _Dispatcher = dispatcher; _Token = token; }
         internal async Task RunAsync()
         {
-            string? search = await _Dispatcher.InvokeAsync(() => _Application.PromptAsync("Search protected built-ins and tenant custom role names; empty lists all")).ConfigureAwait(false);
+            string? search = await _Dispatcher.InvokeAsync(() => _Application.PromptStyledAsync("Search protected built-ins and tenant custom role names; empty lists all")).ConfigureAwait(false);
             if (search == null) return;
             int page = 1;
             while (true)
@@ -32,7 +32,7 @@ namespace ArgueBot.Tui
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }
                 int refresh = choices.Count; choices.Add("Refresh roles");
-                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Roles | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
+                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Roles | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }
@@ -43,7 +43,7 @@ namespace ArgueBot.Tui
                 {
                     bool protectedRole = role.Protected || role.Builtin;
                     string[] actions = protectedRole ? new[] { "Clone into a tenant custom role", "Back" } : new[] { "Edit name or enabled state", "Clone into a tenant custom role", "Back" };
-                    int action = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync(role.Name + (protectedRole ? " | protected: clone to customize" : " | custom role"), actions)).ConfigureAwait(false);
+                    int action = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync(role.Name + (protectedRole ? " | protected: clone to customize" : " | custom role"), actions)).ConfigureAwait(false);
                     if (action < 0 || action == actions.Length - 1) continue;
                     clone = protectedRole || action == 1;
                 }

@@ -29,7 +29,7 @@ namespace ArgueBot.Tui
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }
                 int latest = choices.Count; choices.Add(result.LatestSequence > result.ThroughSequence ? "Newer messages available: show latest" : "Refresh latest messages");
-                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Message history | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
+                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Message history | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }

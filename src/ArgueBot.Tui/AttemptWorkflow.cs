@@ -21,7 +21,7 @@ namespace ArgueBot.Tui
         {
             List<DebateRun> runs = await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false); runs.Reverse();
             if (runs.Count == 0) throw new InvalidOperationException("This conversation has no runs yet.");
-            int selectedRun = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Choose current or historical run", runs.Select(run => run.Id + " | " + run.State + " | " + run.Outcome).ToArray())).ConfigureAwait(false);
+            int selectedRun = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Choose current or historical run", runs.Select(run => run.Id + " | " + run.State + " | " + run.Outcome).ToArray())).ConfigureAwait(false);
             if (selectedRun < 0) return;
             DebateRun run = runs[selectedRun]; int page = 1;
             while (true)
@@ -32,7 +32,7 @@ namespace ArgueBot.Tui
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }
                 int refresh = choices.Count; choices.Add("Refresh generation attempts");
-                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Attempts | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
+                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Attempts | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }

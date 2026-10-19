@@ -20,7 +20,7 @@ namespace ArgueBot.Tui
         { _Client = client; _Application = application; _Dispatcher = dispatcher; _Token = token; }
         internal async Task RunAsync()
         {
-            string? operation = await _Dispatcher.InvokeAsync(() => _Application.PromptAsync("Exact security operation code, or empty for all events")).ConfigureAwait(false);
+            string? operation = await _Dispatcher.InvokeAsync(() => _Application.PromptStyledAsync("Exact security operation code, or empty for all events")).ConfigureAwait(false);
             if (operation == null) return;
             int page = 1;
             while (true)
@@ -31,7 +31,7 @@ namespace ArgueBot.Tui
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }
                 int refresh = choices.Count; choices.Add("Refresh security events");
-                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Security audit | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
+                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Security audit | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }

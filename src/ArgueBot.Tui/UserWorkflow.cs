@@ -21,7 +21,7 @@ namespace ArgueBot.Tui
         internal async Task RunAsync()
         {
             RequestContext principal = await _Client.SendAsync<RequestContext>(HttpMethod.Get, "v1.0/api/auth/me", token: _Token).ConfigureAwait(false);
-            string? search = await _Dispatcher.InvokeAsync(() => _Application.PromptAsync("Search tenant user names/email; empty lists all")).ConfigureAwait(false);
+            string? search = await _Dispatcher.InvokeAsync(() => _Application.PromptStyledAsync("Search tenant user names/email; empty lists all")).ConfigureAwait(false);
             if (search == null) return;
             int page = 1;
             while (true)
@@ -33,7 +33,7 @@ namespace ArgueBot.Tui
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }
                 int refresh = choices.Count; choices.Add("Refresh identities");
-                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectAsync("Tenant users | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
+                int selected = await _Dispatcher.InvokeAsync(() => _Application.SelectStyledAsync("Tenant users | page " + page + " | " + result.TotalCount + " total", choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }
@@ -41,7 +41,7 @@ namespace ArgueBot.Tui
                 UserRecord? user = selected == create ? null : result.Items[selected];
                 if (user != null && (user.Protected || (user.IsAdmin && !principal.IsAdmin)))
                 {
-                    await _Dispatcher.InvokeAsync(() => _Application.ConfirmAsync("This identity is protected or requires a system administrator. No changes are allowed.", "Close", "Close")).ConfigureAwait(false); continue;
+                    await _Dispatcher.InvokeAsync(() => _Application.ConfirmStyledAsync("This identity is protected or requires a system administrator. No changes are allowed.", "Close", "Close")).ConfigureAwait(false); continue;
                 }
                 await _Dispatcher.InvokeAsync(async () =>
                 {

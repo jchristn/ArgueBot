@@ -4,6 +4,12 @@
 
 ### In progress
 
+- Ctrl+N offers debate setup, conversation-only creation and agent configuration. A unified debate form exposes the question, opening/second/optional final speaker, round limit and intervention window; missing profiles lead into agent configuration. Ctrl+B uses the same setup form.
+
+- F1 Help leads the TUI footer and opens a topic menu for navigation, agent configuration, debate controls, history, administration and theme/detach shortcuts.
+
+- TUI dark mode uses black workspace/dialog backgrounds and dark grey inputs consistently. Bordered workspace regions have horizontal padding; prompts, choices and confirmations share the same theme and dialog layout.
+
 - TUI conversation messages use styled speaker headings, local times and spaced separators, with message content directly beneath each heading. Routine completed/note metadata is hidden; interrupted/failed states and preview notices remain visible. Full-message and history headings use the same readable labels.
 
 - The C# TUI opens with a lowercase Ogre ASCII logo in a centered splash modal over the workspace. The modal separates text groups with blank rows and keeps padding below its dismissal hint. It includes version, copyright, license, project URL and configuration/help shortcuts. Any key dismisses it immediately; otherwise it closes after three seconds.

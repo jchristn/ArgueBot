@@ -26,7 +26,77 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "Transcript", "Transcript separates speakers and literal content while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "DebateSetup", "Debate form preserves prompt, speaker order and limits while rejecting duplicate agents", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Black workspace, grey inputs and horizontal frame padding stay consistent across dialogs", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript separates speakers and literal content while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "RoleForms", "Role forms clone protected definitions, validate names and preserve revision/activity", RoleFormsAsync), new TestCaseDescriptor("Terminal", "UserForms", "User forms mask passwords, preserve administrative boundaries and validate drafts", UserFormsAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "AuditDetails", "Audit detail remains read-only through paste and scrolls to its close actions", AuditDetailsAsync), new TestCaseDescriptor("Terminal", "RecoveryForms", "Recovery forms mask passphrases and reject unsafe restore destinations", RecoveryFormsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task DebateSetupAsync(CancellationToken token)
+        {
+            HeadlessBackend backend = new HeadlessBackend(80, 24) { ClaimsTerminal = false };
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                app.Theme = TerminalTheme.Dark; app.ApplyThemeToWidgets = true; app.Start();
+                List<RunnerProfile> profiles = new List<RunnerProfile> { new RunnerProfile { Id = "one", Name = "Claude" }, new RunnerProfile { Id = "two", Name = "Codex" }, new RunnerProfile { Id = "three", Name = "Gemini" } };
+                DebateSetupEditor editor = new DebateSetupEditor(profiles, "Compare these approaches", false);
+                FormDialog<CreateRunRequest> dialog = new FormDialog<CreateRunRequest>("Set up debate", editor.Form, editor.Extract);
+                editor.Form.SubmitLabel = "Start debate";
+                Task<CreateRunRequest?> result = app.ShowAsync<CreateRunRequest>(dialog);
+                ((Dropdown<string>)editor.Form.GetField(2)).SelectedIndex = 0;
+                backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                if (dialog.IsClosed) throw new InvalidDataException("Duplicate speakers were accepted.");
+                ((Dropdown<string>)editor.Form.GetField(2)).SelectedIndex = 1;
+                ((Dropdown<string>)editor.Form.GetField(3)).SelectedIndex = 3;
+                app.RenderOnce();
+                await SaveEvidenceAsync("debate-setup", Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                backend.FeedKey("ctrl+s"); app.PumpInputOnce();
+                CreateRunRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                if (request == null || request.Question != "Compare these approaches" || !request.ParticipantIds.SequenceEqual(new[] { "one", "two", "three" }) || request.MaxRounds != 6 || request.InterventionSeconds != 15) throw new InvalidDataException("Debate setup changed the prompt, speaker order or settings.");
+                app.Stop();
+            }
+        }
+        private static async Task PaletteAsync(CancellationToken token)
+        {
+            HeadlessBackend backend = new HeadlessBackend(80, 24) { ClaimsTerminal = false };
+            using (ArgueBotClient client = new ArgueBotClient())
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                new ConversationApp(client).Configure(app); app.Start(); app.RenderOnce();
+                CellBuffer frame = app.CaptureFrame()!;
+                Color black = Color.FromRgb(0, 0, 0); Color input = Color.FromRgb(40, 40, 40);
+                if (!frame.Get(30, 5).Style.Background.Equals(black) || !frame.Get(2, 21).Style.Background.Equals(input)) throw new InvalidDataException("Workspace and input backgrounds do not use the shared palette.");
+                foreach (int column in new[] { 1, 78 })
+                {
+                    if (frame.Get(column, 21).Grapheme != " ") throw new InvalidDataException("Composer or sidebar content touches its frame.");
+                }
+                await SaveEvidenceAsync("palette-workspace", Snapshot.ToText(frame), token).ConfigureAwait(false);
+                string footer = Snapshot.ToText(frame).Split('\n').Last().Trim();
+                if (!footer.StartsWith("F1 Help", StringComparison.Ordinal)) throw new InvalidDataException("Help must lead the terminal footer.");
+                backend.FeedKey("f1"); app.PumpInputOnce();
+                for (int index = 0; index < 30 && !app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
+                app.RenderOnce();
+                string helpScreen = Snapshot.ToText(app.CaptureFrame()!);
+                if (!helpScreen.Contains("Configure agents and harnesses", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not open the help topic menu.");
+                await SaveEvidenceAsync("help-menu", helpScreen, token).ConfigureAwait(false);
+                backend.FeedKey("escape");
+                for (int index = 0; index < 30 && app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
+                if (app.Modals.IsActive) throw new InvalidDataException("Help menu did not close on Escape.");
+                Task<string?> prompt = app.PromptStyledAsync("New conversation", "A question"); app.RenderOnce();
+                if (app.Modals.Top is not TextPromptDialog) throw new InvalidDataException("A prompt bypassed the shared dialog style.");
+                await SaveEvidenceAsync("palette-prompt", Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                backend.FeedKey("enter");
+                for (int index = 0; index < 30 && !prompt.IsCompleted; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
+                if (await prompt.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false) != "A question") throw new InvalidDataException("Styled prompt changed its initial value.");
+                Task<int> choice = app.SelectStyledAsync("Participants", "First", "Second");
+                backend.FeedKey("down"); backend.FeedKey("enter"); app.PumpInputOnce(); app.PumpInputOnce();
+                if (await choice.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false) != 1) throw new InvalidDataException("Styled choice lost keyboard selection.");
+                ParticipantEditor editor = new ParticipantEditor();
+                FormDialog<RunnerProfile> dialog = new FormDialog<RunnerProfile>("Participant", editor.Form, editor.Extract);
+                Task<object?> form = app.ShowAsync(dialog); app.RenderOnce();
+                if (!((TextField)editor.Form.GetField(0)).NormalStyle.Background.Equals(input)) throw new InvalidDataException("Form fields bypassed the shared input background.");
+                await SaveEvidenceAsync("palette-participant", Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                backend.FeedKey("escape");
+                for (int index = 0; index < 30 && !form.IsCompleted; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
+                await form.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                app.Stop();
+            }
         }
         private static async Task TranscriptAsync(CancellationToken token)
         {
