@@ -81,6 +81,13 @@ try {
   const identity = command(['users','create','-'], {name:'CLI viewer fixture',email:'cli-viewer@example.invalid',passwordSha256:'A'.repeat(64)});
   check(identity.role==='viewer' && identity.hasPassword && !JSON.stringify(identity).includes('A'.repeat(64)), 'CLI identity creation leaked its password or assigned an elevated role.');
   check(command(['users','list','cli-viewer']).items.some(item=>item.id===identity.id), 'CLI identity paging lost its created user.');
+  const assignment = command(['assignments','create',identity.id,'-'], {roleName:'viewer',resourceScope:'Tenant',inheritsToChildren:false});
+  check(assignment.userId===identity.id && assignment.tenantId==='ten_local' && assignment.roleName==='Viewer', 'CLI scoped assignment lost principal or canonical role name.');
+  check(command(['assignments','list',identity.id]).items.some(item=>item.id===assignment.id), 'CLI scoped assignment paging lost its created record.');
+  check(command(['assignments','show',identity.id,assignment.id]).resourceScope==='Tenant', 'CLI assignment read lost scope metadata.');
+  const inactiveAssignment = command(['assignments','update',identity.id,assignment.id,'-'], {roleName:assignment.roleName,resourceScope:assignment.resourceScope,active:false,expectedRevision:assignment.revision});
+  check(!inactiveAssignment.active && inactiveAssignment.revision===2, 'CLI assignment deactivation lost optimistic concurrency.');
+
   const enrolled = command(['auth','login','-'], {tenantId:'ten_local',email:identity.email,passwordSha256:'A'.repeat(64)});
   check(typeof enrolled.token==='string' && enrolled.token.startsWith('v1.'), 'CLI password login did not return an opaque session.');
   const disabled = command(['users','update',identity.id,'-'], {name:identity.name,email:identity.email,active:false,expectedRevision:identity.revision});

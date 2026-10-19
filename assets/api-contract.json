@@ -908,6 +908,76 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/users/{userId}/role-assignments",
+      "group": "Assignments",
+      "summary": "Enumerate scoped user role assignments",
+      "response": "UserRoleAssignmentPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v1.0/api/users/{userId}/role-assignments",
+      "group": "Assignments",
+      "summary": "Create a scoped user role assignment",
+      "response": "UserRoleAssignmentRecord",
+      "request": "UserRoleAssignmentRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "roleName": "Viewer",
+        "resourceScope": "Tenant",
+        "inheritsToChildren": true,
+        "active": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "assignmentId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1.0/api/users/{userId}/role-assignments/{assignmentId}",
+      "group": "Assignments",
+      "summary": "Read a scoped user role assignment",
+      "response": "UserRoleAssignmentRecord",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v1.0/api/users/{userId}/role-assignments/{assignmentId}",
+      "group": "Assignments",
+      "summary": "Update or deactivate a scoped user role assignment",
+      "response": "UserRoleAssignmentRecord",
+      "request": "UserRoleAssignmentRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "roleName": "Viewer",
+        "resourceScope": "Tenant",
+        "inheritsToChildren": true,
+        "active": false,
+        "expectedRevision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
     }
   ]
 }

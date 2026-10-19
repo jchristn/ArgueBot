@@ -6830,6 +6830,528 @@
           }
         }
       }
+    },
+    "/v1.0/api/users/{userId}/role-assignments": {
+      "get": {
+        "operationId": "get_v1_0_api_users_userId_role_assignments",
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Enumerate scoped user role assignments",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Backend filter; date/time values use UTC ISO 8601."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful enumerate scoped user role assignments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleAssignmentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_0_api_users_userId_role_assignments",
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Create a scoped user role assignment",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful create a scoped user role assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleAssignmentRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleAssignmentRequest"
+              },
+              "example": {
+                "roleName": "Viewer",
+                "resourceScope": "Tenant",
+                "inheritsToChildren": true,
+                "active": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/api/users/{userId}/role-assignments/{assignmentId}": {
+      "get": {
+        "operationId": "get_v1_0_api_users_userId_role_assignments_assignmentId_",
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Read a scoped user role assignment",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a scoped user role assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleAssignmentRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "put_v1_0_api_users_userId_role_assignments_assignmentId_",
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Update or deactivate a scoped user role assignment",
+        "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier in the authenticated ownership scope."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update or deactivate a scoped user role assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleAssignmentRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleAssignmentRequest"
+              },
+              "example": {
+                "roleName": "Viewer",
+                "resourceScope": "Tenant",
+                "inheritsToChildren": true,
+                "active": false,
+                "expectedRevision": 1
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8585,6 +9107,213 @@
           "name",
           "email"
         ]
+      },
+      "UserRoleAssignmentPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleAssignmentRecord"
+            },
+            "description": "Ordered active and inactive assignments for one tenant user."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Bounded page size."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total assignments for the selected user."
+          }
+        },
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ]
+      },
+      "UserRoleAssignmentRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable assignment identifier."
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Authenticated tenant binding."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Assigned tenant user."
+          },
+          "roleId": {
+            "type": "string",
+            "description": "Optional role GUID; an existing inactive reference blocks fallback.",
+            "maxLength": 64
+          },
+          "roleName": {
+            "type": "string",
+            "description": "Optional fallback role name when its GUID is absent.",
+            "maxLength": 200
+          },
+          "resourceScope": {
+            "type": "string",
+            "description": "Tenant or Resource scope.",
+            "enum": [
+              "Tenant",
+              "Resource"
+            ]
+          },
+          "resourceId": {
+            "type": "string",
+            "description": "Exact opaque target ID for Resource scope; empty for Tenant scope.",
+            "maxLength": 64
+          },
+          "inheritsToChildren": {
+            "type": "boolean",
+            "description": "Tenant scope reaches child resources only when explicitly enabled."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether this assignment participates in resolution."
+          },
+          "protected": {
+            "type": "boolean",
+            "description": "Protected assignments cannot be changed through normal administration."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Optimistic concurrency revision."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp."
+          }
+        }
+      },
+      "UserRoleAssignmentRequest": {
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "description": "Optional role GUID; an existing inactive reference blocks fallback.",
+            "maxLength": 64
+          },
+          "roleName": {
+            "type": "string",
+            "description": "Optional fallback role name when its GUID is absent.",
+            "maxLength": 200
+          },
+          "resourceScope": {
+            "type": "string",
+            "description": "Tenant or Resource scope.",
+            "enum": [
+              "Tenant",
+              "Resource"
+            ],
+            "default": "Tenant"
+          },
+          "resourceId": {
+            "type": "string",
+            "description": "Exact opaque target ID for Resource scope; empty for Tenant scope.",
+            "maxLength": 64
+          },
+          "inheritsToChildren": {
+            "type": "boolean",
+            "description": "Tenant scope reaches child resources only when explicitly enabled.",
+            "default": false
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether this assignment participates in resolution.",
+            "default": true
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current assignment revision required for updates.",
+            "minimum": 0
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "roleId"
+            ],
+            "properties": {
+              "roleId": {
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "required": [
+              "roleName"
+            ],
+            "properties": {
+              "roleName": {
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "resourceScope": {
+                    "enum": [
+                      "Tenant"
+                    ]
+                  },
+                  "resourceId": {
+                    "maxLength": 0
+                  }
+                }
+              },
+              {
+                "required": [
+                  "resourceScope",
+                  "resourceId"
+                ],
+                "properties": {
+                  "resourceScope": {
+                    "enum": [
+                      "Resource"
+                    ]
+                  },
+                  "resourceId": {
+                    "minLength": 1
+                  },
+                  "inheritsToChildren": {
+                    "enum": [
+                      false
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "description": "Supply a role ID and/or fallback name. An existing inactive role blocks fallback. Tenant scope requires empty resourceId and explicit inheritance to reach children; Resource scope requires an exact ID with inheritance disabled. ResourceAdmin is resource-only. Updates require expectedRevision. Protected identities/assignments cannot be changed. Stored resolution changes immediately; compatibility route enforcement remains an integration gate."
       },
       "ServiceSettings": {
         "type": "object",

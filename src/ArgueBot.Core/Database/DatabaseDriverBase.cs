@@ -37,6 +37,8 @@ namespace ArgueBot.Core.Database
         public IProfileMethods Profiles { get; }
         /// <summary>Tenant-scoped identity administration.</summary>
         public IUserMethods Users { get; }
+        /// <summary>Tenant user role assignments with explicit resource scope.</summary>
+        public IUserRoleAssignmentMethods UserRoleAssignments { get; }
         /// <summary>Revision-checked active role-permission mapping sets.</summary>
         public IRolePermissionMethods RolePermissions { get; }
         /// <summary>Protected global and tenant custom permission definitions.</summary>
@@ -69,6 +71,7 @@ namespace ArgueBot.Core.Database
             Roles = new RoleMethods(this);
             Permissions = new PermissionMethods(this);
             RolePermissions = new RolePermissionMethods(this);
+            UserRoleAssignments = new UserRoleAssignmentMethods(this);
             Authorization = new AuthorizationMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);

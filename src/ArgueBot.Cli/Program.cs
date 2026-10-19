@@ -116,6 +116,19 @@ namespace ArgueBot.Cli
                     }
                     else { Help(); return 2; }
                 }
+                else if (command == "assignments")
+                {
+                    Require(words, 3); string root = "v1.0/api/users/" + Uri.EscapeDataString(words[2]) + "/role-assignments";
+                    if (operation == "list") Print(await client.SendAsync<UserRoleAssignmentPage>(System.Net.Http.HttpMethod.Get, root + "?pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1).ToString(System.Globalization.CultureInfo.InvariantCulture), token: token).ConfigureAwait(false));
+                    else if (operation == "show") { Require(words, 4); Print(await client.SendAsync<UserRoleAssignmentRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[3]), token: token).ConfigureAwait(false)); }
+                    else if (operation == "create" || operation == "update")
+                    {
+                        int input = operation == "update" ? 4 : 3; Require(words, input + 1);
+                        UserRoleAssignmentRequest request = JsonSerializer.Deserialize<UserRoleAssignmentRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed scoped assignment object.");
+                        Print(await client.SendAsync<UserRoleAssignmentRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[3]) : ""), request, token).ConfigureAwait(false));
+                    }
+                    else { Help(); return 2; }
+                }
                 else if (command == "audit" && operation == "list")
                 {
                     int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
@@ -237,6 +250,10 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   permissions show ID
   permissions create JSON|-|--file PATH
   permissions update ID JSON|-|--file PATH
+  assignments list USER [PAGE]
+  assignments show USER ID
+  assignments create USER JSON|-|--file PATH
+  assignments update USER ID JSON|-|--file PATH
   audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
   backups list
   backups create JSON|-|--file PATH

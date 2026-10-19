@@ -15,22 +15,25 @@ await new Promise((resolve, reject) => listener.once('error', reject).listen(0, 
 const port = listener.address().port;
 await new Promise(resolve => listener.close(resolve));
 await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({ port }), { mode: 0o600 });
-function command(words) {
+function command(words, body) {
   const result = spawnSync('dotnet', [cli, '--home', home, ...words], {
-    cwd: root, encoding: 'utf8', timeout: 30000,
+    cwd: root, encoding: 'utf8', timeout: 30000, input: body === undefined ? undefined : JSON.stringify(body),
     env: { ...process.env, ARGUEBOT_TOKEN: '' },
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(result.stderr || 'Isolated service command failed.');
+  return result.stdout;
 }
 let started = false;
 try {
   started = true;
   command(['service', 'start']);
+  const user = JSON.parse(command(['users', 'create', '-'], { name: 'Contract scoped user', email: 'contract-user@example.invalid' }));
   const session = JSON.parse(await fs.readFile(path.join(home, 'runtime/cli-session.json'), 'utf8'));
   const environment = {
     name: 'Disposable local authorization contract',
     values: [
+      { key: 'userId', value: user.id, enabled: true },
       { key: 'baseUrl', value: `http://127.0.0.1:${port}`, enabled: true },
       { key: 'token', value: session.token ?? session.Token, enabled: true, type: 'secret' },
     ],
@@ -39,7 +42,7 @@ try {
   await fs.writeFile(file, JSON.stringify(environment), { mode: 0o600 });
   const result = spawnSync(process.env.ARGUEBOT_POSTMAN_BIN || 'postman', [
     'collection', 'run', 'assets/postman/arguebot.postman_collection.json',
-    '-i', 'Roles', '-i', 'Permissions', '-e', file, '--no-report-events',
+    '-i', 'Roles', '-i', 'Permissions', '-i', 'Assignments', '-e', file, '--no-report-events',
   ], { cwd: root, encoding: 'utf8', timeout: 60000 });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);

@@ -68,6 +68,10 @@
       "value": ""
     },
     {
+      "key": "assignmentId",
+      "value": ""
+    },
+    {
       "key": "settingsRevision",
       "value": ""
     },
@@ -2091,6 +2095,172 @@
                 "exec": [
                   "pm.test('200 expected', () => pm.response.to.have.status(200));",
                   "if(pm.response.code<300) pm.test('Custom permission is tenant-bound and validated',()=>{const value=pm.response.json();pm.expect(value.tenantId).to.be.a('string');pm.expect(value.protected).to.be.false;pm.expect(['Permit','Deny']).to.include(value.effect);pm.expect(value.resourceTypes.length).to.be.within(1,32);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Assignments",
+      "description": "Lifecycle operations for assignments. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Enumerate scoped user role assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate scoped user role assignments"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a scoped user role assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Create a scoped user role assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"Viewer\",\n  \"resourceScope\": \"Tenant\",\n  \"inheritsToChildren\": true,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('assignmentId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a scoped user role assignment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments/{{assignmentId}}",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Read a scoped user role assignment"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('assignmentId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update or deactivate a scoped user role assignment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments/{{assignmentId}}",
+            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Update or deactivate a scoped user role assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"Viewer\",\n  \"resourceScope\": \"Tenant\",\n  \"inheritsToChildren\": true,\n  \"active\": false,\n  \"expectedRevision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('assignmentId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
                 ]
               }
             }

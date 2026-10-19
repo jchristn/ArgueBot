@@ -735,6 +735,73 @@ Representative request:
 }
 ```
 
+## GET /v1.0/api/users/{userId}/role-assignments
+
+Enumerate scoped user role assignments. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `UserRoleAssignmentPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
+
+## POST /v1.0/api/users/{userId}/role-assignments
+
+Create a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **201**, response: `UserRoleAssignmentRecord`. Request: `UserRoleAssignmentRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "roleName": "Viewer",
+  "resourceScope": "Tenant",
+  "inheritsToChildren": true,
+  "active": true
+}
+```
+
+## GET /v1.0/api/users/{userId}/role-assignments/{assignmentId}
+
+Read a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `UserRoleAssignmentRecord`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+| assignmentId | path | true | Identifier in the authenticated ownership scope. |
+
+## PUT /v1.0/api/users/{userId}/role-assignments/{assignmentId}
+
+Update or deactivate a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
+
+Success: **200**, response: `UserRoleAssignmentRecord`. Request: `UserRoleAssignmentRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | Identifier in the authenticated ownership scope. |
+| assignmentId | path | true | Identifier in the authenticated ownership scope. |
+
+Representative request:
+
+```json
+{
+  "roleName": "Viewer",
+  "resourceScope": "Tenant",
+  "inheritsToChildren": true,
+  "active": false,
+  "expectedRevision": 1
+}
+```
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -1335,6 +1402,51 @@ Complete metadata replacement. Omit passwordSha256 to preserve its password; a n
 | active | boolean | Enable authentication; disabling invalidates existing sessions. |
 | expectedRevision | integer | Expected revision for updates; zero for creation. |
 | passwordSha256 | string (nullable) | Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned. |
+
+### UserRoleAssignmentPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Ordered active and inactive assignments for one tenant user. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Bounded page size. |
+| totalCount | integer | Total assignments for the selected user. |
+
+### UserRoleAssignmentRecord
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable assignment identifier. |
+| tenantId | string | Authenticated tenant binding. |
+| userId | string | Assigned tenant user. |
+| roleId | string | Optional role GUID; an existing inactive reference blocks fallback. |
+| roleName | string | Optional fallback role name when its GUID is absent. |
+| resourceScope | string | Tenant or Resource scope. |
+| resourceId | string | Exact opaque target ID for Resource scope; empty for Tenant scope. |
+| inheritsToChildren | boolean | Tenant scope reaches child resources only when explicitly enabled. |
+| active | boolean | Whether this assignment participates in resolution. |
+| protected | boolean | Protected assignments cannot be changed through normal administration. |
+| revision | integer | Optimistic concurrency revision. |
+| createdUtc | string | Creation timestamp. |
+| updatedUtc | string | Last update timestamp. |
+
+### UserRoleAssignmentRequest
+
+Supply a role ID and/or fallback name. An existing inactive role blocks fallback. Tenant scope requires empty resourceId and explicit inheritance to reach children; Resource scope requires an exact ID with inheritance disabled. ResourceAdmin is resource-only. Updates require expectedRevision. Protected identities/assignments cannot be changed. Stored resolution changes immediately; compatibility route enforcement remains an integration gate.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| roleId | string | Optional role GUID; an existing inactive reference blocks fallback. |
+| roleName | string | Optional fallback role name when its GUID is absent. |
+| resourceScope | string | Tenant or Resource scope. |
+| resourceId | string | Exact opaque target ID for Resource scope; empty for Tenant scope. |
+| inheritsToChildren | boolean | Tenant scope reaches child resources only when explicitly enabled. |
+| active | boolean | Whether this assignment participates in resolution. |
+| expectedRevision | integer | Current assignment revision required for updates. |
 
 ### ServiceSettings
 

@@ -65,30 +65,17 @@ namespace ArgueBot.Core.Database.Implementations
         }
         private static async Task ExpandAsync(DbConnection connection, DbTransaction transaction, string tenant, StoredAssignment assignment, List<AuthorizationGrant> grants, CancellationToken token)
         {
-            string? role = null; string roleName = ""; bool active = false;
-            if (assignment.RoleId.Length > 0)
+            ResolvedRoleReference? role = await RoleReferenceResolver.ResolveAsync(connection, transaction, tenant, assignment.RoleId, assignment.RoleName, token).ConfigureAwait(false);
+            if (role == null || !role.Active) return;
+            if (string.Equals(role.Name, "ResourceAdmin", StringComparison.OrdinalIgnoreCase) && assignment.Scope != AuthorizationScope.Resource) throw Invalid("invalid_assignment");
+            if (role.BaselineOnly)
             {
-                using (DbCommand command = Command(connection, transaction, "SELECT id,name,active FROM authorization_roles WHERE id=@id AND (tenant_id=@tenant OR tenant_id IS NULL)", P("id", assignment.RoleId, "tenant", tenant)))
-                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                { if (await reader.ReadAsync(token).ConfigureAwait(false)) { role = S(reader, "id"); roleName = S(reader, "name"); active = Flag(reader, "active"); } }
-            }
-            if (role == null && assignment.RoleName.Length > 0)
-            {
-                using (DbCommand command = Command(connection, transaction, "SELECT id,name,active FROM authorization_roles WHERE lower(name)=lower(@name) AND (tenant_id=@tenant OR tenant_id IS NULL) ORDER BY CASE WHEN tenant_id IS NULL THEN 1 ELSE 0 END LIMIT 1", P("name", assignment.RoleName, "tenant", tenant)))
-                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                { if (await reader.ReadAsync(token).ConfigureAwait(false)) { role = S(reader, "id"); roleName = S(reader, "name"); active = Flag(reader, "active"); } }
-            }
-            // An inactive existing GUID/name blocks fallback. Missing built-ins alone use the migration-owned baseline.
-            if (role != null && !active) return;
-            if (string.Equals(roleName.Length > 0 ? roleName : assignment.RoleName, "ResourceAdmin", StringComparison.OrdinalIgnoreCase) && assignment.Scope != AuthorizationScope.Resource) throw Invalid("invalid_assignment");
-            if (role == null)
-            {
-                BuiltInRoleDefinition? definition = BuiltInRoles.Find(assignment.RoleName);
-                if (definition != null && definition.ResourceTypes.Length > 0)
+                BuiltInRoleDefinition definition = BuiltInRoles.Find(role.Name)!;
+                if (definition.ResourceTypes.Length > 0)
                     Add(grants, assignment, tenant, "builtin:" + definition.Name, new List<string>(definition.ResourceTypes), new List<string>(definition.Operations), AuthorizationEffect.Permit, definition.RequiresOwnership);
                 return;
             }
-            using (DbCommand command = Command(connection, transaction, "SELECT m.id,p.resource_types,p.operations,p.effect,p.requires_ownership FROM authorization_role_permissions m JOIN authorization_permissions p ON p.id=m.permission_id WHERE m.role_id=@role AND (m.tenant_id=@tenant OR m.tenant_id IS NULL) AND (p.tenant_id=@tenant OR p.tenant_id IS NULL) AND m.active=1 AND p.active=1 ORDER BY m.id LIMIT @limit", P("role", role, "tenant", tenant, "limit", AuthorizationEvaluator.MaximumGrants + 1)))
+            using (DbCommand command = Command(connection, transaction, "SELECT m.id,p.resource_types,p.operations,p.effect,p.requires_ownership FROM authorization_role_permissions m JOIN authorization_permissions p ON p.id=m.permission_id WHERE m.role_id=@role AND (m.tenant_id=@tenant OR m.tenant_id IS NULL) AND (p.tenant_id=@tenant OR p.tenant_id IS NULL) AND m.active=1 AND p.active=1 ORDER BY m.id LIMIT @limit", P("role", role.Id, "tenant", tenant, "limit", AuthorizationEvaluator.MaximumGrants + 1)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 while (await reader.ReadAsync(token).ConfigureAwait(false))
