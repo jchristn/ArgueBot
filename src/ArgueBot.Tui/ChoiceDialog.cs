@@ -17,7 +17,7 @@ namespace ArgueBot.Tui
         internal ChoiceDialog(string title, string[] choices)
         {
             _Description = title.Length > 60 ? title : "";
-            Title = _Description.Length == 0 ? title : "Choose an action"; FooterHint = "Up/Down: choose | Enter: select | Esc: back";
+            Title = _Description.Length == 0 ? title : "Choose an action"; FooterHint = "Click an option | Up/Down + Enter | Esc: back";
             MaxContentWidth = 76; MaxContentHeight = 22;
             _Count = choices.Length; _Choices.SetItems(choices); _Choices.OnFocusChanged(true);
             _Choices.ItemActivated += index => Close(index);
@@ -26,6 +26,16 @@ namespace ArgueBot.Tui
         public void ApplyTheme(Theme theme) { ApplyBorderTheme(theme); BackgroundStyle = theme.Text; _TextStyle = theme.Text; _Choices.ApplyTheme(theme); }
         /// <inheritdoc />
         public override bool HandleKey(KeyEvent key) { if (HandleDismiss(key, -1)) return true; return _Choices.HandleKey(key); }
+        /// <inheritdoc />
+        public override bool HandleMouse(MouseEvent mouse)
+        {
+            if (!ContentBounds.Contains(new Point(mouse.X, mouse.Y))) return false;
+            int row = mouse.Y - ContentBounds.Y - DescriptionRows(ContentBounds.Width);
+            if (row < 0) return false;
+            bool handled = _Choices.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - ContentBounds.X, row, mouse.Modifiers, 1));
+            if (handled && mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left && _Choices.SelectedIndex >= 0) Close(_Choices.SelectedIndex);
+            return handled;
+        }
         /// <inheritdoc />
         protected override int MeasureContentWidth(int availableWidth) { return Math.Min(72, availableWidth); }
         /// <inheritdoc />

@@ -30,6 +30,12 @@ namespace ArgueBot.Tui
             return _Field.HandleKey(key);
         }
         /// <inheritdoc />
+        public override bool HandleMouse(MouseEvent mouse)
+        {
+            if (!ContentBounds.Contains(new Point(mouse.X, mouse.Y))) return false;
+            return _Field.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - ContentBounds.X, mouse.Y - ContentBounds.Y, mouse.Modifiers, mouse.ClickCount));
+        }
+        /// <inheritdoc />
         public override bool HandlePaste(string text) { return _Field.HandlePaste(text); }
         /// <inheritdoc />
         protected override int MeasureContentWidth(int availableWidth) { return Math.Min(60, availableWidth); }

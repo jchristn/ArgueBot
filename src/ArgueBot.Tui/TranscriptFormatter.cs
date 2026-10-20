@@ -24,7 +24,7 @@ namespace ArgueBot.Tui
             string text = value.Replace('_', ' ');
             return text.Length == 0 ? "" : char.ToUpperInvariant(text[0]) + text.Substring(1);
         }
-        internal static void Render(Pane pane, IEnumerable<Message> messages, Theme theme)
+        internal static void Render(Pane pane, IEnumerable<Message> messages, Theme theme, string? conversationTitle = null)
         {
             pane.Clear();
             bool first = true;
@@ -42,7 +42,20 @@ namespace ArgueBot.Tui
                 }
                 pane.WriteLine();
             }
-            if (first) pane.WriteLine("Create a conversation with Ctrl+N, then send a note or start a debate with Ctrl+B.");
+            if (first)
+            {
+                pane.WriteLine(Text.From(conversationTitle == null ? "Welcome to ArgueBot" : "Your conversation is ready", theme.Accent).Bold());
+                pane.WriteLine();
+                if (conversationTitle != null) { pane.WriteLine(Text.From(conversationTitle, theme.Text)); pane.WriteLine(); }
+                pane.WriteLine("Agents: add two CLI harnesses or REST models.");
+                pane.WriteLine(conversationTitle == null ? "New: follow the guided debate setup." : "Start debate: choose speakers and settings.");
+                pane.WriteLine("Review the setup before starting your agents.");
+                pane.WriteLine();
+                pane.WriteLine("Menu lists all actions. Help explains each one.");
+                pane.WriteLine("Tab moves focus; Enter chooses an action.");
+                pane.WriteLine();
+                pane.WriteLine(Text.From("Notes add context. They do not start an agent reply.", theme.Muted));
+            }
         }
     }
 }

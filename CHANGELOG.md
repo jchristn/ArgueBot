@@ -4,7 +4,9 @@
 
 ### In progress
 
-- Ctrl+N offers debate setup, conversation-only creation and agent configuration. A unified debate form exposes the question, opening/second/optional final speaker, round limit and intervention window; missing profiles lead into agent configuration. Ctrl+B uses the same setup form.
+- The C# TUI now exposes clickable Help, Menu, New, Agents, Start debate and Run controls buttons. Menu options, prompt fields and scrollable form controls now forward mouse input, including Save buttons. Empty workspaces explain the next steps, a separate line shows connection feedback, and the open conversation is marked in the list.
+
+- Debate setup is a four-step wizard: Question, Speakers, Settings and Review. Back preserves drafts, validation blocks invalid transitions, and only the final Start debate submits the conversation/run. Missing agents lead to setup with Claude Code, Codex, Gemini, REST and custom CLI presets. F2 opens the main action menu; notes are explicitly described as context rather than agent requests.
 
 - F1 Help leads the TUI footer and opens a topic menu for navigation, agent configuration, debate controls, history, administration and theme/detach shortcuts.
 

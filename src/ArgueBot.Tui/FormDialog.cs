@@ -63,6 +63,14 @@ namespace ArgueBot.Tui
             _Scroll.HandleKey(key); return true;
         }
         /// <inheritdoc />
+        public override bool HandleMouse(MouseEvent mouse)
+        {
+            if (!ContentBounds.Contains(new Point(mouse.X, mouse.Y))) return false;
+            int row = mouse.Y - ContentBounds.Y - HeaderLines(ContentBounds.Width);
+            if (row < 0) return false;
+            return _Scroll.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - ContentBounds.X, row, mouse.Modifiers, mouse.ClickCount));
+        }
+        /// <inheritdoc />
         public override bool HandlePaste(string text) { return _Form.HandlePaste(text); }
         /// <inheritdoc />
         public void ApplyTheme(Theme theme) { _Theme = theme; _Scroll.ApplyTheme(theme); BorderStyleColor = theme.Border; BackgroundStyle = theme.Text; _ErrorStyle = theme.Error; }

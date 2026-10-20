@@ -16,30 +16,37 @@ namespace ArgueBot.Tui
         private readonly Dropdown<string> _Third;
         private readonly TextField _Rounds = new TextField { Value = "6" };
         private readonly TextField _Seconds = new TextField { Value = "15" };
-        internal Form Form { get; } = new Form();
+        internal Form QuestionForm { get; } = new Form();
+        internal Form SpeakersForm { get; } = new Form();
+        internal Form SettingsForm { get; } = new Form();
         internal DebateSetupEditor(List<RunnerProfile> profiles, string question, bool existing)
         {
             _Profiles = profiles.Where(profile => profile.Enabled).ToList();
-            if (_Profiles.Count < 2) throw new ArgumentException("Configure at least two enabled agent profiles.", nameof(profiles));
+            if (_Profiles.Count < 2) throw new ArgumentException("Configure at least two enabled agents.", nameof(profiles));
             _Question = new TextField { Value = question, IsReadOnly = existing };
             string[] names = _Profiles.Select(profile => profile.Name + " (" + profile.Kind + ")").ToArray();
             _First = new Dropdown<string>(names) { SelectedIndex = 0 };
             _Second = new Dropdown<string>(names) { SelectedIndex = 1 };
             _Third = new Dropdown<string>(new[] { "None: two speakers" }.Concat(names)) { SelectedIndex = 0 };
-            Add("Question / prompt", _Question, "The conversation question is the debate prompt. Notes provide additional context.", () => string.IsNullOrWhiteSpace(_Question.Value) || _Question.Value.Length > 4000 ? "Enter a question or prompt up to 4000 characters." : null);
-            Form.Add("Opening speaker", _First); Form.SetFieldHint(1, "Speaks first in every round. Configure reusable agents with Ctrl+E outside this form.");
-            Form.Add("Second speaker", _Second, () => _Second.SelectedIndex == _First.SelectedIndex ? "Choose a different second speaker." : null); Form.SetFieldHint(2, "Speaks second; closes each round when no third speaker is selected.");
-            Form.Add("Third speaker", _Third, () => _Third.SelectedIndex > 0 && (_Third.SelectedIndex - 1 == _First.SelectedIndex || _Third.SelectedIndex - 1 == _Second.SelectedIndex) ? "Choose a different third speaker or None." : null); Form.SetFieldHint(3, "Optional third agent. When selected, this agent speaks last in each round.");
-            Add("Maximum rounds", _Rounds, "One through 50. Debate ends on consensus or this round limit.", () => int.TryParse(_Rounds.Value, out int value) && value >= 1 && value <= 50 ? null : "Use one through 50 rounds.");
-            Add("Intervention seconds", _Seconds, "Zero through 600 seconds to intervene between turns. Ctrl+R opens run controls.", () => int.TryParse(_Seconds.Value, out int value) && value >= 0 && value <= 600 ? null : "Use zero through 600 seconds.");
+            QuestionForm.Add("What should the agents debate?", _Question, () => string.IsNullOrWhiteSpace(_Question.Value) || _Question.Value.Length > 4000 ? "Enter a question up to 4000 characters." : null);
+            QuestionForm.SetFieldHint(0, existing ? "This is the selected conversation's question. Next: choose speakers." : "Enter your question, then choose Next. Nothing starts until Review.");
+            SpeakersForm.Add("Opening agent", _First); SpeakersForm.SetFieldHint(0, "Speaks first in every round. Enter opens the list; arrows choose.");
+            SpeakersForm.Add("Second agent", _Second, () => _Second.SelectedIndex == _First.SelectedIndex ? "Choose a different second agent." : null); SpeakersForm.SetFieldHint(1, "Speaks second, and last if there is no third agent.");
+            SpeakersForm.Add("Third agent (optional)", _Third, () => _Third.SelectedIndex > 0 && (_Third.SelectedIndex - 1 == _First.SelectedIndex || _Third.SelectedIndex - 1 == _Second.SelectedIndex) ? "Choose a different third agent or None." : null); SpeakersForm.SetFieldHint(2, "Choose None for two speakers. A third agent closes each round.");
+            SettingsForm.Add("Maximum rounds", _Rounds, () => int.TryParse(_Rounds.Value, out int value) && value >= 1 && value <= 50 ? null : "Use one through 50 rounds."); SettingsForm.SetFieldHint(0, "Debate ends on consensus or this limit (1 to 50 rounds).");
+            SettingsForm.Add("Time to intervene (seconds)", _Seconds, () => int.TryParse(_Seconds.Value, out int value) && value >= 0 && value <= 600 ? null : "Use zero through 600 seconds."); SettingsForm.SetFieldHint(1, "Pause between turns (0 to 600). Run controls can interrupt later.");
         }
-        private void Add(string label, TextField field, string hint, Func<string?> validate)
-        { Form.Add(label, field, validate); Form.SetFieldHint(Form.FieldCount - 1, hint); }
         internal CreateRunRequest Extract()
         {
             List<string> ids = new List<string> { _Profiles[_First.SelectedIndex].Id, _Profiles[_Second.SelectedIndex].Id };
             if (_Third.SelectedIndex > 0) ids.Add(_Profiles[_Third.SelectedIndex - 1].Id);
             return new CreateRunRequest { Question = _Question.Value, ParticipantIds = ids, MaxRounds = int.Parse(_Rounds.Value, CultureInfo.InvariantCulture), InterventionSeconds = int.Parse(_Seconds.Value, CultureInfo.InvariantCulture), IdempotencyKey = Guid.NewGuid().ToString("N") };
+        }
+        internal string Review()
+        {
+            List<string> names = new List<string> { _Profiles[_First.SelectedIndex].Name, _Profiles[_Second.SelectedIndex].Name };
+            if (_Third.SelectedIndex > 0) names.Add(_Profiles[_Third.SelectedIndex - 1].Name);
+            return "Question\n" + _Question.Value + "\n\nSpeaking order: " + string.Join(" -> ", names) + "\nOpens each round: " + names[0] + "\nCloses each round: " + names[names.Count - 1] + "\n\nEnds on consensus or " + _Rounds.Value + " rounds.\nIntervention window: " + _Seconds.Value + " seconds.\n\nChoose Back to change anything.\nChoose Start debate to run the selected agents.";
         }
     }
 }

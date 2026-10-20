@@ -48,7 +48,7 @@ namespace ArgueBot.Tui
             _Form.Add("Protocol/provider", _Provider); _Form.SetFieldHint(2, "Choose the installed CLI output protocol or REST provider contract.");
             if (_Kind.SelectedIndex == 0)
             {
-                Add("Executable", _Executable, "Direct executable or script host. Prompts go to stdin; no shell interpolation.", () => string.IsNullOrWhiteSpace(_Executable.Value) ? "An executable is required." : null);
+                Add("Executable", _Executable, "Executable on the service machine. Prompts go to stdin. Standard CLI protocols supply default arguments when none are added.", () => string.IsNullOrWhiteSpace(_Executable.Value) ? "An executable is required." : null);
                 Add("Working directory", _Directory, "Optional directory on the service machine, validated by the service.");
                 _Form.AddSection("Ordered literal arguments");
                 for (int index = 0; index < _Arguments.Count; index++)
