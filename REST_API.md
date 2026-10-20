@@ -1331,7 +1331,7 @@ Create optionally clones active permission mappings from an accessible role. Upd
 
 ### RunnerProfile
 
-CLI requires executable and uses ordered arguments plus stdin. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
+CLI protocols are plain, claude, codex, gemini and mux. CLI requires executable and uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
 
 | Field | Type | Meaning |
 | --- | --- | --- |

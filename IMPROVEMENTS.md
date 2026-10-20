@@ -216,7 +216,7 @@ The runner boundary exposes capability discovery, validation, streaming executio
 
 ### CLI harnesses and stdio
 
-Preserve dedicated adapters for Claude Code, Codex, and Gemini CLI. Add a generic plain-text or documented JSONL harness configuration for other executable integrations. Stdio capture means launching and supervising a process, reading stdout and stderr concurrently, and supplying input through its declared protocol. It does not imply MCP support or a persistent agent session protocol.
+Preserve dedicated adapters for Claude Code, Codex, Gemini CLI and Mux. Mux uses its documented single-shot text/stdin contract, with session persistence disabled by default. Add a generic plain-text or documented JSONL harness configuration for other executable integrations. Stdio capture means launching and supervising a process, reading stdout and stderr concurrently, and supplying input through its declared protocol. It does not imply MCP support or a persistent agent session protocol.
 
 - [ ] Store executable and ordered arguments separately. Use direct process execution with `UseShellExecute = false` and the platform's structured argument facility. Never concatenate user prompts into shell commands.
 - [ ] Prefer stdin or a protected temporary input file for prompt content. Detect Windows `.cmd`/`.bat` shims and resolve a supported underlying executable/script host with fixed arguments; never pass prompt content through `cmd.exe` parsing.

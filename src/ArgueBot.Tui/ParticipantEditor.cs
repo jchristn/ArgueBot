@@ -37,7 +37,7 @@ namespace ArgueBot.Tui
             _Kind.SelectionChanged += (_, _) => { _Provider.SetItems(Providers()); _Provider.SelectedIndex = 0; Rebuild(); };
             Rebuild();
         }
-        private string[] Providers() { return _Kind.SelectedIndex == 1 ? new[] { "ollama", "openai", "anthropic", "gemini" } : new[] { "plain", "claude", "codex", "gemini" }; }
+        private string[] Providers() { return _Kind.SelectedIndex == 1 ? new[] { "ollama", "openai", "anthropic", "gemini" } : new[] { "plain", "claude", "codex", "gemini", "mux" }; }
         private void Add(string label, TextField field, string hint, Func<string?>? validate = null)
         { int index = _Form.FieldCount; _Form.Add(label, field, validate); _Form.SetFieldHint(index, hint); }
         private void Rebuild()

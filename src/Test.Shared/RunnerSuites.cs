@@ -25,12 +25,25 @@ namespace Test.Shared
                 bool fixtureMissing = !File.Exists(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE"));
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Runners", "PolyPrompt transport", new List<TestCaseDescriptor>
                 {
+                    new TestCaseDescriptor("Runners", "MuxCapture", "Mux streams UTF-8 answers, excludes stderr and passes literal stdin/arguments", MuxCaptureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "CliCaptureFailure", "Malformed output and capture overflow terminate a live process promptly", CaptureFailureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "OllamaStream", "Real PolyPrompt receives NDJSON answer", StreamAsync, skip: missing, skipReason: missing ? "Set ARGUEBOT_SIMULATION_URL to the local Postman runner simulation." : null),
                     new TestCaseDescriptor("Runners", "OllamaRateLimit", "Rate limit becomes safe failure without replay", RateLimitAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null),
                     new TestCaseDescriptor("Runners", "OllamaBroken", "Truncated upstream stream does not report success", BrokenAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null)
                 }) };
             }
+        }
+        private static async Task MuxCaptureAsync(CancellationToken token)
+        {
+            RunnerProfile profile = new RunnerProfile { Name = "Mux fixture", Kind = "cli", Provider = "mux", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "mux", "--endpoint", "fixture endpoint" }, TimeoutSeconds = 10 };
+            StringBuilder output = new StringBuilder();
+            await new CliRunner().GenerateAsync(profile, "Literal $(echo unsafe) `prompt` 議論", new List<Message>(), (text, _) => { output.Append(text); return Task.CompletedTask; }, token).ConfigureAwait(false);
+            if (output.ToString() != "Mux answer 議論.\n") throw new InvalidDataException("Mux capture mixed diagnostics into the answer or corrupted UTF-8.");
+            profile.Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "exit" };
+            bool failed = false;
+            try { await new CliRunner().GenerateAsync(profile, "input", new List<Message>(), (_, _) => Task.CompletedTask, token).ConfigureAwait(false); }
+            catch (DomainException ex) when (ex.Code == "agent_exit") { failed = true; }
+            if (!failed) throw new InvalidDataException("Mux nonzero exit was reported as success.");
         }
         private static async Task CaptureFailureAsync(CancellationToken token)
         {

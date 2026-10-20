@@ -92,7 +92,7 @@ function ProfileForm({ onSave, onClose, initial }) {
                 }
               >
                 {(profile.kind === "cli"
-                  ? ["plain", "claude", "codex", "gemini"]
+                  ? ["plain", "claude", "codex", "gemini", "mux"]
                   : ["ollama", "openai", "anthropic", "gemini"]
                 ).map((provider) => (
                   <option key={provider} value={provider}>

@@ -58,6 +58,7 @@ namespace ArgueBot.Runners.Processes
             {
                 "claude" => new List<string> { "-p", "-", "--verbose", "--output-format", "stream-json", "--include-partial-messages" },
                 "codex" => new List<string> { "exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "--color", "never", "--json", "-" },
+                "mux" => new List<string> { "print", "--output-format", "text", "--no-stats", "--no-session-persistence" },
                 "gemini" => new List<string> { "--prompt", "", "--output-format", "stream-json" },
                 _ => new List<string>()
             };
@@ -81,7 +82,7 @@ namespace ArgueBot.Runners.Processes
                 total += Encoding.UTF8.GetByteCount(buffer, 0, count);
                 if (total > profile.MaxOutputBytes) throw new IOException("Agent stdout exceeded the configured capture limit.");
                 string text = new string(buffer, 0, count);
-                if (profile.Provider == "plain") { await onText(text, token).ConfigureAwait(false); continue; }
+                if (profile.Provider == "plain" || profile.Provider == "mux") { await onText(text, token).ConfigureAwait(false); continue; }
                 foreach (char character in text)
                 {
                     if (character == '\n') { await EmitLineAsync(line.ToString(), emitted, onText, token).ConfigureAwait(false); line.Clear(); }

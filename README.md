@@ -401,3 +401,5 @@ Tenant identity management now has dashboard, Ctrl+U terminal and console surfac
 Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Password exchange requires HTTPS. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. TLS certificate keys follow encrypted opt-in recovery rules. Hosted ingress and runner isolation remain open.
 
 Accepted background runs survive session sign-out. Current account disablement or execution-role revocation interrupts generation and pauses without replay; re-enable access and explicitly resume when appropriate. See [execution and recovery](docs/EXECUTION.md).
+
+The replacement runtime also supports Mux as a CLI harness in web, TUI and console profiles. Select CLI protocol `mux` and executable `mux` (or its full installed path). The TUI offers a Mux preset. It streams `mux print` text output with prompts on stdin and uses Mux's existing model/endpoint configuration. See [Mux setup and argument overrides](docs/TUI.md).

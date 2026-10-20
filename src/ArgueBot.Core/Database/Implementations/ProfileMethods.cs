@@ -97,7 +97,7 @@ namespace ArgueBot.Core.Database.Implementations
                 if (string.IsNullOrWhiteSpace(profile.Executable)) throw new DomainException(400, "invalid_executable", "A direct executable is required.");
                 if (profile.Executable.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || profile.Executable.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)) throw new DomainException(400, "shell_wrapper", "Configure the underlying executable or script host instead of a shell wrapper.");
                 if (profile.WorkingDirectory.Length > 0 && !Directory.Exists(profile.WorkingDirectory)) throw new DomainException(400, "invalid_directory", "Working directory does not exist on the server.");
-                if (profile.Provider != "plain" && profile.Provider != "claude" && profile.Provider != "codex" && profile.Provider != "gemini") throw new DomainException(400, "invalid_protocol", "CLI protocol must be plain, claude, codex or gemini.");
+                if (profile.Provider != "plain" && profile.Provider != "claude" && profile.Provider != "codex" && profile.Provider != "gemini" && profile.Provider != "mux") throw new DomainException(400, "invalid_protocol", "CLI protocol must be plain, claude, codex, gemini or mux.");
             }
             else if (profile.Kind == "rest")
             {

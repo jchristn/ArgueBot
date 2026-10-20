@@ -70,6 +70,10 @@ try {
   check(command(['roles','permissions',role.id,'1','false']).items.some(item=>item.permissionId===permission.id && !item.active), 'CLI replacement discarded inactive mapping history.');
   const audit = command(['audit','list','session.issue']);
   check(audit.totalCount >= 1 && audit.items.every(item=>item.operation==='session.issue' && item.sessionId), 'CLI audit inspection lost session accounting.');
+  const mux = command(['participants','add','-'], {name:'Mux CLI fixture',kind:'cli',provider:'mux',executable:'mux',arguments:['print','--output-format','text','--no-stats','--no-session-persistence','--endpoint','fixture endpoint']});
+  check(mux.provider==='mux' && mux.arguments.at(-1)==='fixture endpoint', 'Mux profile creation lost its protocol or literal endpoint argument.');
+  check(command(['participants','list']).some(item=>item.id===mux.id && item.provider==='mux'), 'Mux profile did not survive authenticated service persistence.');
+  command(['participants','delete',mux.id]);
   const profile = command(['participants','add','-'], {name:'CLI surface fixture',kind:'cli',provider:'plain',executable:'fixture-not-executed',arguments:['','--literal','議論 with spaces']});
   check(typeof profile.id==='string' && profile.id.length>0 && profile.id.length<=64, 'Participant creation did not return an identifier.');
   profile.name = 'Edited CLI fixture';

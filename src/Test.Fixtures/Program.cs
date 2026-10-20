@@ -12,6 +12,14 @@ namespace ArgueBot.Tests.Fixtures
             string mode = args.Length > 0 ? args[0] : "plain";
             if (mode == "certificate" && args.Length == 2) { CertificateFixture.Write(args[1]); return 0; }
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);
+            if (mode == "mux")
+            {
+                if (args.Length != 3 || args[1] != "--endpoint" || args[2] != "fixture endpoint" || !input.Contains("Literal $(echo unsafe) `prompt` 議論", StringComparison.Ordinal)) return 19;
+                await Console.Error.WriteAsync("Mux fixture diagnostic, not an answer.").ConfigureAwait(false);
+                byte[] bytes = Encoding.UTF8.GetBytes("Mux answer 議論.\n");
+                foreach (byte value in bytes) await Console.OpenStandardOutput().WriteAsync(new byte[] { value }).ConfigureAwait(false);
+                return 0;
+            }
             if (mode == "exit") return 17;
             if (mode == "hang") { await Task.Delay(Timeout.Infinite).ConfigureAwait(false); return 0; }
             if (mode == "stderr") { for (int index = 0; index < 300; index++) await Console.Error.WriteAsync(new string('x', 4096)).ConfigureAwait(false); return 0; }

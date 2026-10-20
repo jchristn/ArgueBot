@@ -128,6 +128,8 @@ namespace Test.Shared
         }
         private static async Task FirstUseAsync(CancellationToken token)
         {
+            RunnerProfile mux = new ParticipantEditor(AgentPresets.Create(3)).Extract();
+            if (mux.Provider != "mux" || mux.Kind != "cli" || mux.Executable != "mux" || mux.Arguments.Count != 0) throw new InvalidDataException("Mux preset did not retain its executable, protocol and default arguments through the agent form.");
             HeadlessBackend backend = new HeadlessBackend(80, 24) { ClaimsTerminal = false };
             TerminalJourneyHandler service = new TerminalJourneyHandler();
             using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4317", service))

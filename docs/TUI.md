@@ -31,7 +31,7 @@ The compact footer starts with **F1 Help** and **F2 Menu**, followed by **Ctrl+Q
 ## Set up your first debate
 
 1. Choose **New**, then **Start a debate: guided setup**.
-2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex or Gemini CLI preset, a REST model endpoint, or a custom CLI harness. Review the fields and save. Repeat until two agents are enabled.
+2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, a REST model endpoint, or a custom CLI harness. Review the fields and save. Repeat until two agents are enabled.
 3. In **Question**, enter what you want debated. Enter or the **Next** button advances.
 4. In **Speakers**, choose the opening agent, the second agent, and optionally a third agent. Enter opens a dropdown; arrows select an item. Choose a different agent for each position.
 5. In **Settings**, set the maximum rounds and the time available to intervene between turns.
@@ -77,3 +77,5 @@ Help pages, message readers and debate review open at the beginning and wrap to 
 - **Long text is read-only.** Help, history and review open at the beginning, expose a scrollbar when needed and support keyboard and mouse scrolling.
 - **Pending work has one owner.** A pending start cannot be submitted twice. Failure stays on the Review screen with the draft intact.
 - **Conversation selection is stable.** A late response for another conversation cannot replace the history you opened. Switching conversations preserves their separate note drafts.
+
+For Mux, choose **Agents → Add agent → Mux (installed CLI)**. The default executable is `mux`; change it to the installed executable path if needed. Empty arguments use `print --output-format text --no-stats --no-session-persistence`. Mux reads the debate prompt from stdin and uses its own endpoint configuration and authentication on the service machine. To choose a named endpoint or model, supply the complete argument list, for example `print`, `--output-format`, `text`, `--no-stats`, `--no-session-persistence`, `--endpoint`, `my endpoint`, `--model`, `my-model`, with each value in its own argument field. Keep text output selected; JSON/JSONL output would appear literally in the transcript. ArgueBot retains the conversation history and supplies context on each turn; Mux session persistence is disabled by default. Tool permissions follow Mux configuration unless explicitly overridden in the saved arguments.
