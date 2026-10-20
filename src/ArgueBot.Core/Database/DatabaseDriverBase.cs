@@ -155,6 +155,7 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
                         await AuthorizationSeeder.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
+                        await DefaultAccessSeeder.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }

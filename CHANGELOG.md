@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Schema 13 seeds protected owned-access and tenant-presence assignments, synchronizes identity changes atomically, preserves assignment IDs during recovery and labels system migration audit events clearly. Complete scoped domain enforcement remains in progress.
+
 ### In progress
 
 - TUI interaction audit: F1 opens context help inside dialogs, Escape closes dropdowns before cancelling forms, menu labels wrap and retain option identity, the footer shows complete essential controls, setup steps scroll, and read-only help/message/review views start at the beginning with working keyboard/mouse scrolling. Welcome guidance stays at the top on narrow screens.

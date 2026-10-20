@@ -18,7 +18,8 @@ namespace Test.Shared
             string suffix = Guid.NewGuid().ToString("N");
             string resource = "scope_" + suffix;
             UserRoleAssignmentRecord? assignment = null; UserRoleAssignmentRecord? foreignAssignment = null; RoleRecord? custom = null;
-            AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = resource, OwnerUserId = subject.UserId };
+            AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = resource, OwnerUserId = owner.UserId };
+            long initialCount = (await database.UserRoleAssignments.EnumerateAsync(owner, subject.UserId, token: token).ConfigureAwait(false)).TotalCount;
             try
             {
                 await DeniedAsync(async () => { await database.UserRoleAssignments.EnumerateAsync(subject, subject.UserId, token: token).ConfigureAwait(false); }, 403).ConfigureAwait(false);
@@ -56,7 +57,7 @@ namespace Test.Shared
                 foreignAssignment = await database.UserRoleAssignments.CreateAsync(foreign, foreign.UserId, Request(resource), token).ConfigureAwait(false);
                 await DeniedAsync(async () => { await database.UserRoleAssignments.ReadAsync(owner, subject.UserId, foreignAssignment.Id, token).ConfigureAwait(false); }, 404).ConfigureAwait(false);
                 UserRoleAssignmentPage page = await database.UserRoleAssignments.EnumerateAsync(owner, subject.UserId, pageSize: 1, token: token).ConfigureAwait(false);
-                if (page.TotalCount != 1 || page.Items.Count != 1 || page.Items[0].Id != assignment.Id) throw new InvalidDataException("Assignment paging crossed principal or tenant boundaries.");
+                if (page.TotalCount != initialCount + 1 || page.Items.Count != 1 || page.Items[0].UserId != subject.UserId) throw new InvalidDataException("Assignment paging crossed principal or tenant boundaries.");
                 using (DbCommand command = Command(connection, "UPDATE authorization_user_assignments SET protected=1 WHERE tenant_id=@tenant AND user_id=@user AND id=@id", "tenant", owner.TenantId, "user", subject.UserId, "id", assignment.Id)) { await command.ExecuteNonQueryAsync(token).ConfigureAwait(false); }
                 try
                 {
@@ -84,7 +85,9 @@ namespace Test.Shared
             try
             {
                 // Populate only disposable fixture metadata to exercise the admission boundary without hundreds of HTTP exchanges.
-                for (int index = 0; index < 256; index++)
+                int existing;
+                using (DbCommand command = Command(connection, "SELECT COUNT(*) FROM authorization_user_assignments WHERE tenant_id=@tenant AND user_id=@user AND active=1", "tenant", owner.TenantId, "user", subject.UserId)) { existing = Convert.ToInt32(await command.ExecuteScalarAsync(token).ConfigureAwait(false), CultureInfo.InvariantCulture); }
+                for (int index = 0; index < 256 - existing; index++)
                 {
                     using (DbCommand command = Command(connection, "INSERT INTO authorization_user_assignments(id,tenant_id,user_id,role_id,resource_scope,created_utc,updated_utc) VALUES(@id,@tenant,@user,@role,'Tenant',@now,@now)", "id", "limit_" + suffix + "_" + index, "tenant", owner.TenantId, "user", subject.UserId, "role", role.Id))
                     { await command.ExecuteNonQueryAsync(token).ConfigureAwait(false); }

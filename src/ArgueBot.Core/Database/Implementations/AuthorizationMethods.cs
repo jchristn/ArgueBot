@@ -71,8 +71,8 @@ namespace ArgueBot.Core.Database.Implementations
             if (role.BaselineOnly)
             {
                 BuiltInRoleDefinition definition = BuiltInRoles.Find(role.Name)!;
-                if (definition.ResourceTypes.Length > 0)
-                    Add(grants, assignment, tenant, "builtin:" + definition.Name, new List<string>(definition.ResourceTypes), new List<string>(definition.Operations), AuthorizationEffect.Permit, definition.RequiresOwnership);
+                foreach (BuiltInPermissionDefinition permission in definition.Permissions)
+                    Add(grants, assignment, tenant, "builtin:" + definition.Name + ":" + permission.Key, new List<string>(permission.ResourceTypes), new List<string>(permission.Operations), AuthorizationEffect.Permit, permission.RequiresOwnership);
                 return;
             }
             using (DbCommand command = Command(connection, transaction, "SELECT m.id,p.resource_types,p.operations,p.effect,p.requires_ownership FROM authorization_role_permissions m JOIN authorization_permissions p ON p.id=m.permission_id WHERE m.role_id=@role AND (m.tenant_id=@tenant OR m.tenant_id IS NULL) AND (p.tenant_id=@tenant OR p.tenant_id IS NULL) AND m.active=1 AND p.active=1 ORDER BY m.id LIMIT @limit", P("role", role.Id, "tenant", tenant, "limit", AuthorizationEvaluator.MaximumGrants + 1)))

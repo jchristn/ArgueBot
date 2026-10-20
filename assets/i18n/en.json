@@ -495,5 +495,6 @@
   "roles.copyName": "{name} copy",
   "roles.source": "Copying permissions from {name}.",
   "roles.empty": "No matching role definitions.",
-  "roles.forbidden": "Role administration requires tenant or system administrator access."
+  "roles.forbidden": "Role administration requires tenant or system administrator access.",
+  "audit.system": "System migration"
 }

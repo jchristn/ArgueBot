@@ -18,13 +18,14 @@ namespace ArgueBot.Core.Database
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { if (await reader.ReadAsync(token).ConfigureAwait(false)) return Read(reader); }
             }
+            BuiltInRoleDefinition? baseline = BuiltInRoles.Find(name);
             if (name.Length > 0)
             {
-                using (DbCommand command = Command(connection, transaction, "SELECT id,name,active FROM authorization_roles WHERE lower(name)=lower(@name) AND (tenant_id=@tenant OR tenant_id IS NULL) ORDER BY CASE WHEN tenant_id IS NULL THEN 1 ELSE 0 END LIMIT 1", P("name", name, "tenant", tenant)))
+                string scope = baseline == null ? "(tenant_id=@tenant OR tenant_id IS NULL)" : "tenant_id IS NULL";
+                using (DbCommand command = Command(connection, transaction, "SELECT id,name,active FROM authorization_roles WHERE lower(name)=lower(@name) AND " + scope + " ORDER BY CASE WHEN tenant_id IS NULL THEN 0 ELSE 1 END LIMIT 1", P("name", name, "tenant", tenant)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { if (await reader.ReadAsync(token).ConfigureAwait(false)) return Read(reader); }
             }
-            BuiltInRoleDefinition? baseline = BuiltInRoles.Find(name);
             return baseline == null ? null : new ResolvedRoleReference { Name = baseline.Name, Active = true, BaselineOnly = true };
         }
         private static ResolvedRoleReference Read(DbDataReader reader)

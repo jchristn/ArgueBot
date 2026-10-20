@@ -14,7 +14,16 @@ namespace ArgueBot.Core.Security
             new BuiltInRoleDefinition("Editor", new[] { "Conversation", "Message", "Run" }, new[] { "Read", "Write" }),
             new BuiltInRoleDefinition("Viewer", new[] { "Conversation", "Message", "Run" }, new[] { "Read" }),
             new BuiltInRoleDefinition("TenantMember", new[] { "User" }, new[] { "Read" }, true),
-            new BuiltInRoleDefinition("Custom", Array.Empty<string>(), Array.Empty<string>())
+            new BuiltInRoleDefinition("Custom", Array.Empty<string>(), Array.Empty<string>()),
+            new BuiltInRoleDefinition("OwnedReader", new[] { "Conversation", "Message", "Run", "RunnerProfile" }, new[] { "Read" }, true),
+            new BuiltInRoleDefinition("OwnedOperator", new[] { "Conversation", "Message", "Run" }, new[] { "Read", "Write", "Execute" }, true)
+            {
+                AdditionalPermissions =
+                {
+                    new BuiltInPermissionDefinition("runner", new[] { "RunnerProfile" }, new[] { "Read", "Admin", "Execute" }, true),
+                    new BuiltInPermissionDefinition("cli", new[] { "CliHarness" }, new[] { "Execute" }, true)
+                }
+            }
         };
         internal static BuiltInRoleDefinition? Find(string name)
         {

@@ -4,6 +4,6 @@ namespace ArgueBot.Core.Database
     public static class DatabaseSchema
     {
         /// <summary>Highest schema version this runtime can read and write.</summary>
-        public const int CurrentVersion = 12;
+        public const int CurrentVersion = 13;
     }
 }

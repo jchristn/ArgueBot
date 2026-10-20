@@ -25,6 +25,8 @@ namespace ArgueBot.Core.Models
         public bool Active { get; set; } = true;
         /// <summary>Protected assignments cannot be changed through normal administration.</summary>
         public bool Protected { get; set; } = false;
+        /// <summary>Migration-managed default category, or empty for ordinary assignments.</summary>
+        public string SystemKind { get; set; } = "";
         /// <summary>Optimistic concurrency revision.</summary>
         public int Revision { get; set; } = 1;
         /// <summary>Creation timestamp.</summary>

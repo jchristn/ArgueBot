@@ -37,7 +37,7 @@ namespace Test.Shared
                 string resource = "scope_" + suffix;
                 using (DbCommand command = Command(connection, "INSERT INTO authorization_user_assignments(id,tenant_id,user_id,role_id,resource_scope,resource_id,created_utc,updated_utc) VALUES(@id,@tenant,@user,@role,'Resource',@resource,@now,@now)", "id", "asn_" + suffix, "tenant", owner.TenantId, "user", subject.UserId, "role", role.Id, "resource", resource))
                 { await command.ExecuteNonQueryAsync(token).ConfigureAwait(false); }
-                AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = resource, OwnerUserId = subject.UserId };
+                AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = resource, OwnerUserId = owner.UserId };
                 await AssertAsync(database, subject, target, true, token).ConfigureAwait(false);
                 role = await database.RolePermissions.ReplaceAsync(owner, role.Id, new RolePermissionsRequest { PermissionIds = new List<string> { permit.Id, deny.Id }, ExpectedRevision = role.Revision }, token).ConfigureAwait(false);
                 AuthorizationDecision denied = await database.Authorization.EvaluateUserAsync(subject, target, token).ConfigureAwait(false);

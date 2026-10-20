@@ -38,16 +38,17 @@ namespace Test.Shared
             RequestContext owner = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" };
             UserRecord user = await database.Users.CreateAsync(owner, new UserRequest { Name = "Scoped fixture", Email = suffix + "@example.invalid", Role = "viewer" }, token).ConfigureAwait(false);
             RequestContext context = new RequestContext { TenantId = owner.TenantId, UserId = user.Id, IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, Role = "admin" };
-            AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = "scope_" + suffix, OwnerUserId = user.Id };
+            AuthorizationTarget target = new AuthorizationTarget { TenantId = owner.TenantId, ResourceType = "Conversation", Operation = "Read", ResourceId = "scope_" + suffix, OwnerUserId = owner.UserId };
             string viewer = Convert.ToString(await QueryAsync(connection, "SELECT id FROM authorization_roles WHERE tenant_id IS NULL AND name='Viewer'", token).ConfigureAwait(false), CultureInfo.InvariantCulture)!;
             string assignment = "asn_" + suffix;
+            string shadowRole = "shadow_" + suffix;
             string denyRole = "rol_" + suffix; string denyPermission = "per_" + suffix; string denyAssignment = "den_" + suffix;
             try
             {
                 await AssertAsync(database, context, target, false, "Caller flags bypassed current stored identity.", token).ConfigureAwait(false);
                 await database.InitializeAsync(token).ConfigureAwait(false);
                 if (Convert.ToString(await QueryAsync(connection, "SELECT id FROM authorization_roles WHERE tenant_id IS NULL AND name='Viewer'", token).ConfigureAwait(false), CultureInfo.InvariantCulture) != viewer) throw new InvalidDataException("Initialization replaced a built-in role identity.");
-                if (Convert.ToInt64(await QueryAsync(connection, "SELECT COUNT(*) FROM authorization_roles WHERE tenant_id IS NULL AND builtin=1 AND protected=1", token).ConfigureAwait(false), CultureInfo.InvariantCulture) != 8) throw new InvalidDataException("Built-in role catalog is incomplete or unprotected.");
+                if (Convert.ToInt64(await QueryAsync(connection, "SELECT COUNT(*) FROM authorization_roles WHERE tenant_id IS NULL AND builtin=1 AND protected=1", token).ConfigureAwait(false), CultureInfo.InvariantCulture) != 10) throw new InvalidDataException("Built-in role catalog is incomplete or unprotected.");
                 await ExecuteAsync(connection, "INSERT INTO authorization_user_assignments(id,tenant_id,user_id,role_id,role_name,resource_scope,resource_id,created_utc,updated_utc) VALUES(@id,'ten_local',@user,@role,'Viewer','Resource',@resource,@now,@now)", token, "id", assignment, "user", user.Id, "role", viewer, "resource", target.ResourceId).ConfigureAwait(false);
                 await AssertAsync(database, context, target, true, "Stored scoped Viewer did not grant its resource.", token).ConfigureAwait(false);
                 string resource = target.ResourceId; target.ResourceId = "other_" + suffix;
@@ -56,6 +57,8 @@ namespace Test.Shared
                 await ExecuteAsync(connection, "UPDATE authorization_roles SET active=0 WHERE tenant_id IS NULL AND id=@id", token, "id", viewer).ConfigureAwait(false);
                 await AssertAsync(database, context, target, false, "Inactive GUID fell back to active built-in name.", token).ConfigureAwait(false);
                 await ExecuteAsync(connection, "UPDATE authorization_roles SET active=1 WHERE tenant_id IS NULL AND id=@id", token, "id", viewer).ConfigureAwait(false);
+                // Legacy/corrupt tenant names cannot shadow a reserved global baseline during fallback.
+                await ExecuteAsync(connection, "INSERT INTO authorization_roles(id,tenant_id,name,created_utc,updated_utc) VALUES(@id,'ten_local','Viewer',@now,@now)", token, "id", shadowRole).ConfigureAwait(false);
                 await ExecuteAsync(connection, "UPDATE authorization_user_assignments SET role_id='missing_fixture_role' WHERE tenant_id='ten_local' AND id=@id", token, "id", assignment).ConfigureAwait(false);
                 await AssertAsync(database, context, target, true, "Missing GUID failed to resolve the stored name.", token).ConfigureAwait(false);
                 await ExecuteAsync(connection, "UPDATE authorization_role_permissions SET active=0 WHERE tenant_id IS NULL AND role_id=@id", token, "id", viewer).ConfigureAwait(false);
@@ -95,6 +98,7 @@ namespace Test.Shared
             finally
             {
                 await ExecuteAsync(connection, "DELETE FROM authorization_user_assignments WHERE tenant_id='ten_local' AND user_id=@id", CancellationToken.None, "id", user.Id).ConfigureAwait(false);
+                await ExecuteAsync(connection, "DELETE FROM authorization_roles WHERE tenant_id='ten_local' AND id=@id", CancellationToken.None, "id", shadowRole).ConfigureAwait(false);
                 await ExecuteAsync(connection, "DELETE FROM authorization_roles WHERE tenant_id='ten_local' AND id=@id", CancellationToken.None, "id", denyRole).ConfigureAwait(false);
                 await ExecuteAsync(connection, "DELETE FROM authorization_permissions WHERE tenant_id='ten_local' AND id=@id", CancellationToken.None, "id", denyPermission).ConfigureAwait(false);
                 await ExecuteAsync(connection, "UPDATE users SET active=0 WHERE tenant_id='ten_local' AND id=@id", CancellationToken.None, "id", user.Id).ConfigureAwait(false);

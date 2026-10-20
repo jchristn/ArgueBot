@@ -1430,6 +1430,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | inheritsToChildren | boolean | Tenant scope reaches child resources only when explicitly enabled. |
 | active | boolean | Whether this assignment participates in resolution. |
 | protected | boolean | Protected assignments cannot be changed through normal administration. |
+| systemKind | string | Migration-managed default category, or empty for ordinary assignments. |
 | revision | integer | Optimistic concurrency revision. |
 | createdUtc | string | Creation timestamp. |
 | updatedUtc | string | Last update timestamp. |

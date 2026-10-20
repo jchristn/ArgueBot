@@ -26,7 +26,7 @@ namespace ArgueBot.Tui
             while (true)
             {
                 AuditPage result = await _Client.SendAsync<AuditPage>(HttpMethod.Get, "v1.0/api/audit?operation=" + Uri.EscapeDataString(operation) + "&pageNumber=" + page, token: _Token).ConfigureAwait(false);
-                List<string> choices = result.Items.Select(entry => entry.Operation + " | " + entry.Outcome + " | " + (entry.UserId ?? "anonymous/system")).ToList();
+                List<string> choices = result.Items.Select(entry => entry.Operation + " | " + entry.Outcome + " | " + (entry.UserId ?? (entry.AuthScheme == "SystemMigration" ? "system migration" : "anonymous/system"))).ToList();
                 int previous = -1; int next = -1;
                 if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
                 if ((long)page * result.PageSize < result.TotalCount) { next = choices.Count; choices.Add("Next page"); }

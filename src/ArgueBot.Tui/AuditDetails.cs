@@ -16,7 +16,7 @@ namespace ArgueBot.Tui
             Add("Operation", entry.Operation, "Stable semantic operation code.");
             Add("Outcome", entry.Outcome, "Recorded result. Denials remain visible independently of request capture.");
             Add("Tenant", entry.TenantId ?? "", "Validated tenant. Empty for anonymous or system events.");
-            Add("Actor", entry.UserId ?? "", "Validated actor. Untrusted user hints are excluded.");
+            Add("Actor", entry.UserId ?? (entry.AuthScheme == "SystemMigration" ? "System migration" : ""), "Validated actor. Untrusted user hints are excluded.");
             Add("Session", entry.SessionId, "Session identifier only; token material is never included.");
             Add("Authentication", entry.AuthScheme, "Validated authentication scheme where known.");
             Add("Correlation", entry.CorrelationId, "Use this identifier to correlate request diagnostics.");

@@ -9191,6 +9191,16 @@
             "type": "boolean",
             "description": "Protected assignments cannot be changed through normal administration."
           },
+          "systemKind": {
+            "type": "string",
+            "description": "Migration-managed default category, or empty for ordinary assignments.",
+            "readOnly": true,
+            "enum": [
+              "",
+              "DefaultAccess",
+              "TenantPresence"
+            ]
+          },
           "revision": {
             "type": "integer",
             "format": "int32",

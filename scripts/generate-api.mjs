@@ -65,6 +65,7 @@ Object.assign(schemas.UserRoleAssignmentRequest.properties.active,{default:true}
 schemas.UserRoleAssignmentRequest.anyOf=[{required:['roleId'],properties:{roleId:{minLength:1}}},{required:['roleName'],properties:{roleName:{minLength:1}}}];
 schemas.UserRoleAssignmentRequest.allOf=[{oneOf:[{properties:{resourceScope:{enum:['Tenant']},resourceId:{maxLength:0}}},{required:['resourceScope','resourceId'],properties:{resourceScope:{enum:['Resource']},resourceId:{minLength:1},inheritsToChildren:{enum:[false]}}}]}];
 schemas.UserRoleAssignmentRequest.description='Supply a role ID and/or fallback name. An existing inactive role blocks fallback. Tenant scope requires empty resourceId and explicit inheritance to reach children; Resource scope requires an exact ID with inheritance disabled. ResourceAdmin is resource-only. Updates require expectedRevision. Protected identities/assignments cannot be changed. Stored resolution changes immediately; compatibility route enforcement remains an integration gate.';
+Object.assign(schemas.UserRoleAssignmentRecord.properties.systemKind,{readOnly:true,enum:['','DefaultAccess','TenantPresence']});
 schemas.UserRoleAssignmentPage.required=['items','pageNumber','pageSize','totalCount'];
 Object.assign(schemas.RoleRequest.properties.name,{minLength:1,maxLength:200});
 Object.assign(schemas.RoleRequest.properties.expectedRevision,{minimum:0});

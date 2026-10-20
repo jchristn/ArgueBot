@@ -67,6 +67,7 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 await CheckEmailAsync(connection, transaction, context.TenantId, request.Email, id, token).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "INSERT INTO users(id,tenant_id,name,email,password_sha256,password_salt,password_iterations,role,is_admin,is_tenant_admin,active,created_utc,updated_utc) VALUES(@id,@tenant,@name,@email,@password,@salt,@iterations,@role,@admin,@tenantadmin,@active,@now,@now)", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", password?.Hash ?? "", "salt", password?.Salt ?? "", "iterations", password?.Iterations ?? 0, "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
+                await DefaultAccessSeeder.ApplyUserAsync(connection, transaction, context.TenantId, id, request.Role, context, token).ConfigureAwait(false);
                 await AuditMethods.AppendAsync(connection, transaction, context, "user.create", "created", "User", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadAsync(context, id, token).ConfigureAwait(false);
@@ -87,6 +88,7 @@ namespace ArgueBot.Core.Database.Implementations
                 if (current.Revision != request.ExpectedRevision) throw new DomainException(409, "revision_conflict", "The user changed. Reload before saving.");
                 await CheckEmailAsync(connection, transaction, context.TenantId, request.Email, id, token).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE users SET name=@name,email=@email,password_sha256=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_sha256 ELSE CAST(@password AS TEXT) END,password_salt=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_salt ELSE CAST(@salt AS TEXT) END,password_iterations=CASE WHEN CAST(@password AS TEXT) IS NULL THEN password_iterations ELSE @iterations END,role=@role,is_admin=@admin,is_tenant_admin=@tenantadmin,active=@active,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("id", id, "tenant", context.TenantId, "name", request.Name.Trim(), "email", request.Email, "password", password?.Hash, "salt", password?.Salt, "iterations", password?.Iterations ?? 0, "role", request.Role, "admin", request.IsAdmin ? 1 : 0, "tenantadmin", request.IsTenantAdmin ? 1 : 0, "active", request.Active ? 1 : 0)).ConfigureAwait(false);
+                await DefaultAccessSeeder.ApplyUserAsync(connection, transaction, context.TenantId, id, request.Role, context, token).ConfigureAwait(false);
                 if (!request.Active || request.PasswordSha256 != null)
                 {
                     await ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@id AND active=1", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);

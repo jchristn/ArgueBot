@@ -16,12 +16,13 @@ namespace Test.Shared
             RequestContext principal = await participant.SendAsync<RequestContext>(HttpMethod.Get, "v1.0/api/auth/me", token: token).ConfigureAwait(false);
             string root = "v1.0/api/users/" + principal.UserId + "/role-assignments";
             UserRoleAssignmentRequest request = new UserRoleAssignmentRequest { RoleName = "viewer", ResourceScope = "Resource", ResourceId = "scope_" + Guid.NewGuid().ToString("N") };
+            long initialCount = (await owner.SendAsync<UserRoleAssignmentPage>(HttpMethod.Get, root, token: token).ConfigureAwait(false)).TotalCount;
             UserRoleAssignmentRecord assignment = await owner.SendAsync<UserRoleAssignmentRecord>(HttpMethod.Post, root, request, token).ConfigureAwait(false);
             try
             {
                 if (assignment.RoleName != "Viewer" || assignment.UserId != principal.UserId || assignment.TenantId != principal.TenantId || assignment.Protected) throw new InvalidDataException("HTTP assignment lost canonical role or principal scope.");
                 UserRoleAssignmentPage page = await owner.SendAsync<UserRoleAssignmentPage>(HttpMethod.Get, root + "?pageSize=1", token: token).ConfigureAwait(false);
-                if (page.TotalCount != 1 || page.Items.Count != 1 || page.Items[0].Id != assignment.Id) throw new InvalidDataException("HTTP assignment paging lost its selected principal.");
+                if (page.TotalCount != initialCount + 1 || page.Items.Count != 1 || page.Items[0].UserId != principal.UserId) throw new InvalidDataException("HTTP assignment paging lost its selected principal.");
                 await owner.SendAsync<UserRoleAssignmentRecord>(HttpMethod.Get, root + "/" + assignment.Id, token: token).ConfigureAwait(false);
                 await DeniedAsync(async () => { await participant.SendAsync<UserRoleAssignmentPage>(HttpMethod.Get, root, token: token).ConfigureAwait(false); }, 403).ConfigureAwait(false);
                 await DeniedAsync(async () => { await participant.SendAsync<UserRoleAssignmentRecord>(HttpMethod.Post, root, request, token).ConfigureAwait(false); }, 403).ConfigureAwait(false);

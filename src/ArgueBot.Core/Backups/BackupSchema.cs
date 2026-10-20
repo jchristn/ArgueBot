@@ -21,6 +21,7 @@ namespace ArgueBot.Core.Backups
         internal static Dictionary<string, bool> ColumnsAtVersion(string table, int version)
         {
             Dictionary<string, bool> columns = Tables()[table];
+            if (table == "authorization_user_assignments" && version < 13) columns.Remove("system_kind");
             if (table == "audit_events" && version < 8) { columns.Remove("session_id"); columns.Remove("auth_scheme"); columns.Remove("correlation_id"); columns.Remove("resource_type"); columns.Remove("resource_id"); columns.Remove("error_code"); }
             if (table == "runs" && version < 9) columns.Remove("question");
             if (table == "users" && version < 11) { columns.Remove("password_salt"); columns.Remove("password_iterations"); }
