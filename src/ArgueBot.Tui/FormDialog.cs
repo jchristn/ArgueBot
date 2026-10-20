@@ -9,7 +9,7 @@ namespace ArgueBot.Tui
     using TUIKit.Theming;
     using TUIKit.Widgets;
 
-    internal sealed class FormDialog<T> : DialogModal, IThemeable
+    internal sealed class FormDialog<T> : HelpDialog, IThemeable
     {
         private readonly Form _Form;
         private readonly ScrollView _Scroll;
@@ -25,7 +25,7 @@ namespace ArgueBot.Tui
         {
             if ((application == null) != (submit == null)) throw new ArgumentException("A service submit action requires a UI dispatcher.");
             _Application = application; _Submit = submit;
-            Title = title; FooterHint = readOnly ? "Tab: next field | Ctrl+S: close | Esc: back" : "Tab: next field | Ctrl+S: save | Esc: cancel";
+            Title = title; FooterHint = readOnly ? "Tab: move | Esc: back" : "Tab: move | Ctrl+S: save | Esc: cancel";
             MaxContentWidth = 76; MaxContentHeight = 24;
             _Form = form;
             if (readOnly) { _Form.SubmitLabel = "Close"; _Form.CancelLabel = "Back"; }
@@ -58,22 +58,29 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         public override bool HandleKey(KeyEvent key)
         {
-            if (key.Code == KeyCode.Escape) { _Form.Cancel(); return true; }
+            if (HandleHelp(key)) return true;
+            if (key.Code == KeyCode.Escape)
+            {
+                if (_Form.FocusedLeaf is Dropdown<string> dropdown && dropdown.IsOpen) dropdown.HandleKey(key);
+                else _Form.Cancel();
+                return true;
+            }
             if (_Form.SubmitKey.HasValue && KeyChord.FromKeyEvent(key).Equals(_Form.SubmitKey.Value)) { _Form.Submit(); return true; }
             _Scroll.HandleKey(key); return true;
         }
         /// <inheritdoc />
         public override bool HandleMouse(MouseEvent mouse)
         {
+            if (HandleHelpMouse(mouse)) return true;
             if (!ContentBounds.Contains(new Point(mouse.X, mouse.Y))) return false;
             int row = mouse.Y - ContentBounds.Y - HeaderLines(ContentBounds.Width);
             if (row < 0) return false;
             return _Scroll.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - ContentBounds.X, row, mouse.Modifiers, mouse.ClickCount));
         }
         /// <inheritdoc />
-        public override bool HandlePaste(string text) { return _Form.HandlePaste(text); }
+        public override bool HandlePaste(string text) { if (HelpIsOpen) return true; return _Form.HandlePaste(text); }
         /// <inheritdoc />
-        public void ApplyTheme(Theme theme) { _Theme = theme; _Scroll.ApplyTheme(theme); BorderStyleColor = theme.Border; BackgroundStyle = theme.Text; _ErrorStyle = theme.Error; }
+        public void ApplyTheme(Theme theme) { ApplyHelpTheme(theme); _Theme = theme; _Scroll.ApplyTheme(theme); BorderStyleColor = theme.Border; BackgroundStyle = theme.Text; _ErrorStyle = theme.Error; }
         private int FormHeight(int width)
         {
             _Form.Render(new LayoutProbeSurface(width));
@@ -87,10 +94,11 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         protected override int MeasureContentWidth(int availableWidth) { return Math.Min(72, availableWidth); }
         /// <inheritdoc />
-        protected override int MeasureContentHeight(int contentWidth) { return FormHeight(Math.Max(1, contentWidth - 1)) + HeaderLines(contentWidth); }
+        protected override int MeasureContentHeight(int contentWidth) { return HelpHeight(FormHeight(Math.Max(1, contentWidth - 1)) + HeaderLines(contentWidth)); }
         /// <inheritdoc />
         protected override void RenderContent(ISurface content)
         {
+            if (RenderHelp(content)) return;
             _Scroll.ApplyTheme(_Theme);
             TerminalTheme.ApplyInputs(_Form, _Theme);
             int width = Math.Max(1, content.Size.Width); int lines = HeaderLines(width);

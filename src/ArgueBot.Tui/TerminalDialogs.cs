@@ -18,7 +18,8 @@ namespace ArgueBot.Tui
         }
         internal static async Task<bool> ConfirmStyledAsync(this TuiApplication app, string message, string confirmLabel = "Yes", string cancelLabel = "No")
         {
-            return await app.SelectStyledAsync(message, confirmLabel, cancelLabel).ConfigureAwait(false) == 0;
+            if (confirmLabel == cancelLabel) return await app.SelectStyledAsync(message, confirmLabel).ConfigureAwait(false) == 0;
+            return await app.SelectStyledAsync(message, cancelLabel, confirmLabel).ConfigureAwait(false) == 1;
         }
     }
 }

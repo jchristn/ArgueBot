@@ -13,6 +13,8 @@ The home above is an isolated development home. Reuse the same home to see the s
 
 ## Start with the visible buttons
 
+The full workspace needs at least 60 columns by 20 rows. Below that size, a resize screen replaces clipped controls; F1 Help, F2 Menu and Ctrl+Q remain available. Enlarging the window restores the workspace without discarding its state.
+
 The top of the workspace has buttons you can click. With the keyboard, use Tab or Shift+Tab to move focus and Enter to activate a button. Left/Right moves between buttons in the action row.
 
 | Button | What it does |
@@ -24,7 +26,7 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |
 | Run controls | Pauses, resumes, interrupts, extends or stops a debate. If the conversation has no debate, offers setup. |
 
-The footer starts with **F1 Help** and **F2 Menu**. Shortcuts are alternatives to the visible actions.
+The compact footer starts with **F1 Help** and **F2 Menu**, followed by **Ctrl+Q Detach**. Other actions are available through Menu. Menu options wrap instead of losing text at the right edge, and long lists scroll to keep the chosen option visible.
 
 ## Set up your first debate
 
@@ -35,7 +37,7 @@ The footer starts with **F1 Help** and **F2 Menu**. Shortcuts are alternatives t
 5. In **Settings**, set the maximum rounds and the time available to intervene between turns.
 6. In **Review**, check the question, speaking order, ending condition and intervention window. Choose **Back** to change anything, **Cancel** to leave, or **Start debate** to submit it.
 
-Back preserves your answers. The setup does not create the conversation or start a debate until you confirm the Review step. Adding agent profiles saves those reusable configurations separately.
+Back preserves your answers. Expanded fields scroll within the setup step, while Back/Next/Cancel remain visible. The setup does not create the conversation or start a debate until you confirm the Review step. Adding agent profiles saves those reusable configurations separately. If the service refuses a start, the Review screen keeps the error and draft open. A pending start cannot be submitted twice.
 
 The opening agent speaks first in each round. The last selected agent speaks last in each round. Consensus or the maximum round limit ends the debate; there is no independent closing-agent policy.
 
@@ -49,10 +51,29 @@ In agent forms, Tab moves to the next field or action. Select **Save**, or use C
 
 ## Work in a conversation
 
-Select a conversation in the left pane and press Enter. The open conversation has a `>` marker. The right pane displays its messages.
+Click a conversation once in the left pane, or select it with Up/Down and press Enter. The open conversation has a `>` marker. Unsent notes are kept separately for each open conversation when you switch between them. The right pane displays its messages.
 
 The note box adds context to the conversation. Sending a note does **not** start an agent reply. Choose **Start debate** to run the agents, or **Menu → Ask an agent a follow-up question** for a follow-up.
 
 Use **Run controls** to intervene in a debate. **Menu → Read full message history** opens complete messages when the workspace shows only a preview. **Menu → Inspect generation attempts** shows execution and source-context details.
 
 The connection line above the footer reports connection status and history counts. To leave, use **Menu → Detach**. Detaching closes the TUI while service-owned work continues.
+
+## Delete a conversation
+
+Open the conversation, choose **Menu → Delete this conversation**, then review its name and the permanent-deletion warning. **Cancel** is the default. Choose **Delete permanently** to remove the conversation and its history.
+
+The service refuses deletion while a debate is active or paused. Use **Run controls → Stop run**, wait for the run to stop, then retry deletion. Cancellation or a refusal leaves the conversation available.
+
+## Read long help and messages
+
+Help pages, message readers and debate review open at the beginning and wrap to the available width. Use arrows, PageUp/PageDown, Home/End or the mouse wheel to scroll. A scrollbar shows when more text is available; clicking the scrollbar changes the scroll position. Tab reaches the Close or wizard navigation buttons, and Escape returns.
+
+## Interaction conventions
+
+- **F1 works inside dialogs**, including forms and debate setup. It opens interaction help without discarding the draft. F1, Escape or Back to dialog returns to the same state.
+- **Escape closes the innermost interaction first.** If a dropdown is open, Escape closes that dropdown. Press Escape again to cancel the surrounding dialog.
+- **Menus identify complete options.** Labels wrap, selection scrolls by option, and scrollbars do not activate choices when clicked.
+- **Long text is read-only.** Help, history and review open at the beginning, expose a scrollbar when needed and support keyboard and mouse scrolling.
+- **Pending work has one owner.** A pending start cannot be submitted twice. Failure stays on the Review screen with the draft intact.
+- **Conversation selection is stable.** A late response for another conversation cannot replace the history you opened. Switching conversations preserves their separate note drafts.

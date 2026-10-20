@@ -26,6 +26,7 @@ namespace ArgueBot.Tui
         }
         internal static void Render(Pane pane, IEnumerable<Message> messages, Theme theme, string? conversationTitle = null)
         {
+            pane.TailFollow.Mode = TailFollowMode.FollowAtBottom;
             pane.Clear();
             bool first = true;
             foreach (Message message in messages)
@@ -55,6 +56,8 @@ namespace ArgueBot.Tui
                 pane.WriteLine("Tab moves focus; Enter chooses an action.");
                 pane.WriteLine();
                 pane.WriteLine(Text.From("Notes add context. They do not start an agent reply.", theme.Muted));
+                pane.TailFollow.Mode = TailFollowMode.Never;
+                pane.ScrollUp(pane.ScrollbackCapacityLines);
             }
         }
     }

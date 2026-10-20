@@ -10,6 +10,7 @@ namespace ArgueBot.Tui
     internal sealed class DebateSetupEditor
     {
         private readonly List<RunnerProfile> _Profiles;
+        private readonly string _CommandKey = Guid.NewGuid().ToString("N");
         private readonly TextField _Question;
         private readonly Dropdown<string> _First;
         private readonly Dropdown<string> _Second;
@@ -40,7 +41,7 @@ namespace ArgueBot.Tui
         {
             List<string> ids = new List<string> { _Profiles[_First.SelectedIndex].Id, _Profiles[_Second.SelectedIndex].Id };
             if (_Third.SelectedIndex > 0) ids.Add(_Profiles[_Third.SelectedIndex - 1].Id);
-            return new CreateRunRequest { Question = _Question.Value, ParticipantIds = ids, MaxRounds = int.Parse(_Rounds.Value, CultureInfo.InvariantCulture), InterventionSeconds = int.Parse(_Seconds.Value, CultureInfo.InvariantCulture), IdempotencyKey = Guid.NewGuid().ToString("N") };
+            return new CreateRunRequest { Question = _Question.Value, ParticipantIds = ids, MaxRounds = int.Parse(_Rounds.Value, CultureInfo.InvariantCulture), InterventionSeconds = int.Parse(_Seconds.Value, CultureInfo.InvariantCulture), IdempotencyKey = _CommandKey };
         }
         internal string Review()
         {

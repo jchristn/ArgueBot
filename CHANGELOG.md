@@ -4,6 +4,9 @@
 
 ### In progress
 
+- TUI interaction audit: F1 opens context help inside dialogs, Escape closes dropdowns before cancelling forms, menu labels wrap and retain option identity, the footer shows complete essential controls, setup steps scroll, and read-only help/message/review views start at the beginning with working keyboard/mouse scrolling. Welcome guidance stays at the top on narrow screens.
+- Conversation navigation opens on one click, rejects stale history replies and keeps note drafts separate. Debate submission stays on Review when the service fails and blocks duplicate pending starts. Permanent conversation deletion is now in Menu, defaults to Cancel and respects active/paused-run refusal.
+
 - The C# TUI now exposes clickable Help, Menu, New, Agents, Start debate and Run controls buttons. Menu options, prompt fields and scrollable form controls now forward mouse input, including Save buttons. Empty workspaces explain the next steps, a separate line shows connection feedback, and the open conversation is marked in the list.
 
 - Debate setup is a four-step wizard: Question, Speakers, Settings and Review. Back preserves drafts, validation blocks invalid transitions, and only the final Start debate submits the conversation/run. Missing agents lead to setup with Claude Code, Codex, Gemini, REST and custom CLI presets. F2 opens the main action menu; notes are explicitly described as context rather than agent requests.

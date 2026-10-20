@@ -15,6 +15,8 @@ namespace Test.Shared
     {
         private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         internal List<RunnerProfile> Profiles { get; } = new List<RunnerProfile>();
+        internal bool Deleted { get; private set; }
+        internal bool RejectDelete { get; set; }
         internal Conversation? Conversation { get; private set; }
         internal CreateRunRequest? Started { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -32,6 +34,12 @@ namespace Test.Shared
                 ConversationRequest body = JsonSerializer.Deserialize<ConversationRequest>(await request.Content!.ReadAsStringAsync(cancellationToken).ConfigureAwait(false), _Json)!;
                 Conversation = new Conversation { Id = "fixture-conversation", Title = body.Title };
                 result = Conversation;
+            }
+            else if (path == "/v1.0/api/conversations/fixture-conversation" && request.Method == HttpMethod.Get) result = Conversation!;
+            else if (path == "/v1.0/api/conversations/fixture-conversation" && request.Method == HttpMethod.Delete)
+            {
+                if (RejectDelete) return new HttpResponseMessage(HttpStatusCode.Conflict) { Content = new StringContent(JsonSerializer.Serialize(new ApiError { Code = "active_run", Message = "Stop the active or paused run before deleting this conversation." }, _Json), Encoding.UTF8, "application/json") };
+                Deleted = true; Conversation = null; result = new DeletionResponse();
             }
             else if (path == "/v1.0/api/conversations/fixture-conversation/runs" && request.Method == HttpMethod.Post)
             {
