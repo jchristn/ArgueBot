@@ -11,6 +11,12 @@ dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home
 
 The home above is an isolated development home. Reuse the same home to see the same saved agents and conversations. The TUI automatically starts or attaches to its service. The splash closes after three seconds or any key.
 
+## Appearance
+
+The default dark theme is Quiet Charcoal: workspace `#17191C`, inputs `#25282D`, selection `#303D50`, text `#E3E5E8`, secondary text `#A1A7B0` and muted blue accent `#8AADD8`. Ctrl+T switches between Quiet Charcoal and light mode.
+
+The toolbar, conversation list, history and note composer have no surrounding boxes. One subtle vertical divider separates navigation from history. Dialogs and the splash retain a border. Keyboard focus highlights the selected toolbar button or conversation; a blue chevron identifies the focused conversation list or note area even when empty. The history heading shows the selected conversation title.
+
 ## Start with the visible buttons
 
 The full workspace needs at least 60 columns by 20 rows. Below that size, a resize screen replaces clipped controls; F1 Help, F2 Menu and Ctrl+Q remain available. Enlarging the window restores the workspace without discarding its state.

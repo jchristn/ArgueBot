@@ -8,6 +8,8 @@ Additional verified slices: schema-11 salted password-verifier migration preserv
 
 Protected default-access slice: schema 13 migrates existing users to protected owned-reader/operator and tenant-presence assignments, synchronizes identity changes atomically and preserves grant provenance on recovery. Local shared checks pass with both supported providers; complete route, worker and credential enforcement remains open. See docs/AUTHORIZATION.md and docs/DEVELOPMENT.md for scope and evidence.
 
+Terminal appearance: the user-selected Quiet Charcoal palette replaces the earlier black palette. Workspace areas use headings, spacing and a single sidebar divider instead of rectangular frames; dialogs retain borders. Local terminal checks cover focus, theme switching, narrow layouts and input colors.
+
 Terminal interaction audit: shared wrapping menus, scrollable setup forms and dedicated read-only views; view-versioned refreshes and per-conversation drafts; retained failed-start review; deletion cancellation/refusal paths. Focused terminal checks can be run locally with `--suite Terminal`. These repairs address reproduced failures; full product acceptance remains open.
 
 Terminal usability slice: visible action buttons and F2 main menu, first-use empty-state guidance, a separate connection line, built-in agent configuration presets and a four-step debate wizard with Back/Next/Review. Local headless tests cover mouse navigation from a fresh service fixture, two-agent setup, validation and submission boundaries, speaker order and final submission. This does not close the full P5/P6 parity or localization gates.

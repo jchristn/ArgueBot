@@ -20,7 +20,14 @@ namespace ArgueBot.Tui
         {
             _TooSmall = surface.Size.Width < _MinimumWidth || surface.Size.Height < _MinimumHeight;
             _App.EnableMouseRouting = !_TooSmall; _App.ShowTooltips = !_TooSmall;
-            if (!_TooSmall) return;
+            if (!_TooSmall)
+            {
+                int divider = (int)(surface.Size.Width * 0.3) - 1;
+                for (int line = 4; line < surface.Size.Height - 5; line++) surface.DrawStyledText(divider, line, Text.From("│", _App.Theme.Border));
+                if (_App.CurrentFocusPath.Region == "threads") surface.DrawStyledText(1, 4, Text.From("› Conversations", _App.Theme.Accent));
+                if (_App.CurrentFocusPath.Region == "composer") surface.DrawStyledText(1, surface.Size.Height - 5, Text.From("› Note: Enter sends", _App.Theme.Accent));
+                return;
+            }
             surface.Fill(new Rect(0, 0, surface.Size.Width, surface.Size.Height), Cell.Blank(_App.Theme.Text));
             int width = System.Math.Max(1, surface.Size.Width - 4);
             int row = 1;

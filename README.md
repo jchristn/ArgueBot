@@ -403,3 +403,5 @@ Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` wi
 Accepted background runs survive session sign-out. Current account disablement or execution-role revocation interrupts generation and pauses without replay; re-enable access and explicitly resume when appropriate. See [execution and recovery](docs/EXECUTION.md).
 
 The replacement runtime also supports Mux as a CLI harness in web, TUI and console profiles. Select CLI protocol `mux` and executable `mux` (or its full installed path). The TUI offers a Mux preset. It streams `mux print` text output with prompts on stdin and uses Mux's existing model/endpoint configuration. See [Mux setup and argument overrides](docs/TUI.md).
+
+The replacement TUI defaults to Quiet Charcoal, with a borderless workspace, one sidebar divider and framed dialogs. Ctrl+T switches to light mode; F1 opens help.

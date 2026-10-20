@@ -23,6 +23,9 @@ namespace ArgueBot.Tui
         private readonly ConversationListView _Threads = new ConversationListView();
         private Pane _Transcript = new Pane("transcript");
         private readonly TextField _Composer = new TextField { Placeholder = "Add a note to this conversation (Enter sends). Start debate runs the agents." };
+        private readonly Label _ConversationHeading = new Label(Text.From("Conversations"));
+        private readonly Label _NoteHeading = new Label(Text.From("Note: Enter sends"));
+        private readonly Label _HistoryTitle = new Label(Text.From("Shared debate history"));
         private readonly Label _Feedback = new Label(Text.From("Connecting to the local service..."));
         private int _ActionInProgress;
         private DateTime _FeedbackUntil;
@@ -57,7 +60,7 @@ namespace ArgueBot.Tui
         }
         internal void Configure(TuiApplication app)
         {
-            _App = app; _Dispatcher = new UiDispatcher(app, _Token); app.ApplyThemeToWidgets = true; app.Theme = TerminalTheme.Dark; app.HighlightFocusedRegion = true;
+            _App = app; _Dispatcher = new UiDispatcher(app, _Token); app.ApplyThemeToWidgets = true; app.Theme = TerminalTheme.Dark; app.HighlightFocusedRegion = false;
             _ = new WorkspaceViewport(app);
             _Actions.Add("Help", () => Launch(HelpAsync)).TooltipText = "Open help topics and keyboard instructions (F1).";
             _Actions.Add("Menu", () => Launch(MenuAsync)).TooltipText = "Browse every action without memorizing shortcuts (F2).";
@@ -65,15 +68,18 @@ namespace ArgueBot.Tui
             _Actions.Add("Agents", () => Launch(ParticipantsAsync)).TooltipText = "Add or edit the CLI harnesses and REST models used as debate speakers.";
             _Actions.Add("Start debate", () => Launch(StartAsync)).TooltipText = "Choose speakers and settings for the selected conversation; review before starting.";
             _Actions.Add("Run controls", () => Launch(ControlsAsync)).TooltipText = "Pause, resume, interrupt, extend or stop a debate.";
-            app.AddWidget("actions", _Actions, region => region.TopAnchored(0, 4).FillWidth().WithBorder(BorderStyle.Line, "Actions: click, or Tab then Enter").WithPadding(1, 0, 1, 0));
-            app.AddWidget("threads", _Threads, region => region.ProportionalWidth(0, 0.3).FillHeight(4, 5).WithBorder(BorderStyle.Line, "Conversations").WithPadding(1, 0, 1, 0));
-            _Transcript = app.AddPane("transcript", region => region.ProportionalWidth(0.3, 0.7).FillHeight(4, 5).WithBorder(BorderStyle.Line, "Shared debate history").WithPadding(1, 0, 1, 0));
-            app.AddWidget("composer", _Composer, region => region.BottomAnchored(2, 3).FillWidth().WithBorder(BorderStyle.Line, "Note: Enter sends").WithPadding(1, 0, 1, 0));
+            app.AddWidget("actions", _Actions, region => region.TopAnchored(0, 4).FillWidth().WithPadding(1, 1, 1, 0));
+            app.AddWidget("conversation-heading", _ConversationHeading, region => region.ProportionalWidth(0, 0.3).TopAnchored(4, 1).WithPadding(1, 0, 2, 0));
+            app.AddWidget("history-heading", _HistoryTitle, region => region.ProportionalWidth(0.3, 0.7).TopAnchored(4, 1).WithPadding(1, 0, 1, 0));
+            app.AddWidget("note-heading", _NoteHeading, region => region.BottomAnchored(4, 1).FillWidth().WithPadding(1, 0, 1, 0));
+            app.AddWidget("threads", _Threads, region => region.ProportionalWidth(0, 0.3).FillHeight(6, 5).WithPadding(1, 0, 2, 0));
+            _Transcript = app.AddPane("transcript", region => region.ProportionalWidth(0.3, 0.7).FillHeight(6, 5).WithPadding(1, 0, 1, 0));
+            app.AddWidget("composer", _Composer, region => region.BottomAnchored(2, 2).FillWidth().WithPadding(1, 0, 1, 0));
             app.AddWidget("feedback", _Feedback, region => region.BottomAnchored(1, 1).FillWidth().WithPadding(1, 0, 1, 0));
             app.AddWidget("status", _Status, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(1, 0, 1, 0));
             _Feedback.Content = Text.From("Connecting to the local service...", app.Theme.Muted);
             TranscriptFormatter.Render(_Transcript, Array.Empty<Message>(), app.Theme);
-            _Composer.ApplyTheme(TerminalTheme.Inputs(app.Theme));
+            ApplyWorkspaceTheme();
             app.BindKeyHints(_Status).AddAppHint("f1", "Help").AddAppHint("f2", "Menu").AddAppHint("ctrl+q", "Detach");
             app.Bind("f2", () => Launch(MenuAsync));
             app.Bind("ctrl+q", app.Quit);
@@ -92,15 +98,30 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+l", () => Launch(HistoryAsync));
             app.Bind("alt+right", () => ChangePage(1));
             app.Bind("alt+left", () => ChangePage(-1));
-            app.Bind("ctrl+t", () => { app.Theme = app.Theme.Name == "Dark" ? Theme.Light : TerminalTheme.Dark; _Composer.ApplyTheme(TerminalTheme.Inputs(app.Theme)); _LastContent = ""; });
+            app.Bind("ctrl+t", ToggleTheme);
             app.Bind("f1", () => Launch(HelpAsync));
             _Threads.ItemActivated += index => { if (index >= 0 && index < _Conversations.Count) { OpenConversation(_Conversations[index].Id, _Conversations[index].Title); } };
             _Composer.Submitted += (_, _) => Launch(SendAsync);
         }
+        private void ApplyWorkspaceTheme()
+        {
+            if (_App == null) return;
+            _Composer.ApplyTheme(TerminalTheme.Inputs(_App.Theme));
+            _ConversationHeading.Content = Text.From("Conversations", _App.Theme.Muted);
+            _NoteHeading.Content = Text.From("Note: Enter sends", _App.Theme.Muted);
+            _HistoryTitle.Content = Text.From(_SelectedTitle ?? "Shared debate history", _App.Theme.Text).Bold();
+            _LastContent = "";
+        }
+        private void ToggleTheme()
+        {
+            if (_App == null) return;
+            _App.Theme = _App.Theme.Name == "Dark" ? Theme.Light : TerminalTheme.Dark;
+            ApplyWorkspaceTheme();
+        }
         private void OpenConversation(string id, string title)
         {
             if (_Selected != null) _Drafts[_Selected] = _Composer.Value;
-            _Selected = id; _SelectedTitle = title; _LastContent = ""; _ViewRevision++;
+            _Selected = id; _SelectedTitle = title; _HistoryTitle.Content = Text.From(title, _App!.Theme.Text).Bold(); _LastContent = ""; _ViewRevision++;
             _Composer.Value = _Drafts.TryGetValue(id, out string? draft) ? draft : "";
             _Transcript.Clear(); _Transcript.WriteLine("Opening " + title + "...");
         }
@@ -134,7 +155,7 @@ namespace ArgueBot.Tui
                     if (_ViewRevision != query.Revision) return Task.FromResult(false);
                     string? cursor = _Threads.SelectedIndex >= 0 && _Threads.SelectedIndex < _Conversations.Count ? _Conversations[_Threads.SelectedIndex].Id : null;
                     if (_Selected == null && selected != null) OpenConversation(selected, title ?? "Conversation");
-                    _SelectedTitle = title; _Conversations = page.Items;
+                    _SelectedTitle = title; _HistoryTitle.Content = Text.From(title ?? "Shared debate history", _App!.Theme.Text).Bold(); _Conversations = page.Items;
                     _Threads.SetItems(page.Items.Select(item => (item.Id == selected ? "> " : "") + (item.Pinned ? "* " : "") + item.Title));
                     int index = page.Items.FindIndex(item => item.Id == cursor);
                     if (index < 0) index = page.Items.FindIndex(item => item.Id == selected);
@@ -402,7 +423,7 @@ namespace ArgueBot.Tui
             if (_Page < _TotalPages) Add("Next conversation page", () => UiAsync(() => { ChangePage(1); return Task.FromResult(true); }));
             Add("Search conversations and archived history", SearchAsync);
             Add("Administration and security audit", AdministrationAsync);
-            Add("Switch light / dark theme", () => { _App.Post(() => { _App.Theme = _App.Theme.Name == "Dark" ? Theme.Light : TerminalTheme.Dark; _Composer.ApplyTheme(TerminalTheme.Inputs(_App.Theme)); _LastContent = ""; }); return Task.CompletedTask; });
+            Add("Switch light / dark theme", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
             Add("Help: how to use ArgueBot", HelpAsync);
             Add("Detach (the service keeps running)", () => { _App.Post(_App.Quit); return Task.CompletedTask; });
             int selected = await UiAsync(() => _App.SelectStyledAsync("Main menu: choose an action", labels.ToArray())).ConfigureAwait(false);
@@ -428,7 +449,7 @@ namespace ArgueBot.Tui
                 new[] { "Start debate / Ctrl+B: Question, Speakers, Settings, then Review", "Back / Next: move between steps without losing answers", "Start debate on the Review step: submit the debate", "Ctrl+P: pause or resume", "Ctrl+R: run controls, interrupt, extend, private directive or stop", "Ctrl+A: ask a follow-up question", "Interrupted turns require an explicit resume; a retry may incur cost" },
                 new[] { "Ctrl+L: browse history and read complete messages", "Ctrl+G: inspect generation attempts and exact source context", "Preview notices mean more text is available through Ctrl+L", "PageUp / PageDown: scroll inside full-message readers", "Private directives are sent only to the selected participant" },
                 new[] { "Ctrl+U: manage tenant users (administrator)", "Ctrl+O: browse, clone and edit role definitions (administrator)", "Ctrl+J: inspect security audit events", "Ctrl+K: backup/recovery and durable jobs (administrator)", "Access is checked by the service; protected records cannot be edited" },
-                new[] { "Ctrl+T: switch dark/light theme", "Dark: black workspace and dark grey input fields", "Ctrl+Q: detach the terminal without stopping service-owned work", "F1: reopen this help menu", "Esc: close a dialog and return" }
+                new[] { "Ctrl+T: switch dark/light theme", "Quiet Charcoal: soft text, muted blue focus and darker input fields", "Ctrl+Q: detach the terminal without stopping service-owned work", "F1: reopen this help menu", "Esc: close a dialog and return" }
             };
             while (true)
             {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Apply Quiet Charcoal to the terminal with soft text, muted blue focus and charcoal inputs. Remove workspace boxes, retain a single sidebar divider and keep dialogs framed.
+
 - Add Mux CLI harness support, a terminal preset and web protocol selection, with stdin prompts, streamed text capture and nonzero-exit handling.
 
 - Schema 13 seeds protected owned-access and tenant-presence assignments, synchronizes identity changes atomically, preserves assignment IDs during recovery and labels system migration audit events clearly. Complete scoped domain enforcement remains in progress.

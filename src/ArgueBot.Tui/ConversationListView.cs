@@ -9,6 +9,7 @@ namespace ArgueBot.Tui
 
     internal sealed class ConversationListView : IWidget, IFocusable, IFocusAware, IMouseAware, IThemeable, ITooltipProvider, IKeyHintSource
     {
+        private Theme _Theme = TerminalTheme.Dark;
         private readonly ListView<string> _List = new ListView<string>();
         internal event Action<int>? ItemActivated;
         internal int SelectedIndex { get { return _List.SelectedIndex; } }
@@ -18,13 +19,13 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         public Size Measure(Size available) { return _List.Measure(available); }
         /// <inheritdoc />
-        public void Render(ISurface surface) { _List.Render(surface); }
+        public void Render(ISurface surface) { _List.Render(new ConversationListSurface(surface, _Theme)); }
         /// <inheritdoc />
         public bool HandleKey(KeyEvent key) { return _List.HandleKey(key); }
         /// <inheritdoc />
         public void OnFocusChanged(bool focused) { _List.OnFocusChanged(focused); }
         /// <inheritdoc />
-        public void ApplyTheme(Theme theme) { _List.ApplyTheme(theme); }
+        public void ApplyTheme(Theme theme) { _Theme = theme; _List.ApplyTheme(theme); }
         /// <inheritdoc />
         public string? GetTooltip(int x, int y) { return "Click a conversation to open it, or use Up/Down and Enter. Menu contains conversation actions."; }
         /// <inheritdoc />
