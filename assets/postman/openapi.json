@@ -3370,7 +3370,7 @@
           },
           "question": {
             "type": "string",
-            "description": "Follow-up question, persisted as a message with this run."
+            "description": "Debate question frozen for this run; blank uses the conversation title. Follow-up questions are persisted as messages."
           },
           "participantIds": {
             "type": "array",
@@ -3404,14 +3404,14 @@
           "participantIds",
           "idempotencyKey"
         ],
-        "description": "Debate requires two or three distinct participant IDs. Followup requires one participant and a nonempty question, and forces one round with no countdown."
+        "description": "Debate requires two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown."
       },
       "DebateRun": {
         "type": "object",
         "properties": {
           "question": {
             "type": "string",
-            "description": "Original conversation title frozen when this run was created. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration."
+            "description": "Debate question frozen when this run was created; follow-up runs retain the original conversation title. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration."
           },
           "mode": {
             "type": "string",
@@ -3562,6 +3562,10 @@
           "errorCode": {
             "type": "string",
             "description": "Safe failure code without upstream response content."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Safe cause and recovery guidance, without raw upstream payloads; historical diagnostics may refine the explanation."
           },
           "promptVersion": {
             "type": "string",

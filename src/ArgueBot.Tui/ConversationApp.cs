@@ -180,7 +180,33 @@ namespace ArgueBot.Tui
                 string? selected = query.SelectedId ?? page.Items.FirstOrDefault()?.Id;
                 string? title = page.Items.FirstOrDefault(item => item.Id == selected)?.Title ?? query.SelectedTitle;
                 MessagePage history = selected == null ? new MessagePage() : await _Client.MessagePageAsync(selected, tail: true, token: token).ConfigureAwait(false);
-                string content = (selected ?? "welcome") + "\n" + title + "\n" + string.Join("\n\n", history.Items.Select(message => message.Speaker + " | " + message.Kind + " | " + message.State + "\n" + message.Content + "\n" + message.ContentTruncated));
+                Dictionary<string, string> failures = new Dictionary<string, string>();
+                if (selected != null)
+                {
+                    foreach (string runId in history.Items.Where(message => message.State == "failed" && message.RunId != null).Select(message => message.RunId!).Distinct())
+                    {
+                        HashSet<string> needed = history.Items.Where(message => message.RunId == runId && message.State == "failed").Select(message => message.Id).ToHashSet();
+                        try
+                        {
+                            int attemptPage = 1;
+                            while (needed.Count > 0)
+                            {
+                                AttemptPage attempts = await _Client.AttemptsAsync(selected, runId, attemptPage, 100, token).ConfigureAwait(false);
+                                foreach (GenerationAttempt attempt in attempts.Items.Where(attempt => attempt.State == "failed"))
+                                {
+                                    if (needed.Remove(attempt.MessageId)) failures[attempt.MessageId] = attempt.ErrorMessage;
+                                }
+                                if ((long)attemptPage * attempts.PageSize >= attempts.TotalCount) break;
+                                attemptPage++;
+                            }
+                        }
+                        catch (Exception exception) when (exception is not OperationCanceledException && exception is not OutOfMemoryException)
+                        {
+                            foreach (string messageId in needed) failures[messageId] = "This turn failed. Failure details are unavailable; check the service connection and press Ctrl+G to inspect generation attempts before retrying.";
+                        }
+                    }
+                }
+                string content = (selected ?? "welcome") + "\n" + title + "\n" + string.Join("\n\n", history.Items.Select(message => message.Speaker + " | " + message.Kind + " | " + message.State + "\n" + message.Content + "\n" + message.ContentTruncated + "\n" + (failures.TryGetValue(message.Id, out string? explanation) ? explanation : "")));
                 await UiAsync(() =>
                 {
                     if (_ViewRevision != query.Revision) return Task.FromResult(false);
@@ -192,7 +218,7 @@ namespace ArgueBot.Tui
                     if (index < 0) index = page.Items.FindIndex(item => item.Id == selected);
                     if (index >= 0) _Threads.Select(index);
                     _TotalPages = Math.Max(1, (int)Math.Min(int.MaxValue, (page.TotalCount + page.PageSize - 1) / Math.Max(1, page.PageSize)));
-                    if (_LastContent != content) { TranscriptFormatter.Render(_Transcript, history.Items, _App!.Theme, title); _LastContent = content; }
+                    if (_LastContent != content) { TranscriptFormatter.Render(_Transcript, history.Items, _App!.Theme, title, failures); _LastContent = content; }
                     if (DateTime.UtcNow >= _FeedbackUntil) _Feedback.Content = Text.From("Connected | " + page.TotalCount + " conversations | Page " + _Page + "/" + _TotalPages + " | " + history.TotalCount + " messages", _App!.Theme.Muted);
                     return Task.FromResult(true);
                 }).ConfigureAwait(false);
@@ -315,6 +341,11 @@ namespace ArgueBot.Tui
                 profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
             }
             string question = "";
+            if (conversationId != null)
+            {
+                List<DebateRun> previous = await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false);
+                question = previous.FirstOrDefault(run => !string.IsNullOrWhiteSpace(run.Question))?.Question ?? (await _Client.ConversationAsync(conversationId, _Token).ConfigureAwait(false)).Title;
+            }
             CreateRunRequest? request = await UiAsync(() =>
             {
                 DebateSetupEditor editor = new DebateSetupEditor(profiles, question, conversationId != null);

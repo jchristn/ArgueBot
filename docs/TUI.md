@@ -66,7 +66,7 @@ The conversation list receives initial focus. Click a conversation once in the l
 | Key in conversation list | Action |
 | --- | --- |
 | d or Delete | Confirm permanent deletion of the highlighted conversation |
-| b | Set up a debate |
+| b | Set up a debate using the original saved question, editable before Review |
 | r | Open run controls |
 | p | Pause or resume |
 | s | Confirm stopping the highlighted conversation's unfinished debate |
@@ -121,3 +121,5 @@ For Mux, choose **Agents → Add agent → Mux (installed CLI)**. The default ex
 Named harness setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex includes `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
 
 Identity administration has been removed. Backup and restore are also removed. Users, roles, security audit and their shortcuts are not product features. Use `stop-web.sh` or `stop-web.bat` to stop the selected service.
+
+A failed turn displays TURN FAILED followed by its cause and recovery guidance in the transcript. Ctrl+G opens the matching generation-attempt history for inspection. After correcting an agent output limit, stop the old run and use b to start another with the original question and current agent settings. Ctrl+N starts a separate conversation with a blank question.

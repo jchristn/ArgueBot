@@ -2,11 +2,14 @@
 
 ## Unreleased
 
+- Explain I/O failures beside failed answers in the dashboard and TUI, preserve specific output-limit causes across reloads, and recover safe explanations from retained historical diagnostics.
+- Preserve the original question when b starts another debate in an existing TUI conversation, keep it editable, and freeze the reviewed question in new debate runs. Ctrl+N still starts blank.
+
 - Default new agent profiles to a 64 MiB output limit and allow limits up to 64 MiB across the service, TUI, dashboard and API contract.
 
 - Put Follow-up directly in the TUI action bar and clarify that the note composer only adds context.
 
-- Start each TUI debate with a blank, editable question; label setup in an existing conversation and clarify that its history remains context.
+- Start each new TUI conversation with a blank, editable question; label setup in an existing conversation and clarify that its history remains context.
 
 - Render TUI conversation previews and full messages with TUIKit Markdown, including width-aware tables, lists, quotations and code blocks while preserving original message content.
 

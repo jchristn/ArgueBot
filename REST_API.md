@@ -461,12 +461,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### CreateRunRequest
 
-Debate requires two or three distinct participant IDs. Followup requires one participant and a nonempty question, and forces one round with no countdown.
+Debate requires two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | mode | string | Run purpose: debate or followup. Follow-up uses exactly one participant. |
-| question | string | Follow-up question, persisted as a message with this run. |
+| question | string | Debate question frozen for this run; blank uses the conversation title. Follow-up questions are persisted as messages. |
 | participantIds | array | Ordered profiles. |
 | maxRounds | integer | Round limit. |
 | interventionSeconds | integer | Intervention countdown. |
@@ -478,7 +478,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| question | string | Original conversation title frozen when this run was created. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration. |
+| question | string | Debate question frozen when this run was created; follow-up runs retain the original conversation title. Renaming the conversation never changes historical prompts. Pre-schema-9 runs use the title available at migration. |
 | mode | string | Run purpose derived from its immutable participant count. |
 | id | string | Stable execution identifier. |
 | conversationId | string | Containing conversation. |
@@ -530,6 +530,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | speakerIndex | integer | Ordered participant position at acceptance. |
 | state | string | Pending, streaming, completed, interrupted or failed. Acceptance precedes external invocation; interruption never proves the external operation did not run. |
 | errorCode | string | Safe failure code without upstream response content. |
+| errorMessage | string | Safe cause and recovery guidance, without raw upstream payloads; historical diagnostics may refine the explanation. |
 | promptVersion | string | Version of the deterministic system prompt template. |
 | promptDigest | string | SHA-256 of the exact UTF-8 system prompt. |
 | contextCharacters | integer | Exact UTF-16 character count of system prompt plus selected message content; this is not a token estimate. |

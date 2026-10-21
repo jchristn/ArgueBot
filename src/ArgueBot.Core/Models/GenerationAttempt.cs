@@ -1,5 +1,6 @@
 namespace ArgueBot.Core.Models
 {
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
 
@@ -33,6 +34,9 @@ namespace ArgueBot.Core.Models
         private string _ErrorCode = "";
         /// <summary>Safe failure code without upstream response content.</summary>
         public string ErrorCode { get { return _ErrorCode; } set { ArgumentNullException.ThrowIfNull(value); _ErrorCode = value; } }
+        private string? _ErrorMessage;
+        /// <summary>Safe cause and recovery guidance, without raw upstream payloads; historical diagnostics may refine the explanation.</summary>
+        public string ErrorMessage { get { return _ErrorMessage ?? GenerationFailure.Explain(ErrorCode); } set { ArgumentNullException.ThrowIfNull(value); _ErrorMessage = value; } }
         private string _PromptVersion = "";
         /// <summary>Version of the deterministic system prompt template.</summary>
         public string PromptVersion { get { return _PromptVersion; } set { ArgumentNullException.ThrowIfNull(value); _PromptVersion = value; } }

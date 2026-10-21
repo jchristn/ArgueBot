@@ -13,7 +13,7 @@ namespace ArgueBot.Core.Models
 
         /// <summary>Run purpose: debate or followup. Follow-up uses exactly one participant.</summary>
         public string Mode { get { return _Mode; } set { ArgumentNullException.ThrowIfNull(value); _Mode = value; } }
-        /// <summary>Follow-up question, persisted as a message with this run.</summary>
+        /// <summary>Debate question frozen for this run; blank uses the conversation title. Follow-up questions are persisted as messages.</summary>
         public string Question { get { return _Question; } set { ArgumentNullException.ThrowIfNull(value); _Question = value; } }
 
         /// <summary>Ordered profiles.</summary>

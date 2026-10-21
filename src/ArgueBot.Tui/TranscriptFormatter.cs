@@ -25,7 +25,7 @@ namespace ArgueBot.Tui
             string text = value.Replace('_', ' ');
             return text.Length == 0 ? "" : char.ToUpperInvariant(text[0]) + text.Substring(1);
         }
-        internal static void Render(Pane pane, IEnumerable<Message> messages, Theme theme, string? conversationTitle = null)
+        internal static void Render(Pane pane, IEnumerable<Message> messages, Theme theme, string? conversationTitle = null, IReadOnlyDictionary<string, string>? failures = null)
         {
             pane.TailFollow.Mode = TailFollowMode.FollowAtBottom;
             pane.Clear();
@@ -37,7 +37,12 @@ namespace ArgueBot.Tui
                 CellStyle headingStyle = message.Speaker == "user" ? theme.Accent : theme.Info;
                 pane.WriteLine(Text.From(Heading(message), headingStyle).Bold());
                 pane.WriteMarkdown(message.Content, new MarkdownRenderOptions().WithTheme(theme));
-                if (message.State == "failed" && message.Content.Length == 0) pane.WriteLine(Text.From("The agent produced no answer. Press g in the conversation list to inspect the failure; e opens Agents to check its settings.", theme.Error));
+                if (message.State == "failed")
+                {
+                    pane.WriteLine(Text.From("TURN FAILED: " + message.Speaker, theme.Error).Bold());
+                    string explanation = failures != null && failures.TryGetValue(message.Id, out string? detail) && detail.Length > 0 ? detail : "The agent could not finish this turn. Press Ctrl+G for generation attempts and the failure cause; Ctrl+E opens Agents.";
+                    pane.WriteLine(Text.From(explanation, theme.Error));
+                }
                 if (message.ContentTruncated)
                 {
                     pane.WriteLine();

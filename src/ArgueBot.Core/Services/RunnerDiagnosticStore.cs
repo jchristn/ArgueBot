@@ -15,6 +15,24 @@ namespace ArgueBot.Core.Services
         private readonly string _Directory;
         private readonly SemaphoreSlim _Gate = new SemaphoreSlim(1, 1);
         internal RunnerDiagnosticStore(string directory) { _Directory = directory; }
+        internal async Task<string> ReadCaptureCodeAsync(GenerationAttempt attempt, CancellationToken token)
+        {
+            if (!attempt.Id.StartsWith("att_", StringComparison.Ordinal) || attempt.Id.Any(character => !char.IsAsciiLetterOrDigit(character) && character != '_' && character != '-')) return "";
+            string path = Path.Combine(_Directory, attempt.Id + ".json");
+            if (!File.Exists(path) || new FileInfo(path).Length > 1048576) return "";
+            string json = await File.ReadAllTextAsync(path, token).ConfigureAwait(false);
+            using (JsonDocument document = JsonDocument.Parse(json))
+            {
+                JsonElement root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object ||
+                    !root.TryGetProperty("Id", out JsonElement id) || id.ValueKind != JsonValueKind.String || id.GetString() != attempt.Id ||
+                    !root.TryGetProperty("ConversationId", out JsonElement conversation) || conversation.ValueKind != JsonValueKind.String || conversation.GetString() != attempt.ConversationId ||
+                    !root.TryGetProperty("RunId", out JsonElement run) || run.ValueKind != JsonValueKind.String || run.GetString() != attempt.RunId ||
+                    !root.TryGetProperty("Diagnostics", out JsonElement diagnostics) || diagnostics.ValueKind != JsonValueKind.Object ||
+                    !diagnostics.TryGetProperty("Detail", out JsonElement detail) || detail.ValueKind != JsonValueKind.String) return "";
+                return GenerationFailure.CaptureCode(detail.GetString() ?? "");
+            }
+        }
         internal async Task SaveAsync(GenerationAttempt attempt, Exception exception, CancellationToken token)
         {
             if (exception.Data[RunnerFailureDiagnostics.ExceptionDataKey] is not RunnerFailureDiagnostics diagnostics) return;

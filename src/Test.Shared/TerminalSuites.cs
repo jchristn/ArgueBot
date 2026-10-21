@@ -83,6 +83,7 @@ namespace Test.Shared
                 {
                     string fixture = Path.GetFullPath(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE") ?? Path.Combine(AppContext.BaseDirectory, "../../../../Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll"));
                     RunnerProfile profile = await client.CreateParticipantAsync(new RunnerProfile { Name = "Terminal stop fixture", Executable = "dotnet", Arguments = new List<string> { fixture, "hang" } }, token).ConfigureAwait(false);
+                    await VerifyFailurePresentationAsync(client, fixture, token).ConfigureAwait(false);
                     foreach (string journey in new[] { "agent_turn", "paused", "delete_agent_turn", "delete_paused" })
                     {
                         string state = journey.EndsWith("paused", StringComparison.Ordinal) ? "paused" : "agent_turn";
@@ -131,6 +132,14 @@ namespace Test.Shared
                             await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
                             if ((await client.RunsAsync(conversation.Id, token).ConfigureAwait(false)).Single().State != "cancelled") throw new InvalidDataException("Direct stop did not finish the debate.");
                             if (!Snapshot.ToText(app.CaptureFrame()!).Contains("Debate stopped", StringComparison.Ordinal)) throw new InvalidDataException("Stop completion was not reported.");
+                            await client.CreateParticipantAsync(new RunnerProfile { Name = "Second setup fixture", Executable = "dotnet", Arguments = new List<string> { fixture, "hang" } }, token).ConfigureAwait(false);
+                            await client.SendAsync<Conversation>(HttpMethod.Put, "v1.0/api/conversations/" + conversation.Id, new ConversationRequest { Title = "Renamed display title", Revision = (await client.ConversationAsync(conversation.Id, token).ConfigureAwait(false)).Revision }, token: token).ConfigureAwait(false);
+                            app.Focus("threads"); backend.FeedInput(Encoding.UTF8.GetBytes("b"));
+                            await PumpUntilAsync(app, () => app.Modals.Top is DebateWizardDialog, token).ConfigureAwait(false);
+                            DebateWizardDialog restarted = (DebateWizardDialog)app.Modals.Top!;
+                            TextField original = (TextField)restarted.Editor.QuestionForm.GetField(0);
+                            if (original.IsReadOnly || original.Value != conversation.Title) throw new InvalidDataException("b on a stopped conversation lost its original prompt or made it read-only.");
+                            backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top == null && !workspace.IsBusy, token).ConfigureAwait(false);
                             backend.FeedInput(Encoding.UTF8.GetBytes("d"));
                             await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
                             ClickText(app, backend, "Delete permanently"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
@@ -312,6 +321,31 @@ namespace Test.Shared
                 }
             }
         }
+        private static async Task VerifyFailurePresentationAsync(ArgueBotClient client, string fixture, CancellationToken token)
+        {
+            RunnerProfile profile = await client.CreateParticipantAsync(new RunnerProfile { Name = "Output overflow fixture", Executable = "dotnet", Arguments = new List<string> { fixture, "stdout-hang" }, MaxOutputBytes = 1024 }, token).ConfigureAwait(false);
+            Conversation conversation = await client.CreateConversationAsync("Explain an output overflow", token).ConfigureAwait(false);
+            DebateRun run = await client.StartAsync(conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Fictional bounded output", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = Guid.NewGuid().ToString("N") }, token).ConfigureAwait(false);
+            await WaitHttpRunStateAsync(client, conversation.Id, run.Id, "paused", token).ConfigureAwait(false);
+            GenerationAttempt attempt = (await client.AttemptsAsync(conversation.Id, run.Id, token: token).ConfigureAwait(false)).Items.Single();
+            if (attempt.ErrorCode != "agent_stdout_limit" || !attempt.ErrorMessage.Contains("tool results", StringComparison.Ordinal) || !attempt.ErrorMessage.Contains("Resume keeps the original limit", StringComparison.Ordinal)) throw new InvalidDataException("The attempts API hid the I/O cause or its recovery guidance.");
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(100, 35) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    ConversationApp workspace = new ConversationApp(client); workspace.Configure(app); app.Theme = theme; app.Start();
+                    Task refresh = workspace.RefreshAsync(token);
+                    await PumpUntilAsync(app, () => refresh.IsCompleted, token).ConfigureAwait(false); await refresh.ConfigureAwait(false); app.RenderOnce();
+                    string screen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!screen.Contains("TURN FAILED", StringComparison.Ordinal) || !screen.Contains("standard output exceeded", StringComparison.Ordinal) || !screen.Contains("Resume keeps the original limit", StringComparison.Ordinal)) throw new InvalidDataException("The TUI transcript hid the I/O cause or recovery guidance.");
+                    await SaveEvidenceAsync("failure-explanation-" + theme.Name, screen, token).ConfigureAwait(false);
+                    app.Stop();
+                }
+            }
+            await client.ActionAsync(conversation.Id, run.Id, new CommandRequest { Action = "stop", IdempotencyKey = Guid.NewGuid().ToString("N") }, token).ConfigureAwait(false);
+            await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + conversation.Id, token: token).ConfigureAwait(false);
+        }
         private static async Task FirstUseAsync(CancellationToken token)
         {
             RunnerProfile mux = new ParticipantEditor(AgentPresets.Create(3)).Extract();
@@ -376,7 +410,8 @@ namespace Test.Shared
                     await PumpUntilAsync(app, () => app.Modals.Top is DebateWizardDialog, token).ConfigureAwait(false);
                     DebateWizardDialog fresh = (DebateWizardDialog)app.Modals.Top!;
                     TextField field = (TextField)fresh.Editor.QuestionForm.GetField(0);
-                    if (field.Value.Length != 0 || field.IsReadOnly || fresh.Editor.ExistingConversation != existing || fresh.Wizard.Next()) throw new InvalidDataException("New debate reused the previous question or prevented editing.");
+                    if (field.Value != (existing ? "Which architecture should we use?" : "") || field.IsReadOnly || fresh.Editor.ExistingConversation != existing) throw new InvalidDataException("New debate reused the previous question or prevented editing.");
+                    field.Value = "";
                     backend.FeedInput(Encoding.UTF8.GetBytes("A different debate question")); app.PumpInputOnce(); app.RenderOnce();
                     if (field.Value != "A different debate question") throw new InvalidDataException("New debate did not accept keyboard input.");
                     if (!fresh.Wizard.Next() || !fresh.Wizard.Next() || !fresh.Wizard.Next() || fresh.Editor.Extract().Question != field.Value || !fresh.Editor.Review().Contains(field.Value, StringComparison.Ordinal)) throw new InvalidDataException("Review and submission did not use the newly typed question.");
@@ -598,6 +633,11 @@ namespace Test.Shared
                     if (userRow < 0 || agentRow < 0 || !transcriptRows[userRow + 1].Contains("Compare the two approaches", StringComparison.Ordinal) || !transcriptRows[agentRow + 1].Contains("First, consider", StringComparison.Ordinal)) throw new InvalidDataException("Message headings must be immediately followed by their content.");
                     if (!TranscriptFormatter.Heading(new Message { Kind = "steer" }).Contains("Private directive", StringComparison.Ordinal)) throw new InvalidDataException("Private directive label disappeared.");
                     await SaveEvidenceAsync("transcript-" + theme.Name, screen, token).ConfigureAwait(false);
+                    Message failed = new Message { Id = "msg_failed_fixture", Speaker = "Agent", State = "failed", Content = "Partial answer retained." };
+                    TranscriptFormatter.Render(pane, new[] { failed }, theme, failures: new Dictionary<string, string> { [failed.Id] = "Standard output exceeded the limit. Increase Output byte limit in Agents, then start a new debate. Resume keeps the original limit." });
+                    app.RenderOnce();
+                    string failureScreen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!failureScreen.Contains("TURN FAILED", StringComparison.Ordinal) || !failureScreen.Contains("Partial answer retained", StringComparison.Ordinal) || !failureScreen.Contains("Resume keeps the original limit", StringComparison.Ordinal)) throw new InvalidDataException("A partial answer hid its failure cause or recovery guidance.");
                     string markdown = "# Decision\n\n**Strong evidence** and *emphasis* with `inline code`.\n\n- First item\n- Second item\n\n> Quoted evidence\n\n| Option | Result |\n| --- | --- |\n| Alpha | Useful |\n\n```text\n[red] **literal code**\n```";
                     foreach (int width in new[] { 80, 36, 80 })
                     {

@@ -22,3 +22,12 @@ it("preserves a visible failure when details are unavailable", async () => {
   await waitFor(() => expect(api.attempts).toHaveBeenCalledOnce());
   expect(screen.getByRole("alert")).toHaveTextContent("This turn failed");
 });
+
+it("shows the I/O cause and recovery directly beside a failed turn", async () => {
+  const errorMessage = "Agent standard output exceeded this run's output byte limit. CLI protocol events and tool results count toward this limit. Increase Output byte limit in Agents, then stop this run and start a new debate. Resume keeps the original limit.";
+  const api = { attempts: vi.fn().mockResolvedValue({ items: [{ messageId: "message-test", errorCode: "agent_stdout_limit", errorMessage }], pageSize: 25, totalCount: 1 }) };
+  render(<FailedTurn api={api} conversationId="conversation-test" message={{ id: "message-test", runId: "run-test", content: "Partial answer" }} onInspect={() => {}} />);
+  await screen.findByText(errorMessage);
+  expect(screen.getByRole("alert")).toHaveTextContent("tool results count");
+  expect(screen.getByRole("alert")).toHaveTextContent("Resume keeps the original limit");
+});

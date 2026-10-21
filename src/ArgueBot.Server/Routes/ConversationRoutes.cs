@@ -75,7 +75,9 @@ namespace ArgueBot.Server.Routes
             {
                 int page = int.Parse(http.Request.RetrieveQueryValue("pageNumber") ?? "1", CultureInfo.InvariantCulture);
                 int size = int.Parse(http.Request.RetrieveQueryValue("pageSize") ?? "25", CultureInfo.InvariantCulture);
-                await Api.SendAsync(http, await _Database.Attempts.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
+                AttemptPage attempts = await _Database.Attempts.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), page, size, http.Token).ConfigureAwait(false);
+                foreach (GenerationAttempt attempt in attempts.Items) await _Engine.DescribeFailureAsync(attempt, http.Token).ConfigureAwait(false);
+                await Api.SendAsync(http, attempts).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Inspect durable generation attempts and exact selected context identifiers", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, root + "/runs/{runId}/actions", http => Api.GuardAsync(http, async () =>
             {

@@ -47,7 +47,7 @@ export default function AttemptDialog({ conversationId, runs, messages, onClose 
     </>}
     {detail && <section className="inspector-section" aria-label={t("attempts.inspect")}>
       <h3>{t("attempts.number")} {detail.number}</h3>
-      {detail.errorCode === "Win32Exception" && <p role="alert">{t("outcome.Win32Exception")}</p>}
+      {detail.errorMessage && <p role="alert">{detail.errorMessage}</p>}
       <dl className="server-details">
         {[["common.id", detail.id], ["attempts.prompt", `${detail.promptVersion} / ${detail.promptDigest}`], ["attempts.duration", t("attempts.durationValue", { milliseconds: detail.durationMilliseconds })], ["attempts.characters", t("attempts.charactersValue", { count: detail.contextCharacters })], ["common.error", detail.errorCode || t("common.none")]].map(([key, value]) => <Fragment key={key}><dt title={t(key)}>{t(key)}</dt><dd>{key === "common.id" ? <CopyableId value={value} /> : <code>{value}</code>}</dd></Fragment>)}
       </dl>

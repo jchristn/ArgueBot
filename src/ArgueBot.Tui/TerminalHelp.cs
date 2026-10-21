@@ -76,7 +76,7 @@ namespace ArgueBot.Tui
 
             Choose New or Ctrl+N, then Start a debate: guided setup. To use an existing conversation, open it and press Ctrl+B or choose Start debate. In the list, b uses the highlighted conversation. If too few agents are enabled, setup offers to open Agents first.
 
-            1. Question: each new debate starts with a blank, editable question. Enter the issue the agents should discuss. Starting in an existing conversation keeps its history as context. The question shown on Review is submitted. Enter or Next advances.
+            1. Question: New (Ctrl+N) starts with a blank question; b or Ctrl+B in an existing conversation preserves its original question in an editable field. Enter the issue the agents should discuss. Starting in an existing conversation keeps its history as context. The question shown on Review is submitted. Enter or Next advances.
 
             2. Speakers: select the opening agent, second agent and optional third agent. Enter opens a dropdown, arrows select and Enter confirms. Choose distinct agents. The opening agent speaks first in each round; the last selected agent speaks last. There is no separate closing-agent setting.
 

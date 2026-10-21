@@ -56,6 +56,20 @@ namespace ArgueBot.Core.Services
             { _Logger.LogWarning("Runner diagnostic capture failed {AttemptId} {FailureType}", attempt.Id, failure.GetType().Name); }
         }
 
+        /// <summary>Explain a recorded attempt, using allowlisted historical diagnostics when available.</summary>
+        public async Task DescribeFailureAsync(GenerationAttempt attempt, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(attempt);
+            string code = attempt.ErrorCode;
+            if (code == "IOException" && _DiagnosticStore != null)
+            {
+                try { code = await _DiagnosticStore.ReadCaptureCodeAsync(attempt, token).ConfigureAwait(false); }
+                catch (Exception exception) when (exception is System.IO.IOException || exception is System.UnauthorizedAccessException || exception is System.Text.Json.JsonException) { }
+                if (code.Length == 0) code = attempt.ErrorCode;
+            }
+            attempt.ErrorMessage = GenerationFailure.Explain(code);
+        }
+
         /// <summary>Create and start a durable run; duplicate keys return the original run.</summary>
         public async Task<DebateRun> StartAsync(RequestContext context, string conversationId, CreateRunRequest request, CancellationToken token = default)
         {
@@ -202,7 +216,7 @@ namespace ArgueBot.Core.Services
                             }
                             catch (OperationCanceledException ex) { await SaveDiagnosticsAsync(attempt, ex).ConfigureAwait(false); answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
                             catch (Exception ex) when (ex is not OutOfMemoryException)
-                            { await SaveDiagnosticsAsync(attempt, ex).ConfigureAwait(false); answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
+                            { await SaveDiagnosticsAsync(attempt, ex).ConfigureAwait(false); answerState = "failed"; failure = GenerationFailure.Code(ex); }
                         }
                         if (stream.Failed) { answerState = "failed"; failure = stream.FailureCode; }
                         answer.State = answerState;

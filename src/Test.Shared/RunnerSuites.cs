@@ -30,6 +30,7 @@ namespace Test.Shared
                 bool fixtureMissing = !File.Exists(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE"));
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Runners", "PolyPrompt transport", new List<TestCaseDescriptor>
                 {
+                    new TestCaseDescriptor("Runners", "FailureExplanation", "I/O failures explain exact capture causes and safe recovery, including historical diagnostics", FailureExplanationChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "CodexMessages", "Codex progress and final messages stream independently by item ID without duplicates", CodexMessagesAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "MuxCapture", "Mux streams UTF-8 answers, excludes stderr and passes literal stdin/arguments", MuxCaptureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "ClaudeToolReplay", "Claude tool-result events and multi-message streams produce a complete durable answer without leaking tool payloads", ClaudeToolReplayAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),

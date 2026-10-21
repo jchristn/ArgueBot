@@ -30,6 +30,7 @@ namespace ArgueBot.Core.Database.Implementations
             bool followup = request.Mode == "followup";
             if (request.Mode != "debate" && !followup) throw new DomainException(400, "invalid_mode", "Run mode must be debate or followup.");
             if (followup && (string.IsNullOrWhiteSpace(request.Question) || request.Question.Length > 1048576)) throw new DomainException(400, "invalid_question", "Provide a follow-up question up to one MiB.");
+            if (!followup && request.Question.Length > 4000) throw new DomainException(400, "invalid_question", "Provide a debate question up to 4000 characters.");
             if (followup) { request.MaxRounds = 1; request.InterventionSeconds = 0; }
             if ((followup ? request.ParticipantIds.Count != 1 : request.ParticipantIds.Count < 2 || request.ParticipantIds.Count > 3) || request.ParticipantIds.Distinct().Count() != request.ParticipantIds.Count) throw new DomainException(400, "invalid_participants", "Choose two or three distinct participants.");
             if (request.MaxRounds < 1 || request.MaxRounds > 50 || request.InterventionSeconds < 0 || request.InterventionSeconds > 600 || string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200) throw new DomainException(400, "invalid_run", "Rounds must be 1 to 50, countdown 0 to 600 seconds, and an idempotency key is required.");
@@ -67,7 +68,7 @@ namespace ArgueBot.Core.Database.Implementations
                 }
                 long busy = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM runs WHERE tenant_id=@tenant AND conversation_id=@id AND state NOT IN ('completed','cancelled','failed')", token, P("tenant", context.TenantId, "id", conversationId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 if (busy != 0) throw new DomainException(409, "active_run", "A run is already active or paused in this conversation.");
-                await ExecuteAsync(connection, transaction, "INSERT INTO runs(id,tenant_id,conversation_id,question,state,max_rounds,intervention_seconds,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@question,'queued',@rounds,@seconds,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "conversation", conversationId, "question", conversation.Title, "rounds", request.MaxRounds, "seconds", request.InterventionSeconds)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO runs(id,tenant_id,conversation_id,question,state,max_rounds,intervention_seconds,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@question,'queued',@rounds,@seconds,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "conversation", conversationId, "question", !followup && !string.IsNullOrWhiteSpace(request.Question) ? request.Question : conversation.Title, "rounds", request.MaxRounds, "seconds", request.InterventionSeconds)).ConfigureAwait(false);
                 for (int index = 0; index < participants.Count; index++)
                 {
                     await ProfileMethods.InsertAsync(connection, transaction, context, participants[index], true, token).ConfigureAwait(false);
