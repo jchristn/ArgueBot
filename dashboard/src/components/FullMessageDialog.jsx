@@ -1,3 +1,5 @@
+import CopyButton from "./CopyButton.jsx";
+import CopyableId from "./CopyableId.jsx";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
@@ -15,7 +17,8 @@ export default function FullMessageDialog({ conversationId, messageId, onClose }
     {loading && <p role="status">{t("common.loading")}</p>}
     {data && <>
       <p><strong>{data.speaker}</strong> · <time>{formatDate(data.createdUtc)}</time></p>
-      <code title={t("audit.id")}>{data.id}</code>
+      <CopyableId value={data.id} />
+      <CopyButton label="messages.copy" value={data.content} />
       <p className="muted">{t("messages.snapshot")}</p>
       <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
       <div className="markdown"><Markdown remarkPlugins={[remarkGfm]}>{data.content}</Markdown></div>

@@ -21,7 +21,9 @@
 
 ## Conversation runtime rewrite
 
-A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners and shared conversation interfaces are being implemented. The replacement supports SQLite and PostgreSQL, automatic local service startup/attachment, bounded conversation history and full-message readers, durable run controls and generation-attempt provenance, scoped security audit inspection, participant configuration forms and recovery archives with shared job browsing and isolated SQLite/PostgreSQL restore. The existing npm and launch-script paths below still run the current TypeScript application. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations. [Execution and recovery](docs/EXECUTION.md) explains attempt checkpoints, explicit retries and context limits.
+ArgueBot is a single open workspace with no accounts, roles, permissions, login, pairing or security audit. `stop-web.sh` / `stop-web.bat` stop the selected service (forward `--home` or `--server`). `go-web` starts or attaches to ArgueBot; Docker and external telemetry services are not needed.
+
+A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners with service-owned local tools for REST models, and shared conversation interfaces are being implemented. The replacement supports SQLite and PostgreSQL, automatic local service startup/attachment, bounded conversation history and full-message readers, durable run controls and generation-attempt provenance, and participant configuration forms. The existing npm and go-terminal paths below still run the TypeScript application. The new go-tui and go-web launchers build and run the C# replacement. In the dashboard, **Copy conversation** copies the full transcript; the copy icon on each turn copies its full text. IDs use monospace text with adjacent copy buttons. Copying supports HTTPS and HTTP, including non-localhost HTTP, with selected-text and manual fallbacks if browser clipboard access is blocked. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations. [Execution and recovery](docs/EXECUTION.md) explains attempt checkpoints, explicit retries and context limits.
 
 The C# TUI has visible action buttons and a guided Question → Speakers → Settings → Review workflow. See [Using the C# terminal interface](docs/TUI.md) for startup and first-debate instructions.
 
@@ -78,14 +80,29 @@ ArgueBot has two interfaces: a **terminal UI (TUI)** and a **web GUI** in your b
 
 | | **Terminal UI (TUI)** | **Web GUI** |
 |---|---|---|
-| Start (macOS / Linux) | `./go-terminal.sh` | `./go-web.sh`, then open <http://127.0.0.1:4317> |
-| Start (Windows) | `go-terminal.bat` | `go-web.bat`, then open <http://127.0.0.1:4317> |
+| Start (macOS / Linux) | `./go-terminal.sh` | `npm run web`, then open <http://127.0.0.1:4317> |
+| Start (Windows) | `go-terminal.bat` | `npm run web`, then open <http://127.0.0.1:4317> |
 | Start (npm) | `npm start` | `npm run web` |
 | Debaters | Two | Two or three |
 | Settings | Command-line flags and startup prompts | Settings panel on the setup page (flags also accepted as defaults) |
 | Details | [Terminal UI](#terminal-ui-tui) | [Web GUI](#web-gui) |
 
-Both launch scripts install dependencies on first run and pass any extra flags through, so `./go-terminal.sh --rounds 8` and `./go-web.sh --rounds 8 --port 8080` both work.
+The terminal launcher installs dependencies on first use. For the legacy web app, install root npm dependencies first; `npm run web -- --rounds 8 --port 8080` forwards options to that application.
+
+## Build and run the C# replacement
+
+Install the .NET 10 SDK. The web launcher also needs Node.js and npm. Both launcher pairs build before running, and work from another current directory.
+
+| Interface | macOS / Linux | Windows |
+| --- | --- | --- |
+| Terminal | `./go-tui.sh` | `go-tui.bat` |
+| Web | `./go-web.sh` | `go-web.bat` |
+
+The TUI and web launchers start or attach to the service for the selected home. Workspaces open without authentication. After building, the web launcher prints the plain dashboard URL, normally `http://127.0.0.1:4317/dashboard`, and exits. Open that URL directly: no account, tenant, pairing code, connection fragment or login is needed. The service continues in the background. Repeated launches reuse the running service and its actual HTTP/HTTPS scheme and port. Use `--port N` to choose a port when starting an absent service; it does not move an existing service.
+
+Both interfaces accept `--home PATH` to select the same saved data. For example, `./go-tui.sh --home .run/demo` and `./go-web.sh --home .run/demo --port 4318`. Launch only one service for a home. The web launcher builds the React dashboard before the C# build so the server gets current assets. The TUI launcher requires an interactive terminal. See [terminal help and workflows](docs/TUI.md).
+
+The legacy TypeScript app remains available through `go-terminal.sh`/`.bat` and `npm run web`. Extra legacy web launcher copies have been removed.
 
 ## Getting Started
 
@@ -292,8 +309,8 @@ During follow-up Q&A, prompts use the same multiline controls: `ENTER` adds a ne
 ### Start the Web GUI
 
 ```bash
-./go-web.sh          # macOS / Linux
-go-web.bat           # Windows
+npm run web          # macOS / Linux
+npm run web           # Windows
 npm run web          # any platform
 ```
 
@@ -317,7 +334,7 @@ Everything you can set with a TUI flag can be set in the browser. The setup page
 Your choices are remembered in the browser for next time; **Reset to defaults** clears them. You can also pass any of these flags when starting the server to prefill the form, and they take precedence over remembered choices:
 
 ```bash
-./go-web.sh --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini
+npm run web -- --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini
 npm run web -- --timeout 20 --verbose
 ```
 
@@ -392,15 +409,13 @@ When filing a bug, include:
 
 [MIT](LICENSE.md) -- see [LICENSE.md](LICENSE.md) for details.
 
-Replacement backup and restore workflows, including current limitations, are documented in [docs/RECOVERY.md](docs/RECOVERY.md).
+Backup and restore are not product features.
 
 The replacement service supports configurable event replay retention without deleting transcript history. Expired event cursors require a snapshot refresh; the dashboard recovers automatically and the native client exposes typed stream errors. See [execution and recovery](docs/EXECUTION.md) and [operations](docs/OPERATIONS.md).
 
-Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. Passwords use salted PBKDF2 storage verifiers. Stored scoped-role resolution and protected/custom role-definition APIs, dashboard forms, Ctrl+O terminal workflow and console commands are implemented; permission/mapping APIs and console commands are available; scoped user-assignment APIs and console commands are also available. Schema 13 adds protected owned-access and tenant-presence defaults for every user, synchronized with compatibility-role changes. Remaining editors and complete enforcement integration remain in progress. See [identity behavior](docs/IDENTITY.md) and [authorization status](docs/AUTHORIZATION.md).
+Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. Keep TLS certificate keys in the configured application home. Hosted ingress and runner isolation remain open.
 
-Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Password exchange requires HTTPS. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. TLS certificate keys follow encrypted opt-in recovery rules. Hosted ingress and runner isolation remain open.
-
-Accepted background runs survive session sign-out. Current account disablement or execution-role revocation interrupts generation and pauses without replay; re-enable access and explicitly resume when appropriate. See [execution and recovery](docs/EXECUTION.md).
+Accepted background runs remain service-owned when a client disconnects. Use stop, interrupt or pause controls to change execution; no account or role controls are involved. See [execution and recovery](docs/EXECUTION.md).
 
 The replacement runtime also supports Mux as a CLI harness in web, TUI and console profiles. Select CLI protocol `mux` and executable `mux` (or its full installed path). The TUI offers a Mux preset. It streams `mux print` text output with prompts on stdin and uses Mux's existing model/endpoint configuration. See [Mux setup and argument overrides](docs/TUI.md).
 

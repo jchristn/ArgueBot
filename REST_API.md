@@ -2,17 +2,11 @@
 
 The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in `IMPROVEMENTS.md` and `docs/DEVELOPMENT.md`.
 
-Use `127.0.0.1` for local connections. Exchange the owner-readable single-use pairing code for an opaque one-hour session, then send `Authorization: Bearer <token>`. Keys live outside the database. Tokens are revocable and never belong in URL parameters. `x-token` may carry the identical session; conflicting carriers, repeated/empty authentication headers and tenant hints are rejected. `x-tenant-guid` and `x-tenant-id` must agree with the session. Unrelated password, access-key and signature material is rejected, including alongside a valid session. The local-only listener also supports tenant/email/passwordSha256 JSON exchange over HTTPS at /v1.0/api/auth/login, without an existing session or unrelated authentication headers. Password equivalents are passwords: never put them in URLs or logs. Twenty exchange attempts per minute are allowed per service. Hosted ingress, credential schemes and scoped RBAC remain open delivery gates.
-
-Protocol 2 changes GET message history from an unbounded array to MessagePage. Upgrade native clients and service together; product and database schema versions are independent. Message pages contain bounded previews and explicit contentTruncated/contentBytes metadata. Fetch a message by ID for complete text. Reuse throughSequence to keep page membership stable as later messages arrive; streaming text may still change. Tail selects the last page. Exports enumerate pages and hydrate previews instead of exporting truncated content. List routes use server-side filters with `pageNumber`, `pageSize`, `totalCount` and ordered items where the response is a page. Conversation search uses literal case-insensitive substring matching across titles and message content; pagination never changes its scope. Conversation mutations use expected revisions. Note/run creation and durable moderator controls use idempotency keys, bounded to 200 characters. An exact committed retry succeeds before stale-revision/state checks; a reused key with different input or run returns 409. Run checkpoints, status events and moderator receipts commit atomically. Schema 9 also records pending/streaming/terminal generation attempts, prompt hashes and exact ordered source identifiers. Answer finalization, successful directive consumption and speaker advance commit together. Inspect the run attempts route; over-budget context pauses before invocation without dropping transcript text. See `docs/EXECUTION.md`. Hold/release are transient per-client leases. Startup pauses uncertain work and completes a committed stop intent without automatically replaying generation. Accepted work survives session logout, but current user/tenant inactivity or execution-role removal cancels generation and pauses with authorization_revoked. Permission lookup failure cancels with authorization_unavailable; unavailable storage may require uncertain-work reconciliation. Denials are recorded independently of request history.
-
-Recovery archives and operations are protected global resources requiring an authenticated system administrator. Jobs return 202 before completion; poll `/v1.0/api/backup-operations/{operationId}`. Passphrases are not persisted in operation metadata. Controlled archive restore creates a new home beneath the service home and leaves the recovered service stopped. SQLite creates a new file; PostgreSQL requires an explicitly provisioned empty database through restoreConnectionEnvironmentVariable. Existing homes and nonempty destination databases are refused. If an external restore commits but reconciliation or publication fails, retainedStagingHome identifies protected operator recovery state. Binary download uses the existing bearer header. See `docs/RECOVERY.md`.
-
-Streaming commits are batched by a configured size threshold or timer. Schema-6 events carry `textOffset` in UTF-16 code units; reconcile older events from a message snapshot. Finalization flushes pending fragments before its terminal event. Standard failures use `ApiError`: stable `code`, safe `message`, and `requestId`. Typical statuses are 400 validation, 401 missing/expired/revoked session, 403 insufficient permission or conflicting tenant hint, 404 unowned/missing resource, 409 state/revision/key conflict, 413 request body limit, 429 enrollment limit, and 500 internal failure. Request bodies are bounded to one MiB. Do not automatically retry an uncertain generation.
+Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.
 
 ## GET /health
 
-Check readiness without authentication. Public local endpoint. Read permission required.
+Check readiness without authentication. Open workspace endpoint.
 
 Success: **200**, response: `HealthResponse`.
 
@@ -20,29 +14,9 @@ Success: **200**, response: `HealthResponse`.
 | --- | --- | --- | --- |
 | challenge | query | false | Optional fresh random 32-byte hex nonce. The listener returns homeProof bound to this challenge, actual port and private local-home key. This is local process attestation, not user authentication. |
 
-## POST /v1.0/api/auth/pair
-
-Exchange the current single-use local pairing code. Public local endpoint. Mutation permission required; service settings/restart require administrator.
-
-Success: **200**, response: `PairResponse`. Request: `PairRequest`.
-
-Representative request:
-
-```json
-{
-  "code": "{{pairingCode}}"
-}
-```
-
-## GET /v1.0/api/auth/me
-
-Read the active principal and tenant. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `RequestContext`.
-
 ## POST /v1.0/api/conversations
 
-Create a persistent conversation without starting any model. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Create a persistent conversation without starting any model. Open workspace endpoint.
 
 Success: **201**, response: `Conversation`. Request: `ConversationRequest`.
 
@@ -56,7 +30,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations
 
-Search owned titles and message content with exact totals. Requires an active bearer session. Read permission required.
+Search owned titles and message content with exact totals. Open workspace endpoint.
 
 Success: **200**, response: `Page`.
 
@@ -69,23 +43,23 @@ Success: **200**, response: `Page`.
 
 ## GET /v1.0/api/conversations/{conversationId}
 
-Read an owned conversation. Requires an active bearer session. Read permission required.
+Read an owned conversation. Open workspace endpoint.
 
 Success: **200**, response: `Conversation`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 ## PUT /v1.0/api/conversations/{conversationId}
 
-Change title, pin or archive using an expected revision. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Change title, pin or archive using an expected revision. Open workspace endpoint.
 
 Success: **200**, response: `Conversation`. Request: `ConversationRequest`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 Representative request:
 
@@ -100,13 +74,13 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/messages
 
-Read bounded owned message previews with stable membership and exact totals. Requires an active bearer session. Read permission required.
+Read bounded owned message previews with stable membership and exact totals. Open workspace endpoint.
 
 Success: **200**, response: `MessagePage`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 | pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | throughSequence | query | false | Optional captured membership boundary. Omission captures the latest sequence. Streaming content itself is not frozen. Future boundaries are rejected. |
@@ -114,13 +88,13 @@ Success: **200**, response: `MessagePage`.
 
 ## POST /v1.0/api/conversations/{conversationId}/messages
 
-Append a public note with command deduplication. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Append a public note with command deduplication. Open workspace endpoint.
 
 Success: **201**, response: `Message`. Request: `CommandRequest`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 Representative request:
 
@@ -134,13 +108,13 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/events
 
-Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Requires an active bearer session. Read permission required.
+Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Open workspace endpoint.
 
 Success: **200**, response: `List<DurableEvent>`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 | after | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | Accept | header | false | Protocol control. |
@@ -148,7 +122,7 @@ Success: **200**, response: `List<DurableEvent>`.
 
 ## POST /v1.0/api/participants
 
-Create a reusable direct CLI or PolyPrompt completion profile. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Create a reusable direct CLI or PolyPrompt completion profile. Open workspace endpoint.
 
 Success: **201**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
@@ -167,19 +141,19 @@ Representative request:
 
 ## GET /v1.0/api/participants
 
-List current runner profiles; excludes historical snapshots. Requires an active bearer session. Read permission required.
+List current runner profiles; excludes historical snapshots. Open workspace endpoint.
 
 Success: **200**, response: `List<RunnerProfile>`.
 
 ## PUT /v1.0/api/participants/{profileId}
 
-Edit a reusable profile without changing historical run snapshots. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Edit a reusable profile without changing historical run snapshots. Open workspace endpoint.
 
 Success: **200**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| profileId | path | true | Identifier in the authenticated ownership scope. |
+| profileId | path | true | Identifier in this workspace. |
 
 Representative request:
 
@@ -196,23 +170,23 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/runs
 
-Read execution history and immutable participants. Requires an active bearer session. Read permission required.
+Read execution history and immutable participants. Open workspace endpoint.
 
 Success: **200**, response: `List<DebateRun>`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 ## POST /v1.0/api/conversations/{conversationId}/runs
 
-Start a debate or single-participant follow-up with a durable receipt. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+Start a debate or single-participant follow-up with a durable receipt. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `DebateRun`. Request: `CreateRunRequest`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 Representative request:
 
@@ -229,25 +203,25 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/runs/{runId}
 
-Read a durable checkpoint and current revision. Requires an active bearer session. Read permission required.
+Read a durable checkpoint and current revision. Open workspace endpoint.
 
 Success: **200**, response: `DebateRun`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
-| runId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
+| runId | path | true | Identifier in this workspace. |
 
 ## POST /v1.0/api/conversations/{conversationId}/runs/{runId}/actions
 
-Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `Acknowledgement`. Request: `CommandRequest`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
-| runId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
+| runId | path | true | Identifier in this workspace. |
 
 Representative request:
 
@@ -260,7 +234,7 @@ Representative request:
 
 ## GET /v1.0/api/request-history
 
-Inspect scoped request metadata with backend filtering and paging. Requires an active bearer session. Read permission required.
+Inspect scoped request metadata with backend filtering and paging. Open workspace endpoint.
 
 Success: **200**, response: `HistoryPage`.
 
@@ -276,7 +250,7 @@ Success: **200**, response: `HistoryPage`.
 
 ## GET /v1.0/api/request-history/summary
 
-Return zero-filled UTC activity buckets for a bounded range. Requires an active bearer session. Read permission required.
+Return zero-filled UTC activity buckets for a bounded range. Open workspace endpoint.
 
 Success: **200**, response: `List<ActivityBucket>`.
 
@@ -284,37 +258,37 @@ Success: **200**, response: `List<ActivityBucket>`.
 | --- | --- | --- | --- |
 | fromUtc | query | true | Backend filter; date/time values use UTC ISO 8601. |
 | toUtc | query | true | Backend filter; date/time values use UTC ISO 8601. |
-| bucketMinutes | query | false | Backend filter; date/time values use UTC ISO 8601. |
+| bucketMinutes | query | false | Fixed UTC interval in minutes. Dashboard presets: last hour 1 (60 buckets), last day 15 (96), last week 120 (84), rolling 30 days 480 (90). The range is [fromUtc, toUtc), limited to 31 days and 2000 buckets, including zero-count intervals. HTTP statuses below 400 count as success; 400 and above count as errors. Disabled request history returns an empty array. |
 
 ## GET /v1.0/api/request-history/{requestId}
 
-Read redacted request and response headers and body prefixes. Requires an active bearer session. Read permission required.
+Read redacted request and response headers and body prefixes. Open workspace endpoint.
 
 Success: **200**, response: `RequestHistoryEntry`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| requestId | path | true | Identifier in the authenticated ownership scope. |
+| requestId | path | true | Identifier in this workspace. |
 
 ## DELETE /v1.0/api/request-history/{requestId}
 
-Delete one authorized retained request capture. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Delete one authorized retained request capture. Open workspace endpoint.
 
 Success: **200**, response: `DeletionResponse`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| requestId | path | true | Identifier in the authenticated ownership scope. |
+| requestId | path | true | Identifier in this workspace. |
 
 ## GET /v1.0/api/settings
 
-Read redacted file settings, revision and restart metadata. Requires an active bearer session. Read permission required.
+Read redacted file settings, revision and restart metadata. Open workspace endpoint.
 
 Success: **200**, response: `SettingsView`.
 
 ## PUT /v1.0/api/settings
 
-Atomically update allowlisted nonsecret settings using its revision. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+Atomically update allowlisted nonsecret settings using its revision. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `SettingsView`. Request: `SettingsUpdate`.
 
@@ -333,7 +307,7 @@ Representative request:
 
 ## POST /v1.0/api/settings/restart
 
-Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
+Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `RestartResponse`. Request: `object`.
 
@@ -345,466 +319,57 @@ Representative request:
 
 ## DELETE /v1.0/api/participants/{profileId}
 
-Delete a reusable participant, preserving historical snapshots. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Delete a reusable participant, preserving historical snapshots. Open workspace endpoint.
 
 Success: **200**, response: `DeletionResponse`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| profileId | path | true | Identifier in the authenticated ownership scope. |
+| profileId | path | true | Identifier in this workspace. |
 
 ## DELETE /v1.0/api/conversations/{conversationId}
 
-Permanently delete a stopped conversation and its retained messages/events. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Permanently delete a stopped conversation and its retained messages/events. Open workspace endpoint.
 
 Success: **200**, response: `DeletionResponse`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
 
 ## POST /v1.0/api/settings/shutdown
 
-Drain active work and stop the service; a supervisor may restart it. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
+Drain active work and stop the service; a supervisor may restart it. Open workspace endpoint.
 
 Success: **202**, response: `Acknowledgement`.
 
-## POST /v1.0/api/auth/logout
-
-Revoke the current session immediately. Requires an active bearer session. Mutation permission required; service settings/restart require administrator.
-
-Success: **200**, response: `RevocationResponse`. Request: `object`.
-
-Representative request:
-
-```json
-{}
-```
-
-## GET /v1.0/api/backups
-
-List global recovery artifacts. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `BackupPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## POST /v1.0/api/backups
-
-Create complete recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
-
-Representative request:
-
-```json
-{
-  "name": "Example recovery",
-  "includeSecrets": false
-}
-```
-
-## GET /v1.0/api/backups/{backupId}
-
-Read recovery artifact. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `BackupEntry`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | path | true | Identifier in the authenticated ownership scope. |
-
-## POST /v1.0/api/backups/{backupId}/verify
-
-Verify a recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{}
-```
-
-## POST /v1.0/api/backups/{backupId}/restore
-
-Restore into a new isolated home. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **202**, response: `BackupOperation`. Request: `BackupRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "destinationName": "recovered-example",
-  "port": 4537
-}
-```
-
-## GET /v1.0/api/backups/{backupId}/download
-
-Download a recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Read permission required.
-
-Success: **200**, response: `BinaryArchive`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | path | true | Identifier in the authenticated ownership scope. |
-
-## DELETE /v1.0/api/backups/{backupId}
-
-Delete an idle recovery archive. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **200**, response: `DeletionResponse`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | path | true | Identifier in the authenticated ownership scope. |
-
-## GET /v1.0/api/backup-operations/{operationId}
-
-Read recovery operation status. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `BackupOperation`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| operationId | path | true | Identifier in the authenticated ownership scope. |
-
-## GET /v1.0/api/backup-operations
-
-Page durable recovery jobs. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `BackupOperationPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| backupId | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## GET /v1.0/api/audit
-
-Inspect append-only tenant security events; system administrators can inspect all tenants. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `AuditPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| operation | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
 ## GET /v1.0/api/conversations/{conversationId}/runs/{runId}/attempts
 
-Page durable generation attempts with frozen participant, prompt and context provenance. Requires an active bearer session. Read permission required.
+Page durable generation attempts with frozen participant, prompt and context provenance. Open workspace endpoint.
 
 Success: **200**, response: `AttemptPage`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
-| runId | path | true | Identifier in the authenticated ownership scope. |
+| conversationId | path | true | Identifier in this workspace. |
+| runId | path | true | Identifier in this workspace. |
 | pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
 | pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
 
 ## GET /v1.0/api/conversations/{conversationId}/messages/{messageId}
 
-Read one complete owned message without loading other history. Requires an active bearer session. Read permission required.
+Read one complete owned message without loading other history. Open workspace endpoint.
 
 Success: **200**, response: `Message`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
-| conversationId | path | true | Identifier in the authenticated ownership scope. |
-| messageId | path | true | Identifier in the authenticated ownership scope. |
-
-## POST /v1.0/api/auth/login
-
-Exchange tenant-bound password material. Public local endpoint. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **200**, response: `SessionResponse`. Request: `LoginRequest`.
-
-## GET /v1.0/api/users
-
-Enumerate tenant identities. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `UserPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## POST /v1.0/api/users
-
-Create a tenant identity. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **201**, response: `UserRecord`. Request: `UserRequest`.
-
-## GET /v1.0/api/users/{userId}
-
-Read own or administered identity metadata. Requires an active bearer session. Read permission required.
-
-Success: **200**, response: `UserRecord`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-
-## PUT /v1.0/api/users/{userId}
-
-Update an identity and revoke affected sessions. Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator.
-
-Success: **200**, response: `UserRecord`. Request: `UserRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-
-## GET /v1.0/api/roles
-
-Enumerate visible built-in and tenant custom roles. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `RolePage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## POST /v1.0/api/roles
-
-Create or clone a tenant custom role. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **201**, response: `RoleRecord`. Request: `RoleRequest`.
-
-Representative request:
-
-```json
-{
-  "name": "Custom {{$guid}}",
-  "active": true
-}
-```
-
-## GET /v1.0/api/roles/{roleId}
-
-Read a visible role definition. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `RoleRecord`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| roleId | path | true | Identifier in the authenticated ownership scope. |
-
-## PUT /v1.0/api/roles/{roleId}
-
-Update or deactivate a tenant custom role. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `RoleRecord`. Request: `RoleRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| roleId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "name": "Updated {{$guid}}",
-  "active": false,
-  "expectedRevision": 1
-}
-```
-
-## GET /v1.0/api/permissions
-
-Enumerate visible permission definitions. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `PermissionPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| search | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## POST /v1.0/api/permissions
-
-Create a tenant custom permission. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **201**, response: `PermissionRecord`. Request: `PermissionRequest`.
-
-Representative request:
-
-```json
-{
-  "name": "Custom read {{$guid}}",
-  "resourceTypes": [
-    "Conversation"
-  ],
-  "operations": [
-    "Read"
-  ],
-  "effect": "Permit",
-  "active": true
-}
-```
-
-## GET /v1.0/api/permissions/{permissionId}
-
-Read a visible permission definition. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `PermissionRecord`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| permissionId | path | true | Identifier in the authenticated ownership scope. |
-
-## PUT /v1.0/api/permissions/{permissionId}
-
-Update or deactivate a tenant custom permission. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `PermissionRecord`. Request: `PermissionRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| permissionId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "name": "Updated read {{$guid}}",
-  "resourceTypes": [
-    "Conversation"
-  ],
-  "operations": [
-    "Read"
-  ],
-  "effect": "Permit",
-  "active": false,
-  "expectedRevision": 1
-}
-```
-
-## GET /v1.0/api/roles/{roleId}/permissions
-
-Enumerate active or inactive role permission mappings. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `RolePermissionPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| roleId | path | true | Identifier in the authenticated ownership scope. |
-| active | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## PUT /v1.0/api/roles/{roleId}/permissions
-
-Replace active custom-role permission mappings. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `RoleRecord`. Request: `RolePermissionsRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| roleId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "permissionIds": [],
-  "expectedRevision": 2
-}
-```
-
-## GET /v1.0/api/users/{userId}/role-assignments
-
-Enumerate scoped user role assignments. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `UserRoleAssignmentPage`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-| pageNumber | query | false | Backend filter; date/time values use UTC ISO 8601. |
-| pageSize | query | false | Backend filter; date/time values use UTC ISO 8601. |
-
-## POST /v1.0/api/users/{userId}/role-assignments
-
-Create a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **201**, response: `UserRoleAssignmentRecord`. Request: `UserRoleAssignmentRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "roleName": "Viewer",
-  "resourceScope": "Tenant",
-  "inheritsToChildren": true,
-  "active": true
-}
-```
-
-## GET /v1.0/api/users/{userId}/role-assignments/{assignmentId}
-
-Read a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `UserRoleAssignmentRecord`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-| assignmentId | path | true | Identifier in the authenticated ownership scope. |
-
-## PUT /v1.0/api/users/{userId}/role-assignments/{assignmentId}
-
-Update or deactivate a scoped user role assignment. Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate.
-
-Success: **200**, response: `UserRoleAssignmentRecord`. Request: `UserRoleAssignmentRequest`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| userId | path | true | Identifier in the authenticated ownership scope. |
-| assignmentId | path | true | Identifier in the authenticated ownership scope. |
-
-Representative request:
-
-```json
-{
-  "roleName": "Viewer",
-  "resourceScope": "Tenant",
-  "inheritsToChildren": true,
-  "active": false,
-  "expectedRevision": 1
-}
-```
+| conversationId | path | true | Identifier in this workspace. |
+| messageId | path | true | Identifier in this workspace. |
 
 ## DTO schemas
 
-Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and authorization remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
+Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and validation remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
 
 ### Acknowledgement
 
@@ -845,109 +410,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
 
-### AuditEntry
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Immutable event identifier. |
-| tenantId | string (nullable) | Resolved tenant, or null for unauthenticated/system events. |
-| userId | string (nullable) | Validated actor, never an untrusted request hint. |
-| operation | string | Bounded semantic security operation. |
-| outcome | string | Semantic result without credentials or request content. |
-| sessionId | string | Session identifier where known; never the token. |
-| authScheme | string | Validated authentication carrier where known. |
-| correlationId | string | Request correlation identifier where available. |
-| resourceType | string | Semantic resource type. |
-| resourceId | string | Target identifier where known. |
-| errorCode | string | Safe failure code, empty on success. |
-| createdUtc | string | Event timestamp in UTC. |
-
-### AuditPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Matching immutable audit events. |
-| pageNumber | integer | One-based page. |
-| pageSize | integer | Page size. |
-| totalCount | integer | Total matching records. |
-
-### BackupEntry
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Opaque artifact identifier. |
-| name | string | Operator's display name. |
-| bytes | integer | Published archive size. |
-| encrypted | boolean | Whether the archive is passphrase encrypted. |
-| includesSecrets | boolean | Whether explicitly requested key material is included. |
-| schemaVersion | integer | Captured schema version. |
-| provider | string | Source storage provider. |
-| digest | string | Published archive SHA-256. |
-| status | string | Creating, ready, failed or unavailable. |
-| createdUtc | string | UTC creation time. |
-
-### BackupOperation
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Opaque operation identifier. |
-| backupId | string | Associated artifact. |
-| kind | string | Create, verify or restore. |
-| state | string | Queued, running, completed or failed. |
-| errorCode | string | Safe failure code, without exception details or credentials. |
-| targetHome | string | Explicit new-home restore destination, otherwise empty. |
-| targetProvider | string | Restore destination provider, otherwise empty. |
-| targetConnectionEnvironmentVariable | string | Nonsecret PostgreSQL destination environment reference, otherwise empty. |
-| retainedStagingHome | string | Protected staging home retained after an externally committed database could not be reconciled or published. Requires explicit operator recovery. |
-| port | integer | Requested listener port, or the effective port after successful restoration. Zero initially preserves the archive setting. |
-| missingReferences | array | Credential names missing during restore. |
-| createdUtc | string | UTC acceptance time. |
-| updatedUtc | string | UTC last status change. |
-
-### BackupOperationPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Matching items in stable newest-first order. |
-| totalCount | integer | Matching total independent of page size. |
-| pageNumber | integer | One-based page. |
-| pageSize | integer | Items per page. |
-
-### BackupPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Matching items in stable newest-first order. |
-| totalCount | integer | Matching total independent of page size. |
-| pageNumber | integer | One-based page. |
-| pageSize | integer | Items per page. |
-
-### BackupRequest
-
-Create accepts name/includeSecrets/password. Verify accepts password. Restore accepts password/destinationName/port/restoreDatabaseType/restoreConnectionEnvironmentVariable. Secret-inclusive creation requires encryption. Port zero retains the archived listener value; otherwise use 1024 through 65535. SQLite creates a new database file; PostgreSQL requires an empty pre-provisioned destination configured through a service-machine environment reference.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| name | string | Display name for a newly created artifact, up to 200 characters. |
-| includeSecrets | boolean | Include local encryption keys and literal database configuration. Requires a passphrase. |
-| password | string | Optional encryption passphrase. A nonempty value requires at least twelve characters and at most 1024 UTF-8 bytes; never persisted in job metadata. |
-| destinationName | string | Required for restore. New child directory beneath the service home restores directory. |
-| restoreDatabaseType | DatabaseTypeEnum | Destination provider for a new recovered home. SQLite is the default; PostgreSQL requires an empty pre-provisioned database. |
-| restoreConnectionEnvironmentVariable | string | Environment reference on the service machine containing the PostgreSQL destination connection string. Never send its secret value. |
-| port | integer | Listener port for a new recovered home. Zero preserves the archived setting. |
-
 ### CapturedHeader
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -979,8 +441,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | id | string | Stable conversation identifier. |
 | lastEventSequence | integer | Latest committed event sequence observed before this conversation read. Capture it before loading snapshots, then replay after it to cover concurrent changes. |
-| tenantId | string | Owning tenant. |
-| userId | string | Owning user. |
 | title | string | Display title. |
 | pinned | boolean | Whether pinned. |
 | archived | boolean | Whether archived. |
@@ -1086,6 +546,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | homeId | string | Opaque path-bound application-home routing identifier. Not an authentication credential. |
 | homeProof | string | HMAC-SHA256 process proof bound to an optional random challenge, listener port and home. Empty when no challenge was requested. |
+| authenticationRequired | boolean | Whether HTTP requests require an enrolled session. True by default for compatibility with older services that omit this field. |
 | status | string | Readiness state. |
 | schema | integer | Current database schema version, independent of product version. |
 | protocol | integer | HTTP attachment protocol version, separate from schema and product versions. |
@@ -1100,16 +561,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page. |
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
-
-### LoginRequest
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| tenantId | string | Explicit tenant identifier. |
-| email | string | Tenant-local email address. |
-| passwordSha256 | string | Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned. |
 
 ### Message
 
@@ -1154,68 +605,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matches. |
 
-### PermissionPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Ordered permission metadata. |
-| pageNumber | integer | One-based page number. |
-| pageSize | integer | Bounded page size. |
-| totalCount | integer | Total matching visible permissions. |
-
-### PermissionRecord
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable permission identifier. |
-| tenantId | string (nullable) | Owning tenant or null for protected global definitions. |
-| name | string | Human-readable permission name. |
-| resourceTypes | array | Resource types or All wildcard, bounded to 32 entries. |
-| operations | array | Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries. |
-| effect | string | Permit or Deny; explicit matching deny wins. |
-| requiresOwnership | boolean | Narrow grants to actual resource ownership. |
-| active | boolean | Whether the permission can contribute authority. |
-| protected | boolean | Global seeded permissions cannot be edited through normal administration. |
-| revision | integer | Optimistic concurrency revision. |
-| createdUtc | string | Creation timestamp. |
-| updatedUtc | string | Last update timestamp. |
-
-### PermissionRequest
-
-Tenant custom permit/deny definition. All is an explicit wildcard; Write expands to Create/Update/Delete and grants neither Execute nor Admin. Updates require expectedRevision; protected global definitions are immutable. Disable to preserve historical references.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| name | string | Human-readable permission name. |
-| resourceTypes | array | Resource types or All wildcard, bounded to 32 entries. |
-| operations | array | Read/Create/Update/Delete/Write/Execute/Admin or All, bounded to 16 entries. |
-| effect | string | Permit or Deny; explicit matching deny wins. |
-| requiresOwnership | boolean | Narrow grants to actual resource ownership. |
-| active | boolean | Whether the permission can contribute authority. |
-| expectedRevision | integer | Current revision required for an update. |
-
-### RequestContext
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| receivedUtc | string | UTC request receipt time. |
-| startedTimestamp | integer | Monotonic timestamp captured before route execution. |
-| sessionId | string | Resolved revocable session identifier; empty for non-session internal calls. |
-| authScheme | string | Validated transport carrier: BearerToken or XToken for enrolled HTTP sessions. |
-| tenantId | string | Resolved tenant. |
-| userId | string | Authenticated user. |
-| isAdmin | boolean | System administrator flag. |
-| isTenantAdmin | boolean | Tenant administrator flag. |
-| isAuthenticated | boolean | Whether credentials are valid. |
-| role | string | Effective local role. |
-| correlationId | string | Request correlation identifier. |
-
 ### RequestHistoryEntry
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1223,9 +612,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | id | string | Stable capture identifier. |
-| tenantId | string (nullable) | Resolved tenant, or null for anonymous system traffic. |
-| userId | string (nullable) | Resolved user if authenticated. |
-| principalName | string | Safe principal display name. |
 | method | string | HTTP method. |
 | path | string | Route path without query credentials. |
 | status | integer | HTTP response status. |
@@ -1249,89 +635,9 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | restarting | boolean | The host is draining and reloading configuration. |
 
-### RevocationResponse
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| revoked | boolean | The session was revoked. |
-
-### RolePage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Ordered role metadata, including visible built-ins. |
-| pageNumber | integer | One-based page number. |
-| pageSize | integer | Requested bounded page size. |
-| totalCount | integer | Total matching role definitions. |
-
-### RolePermissionPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Bounded ordered mappings and current permission definitions. |
-| pageNumber | integer | One-based page number. |
-| pageSize | integer | Bounded page size. |
-| totalCount | integer | Total matching mappings. |
-| roleRevision | integer | Role revision observed with this mapping page. |
-
-### RolePermissionRecord
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable mapping identifier. |
-| roleId | string | Role definition identifier. |
-| permissionId | string | Referenced permission identifier. |
-| active | boolean | Whether the mapping is active. |
-| protected | boolean | Built-in baseline mappings are protected. |
-| permission | PermissionRecord | Current referenced permission metadata; inactive permissions confer no grant. |
-
-### RolePermissionsRequest
-
-Complete desired active permission mapping set for a tenant custom role. Replacement requires current role revision, refuses foreign IDs and protected changes, deactivates omitted mappings and reuses historical mapping IDs. Permission activity remains independent of mapping activity.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| permissionIds | array | Complete desired active mapping set, maximum 128 distinct visible permission IDs. |
-| expectedRevision | integer | Current role revision required for replacement. |
-
-### RoleRecord
-
-Global protected built-ins have null tenantId; all created roles are current-tenant custom definitions. Deactivate instead of deleting to preserve historical assignments.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable role identifier. |
-| tenantId | string (nullable) | Owning tenant, or null for globally visible built-ins. |
-| name | string | Role display name. |
-| builtin | boolean | Definition is supplied by the platform. |
-| protected | boolean | Normal administration cannot mutate this definition. |
-| active | boolean | Whether assignments can use this definition. |
-| revision | integer | Optimistic concurrency revision. |
-| createdUtc | string | Creation timestamp. |
-| updatedUtc | string | Last update timestamp. |
-
-### RoleRequest
-
-Create optionally clones active permission mappings from an accessible role. Updates replace name/active and require expectedRevision; cloneRoleId is create-only. Built-in names are reserved and built-in definitions are immutable. Current database tenant/system administrator flags are required until full scoped administration integration.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| name | string | Display name for a tenant custom role. |
-| active | boolean | Whether the custom role can contribute authority. |
-| expectedRevision | integer | Current revision required for updates. |
-| cloneRoleId | string | Optional accessible role to copy when creating a custom role; omit for updates. |
-
 ### RunnerProfile
 
-CLI protocols are plain, claude, codex, gemini and mux. CLI requires executable and uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
+CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -1343,111 +649,11 @@ CLI protocols are plain, claude, codex, gemini and mux. CLI requires executable 
 | model | string | REST model identifier. |
 | executable | string | Direct executable path or name. |
 | arguments | array | Ordered arguments; prompts use standard input. |
-| workingDirectory | string | Directory on execution host. |
+| workingDirectory | string | Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory. |
 | secretEnvironmentVariable | string | Environment reference to credential; never its value. |
 | timeoutSeconds | integer | Maximum generation seconds. |
 | maxOutputBytes | integer | Maximum captured output bytes. |
 | enabled | boolean | Whether new work can use this profile. |
-
-### SessionResponse
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| token | string | Opaque revocable one-hour session. Keep it out of logs, URLs and source control. |
-
-### UserPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Ordered public identity metadata. |
-| pageNumber | integer | One-based page number. |
-| pageSize | integer | Maximum results per page. |
-| totalCount | integer | Count matching the tenant and search filter. |
-
-### UserRecord
-
-Public tenant identity metadata. No password verifier or hash is returned. Protected identities cannot be changed through normal management. Administrator flags are separate from compatibility domain role names.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable user identifier. |
-| tenantId | string | Owning tenant identifier. |
-| name | string | Display name. |
-| email | string | Normalized email, unique within the tenant when configured. |
-| role | string | Compatibility domain role: viewer, operator or admin. |
-| isAdmin | boolean | System administrator bypass. |
-| isTenantAdmin | boolean | Tenant administrator bypass. |
-| active | boolean | Whether authentication remains enabled. |
-| protected | boolean | Whether normal management must refuse mutation. |
-| hasPassword | boolean | Whether password login has been configured. |
-| revision | integer | Optimistic mutation revision. |
-| createdUtc | string | UTC creation timestamp. |
-| updatedUtc | string | UTC last update timestamp. |
-
-### UserRequest
-
-Complete metadata replacement. Omit passwordSha256 to preserve its password; a new value revokes existing sessions. Disablement also revokes sessions atomically. Updates require expectedRevision. Only system administrators may manage system administrators; all management remains bound to the current tenant.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| name | string | Display name, one through two hundred characters. |
-| email | string | Email address for tenant-bound login. |
-| role | string | Compatibility domain role: viewer, operator or admin. |
-| isAdmin | boolean | System administrator flag, assignable only by a system administrator. |
-| isTenantAdmin | boolean | Tenant administrator flag. |
-| active | boolean | Enable authentication; disabling invalidates existing sessions. |
-| expectedRevision | integer | Expected revision for updates; zero for creation. |
-| passwordSha256 | string (nullable) | Sensitive SHA-256 password-equivalent input over HTTPS. The server derives a salted PBKDF2-HMAC-SHA256 storage verifier; neither value is returned. |
-
-### UserRoleAssignmentPage
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| items | array | Ordered active and inactive assignments for one tenant user. |
-| pageNumber | integer | One-based page number. |
-| pageSize | integer | Bounded page size. |
-| totalCount | integer | Total assignments for the selected user. |
-
-### UserRoleAssignmentRecord
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable assignment identifier. |
-| tenantId | string | Authenticated tenant binding. |
-| userId | string | Assigned tenant user. |
-| roleId | string | Optional role GUID; an existing inactive reference blocks fallback. |
-| roleName | string | Optional fallback role name when its GUID is absent. |
-| resourceScope | string | Tenant or Resource scope. |
-| resourceId | string | Exact opaque target ID for Resource scope; empty for Tenant scope. |
-| inheritsToChildren | boolean | Tenant scope reaches child resources only when explicitly enabled. |
-| active | boolean | Whether this assignment participates in resolution. |
-| protected | boolean | Protected assignments cannot be changed through normal administration. |
-| systemKind | string | Migration-managed default category, or empty for ordinary assignments. |
-| revision | integer | Optimistic concurrency revision. |
-| createdUtc | string | Creation timestamp. |
-| updatedUtc | string | Last update timestamp. |
-
-### UserRoleAssignmentRequest
-
-Supply a role ID and/or fallback name. An existing inactive role blocks fallback. Tenant scope requires empty resourceId and explicit inheritance to reach children; Resource scope requires an exact ID with inheritance disabled. ResourceAdmin is resource-only. Updates require expectedRevision. Protected identities/assignments cannot be changed. Stored resolution changes immediately; compatibility route enforcement remains an integration gate.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| roleId | string | Optional role GUID; an existing inactive reference blocks fallback. |
-| roleName | string | Optional fallback role name when its GUID is absent. |
-| resourceScope | string | Tenant or Resource scope. |
-| resourceId | string | Exact opaque target ID for Resource scope; empty for Tenant scope. |
-| inheritsToChildren | boolean | Tenant scope reaches child resources only when explicitly enabled. |
-| active | boolean | Whether this assignment participates in resolution. |
-| expectedRevision | integer | Current assignment revision required for updates. |
 
 ### ServiceSettings
 
@@ -1455,12 +661,11 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| telemetry | TelemetrySettings | Process telemetry collection and export settings. |
 | requestHistoryEnabled | boolean | Capture HTTP request history by default. |
 | requestHistoryBodyBytes | integer | Capture prefix limit in bytes, default 32768. |
 | requestHistoryRetentionDays | integer | Request history retention in days, default thirty. |
 | database | DatabaseSettings | Persistent database configuration. SQLite is the local default. |
-| tlsEnabled | boolean | Enable HTTPS using keys/listener.pfx in the application home. Password login requires HTTPS. |
+| tlsEnabled | boolean | Enable HTTPS using keys/listener.pfx in the application home. |
 | tlsPasswordEnvironmentVariable | string | Optional environment variable containing the listener PFX password. No literal password is persisted. |
 | port | integer | Loopback service port, default 4317, allowed 1 through 65535. |
 | streamBatchCharacters | integer | Maximum accumulated stream characters before a durable commit. Default 4096, allowed one through 65536. |
@@ -1475,17 +680,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | contextMaxCharacters | integer | Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history. |
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
-| allowCli | boolean | Whether shell-out runners may execute. Default true for local mode only. |
-
-### TelemetrySettings
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| enabled | boolean | Enable the collector subscription, default true. |
-| exportEnabled | boolean | Enable outbound OTLP to the local observability collector, default false outside Compose. |
-| endpoint | string | OTLP gRPC endpoint, default 127.0.0.1:4327 to avoid the application port. |
+| allowCli | boolean | Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only. |
 
 ### DatabaseSettings
 
@@ -1496,22 +691,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | type | DatabaseTypeEnum | Default embedded provider. |
 | connectionString | string | SQLite path or server connection string without committed secrets. |
 | connectionEnvironmentVariable | string | Optional environment variable that overrides ConnectionString. |
-
-### PairRequest
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| code | string | Current single-use code read locally by the owner. |
-
-### PairResponse
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| token | string | Opaque one-hour bearer session token. |
 
 ### SettingsUpdate
 
@@ -1552,12 +731,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | effectivePort | integer | Effective port of this process. |
 | connectionConfigured | boolean | Whether a private database connection string is configured. |
 
-## Security accounting
-
-The append-only audit route permits tenant administrators to inspect their own tenant and system administrators to inspect all events, including anonymous failures. Session issuance/revocation and HTTP 401/403 denials are recorded independently of optional request capture. Audit inspection supports an exact operation filter and bounded paging. No HTTP edit/delete route exists. Direct privileged database access is outside application-level immutability; comprehensive credential/RBAC/administrative accounting remains under implementation.
-
 ## Streaming and recovery
 
-Send `Accept: text/event-stream` and the same bearer header to the event route. Each committed change has an ID `conversationId:sequence`. Save the last processed ID and pass it in `Last-Event-ID` on reconnect. Heartbeats carry no application changes. Connections recycle after thirty seconds; `session_revoked` terminates access. Clients may use paged JSON events and snapshots when streaming is unavailable. Changes are read from committed storage, so replay and live delivery share one order. Clients must deduplicate IDs and refresh entity snapshots rather than append a repeated full message. Replay retention prunes only contiguous prefixes, preserving the latest sequence anchor. A nonzero expired cursor returns event_history_gap (HTTP 409 before streaming, or an error frame after headers). Capture lastEventSequence from the conversation, reload snapshots, then reconnect after that head. Transcripts and audit records are retained independently. Frames are bounded by the generated transport metadata in assets/transport.json.
+Send `Accept: text/event-stream` to the event route. Each committed change has an ID `conversationId:sequence`. Save the last processed ID and pass it in `Last-Event-ID` on reconnect. Heartbeats carry no application changes. Connections recycle after thirty seconds; Clients may use paged JSON events and snapshots when streaming is unavailable. Changes are read from committed storage, so replay and live delivery share one order. Clients must deduplicate IDs and refresh entity snapshots rather than append a repeated full message. Replay retention prunes only contiguous prefixes, preserving the latest sequence anchor. A nonzero expired cursor returns event_history_gap (HTTP 409 before streaming, or an error frame after headers). Capture lastEventSequence from the conversation, reload snapshots, then reconnect after that head. Transcripts are retained independently. Frames are bounded by the generated transport metadata in assets/transport.json.
 
-Closing a client does not stop accepted work. Service shutdown and crashes leave uncertain generations interrupted and their runs paused. Resume/retry is explicit. Historical participant snapshots survive profile edits/deletion. CLI and REST runs have separate capabilities; REST tool execution is disabled.
+Closing a client does not stop accepted work. Service shutdown and crashes leave uncertain generations interrupted and their runs paused. Resume/retry is explicit. Historical participant snapshots survive profile edits/deletion. REST models can call service-owned local file and process tools when allowCli is enabled. Calls and results are persisted as tool messages and replay through normal history/events. Stopping cancels local processes. Tool execution has a 32-call/16-round turn limit, 30-second process limit and 64-KiB file/pipe limits. Interrupted operations may have side effects; inspect before explicitly retrying.

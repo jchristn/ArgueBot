@@ -1,3 +1,5 @@
+import CopyButton from "../components/CopyButton.jsx";
+import CopyableId from "../components/CopyableId.jsx";
 import { useEffect, useRef, useState } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -113,9 +115,9 @@ function StartDialog({ profiles, onStart, onClose }) {
   );
 }
 function WorkspaceContent({ id }) {
-  const { api, notify, user } = useOutletContext();
+  const { api, notify } = useOutletContext();
   const { t } = useTranslation();
-  const draftKey = `arguebot.draft:${location.origin}:${user.userId}:${id}`;
+  const draftKey = `arguebot.draft:${location.origin}:${id}`;
   const [text, setText] = useState(() => localStorage.getItem(draftKey) || "");
   const [mode, setMode] = useState("note");
   const [recipient, setRecipient] = useState("");
@@ -269,12 +271,17 @@ function WorkspaceContent({ id }) {
         <div>
           <p className="eyebrow">{t("debate.title")}</p>
           <h1 title={data.conversation.title}>{data.conversation.title}</h1>
+          <CopyableId value={id} />
           <span className="live-label">
             <span className="status-dot" />
             {t(connection)}
           </span>
         </div>
         <div className="utilities">
+          <CopyButton label="conversations.copy" disabled={!data.messagePage.totalCount} loadText={async () => {
+            const messages = await api.allMessages(id);
+            return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${message.content}`).join("\n\n");
+          }} />
           <Button
             label="conversations.export"
             icon="download"
@@ -297,6 +304,7 @@ function WorkspaceContent({ id }) {
       <div className="run-strip">
         {run ? (
           <>
+            <CopyableId value={run.id} />
             <span
               className={"badge state-" + run.state}
               title={t("debate.status.help")}
@@ -407,12 +415,14 @@ function WorkspaceContent({ id }) {
               {message.state === "streaming" && (
                 <span className="stream-dot" title={t("state.streaming")} />
               )}
+              <CopyableId value={message.id} />
+              <CopyButton label="messages.copy" loadText={async () => (await api.message(id, message.id)).content} iconOnly />
               {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
             </header>
             {message.contentTruncated && <p className="muted" title={t("messages.preview.help")}>{t("messages.preview", { bytes: message.contentBytes })}</p>}
-            <div className="markdown">
+            {message.kind === "tool" ? <pre>{message.content}</pre> : <div className="markdown">
               <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
-            </div>
+            </div>}
             {message.state === "interrupted" && (
               <small className="warning">{t("debate.partial")}</small>
             )}

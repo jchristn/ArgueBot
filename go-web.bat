@@ -1,19 +1,24 @@
 @echo off
-rem Start the ArgueBot web UI on a localhost listener.
-rem Usage: go-web.bat [--port N]
+rem Build the C# dashboard, then start or attach to its service. Forward --home and --port.
 setlocal
 cd /d "%~dp0"
-
-where npm >nul 2>nul
+where dotnet >nul 2>nul
 if errorlevel 1 (
-  echo npm was not found. Install Node.js 18+ from https://nodejs.org/
+  echo .NET 10 SDK is required to build ArgueBot.
   exit /b 1
 )
-
-if not exist node_modules (
-  echo Installing dependencies...
-  call npm install
+where npm >nul 2>nul
+if errorlevel 1 (
+  echo Node.js and npm are required to build the web dashboard.
+  exit /b 1
+)
+if not exist dashboard\node_modules (
+  call npm --prefix dashboard ci
   if errorlevel 1 exit /b 1
 )
-
-call npm run web -- --host 127.0.0.1 %*
+call npm --prefix dashboard run build
+if errorlevel 1 exit /b 1
+dotnet build src/ArgueBot.sln -c Release
+if errorlevel 1 exit /b 1
+dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll service web %*
+exit /b %errorlevel%

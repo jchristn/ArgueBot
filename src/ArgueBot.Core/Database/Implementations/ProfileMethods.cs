@@ -23,7 +23,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Create a profile after validating protocol and resource limits.</summary>
         public async Task<RunnerProfile> CreateAsync(RequestContext context, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); Validate(profile);
+            RequireWrite(context); HarnessDefaults.ApplyMissing(profile); Validate(profile);
             profile.Id = Ids.New("par_");
             await _Database.WriteAsync((connection, transaction) => InsertAsync(connection, transaction, context, profile, false, token), token).ConfigureAwait(false);
             return profile;
@@ -61,7 +61,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Update a reusable profile. Historical run snapshots are never changed.</summary>
         public async Task<RunnerProfile> UpdateAsync(RequestContext context, string id, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); Validate(profile);
+            RequireWrite(context); HarnessDefaults.ApplyMissing(profile); Validate(profile);
             await ReadAsync(context, id, token).ConfigureAwait(false);
             profile.Id = id;
             await _Database.WriteAsync(async (connection, transaction) =>
@@ -92,11 +92,12 @@ namespace ArgueBot.Core.Database.Implementations
             if (profile.Arguments.Count > 128 || profile.Arguments.Any(argument => argument == null || argument.Contains('\0')) || profile.Arguments.Sum(argument => (long)argument.Length) + profile.Executable.Length > 32768) throw new DomainException(400, "invalid_arguments", "Use up to 128 literal arguments and at most 32768 total command characters, without NUL bytes.");
             if (new string[] { profile.Name, profile.Endpoint, profile.Model, profile.Executable, profile.WorkingDirectory }.Any(value => value.Contains('\0'))) throw new DomainException(400, "invalid_text", "Configuration text cannot contain NUL bytes.");
             if (profile.Endpoint.Length > 4096 || profile.Model.Length > 1000 || profile.Executable.Length > 4096 || profile.WorkingDirectory.Length > 4096) throw new DomainException(400, "invalid_profile", "Configuration text exceeds its supported length.");
+            if (profile.WorkingDirectory.Length > 0 && !Directory.Exists(profile.WorkingDirectory)) throw new DomainException(400, "invalid_directory", "Working directory does not exist on the server.");
             if (profile.Kind == "cli")
             {
                 if (string.IsNullOrWhiteSpace(profile.Executable)) throw new DomainException(400, "invalid_executable", "A direct executable is required.");
                 if (profile.Executable.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || profile.Executable.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)) throw new DomainException(400, "shell_wrapper", "Configure the underlying executable or script host instead of a shell wrapper.");
-                if (profile.WorkingDirectory.Length > 0 && !Directory.Exists(profile.WorkingDirectory)) throw new DomainException(400, "invalid_directory", "Working directory does not exist on the server.");
+
                 if (profile.Provider != "plain" && profile.Provider != "claude" && profile.Provider != "codex" && profile.Provider != "gemini" && profile.Provider != "mux") throw new DomainException(400, "invalid_protocol", "CLI protocol must be plain, claude, codex, gemini or mux.");
             }
             else if (profile.Kind == "rest")

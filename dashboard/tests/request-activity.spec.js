@@ -1,0 +1,56 @@
+import { test, expect } from "@playwright/test";
+
+test("request activity has exact timeframes, readable axes, status colors and pointer/keyboard details", async ({ page }) => {
+  const number = new Intl.NumberFormat("en");
+  const summary = () => page.waitForResponse(response => response.url().includes("/request-history/summary?") && response.status() === 200);
+  const first = summary();
+  await page.goto("/dashboard/history");
+  await first;
+  const chart = page.locator(".activity-chart");
+  await expect(chart).toBeVisible();
+  await expect(chart.locator("svg")).toHaveCSS("height", "260px");
+  await expect(chart.getByText("Requests", { exact: true })).toBeVisible();
+  await expect(chart.getByText(/^Time \(/)).toBeVisible();
+  await expect(chart.getByText("Success · HTTP 100–399", { exact: true })).toBeVisible();
+  await expect(chart.getByText("Errors · HTTP 400–599", { exact: true })).toBeVisible();
+  let previousEnd;
+  for (const [name, minutes, count] of [["hour", 1, 60], ["day", 15, 96], ["week", 120, 84], ["month", 480, 90]]) {
+    const pending = summary();
+    await page.getByRole("combobox", { name: "Timeframe", exact: true }).selectOption(name);
+    const response = await pending;
+    const url = new URL(response.url());
+    const buckets = await response.json();
+    expect(url.searchParams.get("bucketMinutes")).toBe(String(minutes));
+    expect(new Date(url.searchParams.get("toUtc")) - new Date(url.searchParams.get("fromUtc"))).toBe(minutes * count * 60000);
+    expect(buckets).toHaveLength(count);
+    for (let index = 1; index < count; index++) expect(new Date(buckets[index].startUtc) - new Date(buckets[index - 1].startUtc)).toBe(minutes * 60000);
+    await expect(chart.locator(".chart-bucket")).toHaveCount(count);
+    const bucket = chart.locator(".chart-bucket").nth(count - 1);
+    await bucket.locator("rect").last().hover();
+    const tooltip = chart.getByRole("tooltip");
+    await expect(tooltip).toContainText(`Success: ${number.format(buckets.at(-1).success)}`);
+    await expect(tooltip).toContainText(`Errors: ${number.format(buckets.at(-1).failure)}`);
+    await expect(tooltip).toContainText(`Total: ${number.format(buckets.at(-1).success + buckets.at(-1).failure)}`);
+    await expect(bucket.locator("rect").first()).toHaveAttribute("fill", "var(--success)");
+    await expect(bucket.locator("rect").nth(1)).toHaveAttribute("fill", "var(--danger)");
+    await chart.locator("svg").focus();
+    await page.keyboard.press("Home");
+    await expect(chart.locator(".chart-bucket").first().locator(".chart-highlight")).toHaveCount(1);
+    await page.keyboard.press("ArrowRight");
+    await expect(chart.locator(".chart-bucket").nth(1).locator(".chart-highlight")).toHaveCount(1);
+    await page.keyboard.press("End");
+    await expect(chart.locator(".chart-bucket").last().locator(".chart-highlight")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(chart.getByRole("tooltip")).toHaveCount(0);
+    if (name === "day") await chart.screenshot({ path: "../.run/screenshots/request-activity-desktop.png" });
+    previousEnd = url.searchParams.get("toUtc");
+  }
+  const refreshed = summary();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  expect(new Date(new URL((await refreshed).url()).searchParams.get("toUtc")).getTime()).toBeGreaterThan(new Date(previousEnd).getTime());
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(chart.locator("svg")).toHaveCSS("height", "260px");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
+  await page.screenshot({ path: "../.run/screenshots/request-activity-mobile.png", fullPage: true });
+});

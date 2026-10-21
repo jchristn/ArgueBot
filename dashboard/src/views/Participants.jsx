@@ -1,3 +1,6 @@
+import ObjectRow from "../components/ObjectRow.jsx";
+import CopyableId from "../components/CopyableId.jsx";
+import harnesses from "../../../assets/harness-defaults.json";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,12 +9,12 @@ import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
 function ProfileForm({ onSave, onClose, initial }) {
   const { t } = useTranslation();
   const [profile, setProfile] = useState(
-    initial || {
-      name: "",
+    initial ? { ...initial, ...(initial.kind === "cli" ? { executable: initial.executable || harnesses[initial.provider]?.executable || "", arguments: initial.arguments.length ? initial.arguments : [...(harnesses[initial.provider]?.arguments || [])] } : {}) } : {
+      name: "Claude Code",
       kind: "cli",
-      provider: "plain",
-      executable: "",
-      arguments: [],
+      provider: "claude",
+      executable: harnesses.claude.executable,
+      arguments: [...harnesses.claude.arguments],
       workingDirectory: "",
       endpoint: "http://127.0.0.1:11434",
       model: "",
@@ -22,6 +25,7 @@ function ProfileForm({ onSave, onClose, initial }) {
     },
   );
   const [busy, setBusy] = useState(false);
+  const executableIsCommand = profile.kind === "cli" && /^\s*(claude|codex|gemini|mux)(\.exe)?\s+-/i.test(profile.executable);
   const field = (name, label, type = "text", extra = {}) => (
     <Field label={label}>
       {(props) => (
@@ -44,10 +48,11 @@ function ProfileForm({ onSave, onClose, initial }) {
     </Field>
   );
   return (
-    <Modal title="participants.add" onClose={onClose} wide>
+    <Modal title={initial?.id ? "participants.edit" : "participants.add"} onClose={onClose} wide>
       <form
         onSubmit={async (event) => {
           event.preventDefault();
+          if (executableIsCommand) return;
           setBusy(true);
           try {
             await onSave(profile);
@@ -65,53 +70,40 @@ function ProfileForm({ onSave, onClose, initial }) {
             {(props) => (
               <select
                 {...props}
-                value={profile.kind}
-                onChange={(event) =>
-                  setProfile((value) => ({
-                    ...value,
-                    kind: event.target.value,
-                    provider: event.target.value === "cli" ? "plain" : "ollama",
-                  }))
-                }
+                value={profile.kind === "rest" ? "rest" : profile.provider}
+                onChange={(event) => {
+                  const choice = event.target.value;
+                  setProfile((value) => choice === "rest"
+                    ? { ...value, kind: "rest", provider: "ollama", arguments: [], executable: "" }
+                    : { ...value, kind: "cli", provider: choice, executable: harnesses[choice].executable, arguments: [...harnesses[choice].arguments], name: !value.name || Object.values(harnesses).some((preset) => preset.name === value.name) ? harnesses[choice].name : value.name });
+                }}
               >
-                <option value="cli">{t("profile.cli")}</option>
+                {Object.entries(harnesses).map(([provider, preset]) => <option key={provider} value={provider}>{preset.name}</option>)}
                 <option value="rest">{t("profile.rest")}</option>
               </select>
             )}
           </Field>
-          <Field label="profile.provider">
-            {(props) => (
-              <select
-                {...props}
-                value={profile.provider}
-                onChange={(event) =>
-                  setProfile((value) => ({
-                    ...value,
-                    provider: event.target.value,
-                  }))
-                }
-              >
-                {(profile.kind === "cli"
-                  ? ["plain", "claude", "codex", "gemini", "mux"]
-                  : ["ollama", "openai", "anthropic", "gemini"]
-                ).map((provider) => (
-                  <option key={provider} value={provider}>
-                    {provider}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+          {profile.kind === "rest" && <Field label="profile.provider">
+            {(props) => <select {...props} value={profile.provider} onChange={(event) => setProfile((value) => ({ ...value, provider: event.target.value }))}>
+              {["ollama", "openai", "anthropic", "gemini"].map((provider) => <option key={provider} value={provider}>{provider}</option>)}
+            </select>}
+          </Field>}
           {profile.kind === "cli" ? (
             <>
+              <div>
               {field("executable", "profile.executable", "text", {
                 required: true,
+                placeholder: "claude",
+                "aria-invalid": executableIsCommand || undefined,
               })}
+              {executableIsCommand && <p role="alert">{t("profile.executable.commandError")}</p>}
+              </div>
               {field("workingDirectory", "profile.directory")}
               <fieldset className="argument-editor">
                 <legend title={t("profile.arguments.help")}>
                   {t("profile.arguments")}
                 </legend>
+                <p className="muted">{t("profile.arguments.help")}</p>
                 {profile.arguments.map((argument, index) => (
                   <div className="argument-row" key={index}>
                     <input
@@ -159,6 +151,7 @@ function ProfileForm({ onSave, onClose, initial }) {
           ) : (
             <>
               {field("endpoint", "profile.endpoint", "url", { required: true })}
+              {field("workingDirectory", "profile.directory")}
               {field("model", "profile.model", "text", { required: true })}
               {field("secretEnvironmentVariable", "profile.secret", "text", {
                 autoComplete: "off",
@@ -189,6 +182,7 @@ function ProfileForm({ onSave, onClose, initial }) {
           {t("profile.enabled")}
         </label>
         <p className="muted">{t("profile.capability")}</p>
+        <p className="muted">{t("profile.snapshots.help")}</p>
         <footer>
           <Button
             label="common.cancel"
@@ -201,7 +195,7 @@ function ProfileForm({ onSave, onClose, initial }) {
             help="participants.add.help"
             className="primary"
             type="submit"
-            disabled={busy}
+            disabled={busy || executableIsCommand}
           />
         </footer>
       </form>
@@ -243,6 +237,7 @@ export default function Participants() {
           <thead>
             <tr>
               <th scope="col">{t("profile.nameColumn")}</th>
+              <th scope="col">{t("common.identifier")}</th>
               <th scope="col">{t("profile.typeColumn")}</th>
               <th scope="col">{t("profile.modelColumn")}</th>
               <th scope="col">{t("profile.enabledColumn")}</th>
@@ -251,10 +246,11 @@ export default function Participants() {
           </thead>
           <tbody>
             {data?.map((profile) => (
-              <tr key={profile.id}>
+              <ObjectRow key={profile.id} onOpen={() => setModal({ kind: "form", profile })}>
                 <td>
                   <strong>{profile.name}</strong>
                 </td>
+                <td><CopyableId value={profile.id} /></td>
                 <td>
                   {profile.kind} · {profile.provider}
                 </td>
@@ -286,7 +282,7 @@ export default function Participants() {
                     />
                   </div>
                 </td>
-              </tr>
+              </ObjectRow>
             ))}
           </tbody>
         </table>

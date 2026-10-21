@@ -1,8 +1,10 @@
 namespace ArgueBot.Core.Configuration
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Text.Json;
+    using System.Text.Json.Nodes;
     using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
@@ -11,12 +13,9 @@ namespace ArgueBot.Core.Configuration
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
     public sealed class ServiceSettings
     {
-        private TelemetrySettings _Telemetry = new TelemetrySettings();
         private DatabaseSettings _Database = new DatabaseSettings();
 
         private int _Port = 4317;
-        /// <summary>Process telemetry collection and export settings.</summary>
-        public TelemetrySettings Telemetry { get { return _Telemetry; } set { ArgumentNullException.ThrowIfNull(value); _Telemetry = value; } }
         /// <summary>Capture HTTP request history by default.</summary>
         public bool RequestHistoryEnabled { get; set; } = true;
         /// <summary>Capture prefix limit in bytes, default 32768.</summary>
@@ -25,7 +24,10 @@ namespace ArgueBot.Core.Configuration
         public int RequestHistoryRetentionDays { get; set; } = 30;
         /// <summary>Persistent database configuration. SQLite is the local default.</summary>
         public DatabaseSettings Database { get { return _Database; } set { ArgumentNullException.ThrowIfNull(value); _Database = value; } }
-        /// <summary>Enable HTTPS using keys/listener.pfx in the application home. Password login requires HTTPS.</summary>
+        /// <summary>Ignored compatibility field from older settings files. The product always uses one open workspace.</summary>
+        [JsonIgnore]
+        public bool RequireAuthentication { get { return false; } set { } }
+        /// <summary>Enable HTTPS using keys/listener.pfx in the application home.</summary>
         public bool TlsEnabled { get; set; }
         /// <summary>Optional environment variable containing the listener PFX password. No literal password is persisted.</summary>
         public string TlsPasswordEnvironmentVariable { get; set; } = "";
@@ -55,7 +57,7 @@ namespace ArgueBot.Core.Configuration
         public int ContextMaxMessages { get; set; } = 1000;
         /// <summary>Default maximum concurrent conversations.</summary>
         public int MaxConcurrentRuns { get; set; } = 4;
-        /// <summary>Whether shell-out runners may execute. Default true for local mode only.</summary>
+        /// <summary>Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only.</summary>
         public bool AllowCli { get; set; } = true;
         /// <summary>Load or atomically create service settings.</summary>
         public static async Task<ServiceSettings> LoadAsync(ArgueBotPaths paths, CancellationToken token = default)
@@ -73,6 +75,15 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Parse and validate a complete settings document without reading or modifying the filesystem.</summary>
         public static ServiceSettings Parse(string text)
         {
+            JsonNode? node = JsonNode.Parse(text);
+            if (node is JsonObject document)
+            {
+                List<string> obsolete = new List<string>();
+                foreach (KeyValuePair<string, JsonNode?> property in document)
+                    if (property.Key.Equals("telemetry", StringComparison.OrdinalIgnoreCase)) obsolete.Add(property.Key);
+                foreach (string name in obsolete) document.Remove(name);
+                text = document.ToJsonString();
+            }
             ServiceSettings settings = JsonSerializer.Deserialize<ServiceSettings>(text, SerializerOptions()) ?? throw new InvalidDataException("Settings cannot be null.");
             settings.Validate(); return settings;
         }
@@ -109,10 +120,8 @@ namespace ArgueBot.Core.Configuration
             if (RequestHistoryBodyBytes < 0 || RequestHistoryBodyBytes > 1048576) throw new ArgumentOutOfRangeException(nameof(RequestHistoryBodyBytes));
             if (RequestHistoryRetentionDays < 1 || RequestHistoryRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(RequestHistoryRetentionDays));
             ArgumentNullException.ThrowIfNull(Database);
-            ArgumentNullException.ThrowIfNull(Telemetry);
             if (!Enum.IsDefined(Database.Type)) throw new ArgumentOutOfRangeException(nameof(Database.Type));
             if (Database.ConnectionEnvironmentVariable.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(Database.ConnectionEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]*$")) throw new ArgumentException("Use an environment variable name for the database credential reference.");
-            if (!Uri.TryCreate(Telemetry.Endpoint, UriKind.Absolute, out Uri? endpoint) || (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps) || endpoint.UserInfo.Length > 0 || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0) throw new ArgumentException("Telemetry endpoint must be an HTTP URL without embedded credentials.");
         }
         private static JsonSerializerOptions SerializerOptions()
         {

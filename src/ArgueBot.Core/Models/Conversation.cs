@@ -2,6 +2,7 @@ namespace ArgueBot.Core.Models
 {
     using System.Collections.Generic;
     using System;
+    using System.Text.Json.Serialization;
 
     /// <summary>Conversation transport and domain data.</summary>
     public sealed class Conversation
@@ -18,9 +19,11 @@ namespace ArgueBot.Core.Models
         public long LastEventSequence { get; set; }
 
         /// <summary>Owning tenant.</summary>
+        [JsonIgnore]
         public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value; } }
 
         /// <summary>Owning user.</summary>
+        [JsonIgnore]
         public string UserId { get { return _UserId; } set { ArgumentNullException.ThrowIfNull(value); _UserId = value; } }
 
         /// <summary>Display title.</summary>

@@ -189,8 +189,9 @@ small {
   color: var(--text);
   letter-spacing: -0.03em;
 }
-.wordmark svg {
-  color: var(--accent);
+.wordmark img {
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .app-shell {
   height: 100dvh;
@@ -1090,13 +1091,22 @@ body {
 }
 .activity-chart svg {
   width: 100%;
-  height: 130px;
+  height: 260px;
 }
-.activity-chart figcaption {
-  display: flex;
-  gap: 24px;
-  font-size: 0.85rem;
-}
+.activity-chart figcaption { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 0.85rem; }
+.activity-chart figcaption span, .chart-tooltip span { display: flex; align-items: center; gap: 8px; }
+.activity-plot { position: relative; min-width: 0; }
+.chart-axis path { stroke: var(--border); }
+.chart-axis text { fill: var(--muted); font-size: 11px; }
+.chart-axis-label { fill: var(--text); font-size: 12px; }
+.chart-swatch { display: inline-block; width: 12px; height: 12px; flex: 0 0 12px; border-radius: 2px; }
+.chart-swatch.success { background: var(--success); }
+.chart-swatch.failure { background: var(--danger); }
+.chart-highlight { fill: var(--accent); fill-opacity: 0.12; stroke: var(--text); stroke-width: 1; }
+.chart-tooltip { position: absolute; top: 8px; width: 240px; max-width: calc(100% - 16px); padding: 10px 12px; display: grid; gap: 6px; background: var(--raised); color: var(--text); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); font-size: 0.8rem; pointer-events: none; z-index: 1; }
+.chart-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 12px; }
+.chart-controls label { display: flex; align-items: center; gap: 12px; }
+.chart-controls p { margin: 0; font-size: 0.85rem; }
 .inspector-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1108,37 +1118,11 @@ body {
 }
 .explorer {
   display: grid;
-  grid-template-columns: minmax(200px, 30%) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
 }
-.explorer-list {
-  min-width: 0;
-  max-height: 75vh;
-  overflow: auto;
-}
-.explorer-list > input {
-  width: 100%;
-  margin-bottom: 12px;
-}
-.operation {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
-  text-align: start;
-  color: var(--text);
-  background: transparent;
-  border: 1px solid var(--border);
-  cursor: pointer;
-}
-.operation code {
-  overflow-wrap: anywhere;
-}
-.operation.selected {
-  background: var(--surface);
-  border-color: var(--accent);
-}
+.explorer > .field { min-width: 0; }
+.explorer > .field select { width: 100%; min-width: 0; }
 .explorer-workspace {
   min-width: 0;
 }
@@ -1148,19 +1132,49 @@ body {
 .badge.failure {
   color: var(--danger);
 }
-@media (max-width: 768px) {
-  .explorer {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .explorer-list {
-    max-height: 240px;
-  }
-}
-.service-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
 
 .history-navigation { flex-shrink: 0; }
 .history-navigation .pagination { padding-block: 8px; margin-block: 0; }
+
+.copy-control { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 100%; }
+.copyable-id { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; vertical-align: middle; }
+.copyable-id code { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+.copyable-id .button { padding: 4px; min-width: 26px; min-height: 26px; }
+.copyable-id svg { width: 15px; height: 15px; }
+.copy-manual { width: 100%; min-height: 240px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+dialog.request-inspector { width: min(1120px, calc(100vw - 32px)); }
+.request-overview { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.request-overview > code { flex: 1; min-width: 0; }
+.http-method { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; }
+.request-metadata { margin: 20px 0; }
+.request-metadata dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; }
+.request-metadata dt { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.request-metadata dd { margin: 0; overflow-wrap: anywhere; }
+.request-response-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.http-capture { min-width: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.http-capture > h3 { margin: 0; padding: 14px 16px; background: var(--sunken); border-bottom: 1px solid var(--border); }
+.capture-block { padding: 16px; }
+.capture-block + .capture-block { border-top: 1px solid var(--border); }
+.capture-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.capture-heading h4 { margin: 0; }
+.capture-meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+.capture-block pre { max-height: 360px; margin-bottom: 0; font-size: 12px; overflow-wrap: anywhere; }
+.header-values { font-size: 12px; }
+.header-values > div { margin-top: 12px; }
+.header-values dt { font-weight: 600; }
+.header-values dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.request-raw { border: 1px solid var(--border); border-radius: 10px; margin-top: 20px; }
+.request-raw > summary { cursor: pointer; padding: 16px; font-weight: 600; }
+.request-inspector footer { position: sticky; bottom: 0; z-index: 1; padding: 14px 0; background: var(--surface); border-top: 1px solid var(--border); }
+@media (max-width: 700px) { .request-response-grid { grid-template-columns: 1fr; } .request-metadata dl { grid-template-columns: minmax(0, 1fr); } }
+
+.request-inspector > header { z-index: 2; }
+.header-values { max-height: 260px; overflow: auto; }
+
+.monospace { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+.object-row { cursor: pointer; }
+.object-row:hover { background: var(--sunken); }
+.object-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

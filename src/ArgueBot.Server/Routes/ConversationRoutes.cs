@@ -20,9 +20,8 @@ namespace ArgueBot.Server.Routes
     {
         private readonly DatabaseDriverBase _Database;
         private readonly ConversationEngine _Engine;
-        private readonly SessionMethods _Sessions;
         private readonly ServiceSettings _Settings;
-        internal ConversationRoutes(DatabaseDriverBase database, ConversationEngine engine, SessionMethods sessions, ServiceSettings settings) { _Database = database; _Engine = engine; _Sessions = sessions; _Settings = settings; }
+        internal ConversationRoutes(DatabaseDriverBase database, ConversationEngine engine, ServiceSettings settings) { _Database = database; _Engine = engine; _Settings = settings; }
         internal void Register(Webserver server)
         {
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
@@ -100,11 +99,7 @@ namespace ArgueBot.Server.Routes
             long started = Stopwatch.GetTimestamp(); long heartbeat = started; bool firstHeartbeat = true;
             while (!http.Token.IsCancellationRequested && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(ServiceProtocol.EventConnectionSeconds))
             {
-                RequestContext? current = await _Sessions.AuthenticateAsync(Api.SessionToken(http), http.Token).ConfigureAwait(false);
-                if (current == null)
-                {
-                    await http.Response.SendEvent(new ServerSentEvent { Event = "session_revoked", Data = "{}" }, true, http.Token).ConfigureAwait(false); return;
-                }
+                RequestContext current = Api.Context(http);
                 List<DurableEvent> events = pending ?? await _Database.ReadEventsAsync(current, conversationId, after, pageSize, http.Token).ConfigureAwait(false);
                 pending = null;
                 foreach (DurableEvent entry in events)

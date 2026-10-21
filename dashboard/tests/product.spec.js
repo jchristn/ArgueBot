@@ -1,26 +1,141 @@
 import { test, expect } from "@playwright/test";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
+import net from "node:net";
 import path from "node:path";
-async function code() {
-  return (
-    await fs.readFile(
-      path.join(process.env.ARGUEBOT_E2E_HOME, "runtime/pairing-code"),
-      "utf8",
-    )
-  ).trim();
-}
-async function enroll(page) {
+async function openDashboard(page) {
   await page.goto("/");
-  await page.getByLabel("Pairing code", { exact: true }).fill(await code());
-  await page.getByRole("button", { name: "Connect securely" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your thinking, in progress" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
 }
-test("pair, create, save note, export and restore theme", async ({ page }) => {
+test("REST participant executes local tools and preserves visible tool history", async ({ page }) => {
+  test.skip(!process.env.ARGUEBOT_SIMULATION_URL, "Start the committed provider simulation and set ARGUEBOT_SIMULATION_URL.");
+  const home = await fs.mkdtemp(path.resolve("../.run/rest tool browser "));
+  const workspace = path.join(home, "workspace"); await fs.mkdir(workspace);
+  const listener = net.createServer();
+  await new Promise((resolve) => listener.listen(0, "127.0.0.1", resolve));
+  const port = listener.address().port; await new Promise((resolve) => listener.close(resolve));
+  const cli = path.resolve("../src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll");
+  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "" } });
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    expect(invoke("service", "web", "--port", String(port)).status).toBe(0);
+    await page.goto(origin + "/dashboard/participants");
+    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    await page.getByLabel("Runner type", { exact: true }).selectOption("rest");
+    await page.getByLabel("Display name", { exact: true }).fill("REST tool fixture");
+    await page.getByLabel("Endpoint URL", { exact: true }).fill(process.env.ARGUEBOT_SIMULATION_URL);
+    await page.getByLabel("Model identifier", { exact: true }).fill("local-tools");
+    await page.getByLabel("Working directory", { exact: true }).fill(workspace);
+    await expect(page.getByText("REST participants can read and write local files", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    const profiles = await (await page.request.get(origin + "/v1.0/api/participants")).json();
+    const profile = profiles.find((item) => item.name === "REST tool fixture"); expect(profile.workingDirectory).toBe(workspace);
+    const conversation = await (await page.request.post(origin + "/v1.0/api/conversations", { data: { title: "REST tool browser evidence" } })).json();
+    const question = JSON.stringify({ fixtureExecutable: path.resolve("../src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll") });
+    const run = await page.request.post(origin + `/v1.0/api/conversations/${conversation.id}/runs`, { data: { mode: "followup", question, participantIds: [profile.id], maxRounds: 1, idempotencyKey: "browser-tools" } });
+    expect(run.status()).toBe(202);
+    await page.goto(origin + `/dashboard/conversations/${conversation.id}`);
+    await expect(page.getByText("Local tools verified.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await expect(page.locator("article.message").filter({ hasText: "Status: completed" })).toHaveCount(4);
+    expect(await fs.readFile(path.join(workspace, "tool fixture.txt"), "utf8")).toBe("Local tool evidence 議論");
+    await page.reload();
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await page.screenshot({ path: "../.run/screenshots/rest-local-tools.png", fullPage: true });
+  } finally { invoke("service", "stop"); await fs.rm(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
+});
+
+test("plain local dashboard opens and writes without authentication or pairing", async ({ page }) => {
+  const home = await fs.mkdtemp(path.resolve("../.run/open local workspace "));
+  const listener = net.createServer();
+  await new Promise((resolve) => listener.listen(0, "127.0.0.1", resolve));
+  const port = listener.address().port;
+  await new Promise((resolve) => listener.close(resolve));
+  const cli = path.resolve("../src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll");
+  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "" } });
+  try {
+    const launch = invoke("service", "web", "--port", String(port));
+    expect(launch.status).toBe(0);
+    const url = `http://127.0.0.1:${port}/dashboard`;
+    expect(launch.stdout).toContain(url);
+    expect(launch.stdout).not.toMatch(/#|connect=|pairing/i);
+    expect(await fs.access(path.join(home, "runtime/pairing-code")).then(() => true, () => false)).toBe(false);
+    const requests = [];
+    page.on("request", (request) => requests.push({ url: request.url(), authorization: request.headers().authorization }));
+    await page.goto(url);
+    await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
+    await expect(page.getByText("Local workspace", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign out", exact: true })).not.toBeVisible();
+    for (const [provider, flag] of [["claude", "--dangerously-skip-permissions"], ["codex", "--yolo"], ["mux", "--no-session-persistence"]]) {
+      const created = await page.request.post(`http://127.0.0.1:${port}/v1.0/api/participants`, { data: { kind: "cli", provider } });
+      expect(created.status()).toBe(201);
+      const profile = await created.json();
+      expect(profile.executable).toBe(provider);
+      expect(profile.arguments).toContain(flag);
+      const read = await page.request.get(`http://127.0.0.1:${port}/v1.0/api/participants`);
+      expect((await read.json()).find((item) => item.id === profile.id).arguments).toEqual(profile.arguments);
+      const custom = await page.request.put(`http://127.0.0.1:${port}/v1.0/api/participants/${profile.id}`, { data: { ...profile, arguments: ["--custom", "", "two words"] } });
+      expect(custom.ok()).toBe(true);
+      expect((await custom.json()).arguments).toEqual(["--custom", "", "two words"]);
+      const restored = await page.request.put(`http://127.0.0.1:${port}/v1.0/api/participants/${profile.id}`, { data: { ...profile, arguments: [], executable: "" } });
+      expect(restored.ok()).toBe(true);
+      expect((await restored.json()).arguments).toEqual(profile.arguments);
+    }
+    const cliProfile = invoke("participants", "add", JSON.stringify({ kind: "cli", provider: "codex" }));
+    expect(cliProfile.status).toBe(0);
+    expect(JSON.parse(cliProfile.stdout).arguments).toContain("--yolo");
+    await page.goto(url + "/participants");
+    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    const runner = page.getByLabel("Runner type", { exact: true });
+    await expect(runner).toHaveValue("claude");
+    await expect(page.getByRole("textbox", { name: "Argument 3", exact: true })).toHaveValue("--dangerously-skip-permissions");
+    await runner.selectOption("codex");
+    await expect(page.getByRole("textbox", { name: "Executable (program only)", exact: true })).toHaveValue("codex");
+    await expect(page.getByRole("textbox", { name: "Argument 2", exact: true })).toHaveValue("--yolo");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await page.goto(url);
+    const result = await page.evaluate(async () => {
+      const health = await (await fetch("/health")).json();
+      const saved = await fetch("/v1.0/api/conversations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Open local workspace fixture" }) });
+      const conversation = await saved.json();
+      const controller = new AbortController();
+      const events = await fetch("/v1.0/api/conversations/" + conversation.id + "/events", { headers: { Accept: "text/event-stream" }, signal: controller.signal });
+      const reader = events.body.getReader();
+      const first = await reader.read();
+      const eventText = new TextDecoder().decode(first.value);
+      controller.abort();
+      return { health, saved: saved.status, eventText };
+    });
+    expect(result.health.authenticationRequired).toBe(false);
+    expect(result.saved).toBe(201);
+    expect(result.eventText).not.toContain("session_revoked");
+    expect(result.eventText).toContain("event:");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
+    await page.goto(url + "#connect=obsolete-link");
+    await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
+    await expect(page).not.toHaveURL(/#/);
+    expect(requests.every((request) => !request.authorization && !request.url.endsWith("/auth/pair"))).toBe(true);
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({ path: `../.run/screenshots/open-local-${width}.png`, fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  } finally {
+    invoke("service", "stop");
+    for (let retry = 0; retry < 50; retry++) {
+      if (!(await fs.access(path.join(home, "runtime/service.json")).then(() => true, () => false))) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+  }
+});
+test("open, create, save note, export and restore theme", async ({ page }) => {
   const failures = [];
   page.on("pageerror", (error) => failures.push(error.message));
-  await enroll(page);
+  await openDashboard(page);
   await page
     .getByRole("button", { name: "New conversation", exact: true })
     .first()
@@ -68,26 +183,14 @@ for (const width of [1280, 768, 390]) {
       page,
       request,
     }) => {
-      const paired = await request.post("/v1.0/api/auth/pair", {
-        data: { code: await code() },
-      });
-      expect(paired.ok()).toBeTruthy();
-      const { token } = await paired.json();
       const created = await request.post("/v1.0/api/conversations", {
-        headers: { Authorization: `Bearer ${token}` },
         data: {
           title: "A durable conversation about the next architecture decision",
         },
       });
       expect(created.ok()).toBeTruthy();
       const conversation = await created.json();
-      await page.addInitScript(
-        ({ token, theme }) => {
-          sessionStorage.setItem("arguebot.session", token);
-          localStorage.setItem("arguebot.theme", theme);
-        },
-        { token, theme },
-      );
+      await page.addInitScript(theme => localStorage.setItem("arguebot.theme", theme), theme);
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/dashboard/conversations/" + conversation.id);
       await expect(
@@ -135,7 +238,7 @@ for (const width of [1280, 768, 390]) {
 test("inspect redacted request history and execute a read-only API request", async ({
   page,
 }) => {
-  await enroll(page);
+  await openDashboard(page);
   await page.goto("/dashboard/history");
   await expect(
     page.getByRole("heading", { name: "Request history", exact: true }),
@@ -156,7 +259,7 @@ test("inspect redacted request history and execute a read-only API request", asy
   await expect(
     page.getByRole("heading", { name: "API Explorer", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "GET /health", exact: true }).click();
+  await page.getByRole("combobox", { name: "Operation", exact: true }).selectOption("get /health");
   await page
     .getByRole("button", { name: "Execute request", exact: true })
     .click();
@@ -168,11 +271,20 @@ test("inspect redacted request history and execute a read-only API request", asy
 test("participant argument editor preserves blank literal arguments", async ({
   page,
 }) => {
-  await enroll(page);
+  await openDashboard(page);
   await page.goto("/dashboard/participants");
   await page
     .getByRole("button", { name: "Add participant", exact: true })
     .click();
+  const executable = page.getByRole("textbox", { name: "Executable (program only)", exact: true });
+  await executable.fill("claude --dangerously-skip-permissions");
+  await expect(page.getByRole("alert")).toContainText("Put each flag or value in a separate argument row");
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+  await expect(page.getByText("Selecting Claude Code, Codex", { exact: false })).toBeVisible();
+  await page.getByLabel("Runner type", { exact: true }).selectOption("plain");
+  await page.screenshot({ path: "../.run/screenshots/participant-command-guidance.png" });
+  await executable.fill("/fixture directory/agent");
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Add argument", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Argument 1", exact: true })
@@ -193,163 +305,13 @@ test("participant argument editor preserves blank literal arguments", async ({
   ).toHaveValue("");
 });
 
-test("create, verify, download and delete a recovery archive", async ({
-  page,
-}) => {
-  await enroll(page);
-  await page.getByRole("link", { name: "Backups", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Create backup", exact: true })
-    .click();
-  const archiveName = "Browser recovery fixture " + Date.now();
-  await page
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill(archiveName);
-  await page
-    .getByLabel("Passphrase", { exact: true })
-    .fill("browser-fixture-passphrase");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Create backup", exact: true })
-    .click();
-  await expect(page.getByText("create: completed")).toBeVisible();
-  const row = page.getByRole("row").filter({ hasText: archiveName });
-  await expect(row).toContainText("ready");
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    row.getByRole("button", { name: "Download backup" }).click(),
-  ]);
-  expect(download.suggestedFilename()).toMatch(/\.arguebak$/);
-  await row.getByRole("button", { name: "Verify", exact: true }).click();
-  await page
-    .getByLabel("Passphrase", { exact: true })
-    .fill("browser-fixture-passphrase");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Verify", exact: true })
-    .click();
-  await expect(page.getByText("verify: completed")).toBeVisible();
-  await row.getByRole("button", { name: "Restore", exact: true }).click();
-  await page
-    .getByLabel("Passphrase", { exact: true })
-    .fill("browser-fixture-passphrase");
-  await page
-    .getByLabel("New home name", { exact: true })
-    .fill("browser-pg-target");
-  await page
-    .getByLabel("Destination database", { exact: true })
-    .selectOption("Postgresql");
-  const missingReference = "ARGUEBOT_TEST_MISSING_" + Date.now();
-  await page
-    .getByLabel("PostgreSQL connection environment reference", { exact: true })
-    .fill(missingReference);
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Restore", exact: true })
-    .click();
-  await expect(
-    page
-      .getByRole("dialog")
-      .getByText(/Set a PostgreSQL connection environment reference/),
-  ).toBeVisible();
-  await expect(
-    page.getByLabel("PostgreSQL connection environment reference", {
-      exact: true,
-    }),
-  ).toHaveValue(missingReference);
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Cancel", exact: true })
-    .click();
-  const archiveId = await row.locator("td").first().getAttribute("title");
-  await page.reload();
-  const jobs = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Recovery jobs", exact: true }),
-  });
-  const verified = jobs
-    .getByRole("row")
-    .filter({ hasText: archiveId })
-    .filter({ hasText: "verify" });
-  await expect(verified).toContainText("completed");
-  await verified.getByRole("button").click();
-  await expect(page.getByText("verify: completed")).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const theme of ["light", "dark"]) {
-    if ((await page.locator("html").getAttribute("data-theme")) !== theme)
-      await page
-        .getByRole("button", { name: /Switch to (light|dark) mode/ })
-        .click();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth + 1,
-      ),
-    ).toBeTruthy();
-    await page.screenshot({
-      path: path.join("../.run/screenshots", `recovery-390-${theme}.png`),
-      fullPage: true,
-    });
-  }
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await row.getByRole("button", { name: "Delete", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Delete", exact: true })
-    .click();
-  await expect(row).toHaveCount(0);
-});
-
-test("inspect immutable security accounting and filter empty results", async ({
-  page,
-}) => {
-  await enroll(page);
-  expect((await page.request.get("/v1.0/api/auth/me")).status()).toBe(401);
-  await page.getByRole("link", { name: "Security audit", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Security audit", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("searchbox", { name: "Operation code" })
-    .fill("http.authorization");
-  await expect(
-    page.getByRole("cell", { name: "http.authorization", exact: true }).first(),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Inspect security event", exact: true })
-    .first()
-    .click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "Audit events cannot be edited or deleted",
-  );
-  await expect(page.getByRole("dialog")).toContainText("Safe error code");
-  await page.keyboard.press("Escape");
-  for (const theme of ["light", "dark"]) {
-    await page.setViewportSize({ width: 390, height: 844 });
-    const current = await page.locator("html").getAttribute("data-theme");
-    if (current !== theme)
-      await page.getByRole("button", { name: /Switch to .* mode/ }).click();
-    await page.screenshot({
-      path: path.join(
-        process.env.ARGUEBOT_E2E_SCREENSHOTS || "../.run/screenshots",
-        `audit-390-${theme}.png`,
-      ),
-      fullPage: true,
-    });
-  }
-  await page
-    .getByRole("searchbox", { name: "Operation code" })
-    .fill("no-such-security-operation");
-  await expect(
-    page.getByText("No security events match this operation."),
-  ).toBeVisible();
-});
-
 test("run a real PolyPrompt fixture debate and inspect durable attempt context", async ({
   page,
 }) => {
   const { startProviderFixture } = await import("./provider-fixture.js");
   const fixture = await startProviderFixture();
   try {
-    await enroll(page);
+    await openDashboard(page);
     const profiles = await page.evaluate(async (endpoint) => {
       const result = [];
       for (const name of [
@@ -359,7 +321,6 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
         const response = await fetch("/v1.0/api/participants", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -470,7 +431,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
 test("page long history, read complete text and export beyond the visible page", async ({
   page,
 }) => {
-  await enroll(page);
+  await openDashboard(page);
   await page
     .getByRole("button", { name: "New conversation", exact: true })
     .first()
@@ -494,7 +455,6 @@ test("page long history, read complete text and export beyond the visible page",
       const response = await fetch(`/v1.0/api/conversations/${id}/messages`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -529,7 +489,6 @@ test("page long history, read complete text and export beyond the visible page",
     const response = await fetch(`/v1.0/api/conversations/${id}/messages`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -576,7 +535,7 @@ test("page long history, read complete text and export beyond the visible page",
 test("reload snapshots after an expired event cursor before resuming live updates", async ({
   page,
 }) => {
-  await enroll(page);
+  await openDashboard(page);
   const calls = [];
   let refused = false;
   let resumed = false;
@@ -632,7 +591,6 @@ test("reload snapshots after an expired event cursor before resuming live update
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -647,203 +605,4 @@ test("reload snapshots after an expired event cursor before resuming live update
   await expect(
     page.getByText("Committed after replay recovery", { exact: true }),
   ).toBeVisible();
-});
-
-test("administer a tenant identity, sign in as a viewer and revoke it through disablement", async ({
-  page,
-  browser,
-}) => {
-  await enroll(page);
-  await page.getByRole("link", { name: "Users", exact: true }).click();
-  const email = `browser-${Date.now()}+%40@example.invalid`;
-  await page.getByRole("button", { name: "Create user", exact: true }).click();
-  const form = page.getByRole("dialog");
-  await form
-    .getByLabel("Display name", { exact: true })
-    .fill("Browser identity fixture");
-  await form.getByLabel("Email address", { exact: true }).fill(email);
-  await form
-    .getByLabel("New password", { exact: true })
-    .fill("fictional-browser-password");
-  await fs.mkdir(path.resolve("../.run/screenshots"), { recursive: true });
-  for (const width of [1280, 390])
-    for (const theme of ["light", "dark"]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.evaluate((value) => {
-        document.documentElement.dataset.theme = value;
-      }, theme);
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-      await page.screenshot({
-        path: path.resolve(
-          `../.run/screenshots/users-form-${width}-${theme}.png`,
-        ),
-        fullPage: true,
-      });
-      if (width === 390) {
-        await form
-          .getByRole("button", { name: "Save", exact: true })
-          .scrollIntoViewIfNeeded();
-        await expect(
-          form.getByRole("button", { name: "Save", exact: true }),
-        ).toBeInViewport();
-        await page.screenshot({
-          path: path.resolve(`../.run/screenshots/users-actions-${theme}.png`),
-          fullPage: true,
-        });
-      }
-    }
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await form.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(form).not.toBeVisible();
-  await page.getByLabel("Find users", { exact: true }).fill(email);
-  const row = page.getByRole("row").filter({ hasText: email });
-  await expect(row).toContainText("Viewer");
-  const other = await browser.newContext({ ignoreHTTPSErrors: true });
-  try {
-    const viewer = await other.newPage();
-    await viewer.goto("/");
-    await viewer
-      .getByLabel("Sign-in method", { exact: true })
-      .selectOption("password");
-    await viewer.getByLabel("Email address", { exact: true }).fill(email);
-    await viewer
-      .getByLabel("Password", { exact: true })
-      .fill("fictional-browser-password");
-    await viewer
-      .getByRole("button", { name: "Connect securely", exact: true })
-      .click();
-    await expect(
-      viewer.getByRole("heading", { name: "Your thinking, in progress" }),
-    ).toBeVisible();
-    await expect(
-      viewer.getByRole("link", { name: "Users", exact: true }),
-    ).toHaveCount(0);
-    const denied = await viewer.evaluate(async () => {
-      const token = sessionStorage.getItem("arguebot.session");
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-      return [
-        await fetch("/v1.0/api/users", { headers }),
-        await fetch("/v1.0/api/conversations", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ title: "Viewer mutation must fail" }),
-        }),
-      ].map((response) => response.status);
-    });
-    expect(denied).toEqual([403, 403]);
-    await expect(viewer.getByRole("link", { name: "Roles", exact: true })).toHaveCount(0);
-    await viewer.goto("/dashboard/roles");
-    await expect(viewer.getByRole("alert")).toContainText("administrator");
-    await expect(viewer.getByRole("button", { name: "Create role", exact: true })).toHaveCount(0);
-    await row.getByRole("button", { name: "Edit user", exact: true }).click();
-    await page
-      .getByRole("dialog")
-      .getByLabel("Active", { exact: true })
-      .uncheck();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
-    await expect(row).toContainText("Disabled");
-    expect(
-      await viewer.evaluate(
-        async () =>
-          (
-            await fetch("/v1.0/api/auth/me", {
-              headers: {
-                Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
-              },
-            })
-          ).status,
-      ),
-    ).toBe(401);
-    const captured = await page.evaluate(async () => {
-      const headers = {
-        Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`,
-      };
-      const records = await (
-        await fetch("/v1.0/api/request-history?method=POST&pageSize=100", {
-          headers,
-        })
-      ).json();
-      const login = records.items.find(
-        (record) => record.path === "/v1.0/api/auth/login",
-      );
-      return login
-        ? await (
-            await fetch("/v1.0/api/request-history/" + login.id, { headers })
-          ).json()
-        : null;
-    });
-    expect(captured).not.toBeNull();
-    expect(captured.rawRequestBody).toContain("[redacted]");
-    expect(captured.rawRequestBody).not.toContain("fictional-browser-password");
-    expect(captured.rawResponseBody).toContain("[redacted]");
-  } finally {
-    await other.close();
-  }
-});
-
-
-test("clone protected roles, preserve conflicted drafts and deactivate custom definitions", async ({ page }) => {
-  await enroll(page);
-  await page.getByRole("link", { name: "Roles", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Roles", exact: true })).toBeVisible();
-  const search = page.getByLabel("Find roles", { exact: true });
-  await search.fill("Viewer");
-  const builtin = page.getByRole("row").filter({ hasText: "Viewer" });
-  await expect(builtin).toContainText("Protected");
-  await expect(builtin.getByRole("button", { name: "Edit role" })).toHaveCount(0);
-  await builtin.getByRole("button", { name: "Clone role" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("Role name", { exact: true })).toHaveValue("Viewer copy");
-  await expect(dialog).toContainText("Copying permissions from Viewer.");
-  await fs.mkdir(path.resolve("../.run/screenshots"), { recursive: true });
-  const name = "Browser role %+議論 " + Date.now();
-  await dialog.getByLabel("Role name", { exact: true }).fill(name);
-  for (const width of [1280, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const theme of ["light", "dark"]) {
-      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
-      await dialog.getByRole("button", { name: "Save", exact: true }).scrollIntoViewIfNeeded();
-      await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeInViewport();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
-      await page.screenshot({ path: path.resolve(`../.run/screenshots/role-editor-${width}-${theme}.png`), fullPage: true });
-    }
-  }
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog).not.toBeVisible();
-  await search.fill(name);
-  const row = page.getByRole("row").filter({ hasText: name });
-  await row.getByRole("button", { name: "Edit role" }).click();
-  const remote = await page.evaluate(async (name) => {
-    const headers = { Authorization: `Bearer ${sessionStorage.getItem("arguebot.session")}`, "Content-Type": "application/json" };
-    const found = await (await fetch("/v1.0/api/roles?search=" + encodeURIComponent(name), { headers })).json();
-    const role = found.items.find(item => item.name === name);
-    const response = await fetch("/v1.0/api/roles/" + role.id, { method: "PUT", headers, body: JSON.stringify({ name: name + " remote", active: true, expectedRevision: role.revision }) });
-    return { status: response.status, role: await response.json() };
-  }, name);
-  expect(remote.status).toBe(200);
-  await dialog.getByLabel("Role name", { exact: true }).fill("Unsaved custom role");
-  await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Reload before saving");
-  await expect(dialog.getByLabel("Role name", { exact: true })).toHaveValue("Unsaved custom role");
-  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  const updated = page.getByRole("row").filter({ hasText: remote.role.name });
-  await updated.getByRole("button", { name: "Edit role" }).click();
-  await dialog.getByLabel("Role enabled", { exact: true }).uncheck();
-  await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog).not.toBeVisible();
-  await expect(updated).toContainText("Disabled");
-  const missing = await page.locator("button,input,select").evaluateAll(elements => elements.filter(element => element.getClientRects().length && !element.title.trim()).map(element => element.outerHTML));
-  expect(missing).toEqual([]);
 });

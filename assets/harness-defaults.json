@@ -1,0 +1,54 @@
+{
+  "claude": {
+    "name": "Claude Code",
+    "executable": "claude",
+    "arguments": [
+      "-p",
+      "-",
+      "--dangerously-skip-permissions",
+      "--verbose",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages"
+    ]
+  },
+  "codex": {
+    "name": "Codex",
+    "executable": "codex",
+    "arguments": [
+      "exec",
+      "--yolo",
+      "--skip-git-repo-check",
+      "--color",
+      "never",
+      "--json",
+      "-"
+    ]
+  },
+  "gemini": {
+    "name": "Gemini CLI",
+    "executable": "gemini",
+    "arguments": [
+      "--prompt",
+      "",
+      "--output-format",
+      "stream-json"
+    ]
+  },
+  "mux": {
+    "name": "Mux",
+    "executable": "mux",
+    "arguments": [
+      "print",
+      "--output-format",
+      "text",
+      "--no-stats",
+      "--no-session-persistence"
+    ]
+  },
+  "plain": {
+    "name": "Generic CLI",
+    "executable": "",
+    "arguments": []
+  }
+}

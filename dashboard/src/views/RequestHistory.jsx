@@ -1,3 +1,5 @@
+import ObjectRow from "../components/ObjectRow.jsx";
+import RequestInspector from "../components/RequestInspector.jsx";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -5,83 +7,6 @@ import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Modal, Pagination } from "../components/ui.jsx";
 import ActivityChart from "../components/ActivityChart.jsx";
 import { formatDate } from "../i18n/index.js";
-function Inspector({ record, onClose }) {
-  const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
-  return (
-    <Modal title="history.inspect" onClose={onClose} wide>
-      <div className="inspector-summary">
-        <span className={"badge " + (record.status >= 400 ? "failure" : "")}>
-          {record.status}
-        </span>
-        <code>
-          {record.method} {record.path}
-        </code>
-        <span>{record.durationMs} ms</span>
-      </div>
-      <dl className="server-details">
-        <dt>{t("history.time")}</dt>
-        <dd>{formatDate(record.createdUtc)}</dd>
-        <dt>{t("history.principal")}</dt>
-        <dd>{record.principalName}</dd>
-        <dt>{t("history.requestId")}</dt>
-        <dd>
-          <code>{record.correlationId}</code>
-        </dd>
-        <dt>{t("history.traceId")}</dt>
-        <dd>
-          <code>{record.traceId || t("common.none")}</code>
-        </dd>
-      </dl>
-      {[false, true].map((response) => (
-        <section key={String(response)} className="inspector-section">
-          <h3>{t(response ? "history.response" : "history.request")}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t("history.header")}</th>
-                <th scope="col">{t("history.value")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {record.headers
-                .filter((header) => header.response === response)
-                .map((header) => (
-                  <tr key={header.name}>
-                    <td>{header.name}</td>
-                    <td>
-                      <code>{header.value}</code>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          <p className="muted">
-            {(response ? record.responseTruncated : record.requestTruncated) &&
-              t("history.truncated")}
-          </p>
-          <pre>
-            {(response ? record.rawResponseBody : record.rawRequestBody) ||
-              t("history.noBody")}
-          </pre>
-        </section>
-      ))}
-      <footer>
-        <Button
-          label={copied ? "common.copied" : "common.copy"}
-          help="history.copy.help"
-          onClick={async () => {
-            await navigator.clipboard.writeText(
-              JSON.stringify(record, null, 2),
-            );
-            setCopied(true);
-          }}
-        />
-        <Button label="common.close" help="common.close" onClick={onClose} />
-      </footer>
-    </Modal>
-  );
-}
 export default function RequestHistory() {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
@@ -97,13 +22,24 @@ export default function RequestHistory() {
   const { data, error, reload } = useData(JSON.stringify(filter), () =>
     api.history(filter),
   );
-  const range = useState(() => ({
-    from: new Date(Date.now() - 24 * 3600000).toISOString(),
-    to: new Date().toISOString(),
-  }))[0];
-  const chart = useData("history-chart", () =>
-    api.historySummary(range.from, range.to),
-  );
+  const [period, setPeriod] = useState({ name: "day", end: Date.now() });
+  const periods = {
+    hour: { minutes: 1, count: 60 },
+    day: { minutes: 15, count: 96 },
+    week: { minutes: 120, count: 84 },
+    month: { minutes: 480, count: 90 },
+  };
+  const chosen = periods[period.name];
+  const range = {
+    fromUtc: new Date(period.end - chosen.minutes * chosen.count * 60000).toISOString(),
+    toUtc: new Date(period.end).toISOString(),
+  };
+  const chart = useData(JSON.stringify(period), async () => ({
+    buckets: await api.historySummary(range.fromUtc, range.toUtc, chosen.minutes),
+    ...range,
+    bucketMinutes: chosen.minutes,
+    period: period.name,
+  }));
   const update = (changes) =>
     setFilter((current) => ({ ...current, ...changes }));
   const inspect = async (id) => {
@@ -126,11 +62,21 @@ export default function RequestHistory() {
           iconOnly
           onClick={() => {
             reload();
-            chart.reload();
+            setPeriod(current => ({ ...current, end: Date.now() }));
           }}
         />
       </div>
-      {chart.data && <ActivityChart buckets={chart.data} />}
+      <div className="chart-controls">
+        <label>{t("history.timeframe")}
+          <select aria-label={t("history.timeframe")} value={period.name} onChange={event => setPeriod({ name: event.target.value, end: Date.now() })}>
+            {Object.keys(periods).map(name => <option key={name} value={name}>{t("history.period." + name)}</option>)}
+          </select>
+        </label>
+        <p className="muted">{t("history.bucket." + period.name)}</p>
+      </div>
+      {chart.error && <ErrorPanel error={chart.error} retry={chart.reload} />}
+      {chart.data?.period === period.name && <ActivityChart key={chart.data.toUtc} {...chart.data} />}
+
       <div className="filters">
         <input
           type="search"
@@ -192,7 +138,7 @@ export default function RequestHistory() {
               </thead>
               <tbody>
                 {data.items.map((record) => (
-                  <tr key={record.id}>
+                  <ObjectRow key={record.id} inspect onOpen={() => setDetail(record)}>
                     <td>
                       <time>{formatDate(record.createdUtc)}</time>
                     </td>
@@ -227,7 +173,7 @@ export default function RequestHistory() {
                         />
                       </div>
                     </td>
-                  </tr>
+                  </ObjectRow>
                 ))}
               </tbody>
             </table>
@@ -237,7 +183,7 @@ export default function RequestHistory() {
           )}
         </>
       )}
-      {detail && <Inspector record={detail} onClose={() => setDetail(null)} />}{" "}
+      {detail && <RequestInspector record={detail} onClose={() => setDetail(null)} />}{" "}
       {deleting && (
         <Modal title="common.delete" onClose={() => setDeleting(null)}>
           <p>{t("history.delete.confirm")}</p>

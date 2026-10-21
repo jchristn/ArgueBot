@@ -1,14 +1,6 @@
+import { randomId } from "../utils/random-id.js";
 import i18n from "../i18n/index.js";
 import transport from "../../../assets/transport.json";
-export async function passwordDigest(password) {
-  const bytes = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(password),
-  );
-  return Array.from(new Uint8Array(bytes), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-}
 export class ApiError extends Error {
   constructor(status, data) {
     super(data.message || `HTTP ${status}`);
@@ -19,20 +11,17 @@ export class ApiError extends Error {
 }
 export class ApiClient {
   constructor() {
-    this.token = sessionStorage.getItem("arguebot.session") || "";
-    this.clientId = crypto.randomUUID();
+    this.token = "";
+    this.clientId = randomId();
   }
   async request(
     path,
-    { method = "GET", body, signal, anonymous = false } = {},
+    { method = "GET", body, signal } = {},
   ) {
     const response = await fetch(path, {
       method,
       signal,
       headers: {
-        ...(!anonymous && this.token
-          ? { Authorization: `Bearer ${this.token}` }
-          : {}),
         "Content-Type": "application/json",
         "Accept-Language": i18n.language,
         "x-client-id": this.clientId,
@@ -43,42 +32,7 @@ export class ApiClient {
     if (!response.ok) throw new ApiError(response.status, data);
     return data;
   }
-  async pair(code) {
-    const result = await this.request("/v1.0/api/auth/pair", {
-      method: "POST",
-      body: { code },
-      anonymous: true,
-    });
-    this.token = result.token;
-    sessionStorage.setItem("arguebot.session", result.token);
-    return this.me();
-  }
-  async login(tenantId, email, password) {
-    if (location.protocol !== "https:")
-      throw new ApiError(403, {
-        code: "tls_required",
-        message: i18n.t("login.tls.help"),
-      });
-    const result = await this.request("/v1.0/api/auth/login", {
-      method: "POST",
-      anonymous: true,
-      body: { tenantId, email, passwordSha256: await passwordDigest(password) },
-    });
-    this.token = result.token;
-    sessionStorage.setItem("arguebot.session", result.token);
-    return this.me();
-  }
-  me() {
-    return this.request("/v1.0/api/auth/me");
-  }
-  async logout() {
-    try {
-      await this.request("/v1.0/api/auth/logout", { method: "POST", body: {} });
-    } finally {
-      this.token = "";
-      sessionStorage.removeItem("arguebot.session");
-    }
-  }
+
   conversations({
     search = "",
     archived = false,
@@ -172,7 +126,7 @@ export class ApiClient {
   note(id, text) {
     return this.request(this.root(id) + "/messages", {
       method: "POST",
-      body: { action: "note", text, idempotencyKey: crypto.randomUUID() },
+      body: { action: "note", text, idempotencyKey: randomId() },
     });
   }
   runs(id) {
@@ -190,7 +144,7 @@ export class ApiClient {
   startRun(id, request) {
     return this.request(this.root(id) + "/runs", {
       method: "POST",
-      body: { ...request, idempotencyKey: crypto.randomUUID() },
+      body: { ...request, idempotencyKey: randomId() },
     });
   }
   action(id, runId, request) {
@@ -198,51 +152,9 @@ export class ApiClient {
       this.root(id) + "/runs/" + encodeURIComponent(runId) + "/actions",
       {
         method: "POST",
-        body: { ...request, idempotencyKey: crypto.randomUUID() },
+        body: { ...request, idempotencyKey: randomId() },
       },
     );
-  }
-  backups(filter = {}) {
-    return this.request("/v1.0/api/backups?" + new URLSearchParams(filter));
-  }
-  recoveryOperations(filter = {}) {
-    return this.request(
-      "/v1.0/api/backup-operations?" + new URLSearchParams(filter),
-    );
-  }
-  recoveryOperation(id) {
-    return this.request(
-      "/v1.0/api/backup-operations/" + encodeURIComponent(id),
-    );
-  }
-  recovery(kind, id, body) {
-    return this.request(
-      "/v1.0/api/backups" +
-        (kind === "create" ? "" : "/" + encodeURIComponent(id) + "/" + kind),
-      { method: "POST", body },
-    );
-  }
-  deleteBackup(id) {
-    return this.request("/v1.0/api/backups/" + encodeURIComponent(id), {
-      method: "DELETE",
-    });
-  }
-  async downloadBackup(id) {
-    const response = await fetch(
-      "/v1.0/api/backups/" + encodeURIComponent(id) + "/download",
-      { headers: { Authorization: "Bearer " + this.token } },
-    );
-    if (!response.ok)
-      throw new ApiError(
-        response.status,
-        await response.json().catch(() => ({})),
-      );
-    const url = URL.createObjectURL(await response.blob());
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = id + ".arguebak";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   participants() {
     return this.request("/v1.0/api/participants");
@@ -307,7 +219,6 @@ export class ApiClient {
     const response = await fetch(path, {
       method,
       headers: {
-        Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json",
         ...headers,
       },
@@ -330,7 +241,6 @@ export class ApiClient {
     const response = await fetch(this.root(id) + "/events", {
       signal,
       headers: {
-        Authorization: `Bearer ${this.token}`,
         Accept: "text/event-stream",
         ...(cursor ? { "Last-Event-ID": cursor } : {}),
       },
@@ -385,11 +295,6 @@ export class ApiClient {
             .find((line) => line.startsWith("event:"))
             ?.slice(6)
             .trim();
-          if (event === "session_revoked")
-            throw new ApiError(401, {
-              message: i18n.t("events.revoked"),
-              code: "unauthenticated",
-            });
           if (event !== "change" && event !== "error") continue;
           const raw = fields
             .filter((line) => line.startsWith("data:"))

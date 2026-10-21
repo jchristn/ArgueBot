@@ -2,6 +2,7 @@ namespace ArgueBot.Core.Models
 {
     using System;
     using System.Collections.Generic;
+    using System.Text.Json.Serialization;
 
     /// <summary>RequestHistoryEntry operational contract.</summary>
     public sealed class RequestHistoryEntry
@@ -19,10 +20,13 @@ namespace ArgueBot.Core.Models
         /// <summary>Stable capture identifier.</summary>
         public string Id { get { return _Id; } set { ArgumentNullException.ThrowIfNull(value); _Id = value; } }
         /// <summary>Resolved tenant, or null for anonymous system traffic.</summary>
+        [JsonIgnore]
         public string? TenantId { get; set; }
         /// <summary>Resolved user if authenticated.</summary>
+        [JsonIgnore]
         public string? UserId { get; set; }
         /// <summary>Safe principal display name.</summary>
+        [JsonIgnore]
         public string PrincipalName { get { return _PrincipalName; } set { ArgumentNullException.ThrowIfNull(value); _PrincipalName = value; } }
         /// <summary>HTTP method.</summary>
         public string Method { get { return _Method; } set { ArgumentNullException.ThrowIfNull(value); _Method = value; } }

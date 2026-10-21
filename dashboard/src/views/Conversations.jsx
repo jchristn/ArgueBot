@@ -1,5 +1,7 @@
+import ObjectRow from "../components/ObjectRow.jsx";
+import CopyableId from "../components/CopyableId.jsx";
 import { useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Modal, Pagination } from "../components/ui.jsx";
@@ -80,27 +82,24 @@ export default function Conversations() {
               <thead>
                 <tr>
                   <th scope="col">{t("conversations.titleColumn")}</th>
+                  <th scope="col">{t("common.identifier")}</th>
                   <th scope="col">{t("conversations.updated")}</th>
                   <th scope="col">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((record) => (
-                  <tr key={record.id}>
+                  <ObjectRow key={record.id} onOpen={() => setModal({ kind: "rename", record })}>
                     <td>
-                      <Link
-                        to={"/dashboard/conversations/" + record.id}
-                        title={t("conversations.open.help")}
-                      >
-                        {record.pinned && "★ "}
-                        {record.title}
-                      </Link>
+                      <strong>{record.pinned && "★ "}{record.title}</strong>
                     </td>
+                    <td><CopyableId value={record.id} /></td>
                     <td>
                       <time>{formatDate(record.updatedUtc)}</time>
                     </td>
                     <td>
                       <div className="row-actions">
+                        <Button label="conversations.open" onClick={() => navigate("/dashboard/conversations/" + record.id)} />
                         <Button
                           label="common.edit"
                           help="conversations.rename.help"
@@ -141,7 +140,7 @@ export default function Conversations() {
                         />
                       </div>
                     </td>
-                  </tr>
+                  </ObjectRow>
                 ))}
               </tbody>
             </table>

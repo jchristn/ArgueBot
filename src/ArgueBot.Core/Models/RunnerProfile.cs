@@ -41,7 +41,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Ordered arguments; prompts use standard input.</summary>
         public List<string> Arguments { get { return _Arguments; } set { ArgumentNullException.ThrowIfNull(value); _Arguments = value; } }
 
-        /// <summary>Directory on execution host.</summary>
+        /// <summary>Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory.</summary>
         public string WorkingDirectory { get { return _WorkingDirectory; } set { ArgumentNullException.ThrowIfNull(value); _WorkingDirectory = value; } }
 
         /// <summary>Environment reference to credential; never its value.</summary>

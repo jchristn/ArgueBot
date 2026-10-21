@@ -42,8 +42,8 @@ describe("durable event reader", () => {
     vi.stubGlobal("fetch", vi.fn(async () => response(["data: " + "x".repeat(1048576)])));
     await expect(new ApiClient().events("cnv_fixture", "", vi.fn(), new AbortController().signal)).rejects.toMatchObject({ code: "event_frame_too_large" });
   });
-  it("treats revocation as authentication failure", async () => {
+  it("ignores obsolete identity events without requiring a sign-in", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => response(["event: session_revoked\ndata: {}\n\n"])));
-    await expect(new ApiClient().events("cnv_fixture", "", vi.fn(), new AbortController().signal)).rejects.toMatchObject({ status: 401 });
+    await expect(new ApiClient().events("cnv_fixture", "", vi.fn(), new AbortController().signal)).resolves.toBeUndefined();
   });
 });

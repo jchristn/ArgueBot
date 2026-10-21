@@ -1,31 +1,16 @@
 {
   "info": {
     "name": "ArgueBot local conversation service",
-    "description": "Runnable local contract coverage. Set baseUrl, pairingCode or token. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
+    "description": "Runnable local contract coverage. The open workspace has no accounts or credentials. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{token}}",
-        "type": "string"
-      }
-    ]
+    "type": "noauth"
   },
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://127.0.0.1:4317"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "pairingCode",
-      "value": ""
     },
     {
       "key": "conversationId",
@@ -52,26 +37,6 @@
       "value": ""
     },
     {
-      "key": "backupId",
-      "value": ""
-    },
-    {
-      "key": "operationId",
-      "value": ""
-    },
-    {
-      "key": "roleId",
-      "value": ""
-    },
-    {
-      "key": "permissionId",
-      "value": ""
-    },
-    {
-      "key": "assignmentId",
-      "value": ""
-    },
-    {
       "key": "settingsRevision",
       "value": ""
     },
@@ -82,6 +47,10 @@
     {
       "key": "simulationEndpoint",
       "value": "http://127.0.0.1:4491/ollama"
+    },
+    {
+      "key": "bucketMinutes",
+      "value": "15"
     },
     {
       "key": "fromUtc",
@@ -108,127 +77,12 @@
               }
             ],
             "url": "{{baseUrl}}/health",
-            "description": "Public local endpoint. Read permission required. Check readiness without authentication",
+            "description": "Open workspace endpoint.  Check readiness without authentication",
             "auth": {
               "type": "noauth"
             }
           },
           "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Authentication",
-      "description": "Lifecycle operations for authentication. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Exchange the current single-use local pairing code",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/auth/pair",
-            "description": "Public local endpoint. Mutation permission required; service settings/restart require administrator. Exchange the current single-use local pairing code",
-            "auth": {
-              "type": "noauth"
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"code\": \"{{pairingCode}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('pairingCode')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code===200) pm.collectionVariables.set('token',pm.response.json().token);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read the active principal and tenant",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/auth/me",
-            "description": "Requires an active bearer session. Read permission required. Read the active principal and tenant"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Exchange tenant-bound password material",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/auth/login",
-            "description": "Public local endpoint. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Exchange tenant-bound password material",
-            "auth": {
-              "type": "noauth"
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
-                ]
-              }
-            },
             {
               "listen": "test",
               "script": {
@@ -257,7 +111,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Create a persistent conversation without starting any model",
+            "description": "Open workspace endpoint.  Create a persistent conversation without starting any model",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Example architecture decision\"\n}",
@@ -293,7 +150,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations",
-            "description": "Requires an active bearer session. Read permission required. Search owned titles and message content with exact totals"
+            "description": "Open workspace endpoint.  Search owned titles and message content with exact totals",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -318,7 +178,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Requires an active bearer session. Read permission required. Read an owned conversation"
+            "description": "Open workspace endpoint.  Read an owned conversation",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -353,7 +216,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Change title, pin or archive using an expected revision",
+            "description": "Open workspace endpoint.  Change title, pin or archive using an expected revision",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Updated example decision\",\n  \"pinned\": true,\n  \"archived\": false,\n  \"revision\": \"{{conversationRevision}}\"\n}",
@@ -403,7 +269,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
-            "description": "Requires an active bearer session. Read permission required. Read bounded owned message previews with stable membership and exact totals"
+            "description": "Open workspace endpoint.  Read bounded owned message previews with stable membership and exact totals",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -438,7 +307,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Append a public note with command deduplication",
+            "description": "Open workspace endpoint.  Append a public note with command deduplication",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Consider reversibility and ownership.\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -482,7 +354,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages/{{messageId}}",
-            "description": "Requires an active bearer session. Read permission required. Read one complete owned message without loading other history"
+            "description": "Open workspace endpoint.  Read one complete owned message without loading other history",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -523,7 +398,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/events",
-            "description": "Requires an active bearer session. Read permission required. Read committed events after a cursor; Accept text/event-stream enables resumable SSE"
+            "description": "Open workspace endpoint.  Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -563,7 +441,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Create a reusable direct CLI or PolyPrompt completion profile",
+            "description": "Open workspace endpoint.  Create a reusable direct CLI or PolyPrompt completion profile",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example REST participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"timeoutSeconds\": 5\n}",
@@ -598,7 +479,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants",
-            "description": "Requires an active bearer session. Read permission required. List current runner profiles; excludes historical snapshots"
+            "description": "Open workspace endpoint.  List current runner profiles; excludes historical snapshots",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -623,7 +507,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Edit a reusable profile without changing historical run snapshots",
+            "description": "Open workspace endpoint.  Edit a reusable profile without changing historical run snapshots",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Updated example participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"enabled\": true\n}",
@@ -672,7 +559,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
-            "description": "Requires an active bearer session. Read permission required. Read execution history and immutable participants"
+            "description": "Open workspace endpoint.  Read execution history and immutable participants",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -706,7 +596,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Start a debate or single-participant follow-up with a durable receipt",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Start a debate or single-participant follow-up with a durable receipt",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mode\": \"followup\",\n  \"question\": \"Summarize the options.\",\n  \"participantIds\": [\n    \"{{profileId}}\"\n  ],\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -751,7 +644,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}",
-            "description": "Requires an active bearer session. Read permission required. Read a durable checkpoint and current revision"
+            "description": "Open workspace endpoint.  Read a durable checkpoint and current revision",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -786,7 +682,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"stop\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -831,7 +730,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/attempts",
-            "description": "Requires an active bearer session. Read permission required. Page durable generation attempts with frozen participant, prompt and context provenance"
+            "description": "Open workspace endpoint.  Page durable generation attempts with frozen participant, prompt and context provenance",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -872,7 +774,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history",
-            "description": "Requires an active bearer session. Read permission required. Inspect scoped request metadata with backend filtering and paging"
+            "description": "Open workspace endpoint.  Inspect scoped request metadata with backend filtering and paging",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -896,8 +801,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v1.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes=60",
-            "description": "Requires an active bearer session. Read permission required. Return zero-filled UTC activity buckets for a bounded range"
+            "url": "{{baseUrl}}/v1.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}",
+            "description": "Open workspace endpoint.  Return zero-filled UTC activity buckets for a bounded range",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -905,7 +813,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('Activity has fixed intervals and nonnegative counts',()=>{const rows=pm.response.json();const minutes=Number(pm.variables.get('bucketMinutes'));const from=Date.parse(pm.variables.get('fromUtc')),to=Date.parse(pm.variables.get('toUtc'));pm.expect(rows).to.be.an('array');if(rows.length){pm.expect(rows.length).to.equal(Math.ceil((to-from)/(minutes*60000)));rows.forEach((row,index)=>{pm.expect(Date.parse(row.startUtc)).to.equal(from+index*minutes*60000);pm.expect(row.success).to.be.at.least(0);pm.expect(row.failure).to.be.at.least(0);});}});"
                 ]
               }
             }
@@ -922,7 +831,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
-            "description": "Requires an active bearer session. Read permission required. Read redacted request and response headers and body prefixes"
+            "description": "Open workspace endpoint.  Read redacted request and response headers and body prefixes",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -956,7 +868,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Delete one authorized retained request capture"
+            "description": "Open workspace endpoint.  Delete one authorized retained request capture",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -996,7 +911,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings",
-            "description": "Requires an active bearer session. Read permission required. Read redacted file settings, revision and restart metadata"
+            "description": "Open workspace endpoint.  Read redacted file settings, revision and restart metadata",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -1022,7 +940,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Atomically update allowlisted nonsecret settings using its revision",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Atomically update allowlisted nonsecret settings using its revision",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"revision\": \"{{settingsRevision}}\",\n  \"port\": 4317,\n  \"maxConcurrentRuns\": 4,\n  \"allowCli\": true,\n  \"databaseType\": \"Sqlite\",\n  \"connectionEnvironmentVariable\": \"\"\n}",
@@ -1066,7 +987,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings/restart",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1109,7 +1033,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings/shutdown",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Drain active work and stop the service; a supervisor may restart it"
+            "description": "Open workspace endpoint.  Drain active work and stop the service; a supervisor may restart it",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -1140,7 +1067,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Delete a reusable participant, preserving historical snapshots"
+            "description": "Open workspace endpoint.  Delete a reusable participant, preserving historical snapshots",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -1174,7 +1104,10 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Permanently delete a stopped conversation and its retained messages/events"
+            "description": "Open workspace endpoint.  Permanently delete a stopped conversation and its retained messages/events",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "event": [
             {
@@ -1192,1075 +1125,6 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Revoke the current session immediately",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/auth/logout",
-            "description": "Requires an active bearer session. Mutation permission required; service settings/restart require administrator. Revoke the current session immediately",
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Backups",
-      "description": "Lifecycle operations for backups. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "List global recovery artifacts",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups",
-            "description": "Requires an active bearer session. Read permission required. List global recovery artifacts"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create complete recovery archive",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Create complete recovery archive",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Example recovery\",\n  \"includeSecrets\": false\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
-                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
-                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read recovery artifact",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}",
-            "description": "Requires an active bearer session. Read permission required. Read recovery artifact"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Verify a recovery archive",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/verify",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Verify a recovery archive",
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
-                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
-                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
-                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Restore into a new isolated home",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/restore",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Restore into a new isolated home",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"destinationName\": \"recovered-example\",\n  \"port\": 4537\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
-                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
-                  "if(pm.response.code===202) pm.collectionVariables.set('operationId',pm.response.json().id);",
-                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Download a recovery archive",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}/download",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Read permission required. Download a recovery archive"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
-                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Delete an idle recovery archive",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backups/{{backupId}}",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Delete an idle recovery archive"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
-                  "if (!pm.variables.get('backupId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read recovery operation status",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backup-operations/{{operationId}}",
-            "description": "Requires an active bearer session. Read permission required. Read recovery operation status"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('operationId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) { const job=pm.response.json(); pm.collectionVariables.set('backupId',job.backupId); pm.test('Recovery state is explicit',()=>pm.expect(['queued','running','completed','failed']).to.include(job.state)); pm.test('Passphrase is absent from job metadata',()=>pm.expect(job).not.to.have.property('password')); }"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Page durable recovery jobs",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/backup-operations",
-            "description": "Requires an active bearer session. Read permission required. Page durable recovery jobs"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Security accounting",
-      "description": "Lifecycle operations for security accounting. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Inspect append-only tenant security events; system administrators can inspect all tenants",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/audit",
-            "description": "Requires an active bearer session. Read permission required. Inspect append-only tenant security events; system administrators can inspect all tenants"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Users",
-      "description": "Lifecycle operations for users. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Enumerate tenant identities",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users",
-            "description": "Requires an active bearer session. Read permission required. Enumerate tenant identities"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create a tenant identity",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Create a tenant identity"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read own or administered identity metadata",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}",
-            "description": "Requires an active bearer session. Read permission required. Read own or administered identity metadata"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update an identity and revoke affected sessions",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}",
-            "description": "Requires an active bearer session. May execute work or change service state; do not blindly replay requests. Mutation permission required; service settings/restart require administrator. Update an identity and revoke affected sessions"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Roles",
-      "description": "Lifecycle operations for roles. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Enumerate visible built-in and tenant custom roles",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate visible built-in and tenant custom roles"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code===200) pm.test('Role page preserves bounds and protected built-ins',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);for(const role of page.items){if(role.builtin){pm.expect(role.protected).to.be.true;pm.expect(role.tenantId).to.equal(null);}else pm.expect(role.tenantId).to.be.a('string');}});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create or clone a tenant custom role",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Create or clone a tenant custom role",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Custom {{$guid}}\",\n  \"active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
-                  "if(pm.response.code===201) pm.collectionVariables.set('roleId',pm.response.json().id);",
-                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read a visible role definition",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Read a visible role definition"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update or deactivate a tenant custom role",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Update or deactivate a tenant custom role",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated {{$guid}}\",\n  \"active\": false,\n  \"expectedRevision\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Enumerate active or inactive role permission mappings",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}/permissions",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate active or inactive role permission mappings"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code===200) pm.test('Mapping page is bounded and tied to role revision',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);pm.expect(page.roleRevision).to.be.at.least(1);for(const mapping of page.items)pm.expect(mapping.permission.id).to.equal(mapping.permissionId);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Replace active custom-role permission mappings",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/roles/{{roleId}}/permissions",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Replace active custom-role permission mappings",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"permissionIds\": [],\n  \"expectedRevision\": 2\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('roleId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Custom role is tenant-bound and versioned',()=>{const role=pm.response.json();pm.expect(role.tenantId).to.be.a('string');pm.expect(role.builtin).to.be.false;pm.expect(role.protected).to.be.false;pm.expect(role.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Permissions",
-      "description": "Lifecycle operations for permissions. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Enumerate visible permission definitions",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/permissions",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate visible permission definitions"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create a tenant custom permission",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/permissions",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Create a tenant custom permission",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Custom read {{$guid}}\",\n  \"resourceTypes\": [\n    \"Conversation\"\n  ],\n  \"operations\": [\n    \"Read\"\n  ],\n  \"effect\": \"Permit\",\n  \"active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
-                  "if(pm.response.code===201) pm.collectionVariables.set('permissionId',pm.response.json().id);",
-                  "if(pm.response.code<300) pm.test('Custom permission is tenant-bound and validated',()=>{const value=pm.response.json();pm.expect(value.tenantId).to.be.a('string');pm.expect(value.protected).to.be.false;pm.expect(['Permit','Deny']).to.include(value.effect);pm.expect(value.resourceTypes.length).to.be.within(1,32);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read a visible permission definition",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/permissions/{{permissionId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Read a visible permission definition"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('permissionId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Custom permission is tenant-bound and validated',()=>{const value=pm.response.json();pm.expect(value.tenantId).to.be.a('string');pm.expect(value.protected).to.be.false;pm.expect(['Permit','Deny']).to.include(value.effect);pm.expect(value.resourceTypes.length).to.be.within(1,32);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update or deactivate a tenant custom permission",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/permissions/{{permissionId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Update or deactivate a tenant custom permission",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated read {{$guid}}\",\n  \"resourceTypes\": [\n    \"Conversation\"\n  ],\n  \"operations\": [\n    \"Read\"\n  ],\n  \"effect\": \"Permit\",\n  \"active\": false,\n  \"expectedRevision\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('permissionId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Custom permission is tenant-bound and validated',()=>{const value=pm.response.json();pm.expect(value.tenantId).to.be.a('string');pm.expect(value.protected).to.be.false;pm.expect(['Permit','Deny']).to.include(value.effect);pm.expect(value.resourceTypes.length).to.be.within(1,32);});"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Assignments",
-      "description": "Lifecycle operations for assignments. Variables, ownership and validation requirements are described by each request.",
-      "item": [
-        {
-          "name": "Enumerate scoped user role assignments",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Enumerate scoped user role assignments"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create a scoped user role assignment",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Create a scoped user role assignment",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"roleName\": \"Viewer\",\n  \"resourceScope\": \"Tenant\",\n  \"inheritsToChildren\": true,\n  \"active\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
-                  "if(pm.response.code===201) pm.collectionVariables.set('assignmentId',pm.response.json().id);",
-                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Read a scoped user role assignment",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments/{{assignmentId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Read a scoped user role assignment"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
-                  "if (!pm.variables.get('assignmentId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update or deactivate a scoped user role assignment",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v1.0/api/users/{{userId}}/role-assignments/{{assignmentId}}",
-            "description": "Requires current database tenant or system administrator flags in the authenticated tenant. Global built-ins are visible and immutable; custom definitions are tenant-bound. Foreign custom IDs return 404. Updates require the current revision. Scoped administration roles remain an integration gate. Update or deactivate a scoped user role assignment",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"roleName\": \"Viewer\",\n  \"resourceScope\": \"Tenant\",\n  \"inheritsToChildren\": true,\n  \"active\": false,\n  \"expectedRevision\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
-                  "if (!pm.variables.get('assignmentId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
-                  "if(pm.response.code<300) pm.test('Assignment is tenant/user-bound with explicit scope',()=>{const value=pm.response.json();pm.expect(value.userId).to.equal(pm.environment.get('userId')||pm.collectionVariables.get('userId'));pm.expect(['Tenant','Resource']).to.include(value.resourceScope);pm.expect(value.protected).to.be.false;pm.expect(value.revision).to.be.at.least(1);});"
                 ]
               }
             }

@@ -1,7 +1,10 @@
+import CopyableId from "./CopyableId.jsx";
 import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 export function Icon({ name }) {
   const paths = {
+    copy: "M9 9h12v12H9zM15 9V3H3v12h6",
+    check: "m5 12 4 4L19 6",
     plus: "M12 4v16M4 12h16",
     download: "M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4",
     moon: "M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10",
@@ -76,10 +79,16 @@ export function Field({ label, children }) {
     </label>
   );
 }
-export function Modal({ title, onClose, children, wide = false }) {
+export function Modal({ title, onClose, children, wide = false, className = "" }) {
   const { t } = useTranslation();
   const ref = useRef();
   const titleId = useId();
+  const backdropPress = useRef(false);
+  const isBackdrop = (event) => {
+    if (event.target !== event.currentTarget) return false;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
+  };
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
@@ -88,7 +97,14 @@ export function Modal({ title, onClose, children, wide = false }) {
   return (
     <dialog
       ref={ref}
-      className={wide ? "wide" : ""}
+      className={[wide ? "wide" : "", className].filter(Boolean).join(" ")}
+      onPointerDown={(event) => { backdropPress.current = event.button === 0 && isBackdrop(event); }}
+      onPointerCancel={() => { backdropPress.current = false; }}
+      onClick={(event) => {
+        const dismiss = backdropPress.current && isBackdrop(event);
+        backdropPress.current = false;
+        if (dismiss) onClose();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -115,7 +131,7 @@ export function ErrorPanel({ error, retry }) {
     <div className="error-panel" role="alert">
       <strong>{t("common.error")}</strong>
       <p>{error.message}</p>
-      {error.requestId && <code>{error.requestId}</code>}
+      {error.requestId && <CopyableId value={error.requestId} />}
       {retry && (
         <Button label="common.retry" help="common.retry" onClick={retry} />
       )}

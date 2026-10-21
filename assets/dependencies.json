@@ -4212,51 +4212,6 @@
     "development": false
   },
   {
-    "name": "Microsoft.Extensions.Configuration",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration/10.0.0",
-    "integrity": "sha512-H4SWETCh/cC5L1WtWchHR6LntGk3rDTTznZMssr4cL8IbDmMWBxY+MOGDc/ASnqNolLKPIWHWeuC1ddiL/iNPw==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Configuration.Abstractions",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Abstractions/10.0.0",
-    "integrity": "sha512-d2kDKnCsJvY7mBVhcjPSp9BkJk48DsaHPg5u+Oy4f8XaOqnEedRy/USyvnpHL92wpJ6DrTPy7htppUUzskbCXQ==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Configuration.Binder",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Binder/10.0.0",
-    "integrity": "sha512-tMF9wNh+hlyYDWB8mrFCQHQmWHlRosol1b/N2Jrefy1bFLnuTlgSYmPyHNmz8xVQgs7DpXytBRWxGhG+mSTp0g==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Configuration.EnvironmentVariables",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration.EnvironmentVariables/10.0.0",
-    "integrity": "sha512-TmFegsI/uCdwMBD4yKpmO+OkjVNHQL49Dh/ep83NI5rPUEoBK9OdsJo1zURc1A2FuS/R/Pos3wsTjlyLnguBLA==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.DependencyInjection",
-    "version": "10.0.12",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection/10.0.12",
-    "integrity": "sha512-lXyK2O5GoYvfxW8eCFcD16JFbcoSTM1sJkAM0UHS1jZyl9NYMW64Tqm6OQFT0IDBjZi+xHt95/Zg+nxZhGFhZg==",
-    "development": false
-  },
-  {
     "name": "Microsoft.Extensions.DependencyInjection.Abstractions",
     "version": "10.0.12",
     "ecosystem": "nuget",
@@ -4275,66 +4230,12 @@
     "development": true
   },
   {
-    "name": "Microsoft.Extensions.Diagnostics.Abstractions",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Diagnostics.Abstractions/10.0.0",
-    "integrity": "sha512-SfK89ytD61S7DgzorFljSkUeluC1ncn6dtZgwc0ot39f/BEYWBl5jpgvodxduoYAs1d9HG8faCDRZxE95UMo2A==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Logging",
-    "version": "10.0.12",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging/10.0.12",
-    "integrity": "sha512-6I46fTPfgYkrjRYfRXbho9WOvOelTnNjWuZws/hzGHDASH1LEJeA4VKK9k3wJvido8o7jJSB5WkMTonX7HM1bA==",
-    "development": false
-  },
-  {
     "name": "Microsoft.Extensions.Logging.Abstractions",
     "version": "10.0.12",
     "ecosystem": "nuget",
     "license": "MIT",
     "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.12",
     "integrity": "sha512-+24lC4plfbEDNfLAdTV/SWKS7dW+16X4HdydO3R++134kSNTzcbYA4KpR1Hdh6uWisB8Za3AzwyOn+K+NxWIug==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Logging.Configuration",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Configuration/10.0.0",
-    "integrity": "sha512-j8zcwhS6bYB6FEfaY3nYSgHdpiL2T+/V3xjpHtslVAegyI1JUbB9yAt/BFdvZdsNbY0Udm4xFtvfT/hUwcOOOg==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Options",
-    "version": "10.0.12",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Options/10.0.12",
-    "integrity": "sha512-TDYD33TSRpXKZWlmTXNlj5kCihxatmv2Ec1u6C+bMYLphCS7PoSLE9Pjd/nunDoE7yETk+LLKjVJX78HYtWjpA==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Options.ConfigurationExtensions",
-    "version": "10.0.0",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Options.ConfigurationExtensions/10.0.0",
-    "integrity": "sha512-tL9cSl3maS5FPzp/3MtlZI21ExWhni0nnUCF8HY4npTsINw45n9SNDbkKXBMtFyUFGSsQep25fHIDN4f/Vp3AQ==",
-    "development": false
-  },
-  {
-    "name": "Microsoft.Extensions.Primitives",
-    "version": "10.0.12",
-    "ecosystem": "nuget",
-    "license": "MIT",
-    "source": "https://www.nuget.org/packages/Microsoft.Extensions.Primitives/10.0.12",
-    "integrity": "sha512-dYfCLR52UA+3DL7C4I/pvSaRPkNqxrUAQmbFL2u0zvYKKzqgrFCJl08Df+F1aYc8leu9JvpC9bsURUdpExcBXQ==",
     "development": false
   },
   {
@@ -4473,60 +4374,6 @@
     "development": true
   },
   {
-    "name": "OpenTelemetry",
-    "version": "1.19.1",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry/1.19.1",
-    "integrity": "sha512-6ywhc3upf+dq8EsOohj7I7zS3l4yX9vfbtFkvyEC8xIUY4Z9iDIOVuke356eCAzIZaWtmwmmyl2UXYCp5n7I3Q==",
-    "development": false
-  },
-  {
-    "name": "OpenTelemetry.Api",
-    "version": "1.19.1",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry.Api/1.19.1",
-    "integrity": "sha512-9JKIH+xrV0HNTFjQC8zrx9gZpDOMEljN5Htg/U0VE2IvO3N+7bKALCCsGy5tp09marX5dd8UkrgQFoLaulIBRw==",
-    "development": false
-  },
-  {
-    "name": "OpenTelemetry.Api.ProviderBuilderExtensions",
-    "version": "1.19.1",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry.Api.ProviderBuilderExtensions/1.19.1",
-    "integrity": "sha512-HtGe72B/IhzKqdU0a3fNE5osax/Cegwxd+p4u6lOFy20nsgmeaFuP2NRyFs1WvrOv/bpkII3IvvBkKoZXG8BLg==",
-    "development": false
-  },
-  {
-    "name": "OpenTelemetry.Exporter.OpenTelemetryProtocol",
-    "version": "1.19.1",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry.Exporter.OpenTelemetryProtocol/1.19.1",
-    "integrity": "sha512-vsYYOBf/KxNubnuoja8pjJ9LG0zCC9HAYPay+R6N5ZKZMbhNdKWbaq6JZqJqTvK+55rudiqErJySekf9ql8okA==",
-    "development": false
-  },
-  {
-    "name": "OpenTelemetry.Exporter.Prometheus.HttpListener",
-    "version": "1.19.1-beta.1",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry.Exporter.Prometheus.HttpListener/1.19.1-beta.1",
-    "integrity": "sha512-seOKrAA7p0dbMVVOmlkG9OgZsLvZ2pb/uXfoO8NXZPtxsHtJ11w5RA4BymSgaCYaZWAhOZdb6/o48IS7Hy3LoA==",
-    "development": false
-  },
-  {
-    "name": "OpenTelemetry.Instrumentation.Runtime",
-    "version": "1.19.0",
-    "ecosystem": "nuget",
-    "license": "Apache-2.0",
-    "source": "https://www.nuget.org/packages/OpenTelemetry.Instrumentation.Runtime/1.19.0",
-    "integrity": "sha512-VIH2tQ2h31j4wQyZ9Utk8ZXIyj7Z1j0xIiyPRGjYu1MmZjJtpxRh0Y/NnB6fEBimNg/WrX0jDyfMeEjPQqmaMA==",
-    "development": false
-  },
-  {
     "name": "PolyPrompt",
     "version": "3.4.0",
     "ecosystem": "nuget",
@@ -4542,15 +4389,6 @@
     "license": "See package file: LICENSE.md",
     "source": "https://www.nuget.org/packages/PrettyId/2.0.2",
     "integrity": "sha512-7/QisF0Lel7SiAaCcXKAwWEfbNMVFb6TOBzmOk4zG63HqYZVLZy1M+XEHjrQeRgw5I+atOA3KxLfgsWtSrd82w==",
-    "development": false
-  },
-  {
-    "name": "Radiant",
-    "version": "0.1.3",
-    "ecosystem": "nuget",
-    "license": "See package file: LICENSE.md",
-    "source": "https://www.nuget.org/packages/Radiant/0.1.3",
-    "integrity": "sha512-zvDDcWjjBz2uACvwpBGIrtxGhey84tzHlnt653j5iJVHFe5T8GPpMQTm0qcjQUsAd7FxtU8OGUTVdhuhjtDvnA==",
     "development": false
   },
   {

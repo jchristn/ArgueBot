@@ -1,3 +1,4 @@
+import brandIcon from "../../icon.png";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter,
@@ -10,18 +11,15 @@ import {
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "./api/client.js";
+import { connectDashboard, hasDashboardConnection } from "./api/dashboard-connect.js";
 import i18n, { registry } from "./i18n/index.js";
-import { Button, ErrorPanel, Field, Icon } from "./components/ui.jsx";
+import { Button, ErrorPanel, Icon } from "./components/ui.jsx";
 const Home = lazy(() => import("./views/Home.jsx"));
 const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
-const Backups = lazy(() => import("./views/Backups.jsx"));
-const Roles = lazy(() => import("./views/Roles.jsx"));
-const Users = lazy(() => import("./views/Users.jsx"));
-const Audit = lazy(() => import("./views/Audit.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
 function Language() {
   const { t } = useTranslation();
@@ -55,143 +53,7 @@ function ThemeControl({ theme, toggle }) {
     </button>
   );
 }
-function Login({ onLogin, theme, toggleTheme }) {
-  const { t } = useTranslation();
-  const [code, setCode] = useState("");
-  const [mode, setMode] = useState("pair");
-  const [tenant, setTenant] = useState("ten_local");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-  return (
-    <main className="login">
-      <div className="login-utilities">
-        <ThemeControl theme={theme} toggle={toggleTheme} />
-        <Language />
-      </div>
-      <section className="login-card">
-        <div className="wordmark">
-          <Icon name="chat" />
-          {t("app.name")}
-        </div>
-        <h1>{t("login.title")}</h1>
-        <p>{t("login.description")}</p>
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setBusy(true);
-            setError(null);
-            try {
-              onLogin(
-                mode === "pair"
-                  ? await api.pair(code.trim())
-                  : await api.login(tenant.trim(), email.trim(), password),
-              );
-              setPassword("");
-            } catch (failure) {
-              setError(failure);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Field label="login.method">
-            {(props) => (
-              <select
-                {...props}
-                value={mode}
-                onChange={(event) => {
-                  setMode(event.target.value);
-                  setError(null);
-                  setCode("");
-                  setPassword("");
-                }}
-              >
-                <option value="pair">{t("login.pair")}</option>
-                <option
-                  value="password"
-                  disabled={location.protocol !== "https:"}
-                  title={t("login.tls.help")}
-                >
-                  {t("login.passwordMode")}
-                </option>
-              </select>
-            )}
-          </Field>
-          {mode === "pair" ? (
-            <Field label="login.code">
-              {(props) => (
-                <input
-                  {...props}
-                  type="password"
-                  autoComplete="one-time-code"
-                  required
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                />
-              )}
-            </Field>
-          ) : (
-            <>
-              <Field label="login.tenant">
-                {(props) => (
-                  <input
-                    {...props}
-                    required
-                    maxLength={64}
-                    value={tenant}
-                    onChange={(event) => setTenant(event.target.value)}
-                  />
-                )}
-              </Field>
-              <Field label="users.email">
-                {(props) => (
-                  <input
-                    {...props}
-                    type="email"
-                    autoComplete="username"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                )}
-              </Field>
-              <Field label="login.password">
-                {(props) => (
-                  <input
-                    {...props}
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    maxLength={1024}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                )}
-              </Field>
-            </>
-          )}
-          {error && <ErrorPanel error={error} />}
-          <Button
-            label="login.submit"
-            className="primary"
-            type="submit"
-            disabled={
-              busy ||
-              (mode === "pair"
-                ? !code.trim()
-                : !tenant.trim() || !email.trim() || !password)
-            }
-          />
-        </form>
-        <p className="muted">{t("login.where")}</p>
-        <code title={t("login.server.help")}>{location.origin}</code>
-      </section>
-    </main>
-  );
-}
-function Shell({ user, onLogout, theme, toggleTheme, notify }) {
+function Shell({ theme, toggleTheme, notify }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const groups = [
@@ -212,14 +74,7 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
         ["history", "history.title", "chat"],
         ["explorer", "explorer.title", "grid"],
         ["settings", "nav.settings", "settings"],
-        ["backups", "backups.title", "download"],
-        ...(user.isAdmin || user.isTenantAdmin
-          ? [
-              ["audit", "audit.title", "users"],
-              ["users", "users.title", "users"],
-              ["roles", "roles.title", "users"],
-            ]
-          : []),
+
       ],
     },
   ];
@@ -231,7 +86,7 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
           className="wordmark"
           title={t("app.tagline")}
         >
-          <Icon name="chat" />
+          <img src={brandIcon} alt="" width="36" height="36" />
           {t("app.name")}
         </Link>
         <nav aria-label={t("nav.operate")}>
@@ -269,13 +124,8 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
             onClick={() => setOpen(!open)}
           />
           <div className="server-context">
-            <span title={t("login.server.help")}>{location.host}</span>
-            <span className="identity" title={user.tenantId}>
-              {user.userId}
-            </span>
-            <span className="badge" title={user.role}>
-              {user.role}
-            </span>
+            <span title={t("service.address.help")}>{location.host}</span>
+            <span>{t("nav.localWorkspace")}</span>
           </div>
           <div className="utilities">
             <a
@@ -290,25 +140,20 @@ function Shell({ user, onLogout, theme, toggleTheme, notify }) {
             </a>
             <ThemeControl theme={theme} toggle={toggleTheme} />
             <Language />
-            <Button
-              label="nav.logout"
-              help="nav.logout"
-              icon="logout"
-              iconOnly
-              onClick={onLogout}
-            />
+
           </div>
         </header>
         <div className="route-content">
-          <Outlet context={{ api, user, notify }} />
+          <Outlet context={{ api, notify }} />
         </div>
       </div>
     </div>
   );
 }
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [checking, setChecking] = useState(!!api.token);
+  const [connected, setConnected] = useState(false);
+  const [checking, setChecking] = useState(hasDashboardConnection);
+  const [connectionError, setConnectionError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [theme, setTheme] = useState(
     () =>
@@ -320,20 +165,18 @@ export default function App() {
     localStorage.setItem("arguebot.theme", theme);
   }, [theme]);
   useEffect(() => {
-    if (api.token)
-      api
-        .me()
-        .then(setUser)
-        .catch(() => {
-          api.token = "";
-          sessionStorage.removeItem("arguebot.session");
-        })
-        .finally(() => setChecking(false));
+    connectDashboard()
+      .then(() => setConnected(true))
+      .catch((failure) => {
+        api.token = "";
+        sessionStorage.removeItem("arguebot.session");
+        setConnectionError(failure);
+      })
+      .finally(() => setChecking(false));
   }, []);
   const { t } = useTranslation();
   const notify = useCallback((error) => {
     setNotice(error);
-    if (error.status === 401) setUser(null);
   }, []);
   const toggleTheme = () =>
     setTheme((value) => (value === "dark" ? "light" : "dark"));
@@ -344,22 +187,15 @@ export default function App() {
       <Suspense
         fallback={<div className="initial-loading">{t("common.loading")}</div>}
       >
-        {user ? (
+        {connected ? (
           <Routes>
             <Route
               element={
                 <Shell
-                  user={user}
                   theme={theme}
                   toggleTheme={toggleTheme}
                   notify={notify}
-                  onLogout={async () => {
-                    try {
-                      await api.logout();
-                    } finally {
-                      setUser(null);
-                    }
-                  }}
+
                 />
               }
             >
@@ -379,10 +215,6 @@ export default function App() {
               <Route path="/dashboard/history" element={<RequestHistory />} />
               <Route path="/dashboard/explorer" element={<ApiExplorer />} />
               <Route path="/dashboard/settings" element={<Settings />} />
-              <Route path="/dashboard/backups" element={<Backups />} />
-              <Route path="/dashboard/audit" element={<Audit />} />
-              <Route path="/dashboard/users" element={<Users />} />
-              <Route path="/dashboard/roles" element={<Roles />} />
               <Route
                 path="*"
                 element={<Navigate to="/dashboard/home" replace />}
@@ -390,7 +222,12 @@ export default function App() {
             </Route>
           </Routes>
         ) : (
-          <Login onLogin={setUser} theme={theme} toggleTheme={toggleTheme} />
+          <main className="login"><section className="login-card">
+            <h1>{t("service.unavailable")}</h1>
+            <p>{t("service.unavailable.help")}</p>
+            {connectionError && <ErrorPanel error={connectionError} />}
+            <Button label="service.reconnect" onClick={() => location.reload()} />
+          </section></main>
         )}{" "}
         {notice && (
           <div className="toast" role="alert">

@@ -34,6 +34,8 @@ namespace ArgueBot.Server.Routes
             if (_Directory == null) { http.Response.StatusCode = 503; await http.Response.Send("Dashboard is not built. Run npm --prefix dashboard ci and npm --prefix dashboard run build.", http.Token).ConfigureAwait(false); return; }
             string file = Path.GetFullPath(Path.Combine(_Directory, relative));
             if (!file.StartsWith(_Directory + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(file)) { http.Response.StatusCode = 404; await http.Response.Send("Asset not found.", http.Token).ConfigureAwait(false); return; }
+            if (Regex.IsMatch(path, @"^/assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$", RegexOptions.CultureInvariant))
+                http.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
             http.Response.ContentType = Path.GetExtension(file) switch { ".js" => "text/javascript", ".css" => "text/css", ".svg" => "image/svg+xml", ".png" => "image/png", ".woff2" => "font/woff2", _ => "text/html; charset=utf-8" };
             using (FileStream stream = File.OpenRead(file)) { await http.Response.Send(stream.Length, stream, http.Token).ConfigureAwait(false); }
         }

@@ -13,7 +13,8 @@ namespace ArgueBot.Tui
         internal static string Heading(Message message)
         {
             List<string> parts = new List<string> { message.Speaker == "user" ? "You" : message.Speaker == "system" ? "System" : message.Speaker };
-            if (message.Kind == "steer") parts.Add("Private directive");
+            if (message.Kind == "tool") parts.Add("Local tool");
+            else if (message.Kind == "steer") parts.Add("Private directive");
             else if (message.Kind != "note" && message.Kind != "answer") parts.Add(Label(message.Kind));
             if (message.CreatedUtc != default) parts.Add(message.CreatedUtc.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture));
             if (message.State != "completed") parts.Add(message.State == "streaming" ? "Responding..." : Label(message.State));
@@ -36,6 +37,7 @@ namespace ArgueBot.Tui
                 CellStyle headingStyle = message.Speaker == "user" ? theme.Accent : theme.Info;
                 pane.WriteLine(Text.From(Heading(message), headingStyle).Bold());
                 foreach (string line in message.Content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n')) pane.WriteLine(Text.From(line, theme.Text));
+                if (message.State == "failed" && message.Content.Length == 0) pane.WriteLine(Text.From("The agent produced no answer. Press g in the conversation list to inspect the failure; e opens Agents to check its settings.", theme.Error));
                 if (message.ContentTruncated)
                 {
                     pane.WriteLine();

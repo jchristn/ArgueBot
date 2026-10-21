@@ -12,6 +12,8 @@ namespace ArgueBot.Core.Models
         public string HomeId { get { return _HomeId; } set { ArgumentNullException.ThrowIfNull(value); _HomeId = value; } }
         /// <summary>HMAC-SHA256 process proof bound to an optional random challenge, listener port and home. Empty when no challenge was requested.</summary>
         public string HomeProof { get { return _HomeProof; } set { ArgumentNullException.ThrowIfNull(value); _HomeProof = value; } }
+        /// <summary>Whether HTTP requests require an enrolled session. True by default for compatibility with older services that omit this field.</summary>
+        public bool AuthenticationRequired { get; set; } = true;
         /// <summary>Readiness state.</summary>
         public string Status { get { return _Status; } set { ArgumentNullException.ThrowIfNull(value); _Status = value; } }
         /// <summary>Current database schema version, independent of product version.</summary>

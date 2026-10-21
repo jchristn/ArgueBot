@@ -10,10 +10,10 @@ namespace ArgueBot.Tui
         {
             switch (index)
             {
-                case 0: return new RunnerProfile { Name = "Claude", Kind = "cli", Provider = "claude", Executable = "claude" };
-                case 1: return new RunnerProfile { Name = "Codex", Kind = "cli", Provider = "codex", Executable = "codex" };
-                case 2: return new RunnerProfile { Name = "Gemini", Kind = "cli", Provider = "gemini", Executable = "gemini" };
-                case 3: return new RunnerProfile { Name = "Mux", Kind = "cli", Provider = "mux", Executable = "mux" };
+                case 0: return HarnessDefaults.Create("claude");
+                case 1: return HarnessDefaults.Create("codex");
+                case 2: return HarnessDefaults.Create("gemini");
+                case 3: return HarnessDefaults.Create("mux");
                 case 4: return new RunnerProfile { Name = "My model", Kind = "rest", Provider = "ollama", Endpoint = "http://127.0.0.1:11434" };
                 case 5: return new RunnerProfile { Name = "My agent", Kind = "cli", Provider = "plain" };
                 default: throw new ArgumentOutOfRangeException(nameof(index));

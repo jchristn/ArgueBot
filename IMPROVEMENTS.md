@@ -1,18 +1,44 @@
 # ArgueBot product and repository improvement plan
 
+October 20, 2026 scope override: remove the Grafana/Prometheus/Loki/Tempo stack, collector/export pipeline and associated dependencies and product controls. Keep ordinary local operational logs and built-in request history. Earlier external observability requirements are superseded.
+
+October 20, 2026 scope override: user-facing backup, archive verification and restore features are removed from every interface and public API, including offline server commands. Earlier backup/restore product requirements are superseded. Existing data and internal database upgrade safeguards are preserved.
+
+Scope correction (October 20, 2026): user accounts, roles, permissions, login/pairing, sessions and security audit are removed from product scope. The service exposes one open workspace. Earlier identity-related work packages below are historical requirements analysis, not future product commitments. Storage compatibility is retained rather than deleting existing data.
+
 Status: implementation in progress. The legacy application remains runnable. Work packages are not complete until their full gates pass.
 
 Verified foundation: .NET solution builds with zero warnings; shared Touchstone descriptors run through console/xUnit/NUnit; SQLite history, receipts, tenant/viewer checks, run snapshots, interrupted recovery, exclusive home ownership and engine interrupt/resume have local test coverage. A local HTTP smoke journey exercised pairing, profiles, a two-participant fixture debate, history and session revocation. Real PolyPrompt transport passed committed Postman simulations for success, rate limiting and broken streams. See docs/DEVELOPMENT.md. Full provider, hosted security, interface, operations and release gates remain open.
 
 Additional verified slices: schema-11 salted password-verifier migration preserves account passwords and sessions, rejects verifier replay, and passes the 51-check shared suite including real PostgreSQL and PolyPrompt fixtures. real PostgreSQL lifecycle tests pass alongside SQLite; the generated contract covers 45 implemented operations; the React dashboard has browser journeys for conversation persistence, icon controls, responsive themes, request inspection, API execution and literal argument editing. AES-GCM session nonce/tamper/expiry/rotation/revocation cases pass. Native OTLP export has reached Prometheus, Tempo and Loki in the provisioned local stack. Hosted CI passed dashboard/browser checks; an initial runtime restore exposed a private-cache TUIKit hash mismatch, now corrected against the published package with an isolated repository cache. TUIKit focus/theme, concurrent service startup/pairing/detachment/shutdown, durable moderator receipts and portable snapshot corruption/rollback tests pass locally; PostgreSQL snapshots restore into SQLite. All milestone checkboxes remain open until the complete gates pass.
 
-Protected default-access slice: schema 13 migrates existing users to protected owned-reader/operator and tenant-presence assignments, synchronizes identity changes atomically and preserves grant provenance on recovery. Local shared checks pass with both supported providers; complete route, worker and credential enforcement remains open. See docs/AUTHORIZATION.md and docs/DEVELOPMENT.md for scope and evidence.
+Protected default-access slice: schema 13 migrates existing users to protected owned-reader/operator and tenant-presence assignments, synchronizes identity changes atomically and preserves grant provenance on recovery. Local shared checks pass with both supported providers; complete route, worker and credential enforcement remains open. This identity implementation has been removed; see docs/IDENTITY.md for current scope.
 
 Terminal appearance: the user-selected Quiet Charcoal palette replaces the earlier black palette. Workspace areas use headings, spacing and a single sidebar divider instead of rectangular frames; dialogs retain borders. Local terminal checks cover focus, theme switching, narrow layouts and input colors.
 
 Terminal interaction audit: shared wrapping menus, scrollable setup forms and dedicated read-only views; view-versioned refreshes and per-conversation drafts; retained failed-start review; deletion cancellation/refusal paths. Focused terminal checks can be run locally with `--suite Terminal`. These repairs address reproduced failures; full product acceptance remains open.
 
+User-directed local authentication exception (October 20, 2026): the local loopback service now defaults to RequireAuthentication=false. Open the plain dashboard URL without account, tenant selection, pairing codes, launch fragments or sessions. The service supplies the local owner context; existing persisted ownership remains intact. Authentication-specific fixtures explicitly enable the optional authenticated mode. This instruction overrides the earlier mandatory-local-auth requirement; it does not assert hosted-release readiness.
+
+Help and launcher slice: eight explanatory terminal guides replace shortcut-only pages, with headless navigation and scrolling checks. Root C# TUI/web launchers build before running; web startup prints the configured browser URL and reuses an existing home-owned service. At user direction, extra legacy web wrapper copies have been removed; the TypeScript application remains runnable through npm. These changes do not close cutover gates.
+
+Codex stream repair: a live rebuttal exposed separate progress/final item IDs being mistaken for incompatible whole-answer snapshots. The runner now reconciles text per item, with real-process regression evidence and a live local Claude/Codex completion. This does not close the full provider/parity gates.
+
+Agent setup clarity: a local launch failure exposed commands entered as executable names. Terminal/web forms now show program-only examples, explain separate argument rows and default replacement, validate common mistakes and explain frozen snapshots. Terminal and browser checks cover correction and paths containing spaces. No parity or acceptance gate is closed by this slice.
+
+Terminal combined deletion: Delete now offers to stop unfinished work and automatically complete deletion after confirmation, instead of redirecting the user to another shortcut. Real isolated-service journeys verify active/paused combined deletion and cancellation. Full acceptance gates remain open.
+
+Terminal stop/delete usability: lowercase s and F8 expose confirmed stopping directly, active-run refusals explain the next keys, and completion feedback distinguishes stopped from still stopping. A real isolated service journey covers active and paused runs, stop cancellation and subsequent deletion; full acceptance gates remain open.
+
+Terminal shortcut review: compared Armada's focus hints, Armor/S3Drive entity keys and Mux's composer/menu conventions. The list now owns mnemonic actions on its highlighted row, contextual hints and direct pane navigation; follow-up uses Ctrl+Y to preserve input selection. See docs/TUI-USABILITY.md for the surface review and local verification scope. P5/P6/P11 gates remain open.
+
 Terminal usability slice: visible action buttons and F2 main menu, first-use empty-state guidance, a separate connection line, built-in agent configuration presets and a four-step debate wizard with Back/Next/Review. Local headless tests cover mouse navigation from a fresh service fixture, two-agent setup, validation and submission boundaries, speaker order and final submission. This does not close the full P5/P6 parity or localization gates.
+
+Dashboard clipboard and request inspection: complete-turn/conversation copying fetches full history independently of visible previews; shared entity ID controls use monospace text and copy feedback. Clipboard API, selected-text fallback and manual selection cover browser security contexts without assuming HTTPS or localhost. Request inspection follows the local Conductor, AssistantHub and Pneuma metadata/capture layout conventions. Local unit and isolated browser checks provide evidence; full acceptance remains open.
+
+REST local tool slice: service-owned file/process tools with provider-native continuation, bounded results, durable call/result history and process-tree cancellation. Four-provider Postman simulations execute real local operations; shared engine history, storage/provenance and browser form/reload checks provide local evidence. Paid/live model compatibility and hosted acceptance remain open. See docs/EXECUTION.md.
+
+Named harness setup: one shared catalog fills Claude Code, Codex, Gemini CLI and Mux executables and complete arguments in editors, service persistence and runner fallback. Claude Code and Codex include the user-requested unattended permission flags. Custom argument lists remain literal and historical snapshots are not rewritten. Focused TUI and isolated browser/API/CLI checks cover selection, persistence and overrides; no acceptance gate is closed by this slice.
 
 Prepared October 19, 2026 against commit `e4a2f73`. The intended result is one persistent conversation product with a web dashboard, a C# TUIKit terminal application, scriptable console commands, and interchangeable CLI-harness and PolyPrompt model runners.
 
@@ -245,7 +271,7 @@ Use the published PolyPrompt package for supported completion providers. Start w
 - [ ] Keep API keys, headers, cloud credentials, and tokens in environment or OS credential-store references. If encrypted database storage is offered, use authenticated encryption with keys outside the database and define rotation/export/restore behavior. APIs return set/unset and redacted previews, never recoverable secrets.
 - [ ] Disable or redact library call recording before storing diagnostics. Redact prompt bodies and tool content according to explicit capture settings; secret headers are always redacted.
 
-PolyPrompt returns tool requests but does not execute them, and it does not store conversation history. The first REST runner release supports conversational debate. Automatic tools require a separate application-owned execution policy, approval model, result loop, cancellation, and tests. A model asking to run a command must not cause the server to execute one through the generic harness adapter.
+PolyPrompt returns tool requests but does not execute them, and it does not store conversation history. The REST runner owns the tool result loop and executes local file/process tools through a dedicated executor when service local execution (allowCli) is enabled. Calls and results are durable transcript entries; commands are bounded and cancellation stops child processes. This follows the October 20 user direction to give REST models local tooling, using the same account permissions and execution switch as CLI harnesses.
 
 ## 8. Shared conversation and debate engine
 
@@ -736,7 +762,7 @@ Identity/HTTPS slice verification: 48 shared console descriptors passed with SQL
 
 Worker authority slice: SQLite/PostgreSQL tests distinguish session logout from current identity revocation. Active generation is interrupted after execution-role removal or account disablement, stale-context resume creates no new attempt, and `run.authorization` audit records preserve the accepted principal and run. Full scoped-role/credential authorization remains an open P2 gate.
 
-Scoped authorization foundation: a bounded pure evaluator and shared truth-table descriptor cover explicit deny, aggregate Write semantics, exact resource IDs, tenant inheritance, ownership narrowing, administrator bypass and credential owner ceilings. This is not yet wired to stored role administration or the HTTP operation map. See [implementation boundaries](docs/AUTHORIZATION.md); P2 remains incomplete.
+Scoped authorization foundation: a bounded pure evaluator and shared truth-table descriptor cover explicit deny, aggregate Write semantics, exact resource IDs, tenant inheritance, ownership narrowing, administrator bypass and credential owner ceilings. This is not yet wired to stored role administration or the HTTP operation map. Identity administration is no longer in product scope.
 
 Password storage hardening: schema 11 derives salted PBKDF2-HMAC-SHA256 verifiers without changing the password-equivalent wire contract. Existing schema-10 accounts and sessions survive upgrade; replay of stored verifier material fails. Evidence: 51 shared console descriptors including PostgreSQL and PolyPrompt, NUnit/xUnit on both target frameworks, 15 HTTPS browser journeys, 22 console assertions and OpenAPI syntax lint. Historical pre-upgrade backups retain sensitive legacy equivalents. P2 remains open for stored roles, credentials and full enforcement.
 

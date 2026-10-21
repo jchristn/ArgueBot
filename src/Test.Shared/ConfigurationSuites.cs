@@ -24,43 +24,12 @@ namespace Test.Shared
             get
             {
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Configuration", "Safe configuration", new List<TestCaseDescriptor> {
-                new TestCaseDescriptor("Configuration", "SessionCache", "CLI session reuse validates local proofs before sending cached credentials", SessionCacheAsync),
                 new TestCaseDescriptor("Configuration", "HomeBinding", "Local routing identities are atomic, path-bound and read-only when absent", HomeBindingAsync),
                 new TestCaseDescriptor("Configuration", "Permissions", "Application directories and exported files restrict access to the current owner", PermissionsAsync),
                 new TestCaseDescriptor("Configuration", "Settings", "Invalid saves preserve the last configuration; unknown file fields fail visibly", SettingsAsync),
-                new TestCaseDescriptor("Configuration", "ClientOrigin", "Authenticated client refuses unsafe origins and absolute request URLs", ClientOriginAsync)
+                new TestCaseDescriptor("Configuration", "ClientOrigin", "Client refuses unsafe origins and absolute request URLs", ClientOriginAsync)
             }) };
             }
-        }
-        private static async Task SessionCacheAsync(CancellationToken token)
-        {
-            string home = Path.Combine(Path.GetTempPath(), "arguebot-cache-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                ArgueBotPaths paths = new ArgueBotPaths(home); string binding = LocalHomeIdentity.Ensure(paths);
-                string cache = Path.Combine(home, "runtime", "cli-session.json");
-                await File.WriteAllTextAsync(cache, JsonSerializer.Serialize(new { formatVersion = 1, endpoint = "http://127.0.0.1:4567/", homeId = binding, token = "fixture-cli-session" }), token).ConfigureAwait(false);
-                foreach (bool valid in new[] { false, true })
-                {
-                    LocalProofHandler handler = new LocalProofHandler(paths, valid);
-                    using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4567", handler))
-                    {
-                        client.SetToken("fixture-preexisting-header"); bool rejected = false;
-                        try { await client.PairLocalCachedAsync(home, token).ConfigureAwait(false); }
-                        catch (InvalidOperationException) when (!valid) { rejected = true; }
-                        if (handler.CredentialBeforeProof || handler.PairRequests != 0 || (valid ? handler.MeRequests != 1 : !rejected || handler.MeRequests != 0)) throw new InvalidDataException("A listener with no valid home proof received a credential, or a valid cache unnecessarily enrolled again.");
-                    }
-                }
-                LocalProofHandler outdated = new LocalProofHandler(paths, true, 1);
-                using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4567", outdated))
-                {
-                    bool rejected = false;
-                    try { await client.PairLocalCachedAsync(home, token).ConfigureAwait(false); }
-                    catch (InvalidOperationException) { rejected = true; }
-                    if (!rejected || outdated.MeRequests != 0 || outdated.PairRequests != 0 || outdated.CredentialBeforeProof) throw new InvalidDataException("An incompatible protocol received a cached credential.");
-                }
-            }
-            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task HomeBindingAsync(CancellationToken token)
         {
@@ -127,6 +96,9 @@ namespace Test.Shared
                 ServiceSettings settings = await ServiceSettings.LoadAsync(paths, token).ConfigureAwait(false);
                 settings.Port = 4517; await settings.SaveAsync(paths, token).ConfigureAwait(false);
                 string saved = await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false);
+                ServiceSettings legacy = ServiceSettings.Parse("{\"port\":4517,\"telemetry\":{\"enabled\":true,\"exportEnabled\":true,\"endpoint\":\"http://127.0.0.1:1\"}}");
+                await legacy.SaveAsync(paths, token).ConfigureAwait(false);
+                if ((await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false)).Contains("telemetry", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Retired telemetry settings were persisted.");
                 settings.RequestHistoryBodyBytes = -1;
                 bool denied = false;
                 try { await settings.SaveAsync(paths, token).ConfigureAwait(false); }
@@ -152,13 +124,12 @@ namespace Test.Shared
             }
             using (ArgueBotClient client = new ArgueBotClient())
             {
-                client.SetToken("fixture-token-not-a-real-session");
-                foreach (string path in new string[] { "https://example.invalid/v1.0/api/auth/me", "//example.invalid/health", "\\\\example.invalid\\health" })
+                foreach (string path in new string[] { "https://example.invalid/v1.0/api/conversations", "//example.invalid/health", "\\\\example.invalid\\health" })
                 {
                     bool denied = false;
                     try { await client.SendAsync<ApiError>(HttpMethod.Get, path, token: token).ConfigureAwait(false); }
                     catch (ArgumentException) { denied = true; }
-                    if (!denied) throw new InvalidDataException("An authenticated request could escape the configured origin.");
+                    if (!denied) throw new InvalidDataException("A request could escape the configured origin.");
                 }
             }
         }

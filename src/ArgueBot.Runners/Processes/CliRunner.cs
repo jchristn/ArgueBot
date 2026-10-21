@@ -54,14 +54,7 @@ namespace ArgueBot.Runners.Processes
         }
         private static List<string> Defaults(string provider)
         {
-            return provider switch
-            {
-                "claude" => new List<string> { "-p", "-", "--verbose", "--output-format", "stream-json", "--include-partial-messages" },
-                "codex" => new List<string> { "exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "--color", "never", "--json", "-" },
-                "mux" => new List<string> { "print", "--output-format", "text", "--no-stats", "--no-session-persistence" },
-                "gemini" => new List<string> { "--prompt", "", "--output-format", "stream-json" },
-                _ => new List<string>()
-            };
+            return HarnessDefaults.Create(provider).Arguments;
         }
         private static async Task SendInputAsync(Process process, string text, CancellationToken token)
         {
@@ -76,7 +69,7 @@ namespace ArgueBot.Runners.Processes
         }
         private static async Task ReadOutputAsync(StreamReader reader, RunnerProfile profile, Func<string, CancellationToken, Task> onText, CancellationToken token)
         {
-            char[] buffer = new char[2048]; StringBuilder line = new StringBuilder(); StringBuilder emitted = new StringBuilder(); int total = 0; int count;
+            char[] buffer = new char[2048]; StringBuilder line = new StringBuilder(); StringBuilder emitted = new StringBuilder(); Dictionary<string, string> codexItems = new Dictionary<string, string>(StringComparer.Ordinal); int total = 0; int count;
             while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) > 0)
             {
                 total += Encoding.UTF8.GetByteCount(buffer, 0, count);
@@ -85,18 +78,32 @@ namespace ArgueBot.Runners.Processes
                 if (profile.Provider == "plain" || profile.Provider == "mux") { await onText(text, token).ConfigureAwait(false); continue; }
                 foreach (char character in text)
                 {
-                    if (character == '\n') { await EmitLineAsync(line.ToString(), emitted, onText, token).ConfigureAwait(false); line.Clear(); }
+                    if (character == '\n') { await EmitLineAsync(line.ToString(), profile.Provider, emitted, codexItems, onText, token).ConfigureAwait(false); line.Clear(); }
                     else if (character != '\r') line.Append(character);
                 }
             }
-            if (line.Length > 0) await EmitLineAsync(line.ToString(), emitted, onText, token).ConfigureAwait(false);
+            if (line.Length > 0) await EmitLineAsync(line.ToString(), profile.Provider, emitted, codexItems, onText, token).ConfigureAwait(false);
         }
-        private static async Task EmitLineAsync(string line, StringBuilder emitted, Func<string, CancellationToken, Task> onText, CancellationToken token)
+        private static async Task EmitLineAsync(string line, string provider, StringBuilder emitted, Dictionary<string, string> codexItems, Func<string, CancellationToken, Task> onText, CancellationToken token)
         {
             if (string.IsNullOrWhiteSpace(line)) return;
             CliWireEvent item;
             try { item = JsonSerializer.Deserialize<CliWireEvent>(line) ?? throw new InvalidDataException("Agent emitted a null event."); }
             catch (JsonException ex) { throw new InvalidDataException("Agent emitted malformed JSONL.", ex); }
+            if (provider == "codex" && item.Item?.Type == "agent_message" && !string.IsNullOrEmpty(item.Item.Text))
+            {
+                string id = item.Item.Id ?? "legacy-agent-message";
+                string snapshotText = item.Item.Text;
+                bool existing = codexItems.TryGetValue(id, out string? previous);
+                previous ??= "";
+                if (!snapshotText.StartsWith(previous, StringComparison.Ordinal)) throw new InvalidDataException("Agent message snapshot conflicts with earlier text for the same item.");
+                string suffix = snapshotText.Substring(previous.Length);
+                if (suffix.Length == 0) return;
+                if (!existing && codexItems.Count > 0) await onText("\n\n", token).ConfigureAwait(false);
+                await onText(suffix, token).ConfigureAwait(false);
+                codexItems[id] = snapshotText;
+                return;
+            }
             string? delta = item.Event?.Delta?.Text ?? (item.Type == "text_delta" ? item.Text : null);
             if (item.Type == "message" && item.Role == "assistant") delta = item.Text;
             string? snapshot = item.Result ?? (item.Item?.Type == "agent_message" ? item.Item.Text : null);

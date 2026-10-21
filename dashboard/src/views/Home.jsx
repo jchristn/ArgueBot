@@ -87,35 +87,6 @@ export default function Home() {
           </div>
         )}
       </section>
-      <section className="page-section">
-        <header>
-          <h2>{t("home.services")}</h2>
-        </header>
-        <p>{t("home.services.help")}</p>
-        <div className="service-links">
-          {[
-            ["Grafana", "http://127.0.0.1:3007"],
-            ["Prometheus", "http://127.0.0.1:9097"],
-            ["Tempo", "http://127.0.0.1:3207"],
-          ].map(([name, url]) => (
-            <a
-              className="button"
-              href={url}
-              key={name}
-              target="_blank"
-              rel="noreferrer"
-              title={t("home.service.open", { name })}
-            >
-              {name}
-              <Icon name="external" />
-            </a>
-          ))}
-        </div>
-        <p className="muted">
-          {t("home.services.credentials")}{" "}
-          <code>admin / arguebot-local-observability</code>
-        </p>
-      </section>
       <p className="product-note">{t("home.notice")}</p>
       {creating && (
         <ConversationForm

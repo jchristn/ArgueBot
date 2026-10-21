@@ -25,6 +25,7 @@ namespace Test.Shared
             {
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Storage", "Durable conversations", new List<TestCaseDescriptor>
                 {
+                    new TestCaseDescriptor("Storage", "HistoricalData", "Historical account tables and conversation data survive upgrade without restricting open-workspace execution", HistoricalDataChecks.RunAsync),
                     new TestCaseDescriptor("Storage", "RequestHistory", "Request metadata paging, private detail, isolation, empty buckets and retention", RequestHistoryAsync),
                     new TestCaseDescriptor("Storage", "RoundTrip", "History, receipts, search, backup and tenant isolation", RoundTripAsync),
                     new TestCaseDescriptor("Storage", "RunRecovery", "Immutable snapshots and interrupted run recovery", RunRecoveryAsync),
@@ -182,6 +183,24 @@ namespace Test.Shared
                     if (!denied) throw new InvalidDataException("Viewer read operational diagnostics.");
                     await database.History.PruneAsync(start.AddMinutes(10), token).ConfigureAwait(false);
                     if ((await database.History.EnumerateAsync(Owner(), new HistoryFilter(), token).ConfigureAwait(false)).TotalCount != 0) throw new InvalidDataException("Retention did not remove expired captures.");
+                    foreach (int minutes in new[] { 1, 15, 120, 480 })
+                    {
+                        int count = minutes == 1 ? 60 : minutes == 15 ? 96 : minutes == 120 ? 84 : 90;
+                        DateTime rangeStart = start.AddYears(1);
+                        DateTime rangeEnd = rangeStart.AddMinutes(minutes * count);
+                        foreach (int status in new[] { 199, 200, 302, 399, 400, 404, 500, 599 })
+                            await database.History.InsertAsync(new RequestHistoryEntry { TenantId = "ten_local", UserId = "usr_local", Method = "GET", Path = "/chart-boundary", Status = status, CreatedUtc = rangeEnd.AddTicks(-1) }, token).ConfigureAwait(false);
+                        await database.History.InsertAsync(new RequestHistoryEntry { TenantId = "ten_local", UserId = "usr_local", Method = "GET", Path = "/chart-excluded-end", Status = 500, CreatedUtc = rangeEnd }, token).ConfigureAwait(false);
+                        await database.History.InsertAsync(new RequestHistoryEntry { TenantId = "ten_local", UserId = "usr_local", Method = "GET", Path = "/chart-included-start", Status = 200, CreatedUtc = rangeStart }, token).ConfigureAwait(false);
+                        await database.History.InsertAsync(new RequestHistoryEntry { TenantId = "ten_local", UserId = "usr_local", Method = "GET", Path = "/chart-excluded-start", Status = 500, CreatedUtc = rangeStart.AddTicks(-1) }, token).ConfigureAwait(false);
+                        List<ActivityBucket> activity = await database.History.SummaryAsync(Owner(), rangeStart, rangeEnd, minutes, token).ConfigureAwait(false);
+                        if (activity.Count != count || activity[0].StartUtc != rangeStart || activity[count - 1].StartUtc != rangeEnd.AddMinutes(-minutes)) throw new InvalidDataException("Activity timeframe returned incorrect bucket boundaries or count.");
+                        if (activity[count - 1].Success != 4 || activity[count - 1].Failure != 4) throw new InvalidDataException("Activity status classification or exclusive end boundary is incorrect.");
+                        if (activity[0].Success != 1 || activity[0].Failure != 0 || activity.Skip(1).Take(count - 2).Any(item => item.Success != 0 || item.Failure != 0)) throw new InvalidDataException("Activity lost the inclusive start boundary or zero-filled gaps.");
+                        await database.History.PruneAsync(rangeEnd.AddTicks(1), token).ConfigureAwait(false);
+                        for (int index = 1; index < count; index++)
+                            if (activity[index].StartUtc - activity[index - 1].StartUtc != TimeSpan.FromMinutes(minutes)) throw new InvalidDataException("Activity buckets lost their fixed UTC interval.");
+                    }
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }

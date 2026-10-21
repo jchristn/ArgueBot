@@ -8,6 +8,7 @@ namespace ArgueBot.Tui
     using System.Threading.Tasks;
     using ArgueBot.Client;
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
@@ -21,7 +22,7 @@ namespace ArgueBot.Tui
         private readonly ArgueBotClient _Client;
         private readonly ButtonRow _Actions = new ButtonRow();
         private readonly ConversationListView _Threads = new ConversationListView();
-        private Pane _Transcript = new Pane("transcript");
+        private readonly Pane _Transcript = new Pane("transcript");
         private readonly TextField _Composer = new TextField { Placeholder = "Add a note to this conversation (Enter sends). Start debate runs the agents." };
         private readonly Label _ConversationHeading = new Label(Text.From("Conversations"));
         private readonly Label _NoteHeading = new Label(Text.From("Note: Enter sends"));
@@ -61,7 +62,7 @@ namespace ArgueBot.Tui
         internal void Configure(TuiApplication app)
         {
             _App = app; _Dispatcher = new UiDispatcher(app, _Token); app.ApplyThemeToWidgets = true; app.Theme = TerminalTheme.Dark; app.HighlightFocusedRegion = false;
-            _ = new WorkspaceViewport(app);
+            _ = new WorkspaceViewport(app, () => _SelectedTitle ?? "Shared debate history");
             _Actions.Add("Help", () => Launch(HelpAsync)).TooltipText = "Open help topics and keyboard instructions (F1).";
             _Actions.Add("Menu", () => Launch(MenuAsync)).TooltipText = "Browse every action without memorizing shortcuts (F2).";
             _Actions.Add("New", () => Launch(NewAsync)).TooltipText = "Create a debate with guided setup, or create an empty conversation.";
@@ -73,7 +74,9 @@ namespace ArgueBot.Tui
             app.AddWidget("history-heading", _HistoryTitle, region => region.ProportionalWidth(0.3, 0.7).TopAnchored(4, 1).WithPadding(1, 0, 1, 0));
             app.AddWidget("note-heading", _NoteHeading, region => region.BottomAnchored(4, 1).FillWidth().WithPadding(1, 0, 1, 0));
             app.AddWidget("threads", _Threads, region => region.ProportionalWidth(0, 0.3).FillHeight(6, 5).WithPadding(1, 0, 2, 0));
-            _Transcript = app.AddPane("transcript", region => region.ProportionalWidth(0.3, 0.7).FillHeight(6, 5).WithPadding(1, 0, 1, 0));
+            TranscriptView history = new TranscriptView(_Transcript);
+            history.ReadRequested += () => Launch(HistoryAsync);
+            app.AddWidget("transcript", history, region => region.ProportionalWidth(0.3, 0.7).FillHeight(6, 5).WithPadding(1, 0, 1, 0));
             app.AddWidget("composer", _Composer, region => region.BottomAnchored(2, 2).FillWidth().WithPadding(1, 0, 1, 0));
             app.AddWidget("feedback", _Feedback, region => region.BottomAnchored(1, 1).FillWidth().WithPadding(1, 0, 1, 0));
             app.AddWidget("status", _Status, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(1, 0, 1, 0));
@@ -82,18 +85,19 @@ namespace ArgueBot.Tui
             ApplyWorkspaceTheme();
             app.BindKeyHints(_Status).AddAppHint("f1", "Help").AddAppHint("f2", "Menu").AddAppHint("ctrl+q", "Detach");
             app.Bind("f2", () => Launch(MenuAsync));
+            app.Bind("alt+1", () => app.Focus("threads"));
+            app.Bind("alt+2", () => app.Focus("transcript"));
+            app.Bind("alt+3", () => app.Focus("composer"));
+            app.Bind("escape", () => app.Focus("threads"));
             app.Bind("ctrl+q", app.Quit);
             app.Bind("ctrl+n", () => Launch(NewAsync));
             app.Bind("ctrl+b", () => Launch(StartAsync));
             app.Bind("ctrl+p", () => Launch(PauseAsync));
+            app.Bind("f8", () => Launch(StopAsync));
             app.Bind("ctrl+r", () => Launch(ControlsAsync));
-            app.Bind("ctrl+a", () => Launch(FollowupAsync));
+            app.Bind("ctrl+y", () => Launch(FollowupAsync));
             app.Bind("ctrl+f", () => Launch(SearchAsync));
             app.Bind("ctrl+e", () => Launch(ParticipantsAsync));
-            app.Bind("ctrl+k", () => Launch(RecoveryAsync));
-            app.Bind("ctrl+j", () => Launch(AuditAsync));
-            app.Bind("ctrl+u", () => Launch(UsersAsync));
-            app.Bind("ctrl+o", () => Launch(RolesAsync));
             app.Bind("ctrl+g", () => Launch(AttemptsAsync));
             app.Bind("ctrl+l", () => Launch(HistoryAsync));
             app.Bind("alt+right", () => ChangePage(1));
@@ -101,7 +105,33 @@ namespace ArgueBot.Tui
             app.Bind("ctrl+t", ToggleTheme);
             app.Bind("f1", () => Launch(HelpAsync));
             _Threads.ItemActivated += index => { if (index >= 0 && index < _Conversations.Count) { OpenConversation(_Conversations[index].Id, _Conversations[index].Title); } };
+            _Threads.CommandRequested += ConversationCommand;
             _Composer.Submitted += (_, _) => Launch(SendAsync);
+            app.Focus("threads");
+        }
+        private void ConversationCommand(string command)
+        {
+            if (IsBusy) return;
+            if (command == "n") { Launch(NewAsync); return; }
+            if (command == "/") { Launch(SearchAsync); return; }
+            if (command == "e") { Launch(ParticipantsAsync); return; }
+            if (command == "?") { Launch(HelpAsync); return; }
+            int index = _Threads.SelectedIndex;
+            if (index < 0 || index >= _Conversations.Count) return;
+            Conversation target = _Conversations[index];
+            if (_Selected != target.Id) OpenConversation(target.Id, target.Title);
+            switch (command)
+            {
+                case "d": Launch(DeleteConversationAsync); break;
+                case "b": Launch(StartAsync); break;
+                case "p": Launch(PauseAsync); break;
+                case "s": Launch(StopAsync); break;
+                case "r": Launch(ControlsAsync); break;
+                case "f": Launch(FollowupAsync); break;
+                case "l": Launch(HistoryAsync); break;
+                case "g": Launch(AttemptsAsync); break;
+                case "a": _App!.Focus("composer"); break;
+            }
         }
         private void ApplyWorkspaceTheme()
         {
@@ -181,10 +211,13 @@ namespace ArgueBot.Tui
             catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                _App?.Post(() => _Feedback.Content = Text.From(ex.Message, _App!.Theme.Error));
+                string message = ex is DomainException domain && domain.Code == "active_run"
+                    ? ex.Message + " Close this message, highlight the conversation and press s to stop its debate, then d to delete. F8 stops the open conversation."
+                    : ex.Message;
+                _App?.Post(() => _Feedback.Content = Text.From(message, _App!.Theme.Error));
                 if (_App != null && !_Token.IsCancellationRequested)
                 {
-                    try { await UiAsync(() => _App.ConfirmStyledAsync("Operation failed: " + ex.Message, "Close", "Close")).ConfigureAwait(false); }
+                    try { await UiAsync(() => _App.ConfirmStyledAsync("Operation failed: " + message, "Close", "Close")).ConfigureAwait(false); }
                     catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
                 }
             }
@@ -200,27 +233,7 @@ namespace ArgueBot.Tui
             if (_App == null || _Selected == null) return;
             await new AttemptWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token).RunAsync(_Selected).ConfigureAwait(false);
         }
-        private async Task RolesAsync()
-        {
-            if (_App == null) return;
-            await new RoleWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token).RunAsync().ConfigureAwait(false);
-        }
-        private async Task UsersAsync()
-        {
-            if (_App == null) return;
-            await new UserWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token).RunAsync().ConfigureAwait(false);
-        }
-        private async Task AuditAsync()
-        {
-            if (_App == null) return;
-            await new AuditWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token).RunAsync().ConfigureAwait(false);
-        }
-        private async Task RecoveryAsync()
-        {
-            if (_App == null) return;
-            RecoveryWorkflow workflow = new RecoveryWorkflow(_Client, _App, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token);
-            await workflow.RunAsync().ConfigureAwait(false);
-        }
+
         private async Task ParticipantsAsync()
         {
             if (_App == null) return;
@@ -315,9 +328,44 @@ namespace ArgueBot.Tui
                     await _Client.StartAsync(conversationId, candidate, _Token).ConfigureAwait(false);
                 }));
             }).ConfigureAwait(false);
-            if (request != null) _App.Post(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(5); _Feedback.Content = Text.From("Debate started. Run controls can pause or stop it.", _App.Theme.Success); });
+            if (request != null) _App.Post(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(5); _Feedback.Content = Text.From("Debate started. Press s in the conversation list or F8 to stop it; r opens run controls.", _App.Theme.Success); });
         }
 
+        private async Task StopAsync()
+        {
+            if (_App == null || _Selected == null) return;
+            string conversationId = _Selected;
+            string title = _SelectedTitle ?? conversationId;
+            DebateRun? run = (await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false)).LastOrDefault(item => !RunFinished(item));
+            if (run == null)
+            {
+                await UiAsync(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(5); _Feedback.Content = Text.From("No unfinished debate. Press d in the conversation list to delete.", _App.Theme.Muted); return Task.FromResult(true); }).ConfigureAwait(false);
+                return;
+            }
+            bool accepted = await UiAsync(() => _App.ConfirmStyledAsync("Stop debate in " + title + "? Current state: " + run.State + ". Partial answers remain in history. You can delete the conversation after it stops.", "Stop debate", "Cancel: keep debate")).ConfigureAwait(false);
+            if (!accepted) return;
+            // Stop targets this run regardless of revisions produced while the confirmation is open.
+            await _Client.ActionAsync(conversationId, run.Id, new CommandRequest { Action = "stop", IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+            await UiAsync(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(10); _Feedback.Content = Text.From("Stopping debate... waiting for the service.", _App.Theme.Muted); return Task.FromResult(true); }).ConfigureAwait(false);
+            bool stopped = await WaitForStopAsync(conversationId, run.Id).ConfigureAwait(false);
+            await UiAsync(() =>
+            {
+                _FeedbackUntil = DateTime.UtcNow.AddSeconds(10);
+                _Feedback.Content = Text.From(stopped ? "Debate stopped. Press d in the conversation list to delete." : "Stop requested; the service is still stopping. Retry deletion after the debate stops.", stopped ? _App.Theme.Success : _App.Theme.Muted);
+                return Task.FromResult(true);
+            }).ConfigureAwait(false);
+        }
+        private async Task<bool> WaitForStopAsync(string conversationId, string runId)
+        {
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                DebateRun? current = (await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false)).FirstOrDefault(item => item.Id == runId);
+                if (current == null || RunFinished(current)) return true;
+                await Task.Delay(100, _Token).ConfigureAwait(false);
+            }
+            return false;
+        }
+        private static bool RunFinished(DebateRun run) { return run.State == "completed" || run.State == "cancelled" || run.State == "failed"; }
         private async Task PauseAsync()
         {
             if (_Selected == null) return;
@@ -388,7 +436,36 @@ namespace ArgueBot.Tui
             Conversation conversation = await _Client.ConversationAsync(id, _Token).ConfigureAwait(false);
             int action = await UiAsync(() => _App.SelectStyledAsync("Permanently delete this conversation and its messages? This cannot be undone. Conversation: " + conversation.Title, "Cancel: keep this conversation", "Delete permanently")).ConfigureAwait(false);
             if (action != 1) return;
-            await _Client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + Uri.EscapeDataString(id), token: _Token).ConfigureAwait(false);
+            while (true)
+            {
+                try
+                {
+                    await _Client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + Uri.EscapeDataString(id), token: _Token).ConfigureAwait(false);
+                    break;
+                }
+                catch (DomainException exception) when (exception.Code == "active_run")
+                {
+                    DebateRun? run = (await _Client.RunsAsync(id, _Token).ConfigureAwait(false)).LastOrDefault(item => !RunFinished(item));
+                    if (run == null)
+                    {
+                        await _Client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + Uri.EscapeDataString(id), token: _Token).ConfigureAwait(false);
+                        break;
+                    }
+                    bool stopAndDelete = await UiAsync(() => _App.ConfirmStyledAsync("This conversation has an unfinished debate (" + run.State + "). Stop it and permanently delete the conversation and all its messages? This cannot be undone. Conversation: " + conversation.Title, "Stop debate and delete permanently", "Cancel: keep conversation and debate")).ConfigureAwait(false);
+                    if (!stopAndDelete) return;
+                    await _Client.ActionAsync(id, run.Id, new CommandRequest { Action = "stop", IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+                    await UiAsync(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(10); _Feedback.Content = Text.From("Stopping debate before deletion...", _App.Theme.Muted); return Task.FromResult(true); }).ConfigureAwait(false);
+                    while (!await WaitForStopAsync(id, run.Id).ConfigureAwait(false))
+                    {
+                        bool keepWaiting = await UiAsync(() => _App.ConfirmStyledAsync("The debate is still stopping. Keep waiting to delete " + conversation.Title + "? Cancelling keeps the conversation; the stop request remains in effect.", "Keep waiting, then delete", "Cancel deletion: keep conversation")).ConfigureAwait(false);
+                        if (!keepWaiting)
+                        {
+                            await UiAsync(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(10); _Feedback.Content = Text.From("Deletion cancelled. The conversation is kept; the stop request remains in effect.", _App.Theme.Muted); return Task.FromResult(true); }).ConfigureAwait(false);
+                            return;
+                        }
+                    }
+                }
+            }
             await UiAsync(() =>
             {
                 if (_Selected == id)
@@ -408,54 +485,35 @@ namespace ArgueBot.Tui
             if (_App == null) return;
             List<string> labels = new List<string>(); List<Func<Task>> actions = new List<Func<Task>>();
             void Add(string label, Func<Task> action) { labels.Add(label); actions.Add(action); }
-            Add("New debate or conversation", NewAsync);
-            Add("Agents: configure CLI harnesses and REST models", ParticipantsAsync);
+            Add("New debate or conversation (Ctrl+N)", NewAsync);
+            Add("Agents: configure CLI harnesses and REST models (Ctrl+E)", ParticipantsAsync);
             if (_Selected != null)
             {
-                Add("Start a debate in this conversation", StartAsync);
-                Add("Run controls: pause, resume, interrupt or stop", ControlsAsync);
-                Add("Read full message history", HistoryAsync);
-                Add("Inspect generation attempts", AttemptsAsync);
-                Add("Ask an agent a follow-up question", FollowupAsync);
-                Add("Delete this conversation", DeleteConversationAsync);
+                Add("Start a debate in this conversation (Ctrl+B)", StartAsync);
+                Add("Run controls: pause, resume, interrupt or stop (Ctrl+R)", ControlsAsync);
+                Add("Stop this debate (F8; s in list)", StopAsync);
+                Add("Read full message history (Ctrl+L)", HistoryAsync);
+                Add("Inspect generation attempts (Ctrl+G)", AttemptsAsync);
+                Add("Ask an agent a follow-up question (Ctrl+Y)", FollowupAsync);
+                Add("Delete this conversation (d / Delete in list)", DeleteConversationAsync);
             }
             if (_Page > 1) Add("Previous conversation page", () => UiAsync(() => { ChangePage(-1); return Task.FromResult(true); }));
             if (_Page < _TotalPages) Add("Next conversation page", () => UiAsync(() => { ChangePage(1); return Task.FromResult(true); }));
-            Add("Search conversations and archived history", SearchAsync);
-            Add("Administration and security audit", AdministrationAsync);
+            Add("Search conversations and archived history (Ctrl+F)", SearchAsync);
             Add("Switch light / dark theme", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
             Add("Help: how to use ArgueBot", HelpAsync);
             Add("Detach (the service keeps running)", () => { _App.Post(_App.Quit); return Task.CompletedTask; });
             int selected = await UiAsync(() => _App.SelectStyledAsync("Main menu: choose an action", labels.ToArray())).ConfigureAwait(false);
             if (selected >= 0) await actions[selected]().ConfigureAwait(false);
         }
-        private async Task AdministrationAsync()
-        {
-            if (_App == null) return;
-            int selected = await UiAsync(() => _App.SelectStyledAsync("Administration: service permissions apply", "Users", "Roles", "Security audit", "Backup and recovery")).ConfigureAwait(false);
-            if (selected == 0) await UsersAsync().ConfigureAwait(false);
-            else if (selected == 1) await RolesAsync().ConfigureAwait(false);
-            else if (selected == 2) await AuditAsync().ConfigureAwait(false);
-            else if (selected == 3) await RecoveryAsync().ConfigureAwait(false);
-        }
         private async Task HelpAsync()
         {
             if (_App == null) return;
-            string[] topics = new[] { "Navigation and conversations", "Configure agents and harnesses", "Start and control a debate", "History, messages and attempts", "Users, roles, audit and recovery", "Theme and detaching" };
-            string[][] shortcuts = new[]
-            {
-                new[] { "Use the visible buttons: Help, Menu, New, Agents, Start debate and Run controls", "Tab / Shift+Tab: move focus; arrows move within a list or button row", "Enter: open a conversation or send the composer note", "New / Ctrl+N: choose a guided debate or an empty conversation", "Menu / F2: browse all available actions", "Ctrl+F: search titles/content and choose archive scope", "Alt+Left / Alt+Right: change conversation pages", "Menu: Delete this conversation permanently removes its history", "Stop active or paused debates before deleting a conversation" },
-                new[] { "Ctrl+E: create, edit or delete reusable participant profiles", "CLI: choose protocol, executable, working directory and literal arguments", "REST: choose provider, endpoint, model and credential environment reference", "Configure at least two enabled participants for a debate", "Profiles execute on the service machine; prompts go to CLI stdin", "Tab: next form field | Ctrl+S: save | Esc: cancel" },
-                new[] { "Start debate / Ctrl+B: Question, Speakers, Settings, then Review", "Back / Next: move between steps without losing answers", "Start debate on the Review step: submit the debate", "Ctrl+P: pause or resume", "Ctrl+R: run controls, interrupt, extend, private directive or stop", "Ctrl+A: ask a follow-up question", "Interrupted turns require an explicit resume; a retry may incur cost" },
-                new[] { "Ctrl+L: browse history and read complete messages", "Ctrl+G: inspect generation attempts and exact source context", "Preview notices mean more text is available through Ctrl+L", "PageUp / PageDown: scroll inside full-message readers", "Private directives are sent only to the selected participant" },
-                new[] { "Ctrl+U: manage tenant users (administrator)", "Ctrl+O: browse, clone and edit role definitions (administrator)", "Ctrl+J: inspect security audit events", "Ctrl+K: backup/recovery and durable jobs (administrator)", "Access is checked by the service; protected records cannot be edited" },
-                new[] { "Ctrl+T: switch dark/light theme", "Quiet Charcoal: soft text, muted blue focus and darker input fields", "Ctrl+Q: detach the terminal without stopping service-owned work", "F1: reopen this help menu", "Esc: close a dialog and return" }
-            };
             while (true)
             {
-                int selected = await UiAsync(() => _App.SelectStyledAsync("Help", topics)).ConfigureAwait(false);
+                int selected = await UiAsync(() => _App.SelectStyledAsync("Help", TerminalHelp.Titles)).ConfigureAwait(false);
                 if (selected < 0) return;
-                await UiAsync(() => _App.ShowAsync(new MessageDialog(new Message { Content = string.Join("\n\n", shortcuts[selected]), Speaker = "Help" }) { Title = topics[selected] })).ConfigureAwait(false);
+                await UiAsync(() => _App.ShowAsync(new MessageDialog(new Message { Content = TerminalHelp.Pages[selected], Speaker = "Help" }) { Title = TerminalHelp.Titles[selected] })).ConfigureAwait(false);
             }
         }
     }

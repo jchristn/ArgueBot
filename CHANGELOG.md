@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+- Remove unused pairing/account/session/permission implementations, DTOs, identity-only tests, obsolete planning archives and superseded documentation. Preserve historical database tables and migration safety; keep the legacy application runnable pending cutover.
+
+- Remove the external observability stack, collector/export dependencies, configuration and dashboard links; stop scripts now stop only ArgueBot.
+
+- Cache fingerprinted dashboard assets so the browser can reuse logos, scripts and styles; keep HTML and API responses uncached.
+
+- Expand request activity charts with selectable hour/day/week/30-day ranges, exact minute/15-minute/2-hour/8-hour buckets, labeled axes, hover and keyboard details, and explicit status/color legends.
+
+- Remove backup and restore workflows, service jobs/routes, offline server commands and client helpers from all product surfaces.
+
+- Give conversation and participant IDs their own dashboard table columns, retaining monospace text and copy controls.
+
+- Remove product accounts, roles, permissions, security audit and all authentication workflows/routes; keep one open workspace and preserve existing stored data.
+- Open existing object editors from table rows with keyboard support; keep explicit copy/action controls independent.
+- Add stop-web.sh and stop-web.bat to stop the selected service; make repeated service stops safe.
+
+- Replace the API Explorer operations sidebar with a dropdown above the full-width request and response workspace.
+
+- Close dashboard modals when their backdrop is clicked; preserve inside clicks and drags that begin within the modal.
+
+- Add full-turn, complete-conversation and ID copying with insecure HTTP, permission-denied and manual clipboard fallbacks; render IDs in monospace.
+- Redesign request inspection with a metadata grid, separate request/response captures, block copy actions, raw JSON and a responsive wide layout.
+
+- Restore the existing ArgueBot icon in dashboard branding and the browser tab.
+
+- Enable service-owned local file and process tools for REST models, with provider continuation, durable tool history, execution policy, limits and stop cancellation.
+
+- Populate named agent harness executables and complete arguments consistently across web, TUI and API/CLI, including unattended Claude Code and Codex flags.
+
+- Open local workspaces without authentication by default: plain dashboard URLs, no pairing codes, connection fragments, login screen or browser session. Native clients skip enrollment; startup removes old pairing files. Existing owner-backed storage remains intact. The previous authenticated mode is explicit opt-in through RequireAuthentication=true.
+
+- Remove the extra legacy web launchers at user request. Fix repeated go-web launches by reusing the verified service for the selected home instead of opening its instance lock again. Preserve custom startup ports and print the existing listener's actual URL when attaching.
+
+- Expand all terminal Help topics into practical guides, including final instructions after consensus, troubleshooting, examples and state-specific recovery. Verify every topic opens, scrolls and returns to the contents at multiple widths.
+- Add go-tui.sh/.bat and update go-web.sh/.bat to build and run the C# replacement. Web launchers build current dashboard assets, start or attach to the shared service, and print the actual browser URL. TUI --help now works without an interactive terminal.
+
+- Fix Codex JSONL parsing when a turn emits separate progress and final agent-message items. Track snapshots by item ID, preserve message boundaries and suppress duplicate completions while still rejecting conflicting replacements for the same item. Add real-process regression fixtures and verify both CLI agents in a live local debate.
+
+- Clarify agent setup in terminal and web forms: program-only executables, one flag/value per argument row, complete custom-argument replacement and unchanged historical run snapshots. Catch common executable-plus-flags mistakes without rejecting paths containing spaces. Explain process-launch failures in plain language and guide empty failed answers to the terminal inspector.
+
+- When deletion encounters an unfinished debate, offer Stop debate and delete permanently. Confirming stops the run, waits for completion and deletes automatically; cancellation preserves the conversation, and stop failures never proceed to deletion. Real-service journeys cover active/paused runs and cancelling the combined action.
+
+- Add lowercase s Stop for the highlighted conversation and F8 for the open conversation, with cancellation by default and service completion feedback before deletion. Active-run errors now explain the stop/delete keys. Verify active and paused stop/delete journeys against an isolated real service and hanging fixture harness.
+
+- Preserve lowercase in case-sensitive TUI shortcut hints so displayed keys match accepted input; verify advertised character shortcuts and the rendered delete hint.
+
+- Add focus-scoped conversation shortcuts: d/Delete, b debate, r run controls, p pause/resume, f follow-up, l history, g attempts, a note, n new, e agents and / search. List actions target the highlighted row, deletion defaults to Cancel, and the footer advertises local actions. Alt+1/2/3 focuses conversations/history/notes, with keyboard scrolling and full-history access from the history pane; Escape returns to conversations. Move the global follow-up shortcut to Ctrl+Y so Ctrl+A remains available for input selection. Menus now show global shortcuts.
+
 - Apply Quiet Charcoal to the terminal with soft text, muted blue focus and charcoal inputs. Remove workspace boxes, retain a single sidebar divider and keep dialogs framed.
 
 - Add Mux CLI harness support, a terminal preset and web protocol selection, with stdin prompts, streamed text capture and nonzero-exit handling.

@@ -12,11 +12,7 @@ namespace ArgueBot.Server
     internal static class Api
     {
         internal static readonly JsonSerializerOptions Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
-        internal static string SessionToken(HttpContextBase http)
-        {
-            return SessionAuthentication.Read(http.Request.Headers);
-        }
-        internal static RequestContext Context(HttpContextBase http) { return http.Metadata as RequestContext ?? throw new DomainException(401, "unauthenticated", "Authentication required."); }
+        internal static RequestContext Context(HttpContextBase http) { return http.Metadata as RequestContext ?? throw new DomainException(500, "missing_workspace", "Workspace request context is unavailable."); }
         internal static string Parameter(HttpContextBase http, string name) { return http.Request.Url.Parameters[name] ?? throw new DomainException(400, "missing_parameter", "Required route parameter is missing."); }
         internal static T Body<T>(HttpContextBase http)
         {

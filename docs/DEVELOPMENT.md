@@ -1,113 +1,61 @@
-# Replacement runtime development
+# Development and verification
 
-The C# replacement is under active implementation. The npm entry points still run the existing application. Do not use the replacement as a finished hosted product: full RBAC, remaining recovery/import/retention flows, full dashboard/TUI parity, packaging and acceptance gates remain open in IMPROVEMENTS.md.
+The current runtime is C# with a React/Vite dashboard. It provides one open workspace, service-owned execution, CLI and REST participants, and local tools for REST models. Accounts, pairing, roles, security audit, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-NuGet.Config uses a repository-local ignored package cache and maps packages to nuget.org. Locked hashes are verified against published packages, avoiding same-version private builds in a machine-wide cache.
+The legacy TypeScript application remains runnable through root npm commands and `go-terminal.sh` / `go-terminal.bat` until replacement cutover is verified. `go-tui` and `go-web` build and launch the current runtime. See IMPROVEMENTS.md for remaining acceptance work; passing fixture tests does not close all release gates.
 
-Build from the repository root with .NET 10 (and .NET 8 for reusable-library tests):
+## Build and test
+
+Use .NET 10 for applications, plus .NET 8 for shared library and test targets. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
 
 ```sh
+npm ci
+npm run build
+npm --prefix dashboard ci
+npm --prefix dashboard run lint
+npm --prefix dashboard run i18n:check
+npm --prefix dashboard run test:ci
+npm --prefix dashboard run build
 dotnet restore src/ArgueBot.sln --locked-mode
 dotnet build src/ArgueBot.sln -c Release --no-restore
-dotnet run --project src/Test.Automated -c Release -f net10.0
-dotnet test src/Test.Xunit -c Release -f net10.0
-dotnet test src/Test.Nunit -c Release -f net10.0
+dotnet run --project src/Test.Automated -c Release --no-build -- --results .run/console-results.json
+dotnet test src/Test.Xunit -c Release --no-build
+dotnet test src/Test.Nunit -c Release --no-build
+node scripts/test-cli-surfaces.mjs
+node scripts/test-stop-web.mjs
+npm --prefix dashboard run test:e2e
 ```
 
-Use a disposable home for development. The service requires local pairing and stores session digests, conversations, messages, events, run checkpoints and immutable participant snapshots in its database. It binds only to 127.0.0.1. No application version was changed.
+All fixtures use isolated application homes and loopback listeners. Console descriptors are shared with xUnit and NUnit. Optional provider and runner integrations report explicit skips when their fixture variables are absent. For real CLI parsing and process cancellation checks, set `ARGUEBOT_CLI_FIXTURE` to the built `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. These fictional harnesses require no paid provider credentials.
+
+Focused console suites include `--suite Storage`, `--suite Service`, `--suite Terminal`, `--suite Configuration`, `--suite Security`, `--suite Runners` and `--suite Providers`. The Security suite concerns local certificate trust, not product users. Windows launcher parity must also be verified on Windows.
+
+## Start an isolated service
 
 ```sh
-dotnet run --project src/ArgueBot.Server -c Release -f net10.0 -- --home .run/home --port 4417
-dotnet run --project src/ArgueBot.Cli -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417 conversations create "What should we build?"
-dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home --server http://127.0.0.1:4417
+dotnet run --project src/ArgueBot.Server -c Release --no-build -- --home .run/home --port 4417
+dotnet run --project src/ArgueBot.Cli -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417 conversations create "What should we build?"
+dotnet run --project src/ArgueBot.Tui -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417
 ```
 
-The C# TUI displays the lowercase Ogre ASCII logo in a centered modal over the workspace at startup. It includes the current assembly version, copyright, MIT license, repository URL and participant/help shortcuts. Press any key to dismiss the splash immediately, or wait three seconds for it to close automatically.
+Clients start or attach to their selected home automatically unless `--no-start` or an explicit `--server` is supplied. No account or token is required. Agent providers may require their own credentials. See [terminal usage](TUI.md), [execution](EXECUTION.md) and [operations](OPERATIONS.md).
 
-Local clients exchange the protected `.run/home/runtime/pairing-code` for a revocable session. Every exchange rotates the code. When --server is omitted, local clients start or attach to the service for their selected home. --no-start requires it to be running. Explicit --server addresses attach without starting processes. Use `service start|status|restart|stop` in the console to manage it. Stopping and restarting require an administrator session. For a remote client, set `ARGUEBOT_TOKEN` from an authorized session; the current replacement server is deliberately loopback-only. Never paste real tokens into committed commands or URLs.
+## Provider fixtures
 
-CLI `participants add --file profile.json` accepts a profile with name, kind (`cli` or `rest`), protocol provider, executable/ordered arguments or REST endpoint/model, optional workingDirectory, and secretEnvironmentVariable. Prompt content goes over stdin for CLI runners. `.cmd` and `.bat` wrappers are rejected; configure the underlying executable or script host. REST profiles currently support Ollama, OpenAI-compatible, Anthropic and Gemini completion APIs through PolyPrompt. Automatic REST tool execution is disabled.
+Disposable PostgreSQL fixtures are defined separately in `docker/providers/compose.yaml`. Never point integration tests at an existing database. Set `ARGUEBOT_TEST_POSTGRESQL` to an explicitly provisioned loopback fixture connection. Shared lifecycle tests preserve one exclusive database writer.
 
-The offline descriptor suites do not use the user's home or authenticated agent CLIs. To exercise the real PolyPrompt HTTP adapter, start the committed simulation in another terminal:
+The committed Postman simulation runs provider-native success and failure cases, including REST models calling real local file/process tools:
 
 ```sh
 postman simulation run postman/simulations/runners.sim.yaml --port 4491 --output ndjson
-ARGUEBOT_SIMULATION_URL=http://127.0.0.1:4491/ollama dotnet run --project src/Test.Automated -c Release -f net10.0
+# In another terminal:
+ARGUEBOT_SIMULATION_URL=http://127.0.0.1:4491 dotnet run --project src/Test.Automated -c Release --no-build
 ```
 
-When the simulation is not configured, those three cases report explicit skips. Successful local fixture/simulation tests do not establish live-provider compatibility or release readiness. Runtime/simulation logs and real captures belong under ignored `.run/`, never in source control.
+The CI fixture can also run directly using `PORT=4491 node --input-type=commonjs < postman/mocks/ollama/default.js`. Use .run for ignored local logs, captures and evidence. Simulated transport and fictional process checks do not establish paid-provider compatibility.
 
+## Generated artifacts and CI
 
-The React dashboard is served by the replacement listener after `cd dashboard && npm ci && npm run build` and a server build. For the Vite development server, start the API on 4417, then run `npm run dev` in `dashboard`. The local browser pairs with the current code from its service home. Theme, icon-only transcript/new-run actions, and help text are browser regression requirements.
+`node scripts/generate-api.mjs` produces the OpenAPI document, Postman collection, REST_API.md and transport metadata from the active contract and typed DTOs. `node scripts/generate-dependencies.mjs` records exact dependency versions, integrity hashes and declared licenses after a locked solution restore. Commit generated artifacts alongside their source changes.
 
-Dashboard validation uses `npm run i18n:check`, `npm run lint`, `npm run test:ci`, and `npm run test:e2e`. The browser harness starts a separate service on 4420 and stores fixtures/screenshots beneath ignored `.run/`. Run `npx playwright install chromium` once. Component and browser suites have separate discovery patterns. API artifacts regenerate together with `node scripts/generate-api.mjs` from the repository root; the authoritative served document is `/openapi.json`.
-
-Build the solution before setting `ARGUEBOT_CLI_FIXTURE` to the absolute path of `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. The shared suite then verifies capture failures against real child processes, including a malformed process that stays alive and stderr overflow. Missing optional integrations report skips. .NET 10 also renders the actual TUIKit shell headlessly and audits focus and theme controls; library and storage suites also run on .NET 8.
-
-Dark mode uses black workspace/modal backgrounds and dark grey input fields, with at least one cell of left/right padding inside bordered content regions.
-
-The C# TUI has visible Help, Menu, New, Agents, Start debate and Run controls buttons, with F1 Help and F2 Menu leading the footer. New debates use a Question → Speakers → Settings → Review wizard; Back retains draft values and Start debate submits only from Review. Missing agents lead to configuration with presets for supported CLI harnesses, REST models and custom executables. The workspace shows first-use guidance and a separate connection line. All custom dialogs share F1 context help and scoped Escape handling; closing an open dropdown or help view retains the surrounding draft. Menu options wrap to available width, setup steps scroll independently, and help/full-message readers use a dedicated read-only scrolling view. View revisions reject stale history responses; conversation switches preserve their own note drafts. Debate-start errors remain on Review with a stable command key. Menu exposes permanent conversation deletion with default cancellation and the service's active-run refusal. See [the TUI user guide](TUI.md) for the complete workflow.
-
-Existing shortcuts remain available: Ctrl+B configures a debate, Ctrl+R opens moderator controls, Ctrl+A asks a follow-up, Ctrl+F searches, Alt+Left/Right pages conversations, Ctrl+L reads full history and Ctrl+G inspects generation attempts. Ctrl+E manages agents; Ctrl+K opens recovery, Ctrl+J audit, Ctrl+U users and Ctrl+O roles. Ctrl+Q detaches while service-owned work continues. Agent forms preserve ordered literal arguments and drafts on service validation errors. Remaining terminal screen and localization gaps are tracked in the plan.
-
-For real PostgreSQL contract tests, start only the disposable fixtures with `docker compose -f docker/providers/compose.yaml up -d --wait`. Set `ARGUEBOT_TEST_POSTGRESQL` to that fixture's connection string. The checked-in Compose passwords are fake, isolated test credentials. SQLite and PostgreSQL are the only supported providers, per the user's explicit scope change. Existing server-provider databases are not reset or migrated automatically by this test workflow.
-
-The CI workflow runs on every push and pull request. It builds and executes console/xUnit/NUnit on Windows, macOS and Linux, and runs dashboard checks/browser journeys plus API artifact drift on Linux. A Linux integration job also runs PostgreSQL lifecycle/snapshot tests and real PolyPrompt transport against the committed Postman fixture implementation. Benchmark, packaging and full acceptance CI gates remain to be added. See [operations](OPERATIONS.md) for local observability and settings behavior.
-
-Recovery lifecycle and its current limits are documented in [RECOVERY.md](RECOVERY.md). Regenerate the dependency/license inventory after a locked full-solution restore with `node scripts/generate-dependencies.mjs`. The service embeds this inventory in new archives. It records declarations and exact lock hashes, rather than asserting legal approval or redistribution readiness.
-
-Streaming persistence batches at 4096 UTF-16 characters or a 250 ms timer by default; settings expose both bounds and require restart. Finalization and interruption flush pending text before the terminal message event. Timer progress does not depend on another runner fragment. Commits preserve surrogate pairs even when callbacks split them. Schema 6 records committed event offsets in UTF-16 code units; events captured before schema 6 need snapshot reconciliation rather than assumed offsets. The shared stream case checks exact Unicode content, fragment replay/offsets, bounded write count, stalled-runner persistence and typing-hold expiry against an injected clock. Countdown and hold expiry use monotonic timestamps. Test-only fake-clock adaptation keeps wall-clock adjustments independent: the pinned [FakeTimeProvider implementation](https://github.com/dotnet/extensions/blob/v10.0.0/src/Libraries/Microsoft.Extensions.TimeProvider.Testing/FakeTimeProvider.cs) derives timestamps from its synthetic UTC clock. This is correctness coverage, not a benchmark result.
-
-Set `ARGUEBOT_TUI_EVIDENCE_DIR` to an isolated artifact directory to save scrubbed headless terminal frames. Runtime CI saves these beside its test results. The form host reserves scrollbar space and derives layout extent without allocating a large dummy cell buffer; tests tab through long participant forms to their action buttons. UI dispatch waits cancel when the TUI detaches.
-
-After a Release solution build, `node scripts/test-cli-surfaces.mjs` starts an isolated SQLite service and checks console participant create/update/list/delete plus archive create/status/list/download/verify/delete and persisted operation browsing. Its fictional executable is never run. The script stops its service and removes only its own temporary home; all three runtime CI jobs run it.
-
-Complete archives now restore between SQLite and PostgreSQL. The shared PostgreSQL case creates and drops only its own generated fixture database, verifies nonempty-target refusal and injects a final-publication failure to verify retained staging. Integration CI also runs the real CLI/HTTP flow against a separate empty fixture database. The optional ARGUEBOT_TEST_CLI_POSTGRESQL_REFERENCE hook in the CLI smoke accepts only a declared loopback arguebot_ fixture database.
-
-Local auto-attachment checks an opaque path-bound home identity and a fresh HMAC process proof before user credentials are sent. The proof includes the actual listener port to prevent replay/proxying from a differently configured port. CLI commands share runtime/cli-session.json under owner permissions and an exclusive refresh lock; every invocation revalidates the current principal, and expired/revoked sessions enroll again. TUI/browser sessions remain separate. This local process proof is not a user login scheme, remote identity federation or a substitute for hosted TLS.
-
-Security audit inspection is available at `/dashboard/audit`, `arguebot audit list [OPERATION] [PAGE]`, and Ctrl+J in the terminal. Tenant administrators inspect their tenant; system administrators additionally inspect anonymous/platform events. The application exposes no audit edit/delete operation. Issuance, revocation and HTTP denials are recorded independently of request capture. Direct privileged database access is outside this immutability guarantee. Full hosted credential schemes and scoped RBAC remain in progress.
-
-Generation attempt inspection is available through the workspace, `debate attempts CONVERSATION RUN [PAGE]`, and Ctrl+G in the TUI. The CLI also accepts a typed run request from stdin (`debate start CONVERSATION -`) or `--file PATH`, preserving explicit round/countdown settings and caller idempotency keys. It still accepts ordered profile identifiers as command arguments. The CLI smoke executes real fixture processes; browser debate coverage reuses the committed Postman Ollama fixture through the actual PolyPrompt transport, without provider credentials. See [Execution and recovery](EXECUTION.md) for transaction boundaries, directive retry semantics, frozen questions, context limits and remaining provenance work.
-
-Build native clients and service together for attachment protocol 2. GET message history returns a bounded `MessagePage`; the internal client's full-history helper hydrates previews through individual message reads. Web and TUI polling use bounded pages. Ctrl+L in the TUI pages history and reads full messages, preserving Backspace. `conversations show ID --jsonl` and `conversations export ID` stream complete messages. The browser journey checks paging during concurrent appends and full export of a long Unicode message outside the visible page.
-
-Replay validation covers both supported databases, contiguous age/count pruning, permanent history, background maintenance, expired/future cursors, native live streaming and cancellation. Synthetic native/browser streams cover split UTF-8, CR/LF framing, duplicate events, gaps, mismatched conversation IDs, revocation, invalid encoding and oversized frames. Transport limits are generated into assets/transport.json and OpenAPI from ServiceProtocol; CI checks artifact drift. The browser recovery journey forces an expired cursor and requires fresh snapshots before resubscription.
-
-Tenant identity evidence covers SQLite/PostgreSQL creation, unique tenant emails, protected owner, administrator flag boundaries, current-role resolution, password rotation/disablement and revision conflicts. Native HTTP checks cover encoded email search and active SSE revocation; browser checks cover masked forms, viewer direct-API denials, session invalidation and diagnostic redaction. Ctrl+U forms are exercised through TUIKit headless rendering. See [identity behavior](IDENTITY.md).
-
-HTTPS fixtures generate disposable two-day loopback certificates and never modify system trust. Browser automation accepts only its disposable fixture context certificate. Native shared tests exercise actual pinned TLS startup, session carriers, live revocation, and negative pin/home/port/name/expiry cases. Console smoke covers default HTTP pairing, refusal of HTTP password exchange, restart into HTTPS and user login. Node-based CLI/browser checks invoke the committed Test.Fixtures certificate mode; both it and the shared C# fixture use CertificateRequest without external certificate tooling.
-
-Execution identity checks run on SQLite and PostgreSQL: session revocation leaves accepted generation active, role removal interrupts it, stale-context resume creates no new attempt, account disablement interrupts a subsequent active generation, and denial provenance is retained in the audit stream. Fixture cleanup stops paused runs before deletion. Lifecycle cleanup captures the verified owned child even if readiness fails after descriptor publication, preventing a cleanup file-lock error from hiding the startup failure.
-
-The stalled-stream fixture signals readiness after its first fragment is queued. This makes fake-clock advancement deterministic: advancing before the callback queued text could otherwise fire an empty flush and leave the next timer waiting on an unadvanced fake clock. Hosted Windows adapter testing exposed this fixture race.
-
-The scoped-authorization truth table is a pure shared descriptor, independent of live providers. It checks order-independent explicit deny, Write requiring all mutations, Execute/Admin separation, tenant/collection inheritance boundaries, case-sensitive resource IDs, ownership narrowing, inactive rules, malformed rule refusal, grant caps and credential owner ceilings. See [authorization integration status](AUTHORIZATION.md).
-
-Password storage validation: 51 shared console descriptors passed with real PostgreSQL and PolyPrompt fixtures. A schema-10 SQLite source upgrades to salted PBKDF2 verifiers while preserving passwords, account IDs and existing sessions; equal inputs receive distinct salts, stored verifiers fail login, and a protected pre-upgrade backup is retained. NUnit and xUnit pass on .NET 8 and .NET 10; all 15 HTTPS browser journeys and 22 console assertions pass. OpenAPI syntax lint passes.
-
-Windows CI subsequently exposed another StreamCommits deadline cancellation in the .NET 10 xUnit adapter. The fixture now identifies burst persistence, stalled-stream checkpoint and monotonic-window timeout phases and allows a bounded 30-second scheduling budget instead of five seconds. Content, replay offsets and batching assertions remain unchanged. Both local xUnit runtime targets pass; hosted verification determines whether a deeper scheduling issue remains.
-
-Stored authorization verification: all 52 shared console descriptors pass locally with SQLite, real PostgreSQL and real PolyPrompt fixtures, with zero skips. Tests cover protected built-in ID preservation, missing-GUID/name/baseline fallback, inactive role/mapping/permission/assignment refusal, exact resource scope, tenant inheritance, explicit deny, current identity facts and portable restoration of grants and decision provenance from both providers into SQLite. NUnit/xUnit pass on .NET 8 and .NET 10. The 15 browser journeys and 22 console assertions pass with schema 12; no hosted CI wait is required for this evidence. Stored management and route/worker integration remain open.
-
-Role-definition management verification: 53 shared descriptors pass locally with SQLite, real PostgreSQL and PolyPrompt, with zero skips. Native HTTPS checks exercise role listing/creation/cloning/read/update, ordinary-user denial, protected built-ins, filter decoding and stale revisions. Shared domain checks add foreign-tenant ID/count isolation, forged context flags, duplicate names and exact audit accounting after rejected stale writes. NUnit/xUnit pass on .NET 8 and .NET 10; 15 browser journeys and 27 console assertions pass. The generated Postman Roles folder passes four real local HTTP requests and eight assertions with local report events disabled. OpenAPI syntax lint passes.
-
-Role-definition surface verification: 54 shared descriptors pass with real PostgreSQL/PolyPrompt and zero skips, including headless light/dark 60x24 role cloning/name validation/activity/revision checks. Both NUnit/xUnit runtime targets pass. All 16 browser journeys pass, including built-in clone creation, viewer direct-page denial, conflict draft preservation, refresh/reconciliation, deactivation, hover help and 390/1280-pixel light/dark captures. Inspected browser captures and terminal text frames retain visible actions. Dashboard lint, catalog checking (497 source strings) and nine unit tests pass; the legacy build remains green.
-
-Permission/mapping verification: all 54 shared descriptors pass locally with both databases and real PolyPrompt, with zero skips. Expanded role checks cover managed permit/deny precedence, canonical operation spelling, immediate activity changes, Write/Execute separation, protected seeds, foreign permission references, duplicate IDs, optimistic revisions, rollback and stable inactive/reactivated mapping identity. Native HTTPS exercises all six new operations and direct unauthorized requests. Both NUnit/xUnit targets pass; a final .NET 8 run covers operation canonicalization. All 16 browser journeys and 34 console assertions pass. The reusable authorization Postman smoke passes ten real local requests and 19 assertions; syntax lint passes for the 55-operation/52-schema generated contract.
-
-Scoped assignment verification: all 54 shared descriptors pass locally on SQLite and real PostgreSQL with zero skips, including exact resource scope, tenant inheritance, GUID/name fallback, inactive role activation, protected users/assignments, foreign role/user references, stale revisions, deactivation and the 256-active-assignment creation/reactivation boundary. Native HTTPS covers all four assignment routes and direct unauthorized requests. NUnit/xUnit pass on .NET 8 and .NET 10; all 16 browser journeys and 38 console assertions pass. The expanded isolated Postman smoke passes 14 real requests and 26 assertions, and syntax lint passes for the 59-operation/55-schema contract. Assignment forms and complete domain/worker/list enforcement remain open.
-
-Run the terminal interaction suite locally after a Release build:
-
-```sh
-ARGUEBOT_TUI_EVIDENCE_DIR="$PWD/.run/tui-evidence" dotnet run --project src/Test.Automated -c Release --no-build -- --suite Terminal --results .run/tui-results.json
-```
-
-The suite covers wrapped help at 40/60/80/120 columns, workspace focus and theme behavior, mouse-driven first use, cancellation and active-run deletion refusal, stable selection during delayed responses, per-conversation drafts, expanded setup fields and failed-start retention. The UI HTTP fixtures verify client interactions without invoking installed agents. The full shared suite separately exercises the real CLI process fixture, PolyPrompt transport fixture, SQLite and PostgreSQL when configured. An unknown suite ID exits with code 2 rather than silently running no tests.
-
-Schema-13 default-access verification: all 63 shared console checks passed locally with real PostgreSQL, PolyPrompt and process fixtures, with no skips. Coverage includes historical schema-12 upgrades retaining sessions, owned-reader/operator defaults, immediate role synchronization, protected assignment identity/revisions, reserved-name shadow refusal, explicit deny and portable recovery. The terminal interaction audit has 16 focused checks, also verified from a clean checkout. NUnit/xUnit pass on .NET 8 and .NET 10. Dashboard lint, the 498-key locale check and all nine unit tests pass. All 16 browser journeys pass against rebuilt schema-13 service binaries. The isolated console smoke passes 38 assertions; Postman authorization smoke passes 14 real requests and 26 assertions with local reporting only. These checks do not establish complete scoped route enforcement or full usability acceptance.
-
-All 64 shared checks pass locally with both supported database providers and runner fixtures, with zero skips. Mux harness verification uses the sibling Mux CLI's documented `print --output-format text` contract. A real Release Mux binary returned the local model fixture answer with exit zero, using a temporary configuration directory and no session persistence. The process fixture checks fragmented UTF-8, stderr separation, literal endpoint arguments and stdin prompt content, plus nonzero-exit refusal. The authenticated console smoke includes persisted Mux profile creation/listing and passes 40 assertions. Dashboard lint, build and nine unit tests pass; OpenAPI syntax lint passes.
-
-Quiet Charcoal verification: the Release build has zero warnings and the 16 local terminal checks pass. Focus traversal and reverse traversal remain audited; the toolkit's frame-specific focus-indicator check is replaced for the borderless workspace by rendered toolbar-selection and sidebar/composer chevron assertions. Selected conversation text retains wide Unicode glyphs and the shared selection palette. Dialog, splash, narrow-size and light/dark switching checks remain active. Evidence is generated locally with `ARGUEBOT_TUI_EVIDENCE_DIR` and `--suite Terminal`.
+The verification workflow builds and tests on Windows, macOS and Linux, checks dashboard/browser behavior and generated artifact drift, and exercises PostgreSQL and the local runner fixture. Runtime data, private credentials and test evidence must stay outside tracked fixtures. Remaining packaging, parity, live-provider and release gates are documented in IMPROVEMENTS.md.

@@ -41,6 +41,8 @@ namespace Test.Shared
                 if (RejectDelete) return new HttpResponseMessage(HttpStatusCode.Conflict) { Content = new StringContent(JsonSerializer.Serialize(new ApiError { Code = "active_run", Message = "Stop the active or paused run before deleting this conversation." }, _Json), Encoding.UTF8, "application/json") };
                 Deleted = true; Conversation = null; result = new DeletionResponse();
             }
+            else if (path == "/v1.0/api/conversations/fixture-conversation/runs" && request.Method == HttpMethod.Get)
+                result = new List<DebateRun> { new DebateRun { Id = "fixture-run", ConversationId = "fixture-conversation", State = RejectDelete ? "paused" : "completed" } };
             else if (path == "/v1.0/api/conversations/fixture-conversation/runs" && request.Method == HttpMethod.Post)
             {
                 Started = JsonSerializer.Deserialize<CreateRunRequest>(await request.Content!.ReadAsStringAsync(cancellationToken).ConfigureAwait(false), _Json)!;

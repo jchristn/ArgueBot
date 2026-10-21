@@ -1,13 +1,13 @@
+import CopyButton from "../components/CopyButton.jsx";
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
 export default function ApiExplorer() {
-  const { api, notify, user } = useOutletContext();
+  const { api, notify } = useOutletContext();
   const { t } = useTranslation();
   const { data: spec, error, reload } = useData("openapi", () => api.openApi());
-  const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState("");
   const [parameters, setParameters] = useState({});
   const [body, setBody] = useState("");
@@ -32,11 +32,6 @@ export default function ApiExplorer() {
   );
   const selection =
     operations.find((item) => item.key === chosen) || operations[0];
-  const choices = operations.filter((item) =>
-    (item.key + " " + item.operation.summary)
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
   const select = (key) => {
     setChosen(key);
     setParameters({});
@@ -83,29 +78,12 @@ export default function ApiExplorer() {
       </div>
       {error && <ErrorPanel error={error} retry={reload} />}
       <div className="explorer">
-        <aside className="explorer-list">
-          <input
-            type="search"
-            value={search}
-            aria-label={t("explorer.search")}
-            title={t("explorer.search.help")}
-            placeholder={t("explorer.search")}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          {choices.map((item) => (
-            <button
-              className={
-                selection?.key === item.key ? "operation selected" : "operation"
-              }
-              key={item.key}
-              title={item.operation.summary}
-              onClick={() => select(item.key)}
-            >
-              <b>{item.method}</b>
-              <code>{item.path}</code>
-            </button>
-          ))}
-        </aside>
+        <Field label="explorer.operation">
+          {(props) => <select {...props} className="monospace" value={selection?.key || ""} disabled={!operations.length || busy} onChange={(event) => select(event.target.value)}>
+            {!operations.length && <option value="">{t("common.loading")}</option>}
+            {operations.map(item => <option key={item.key} value={item.key}>{item.method} {item.path} · {item.operation.summary}</option>)}
+          </select>}
+        </Field>
         <div className="explorer-workspace">
           {selection && (
             <>
@@ -168,7 +146,7 @@ export default function ApiExplorer() {
                 label="explorer.execute"
                 className="primary"
                 disabled={
-                  busy || (selection.method !== "GET" && user.role === "viewer")
+                  busy
                 }
                 onClick={() =>
                   selection.method === "GET" ? execute() : setConfirm(true)
@@ -194,11 +172,7 @@ export default function ApiExplorer() {
                     </tbody>
                   </table>
                   <pre>{response.body}</pre>
-                  <Button
-                    label="common.copy"
-                    help="explorer.copy.help"
-                    onClick={() => navigator.clipboard.writeText(response.body)}
-                  />
+                  <CopyButton value={response.body} help="explorer.copy.help" />
                 </section>
               )}
             </>

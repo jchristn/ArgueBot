@@ -24,9 +24,16 @@ namespace ArgueBot.Client
         public static ArgueBotClient CreateClient(string endpoint, string home)
         { return new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home))); }
 
-        /// <summary>Resolve an explicit remote/local address, or attach/start the selected local home.</summary>
-        public static async Task<string> ConnectAsync(string home, string? endpoint = null, bool autoStart = true, CancellationToken token = default)
+        /// <summary>Resolve an explicit remote/local address, or attach/start the selected local home. An existing verified service keeps its actual port.</summary>
+        /// <param name="home">Application home to attach or start.</param>
+        /// <param name="endpoint">Explicit service endpoint, or null for local discovery.</param>
+        /// <param name="autoStart">Whether an absent local service may be started.</param>
+        /// <param name="token">Cancellation token for startup and readiness checks.</param>
+        /// <param name="portOverride">Optional startup port, from 1 through 65535. Existing verified listeners are reused regardless of this value.</param>
+        /// <exception cref="ArgumentOutOfRangeException">The port override is outside its supported range.</exception>
+        public static async Task<string> ConnectAsync(string home, string? endpoint = null, bool autoStart = true, CancellationToken token = default, int? portOverride = null)
         {
+            if (portOverride.HasValue && (portOverride.Value < 1 || portOverride.Value > 65535)) throw new ArgumentOutOfRangeException(nameof(portOverride), "Use a port from 1 through 65535.");
             if (endpoint != null) return endpoint;
             ArgueBotPaths paths = new ArgueBotPaths(home);
             if (File.Exists(Path.Combine(paths.Home, "runtime", "recovery-incomplete"))) throw new InvalidOperationException("This recovery home requires operator review before it can be started. See its incomplete-recovery marker and recovery operation.");
@@ -51,11 +58,13 @@ namespace ArgueBot.Client
                     ServiceSettings? settings = JsonSerializer.Deserialize<ServiceSettings>(await File.ReadAllTextAsync(paths.SettingsFile, token).ConfigureAwait(false), options);
                     port = settings?.Port ?? port; tls = settings?.TlsEnabled ?? false;
                 }
+                if (portOverride.HasValue) port = portOverride.Value;
                 string local = (tls ? "https" : "http") + "://127.0.0.1:" + port;
                 if (await ReadyAsync(http, local, paths, homeId, token).ConfigureAwait(false)) return local;
                 if (!autoStart) throw new InvalidOperationException("The local service is not running. Start ArgueBot.Server or omit --no-start.");
                 ProcessStartInfo start = LocateServer();
                 start.ArgumentList.Add("--home"); start.ArgumentList.Add(paths.Home); start.ArgumentList.Add("--detached");
+                if (portOverride.HasValue) { start.ArgumentList.Add("--port"); start.ArgumentList.Add(portOverride.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
                 start.UseShellExecute = false; start.CreateNoWindow = true;
                 start.RedirectStandardInput = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
                 using (Process process = OperatingSystem.IsWindows() ? WindowsServiceLauncher.Start(start) : Process.Start(start) ?? throw new IOException("The local service process could not start."))

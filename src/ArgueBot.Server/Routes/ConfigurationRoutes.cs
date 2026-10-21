@@ -26,14 +26,13 @@ namespace ArgueBot.Server.Routes
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/api/participants/{profileId}", http => Api.GuardAsync(http, async () =>
             { await _Database.Profiles.DeleteAsync(Api.Context(http), Api.Parameter(http, "profileId"), http.Token).ConfigureAwait(false); await Api.SendAsync(http, new DeletionResponse()).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Delete reusable profile; keep history", "Configuration"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/settings", http => Api.GuardAsync(http, async () =>
-            { Admin(http); await Api.SendAsync(http, await _Settings.ReadAsync(http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read redacted configured settings and application metadata", "Settings"));
+            { await Api.SendAsync(http, await _Settings.ReadAsync(http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read redacted configured settings and application metadata", "Settings"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/api/settings", http => Api.GuardAsync(http, async () =>
-            { Admin(http); await Api.SendAsync(http, await _Settings.SaveAsync(Api.Body<SettingsUpdate>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Save validated settings using expected file revision", "Settings"));
+            { await Api.SendAsync(http, await _Settings.SaveAsync(Api.Body<SettingsUpdate>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Save validated settings using expected file revision", "Settings"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/settings/restart", http => Api.GuardAsync(http, async () =>
-            { Admin(http); await Api.SendAsync(http, new RestartResponse(), 202).ConfigureAwait(false); _Stop(true); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and restart the local service", "Settings"));
+            { await Api.SendAsync(http, new RestartResponse(), 202).ConfigureAwait(false); _Stop(true); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and restart the local service", "Settings"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/settings/shutdown", http => Api.GuardAsync(http, async () =>
-            { Admin(http); await Api.SendAsync(http, new Acknowledgement(), 202).ConfigureAwait(false); _Stop(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and shut down the local service", "Settings"));
+            { await Api.SendAsync(http, new Acknowledgement(), 202).ConfigureAwait(false); _Stop(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Drain and shut down the local service", "Settings"));
         }
-        private static void Admin(HttpContextBase http) { if (!Api.Context(http).IsAdmin) throw new DomainException(403, "forbidden", "Service administration requires an administrator."); }
     }
 }

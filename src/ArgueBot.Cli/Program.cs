@@ -34,124 +34,45 @@ namespace ArgueBot.Cli
         }
         private static async Task<int> ExecuteAsync(string[] args, CancellationToken token)
         {
-            List<string> words = new List<string>(); string? home = null; string? server = null; bool autoStart = true; string? session = Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN");
+            List<string> words = new List<string>(); string? home = null; string? server = null; int? port = null; bool autoStart = true;
             for (int index = 0; index < args.Length; index++)
             {
                 if (args[index] == "--home" && index + 1 < args.Length) home = args[++index];
                 else if (args[index] == "--server" && index + 1 < args.Length) server = args[++index];
+                else if (args[index] == "--port" && index + 1 < args.Length) port = int.Parse(args[++index], System.Globalization.CultureInfo.InvariantCulture);
                 else if (args[index] == "--no-start") autoStart = false;
-                else if (args[index] == "--token-env" && index + 1 < args.Length) session = Environment.GetEnvironmentVariable(args[++index]);
                 else words.Add(args[index]);
             }
-            if (words.Count == 0 || words[0] == "--help" || words[0] == "help") { Help(); return 0; }
-            if (words[0] == "service" && words.Count > 1 && words[1] != "start") autoStart = false;
-            server = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, server, autoStart, token).ConfigureAwait(false);
+            if (words.Count == 0 || words.Contains("--help") || words[0] == "help") { Help(); return 0; }
+            bool web = words[0] == "service" && words.Count == 2 && words[1] == "web";
+            if (port.HasValue && !web) throw new ArgumentException("--port is supported by service web for starting a local dashboard service.");
+            if (words[0] == "service" && words.Count > 1 && words[1] != "start" && !web) autoStart = false;
+            if (words.Count > 1 && words[0] == "service" && words[1] == "stop" && server == null && !File.Exists(Path.Combine(new ArgueBotPaths(home).Home, "runtime", "service.json")))
+            { Console.WriteLine("ArgueBot is already stopped."); return 0; }
+            try { server = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, server, autoStart, token, port).ConfigureAwait(false); }
+            catch (InvalidOperationException exception) when (words.Count > 1 && words[0] == "service" && words[1] == "stop" && exception.Message.StartsWith("The local service is not running.", StringComparison.Ordinal))
+            { Console.WriteLine("ArgueBot is already stopped."); return 0; }
             using (ArgueBotClient client = LocalServiceConnector.CreateClient(server, new ArgueBotPaths(home).Home))
             {
-                if (words[0] == "auth" && words.Count > 1 && words[1] == "login")
+                if (web)
                 {
-                    Require(words, 3);
-                    LoginRequest request = JsonSerializer.Deserialize<LoginRequest>(await TextAsync(words, 2, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed login object.");
-                    Print(new SessionResponse { Token = await client.LoginAsync(request, token).ConfigureAwait(false) });
+                    string dashboard = new Uri(new Uri(server.TrimEnd('/') + "/"), "dashboard").AbsoluteUri;
+                    Console.WriteLine("Open ArgueBot in your browser: " + dashboard);
+                    Console.WriteLine("The service is running in the background. You can close this terminal.");
                     return 0;
                 }
-                if (!string.IsNullOrWhiteSpace(session)) client.SetToken(session);
-                else await client.PairLocalCachedAsync(new ArgueBotPaths(home).Home, token).ConfigureAwait(false);
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
                 if (command == "service")
                 {
                     if (operation == "status" || operation == "start") Print(await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: token).ConfigureAwait(false));
-                    else if (operation == "stop") Print(await client.SendAsync<Acknowledgement>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false));
+                    else if (operation == "stop")
+                    {
+                        Acknowledgement response = await client.SendAsync<Acknowledgement>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/shutdown", token: token).ConfigureAwait(false);
+                        await WaitForShutdownAsync(client, token).ConfigureAwait(false);
+                        Print(response);
+                    }
                     else if (operation == "restart") Print(await client.SendAsync<RestartResponse>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/restart", token: token).ConfigureAwait(false));
                     else { Help(); return 2; }
-                }
-                else if (command == "users")
-                {
-                    string root = "v1.0/api/users";
-                    if (operation == "list") Print(await client.SendAsync<UserPage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
-                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<UserRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "create" || operation == "update")
-                    {
-                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
-                        UserRequest request = JsonSerializer.Deserialize<UserRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed user object.");
-                        Print(await client.SendAsync<UserRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
-                    }
-                    else { Help(); return 2; }
-                }
-                else if (command == "permissions")
-                {
-                    string root = "v1.0/api/permissions";
-                    if (operation == "list") Print(await client.SendAsync<PermissionPage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
-                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<PermissionRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "create" || operation == "update")
-                    {
-                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
-                        PermissionRequest request = JsonSerializer.Deserialize<PermissionRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed permission object.");
-                        Print(await client.SendAsync<PermissionRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
-                    }
-                    else { Help(); return 2; }
-                }
-                else if (command == "roles")
-                {
-                    string root = "v1.0/api/roles";
-                    if (operation == "list") Print(await client.SendAsync<RolePage>(System.Net.Http.HttpMethod.Get, root + "?search=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1), token: token).ConfigureAwait(false));
-                    else if (operation == "show") { Require(words, 3); Print(await client.SendAsync<RoleRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "permissions")
-                    {
-                        Require(words, 3); int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
-                        bool active = words.Count <= 4 || bool.Parse(words[4]);
-                        Print(await client.SendAsync<RolePermissionPage>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[2]) + "/permissions?pageNumber=" + page.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&active=" + active.ToString().ToLowerInvariant(), token: token).ConfigureAwait(false));
-                    }
-                    else if (operation == "set-permissions")
-                    {
-                        Require(words, 4);
-                        RolePermissionsRequest request = JsonSerializer.Deserialize<RolePermissionsRequest>(await TextAsync(words, 3, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed role-permissions object.");
-                        Print(await client.SendAsync<RoleRecord>(System.Net.Http.HttpMethod.Put, root + "/" + Uri.EscapeDataString(words[2]) + "/permissions", request, token).ConfigureAwait(false));
-                    }
-                    else if (operation == "create" || operation == "update")
-                    {
-                        int input = operation == "update" ? 3 : 2; Require(words, input + 1);
-                        RoleRequest request = JsonSerializer.Deserialize<RoleRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed role object.");
-                        Print(await client.SendAsync<RoleRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[2]) : ""), request, token).ConfigureAwait(false));
-                    }
-                    else { Help(); return 2; }
-                }
-                else if (command == "assignments")
-                {
-                    Require(words, 3); string root = "v1.0/api/users/" + Uri.EscapeDataString(words[2]) + "/role-assignments";
-                    if (operation == "list") Print(await client.SendAsync<UserRoleAssignmentPage>(System.Net.Http.HttpMethod.Get, root + "?pageNumber=" + (words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1).ToString(System.Globalization.CultureInfo.InvariantCulture), token: token).ConfigureAwait(false));
-                    else if (operation == "show") { Require(words, 4); Print(await client.SendAsync<UserRoleAssignmentRecord>(System.Net.Http.HttpMethod.Get, root + "/" + Uri.EscapeDataString(words[3]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "create" || operation == "update")
-                    {
-                        int input = operation == "update" ? 4 : 3; Require(words, input + 1);
-                        UserRoleAssignmentRequest request = JsonSerializer.Deserialize<UserRoleAssignmentRequest>(await TextAsync(words, input, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a typed scoped assignment object.");
-                        Print(await client.SendAsync<UserRoleAssignmentRecord>(operation == "update" ? System.Net.Http.HttpMethod.Put : System.Net.Http.HttpMethod.Post, root + (operation == "update" ? "/" + Uri.EscapeDataString(words[3]) : ""), request, token).ConfigureAwait(false));
-                    }
-                    else { Help(); return 2; }
-                }
-                else if (command == "audit" && operation == "list")
-                {
-                    int page = words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1;
-                    Print(await client.SendAsync<AuditPage>(System.Net.Http.HttpMethod.Get, "v1.0/api/audit?operation=" + Uri.EscapeDataString(words.Count > 2 ? words[2] : "") + "&pageNumber=" + page, token: token).ConfigureAwait(false));
-                }
-                else if (command == "backups")
-                {
-                    string root = "v1.0/api/backups";
-                    if (operation == "list") Print(await client.SendAsync<BackupPage>(System.Net.Http.HttpMethod.Get, root, token: token).ConfigureAwait(false));
-                    else if (operation == "operations") Print(await client.SendAsync<BackupOperationPage>(System.Net.Http.HttpMethod.Get, "v1.0/api/backup-operations" + (words.Count > 2 ? "?backupId=" + Uri.EscapeDataString(words[2]) : ""), token: token).ConfigureAwait(false));
-                    else if (operation == "status") { Require(words, 3); Print(await client.SendAsync<BackupOperation>(System.Net.Http.HttpMethod.Get, "v1.0/api/backup-operations/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "download") { Require(words, 4); await client.DownloadBackupAsync(words[2], words[3], token).ConfigureAwait(false); Print(new Acknowledgement()); }
-                    else if (operation == "delete") { Require(words, 3); Print(await client.SendAsync<DeletionResponse>(System.Net.Http.HttpMethod.Delete, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); }
-                    else if (operation == "create" || operation == "verify" || operation == "restore")
-                    {
-                        int inputIndex = operation == "create" ? 2 : 3;
-                        if (operation != "create") Require(words, 3);
-                        string json = await TextAsync(words, inputIndex, token).ConfigureAwait(false);
-                        BackupRequest request = JsonSerializer.Deserialize<BackupRequest>(json, _Json) ?? throw new ArgumentException("Supply a recovery request JSON object.");
-                        string path = operation == "create" ? root : root + "/" + Uri.EscapeDataString(words[2]) + "/" + operation;
-                        Print(await client.SendAsync<BackupOperation>(System.Net.Http.HttpMethod.Post, path, request, token).ConfigureAwait(false));
-                    }
-                    else return 2;
                 }
                 else if (command == "conversations")
                 {
@@ -216,6 +137,24 @@ namespace ArgueBot.Cli
             }
             return 0;
         }
+        private static async Task WaitForShutdownAsync(ArgueBotClient client, CancellationToken token)
+        {
+            using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                deadline.CancelAfter(TimeSpan.FromSeconds(15));
+                try
+                {
+                    while (true)
+                    {
+                        await Task.Delay(100, deadline.Token).ConfigureAwait(false);
+                        try { await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: deadline.Token).ConfigureAwait(false); }
+                        catch (System.Net.Http.HttpRequestException) { return; }
+                    }
+                }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                { throw new TimeoutException("ArgueBot accepted shutdown but has not stopped after 15 seconds."); }
+            }
+        }
         private static async Task<string> TextAsync(List<string> words, int index, CancellationToken token)
         {
             if (words.Count > index && words[index] == "--file") { Require(words, index + 2); return await File.ReadAllTextAsync(words[index + 1], token).ConfigureAwait(false); }
@@ -227,41 +166,15 @@ namespace ArgueBot.Cli
         private static void Help()
         {
             Console.WriteLine("""
-ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
+ArgueBot replacement CLI [--home PATH] [--server URL]
   service start|status|restart|stop
+  service web [--port N]            Start or attach and print the dashboard URL.
   conversations list [SEARCH]       Search owned history (JSON).
   conversations create TITLE|-|--file PATH
   conversations show ID [--jsonl]  Read full ordered messages; JSONL streams them.
   conversations rename ID TITLE
   conversations archive ID
   conversations export ID          Markdown to stdout.
-  auth login -|--file PATH          Exchange tenant/email/passwordSha256; writes token JSON.
-  users list [SEARCH] [PAGE]        Enumerate identities in this tenant.
-  users show ID
-  users create JSON|-|--file PATH
-  users update ID JSON|-|--file PATH
-  roles list [SEARCH] [PAGE]        Browse built-ins and tenant custom roles.
-  roles show ID
-  roles create JSON|-|--file PATH   Optional cloneRoleId copies a visible definition.
-  roles update ID JSON|-|--file PATH
-  roles permissions ID [PAGE] [true|false]  Inspect active/inactive mappings.
-  roles set-permissions ID JSON|-|--file PATH
-  permissions list [SEARCH] [PAGE]
-  permissions show ID
-  permissions create JSON|-|--file PATH
-  permissions update ID JSON|-|--file PATH
-  assignments list USER [PAGE]
-  assignments show USER ID
-  assignments create USER JSON|-|--file PATH
-  assignments update USER ID JSON|-|--file PATH
-  audit list [OPERATION] [PAGE]    Inspect scoped immutable security events.
-  backups list
-  backups create JSON|-|--file PATH
-  backups verify|restore BACKUP JSON|-|--file PATH
-  backups operations [BACKUP]       List durable recovery jobs.
-  backups status OPERATION
-  backups download BACKUP PATH       Publish a complete archive to a new file.
-  backups delete BACKUP
   participants list
   participants add JSON|-|--file PATH
   participants update ID JSON|-|--file PATH
@@ -272,8 +185,8 @@ ArgueBot replacement CLI [--home PATH] [--server URL] [--token-env NAME]
   debate start CONVERSATION -|--file PATH   Supply a typed run request JSON.
   debate status CONVERSATION
   debate pause|resume|interrupt|stop|extend CONVERSATION RUN
-Local clients exchange the protected home pairing code. Remote clients use
-ARGUEBOT_TOKEN or --token-env. Prompts and JSON may be supplied on stdin.
+The workspace is open with no accounts, sign-in or tokens.
+Prompts and JSON may be supplied on stdin.
 Exit codes: 0 success, 1 operation failure, 2 usage, 130 cancelled.
 Local commands start or attach to the service automatically. --no-start requires
 an existing service. Explicit --server URLs attach without starting processes.

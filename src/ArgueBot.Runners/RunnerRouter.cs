@@ -12,27 +12,32 @@ namespace ArgueBot.Runners
     using ArgueBot.Runners.Processes;
 
     /// <summary>Selects the configured runner without moving execution into a UI.</summary>
-    public sealed class RunnerRouter : IRunner
+    public sealed class RunnerRouter : IToolRunner
     {
         private readonly bool _AllowCli;
         /// <summary>Construct with the host's CLI execution policy.</summary>
         public RunnerRouter(bool allowCli) { _AllowCli = allowCli; }
         /// <inheritdoc />
-        public async Task GenerateAsync(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, Func<string, CancellationToken, Task> onText, CancellationToken token = default)
+        public Task GenerateAsync(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, Func<string, CancellationToken, Task> onText, CancellationToken token = default)
+        { return GenerateWithToolsAsync(profile, instructions, history, onText, (_, _) => Task.CompletedTask, token); }
+        /// <inheritdoc />
+        public async Task GenerateWithToolsAsync(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, Func<string, CancellationToken, Task> onText, Func<ToolActivity, CancellationToken, Task> onTool, CancellationToken token = default)
         {
             if (profile.Kind == "cli" && !_AllowCli) throw new DomainException(403, "cli_disabled", "Shell-out execution is disabled on this server.");
-            IRunner runner = profile.Kind == "cli" ? new CliRunner() : new PolyPromptRunner();
+            IRunner runner = profile.Kind == "cli" ? new CliRunner() : new PolyPromptRunner(_AllowCli);
             long started = Stopwatch.GetTimestamp(); string outcome = "failed"; bool first = true;
             using (Activity? activity = ProductTelemetry.Activities.StartActivity("runner.generate"))
             {
                 activity?.SetTag("runner.kind", profile.Kind); activity?.SetTag("runner.provider", profile.Provider);
                 try
                 {
-                    await runner.GenerateAsync(profile, instructions, history, async (delta, cancellation) =>
+                    Func<string, CancellationToken, Task> forward = async (delta, cancellation) =>
                     {
                         if (first && delta.Length > 0) { first = false; ProductTelemetry.FirstTextDuration.Record(Stopwatch.GetElapsedTime(started).TotalSeconds, new KeyValuePair<string, object?>("runner", profile.Kind)); }
                         await onText(delta, cancellation).ConfigureAwait(false);
-                    }, token).ConfigureAwait(false);
+                    };
+                    if (runner is IToolRunner toolRunner) await toolRunner.GenerateWithToolsAsync(profile, instructions, history, forward, onTool, token).ConfigureAwait(false);
+                    else await runner.GenerateAsync(profile, instructions, history, forward, token).ConfigureAwait(false);
                     outcome = "success";
                 }
                 catch (OperationCanceledException) { outcome = "cancelled"; activity?.SetStatus(ActivityStatusCode.Error); throw; }

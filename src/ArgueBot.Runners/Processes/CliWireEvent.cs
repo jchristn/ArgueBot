@@ -5,6 +5,7 @@ namespace ArgueBot.Runners.Processes
 
     internal sealed class CliWireEvent
     {
+        [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("type")] public string? Type { get; set; }
         [JsonPropertyName("role")] public string? Role { get; set; }
         [JsonPropertyName("text")] public string? Text { get; set; }

@@ -35,26 +35,10 @@ namespace ArgueBot.Core.Database
 
         /// <summary>Runner configuration methods.</summary>
         public IProfileMethods Profiles { get; }
-        /// <summary>Tenant-scoped identity administration.</summary>
-        public IUserMethods Users { get; }
-        /// <summary>Tenant user role assignments with explicit resource scope.</summary>
-        public IUserRoleAssignmentMethods UserRoleAssignments { get; }
-        /// <summary>Revision-checked active role-permission mapping sets.</summary>
-        public IRolePermissionMethods RolePermissions { get; }
-        /// <summary>Protected global and tenant custom permission definitions.</summary>
-        public IPermissionMethods Permissions { get; }
-        /// <summary>Protected role definitions and tenant custom-role lifecycle.</summary>
-        public IRoleMethods Roles { get; }
-        /// <summary>Current stored scoped user permissions.</summary>
-        public AuthorizationMethods Authorization { get; }
         /// <summary>Execution checkpoint methods.</summary>
         public IRunMethods Runs { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
         public IHistoryMethods History { get; }
-        /// <summary>Global administrator recovery inventory and operation lifecycle.</summary>
-        public IBackupMethods Backups { get; }
-        /// <summary>Append-only security accounting and scoped inspection.</summary>
-        public IAuditMethods Audit { get; }
         /// <summary>Service-owned generation checkpoints and exact context provenance.</summary>
         public IAttemptMethods Attempts { get; }
         /// <summary>Effective running storage provider.</summary>
@@ -67,16 +51,8 @@ namespace ArgueBot.Core.Database
             ArgumentNullException.ThrowIfNull(settings);
             _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
-            Users = new UserMethods(this);
-            Roles = new RoleMethods(this);
-            Permissions = new PermissionMethods(this);
-            RolePermissions = new RolePermissionMethods(this);
-            UserRoleAssignments = new UserRoleAssignmentMethods(this);
-            Authorization = new AuthorizationMethods(this);
             Runs = new RunMethods(this);
             History = new HistoryMethods(this);
-            Backups = new BackupMethods(this);
-            Audit = new AuditMethods(this);
             Attempts = new AttemptMethods(this);
         }
 
@@ -154,8 +130,6 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
-                        await AuthorizationSeeder.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
-                        await DefaultAccessSeeder.ApplyAsync(connection, transaction, token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }
