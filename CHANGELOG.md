@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Archive the superseded improvement plan, extract remaining work into ROADMAP.md, and update repository instructions, documentation and generated API-reference links.
+
 - Build the native CLI for clean browser-test jobs, use explicit UTF-8 for process stdin and fictional harness consoles, and bound post-shutdown fixture cleanup on Windows.
 
 - Retire the separate npm terminal and browser implementations, their source/build output, root package/dependencies, launchers and CI build. Support the C# TUI and React dashboard through go-tui and go-web; update contributor instructions and documentation accordingly.
@@ -102,7 +104,7 @@
 
 - Configurable incremental event retention, bounded replay pages, typed cursor recovery and native event streaming. Dashboard reconnects refresh snapshots after expired cursors. Large stream callbacks are bounded and malformed Unicode preserves the valid prefix before failing the attempt.
 
-- Shared C# conversation runtime, durable application home and configurable runner architecture. The TUI, CLI and React dashboard share this service. See IMPROVEMENTS.md for delivery gates and verified progress.
+- Shared C# conversation runtime, durable application home and configurable runner architecture. The TUI, CLI and React dashboard share this service. See ROADMAP.md for remaining delivery and acceptance work.
 
 - React dashboard with persistent conversation navigation, participant configuration, streamed workspace updates, follow-up questions, request-history inspection, API Explorer, and settings/restart controls. Dark/light icon controls and hover help remain covered by browser checks.
 - Shared SQLite/PostgreSQL driver structure, historical SQLite backup/upgrade checks, AES-GCM session protection and immediate revocation. Full hosted identity administration remains pending. Provider scope follows the user's SQLite/PostgreSQL-only instruction.

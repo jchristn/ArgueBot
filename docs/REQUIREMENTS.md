@@ -4,7 +4,7 @@ October 20, 2026 scope override: remove the Grafana/Prometheus/Loki/Tempo stack,
 
 October 20, 2026 scope override: user-facing backup, archive verification and restore features are removed from every interface and public API, including offline server commands. Earlier backup/restore product requirements are superseded. Existing data and internal database upgrade safeguards are preserved.
 
-IMPROVEMENTS.md section 3 maps every normative document to implementation and evidence. requirements-manifest.json captures the reviewed source hashes. The default data home is ~/.arguebot, overridden by --home then ARGUEBOT_HOME. Tests must inject a disposable home.
+The active backlog is [ROADMAP.md](../ROADMAP.md). [requirements-manifest.json](requirements-manifest.json) captures the reviewed normative source hashes. The [archived plan's traceability matrix](../archive/IMPROVEMENTS.md#3-requirements-traceability-and-scope) preserves the original document mapping as historical context; it does not override the current scope corrections here. The default data home is ~/.arguebot, overridden by --home then ARGUEBOT_HOME. Tests must inject a disposable home.
 
 The supported application consists of the C# service and TUI plus the React dashboard. Source launchers are go-tui and go-web; npm is used only beneath dashboard. Remaining acceptance work does not require retaining retired interfaces.
 

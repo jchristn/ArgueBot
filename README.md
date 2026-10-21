@@ -122,7 +122,7 @@ The source layout is:
 | `assets` | API contracts, localization, harness defaults and dependency inventory |
 | `postman` | Local provider simulations |
 
-See [development and verification](docs/DEVELOPMENT.md), [service operations](docs/OPERATIONS.md), [terminal usage](docs/TUI.md) and [execution behavior](docs/EXECUTION.md). [IMPROVEMENTS.md](IMPROVEMENTS.md) tracks remaining platform, packaging, live-provider and release acceptance work; interface consolidation does not claim all acceptance gates have passed.
+See [development and verification](docs/DEVELOPMENT.md), [service operations](docs/OPERATIONS.md), [terminal usage](docs/TUI.md) and [execution behavior](docs/EXECUTION.md). [ROADMAP.md](ROADMAP.md) tracks remaining platform, packaging, live-provider and release acceptance work; interface consolidation does not claim all acceptance gates have passed.
 
 ## License
 

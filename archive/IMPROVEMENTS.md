@@ -1,5 +1,7 @@
 # ArgueBot product and repository improvement plan
 
+> Historical plan, archived October 20, 2026. This document preserves earlier requirements analysis and implementation notes. Its unchecked items, product scope and status claims are not the active backlog and may describe completed or removed features. Use [ROADMAP.md](../ROADMAP.md) for remaining work and [current requirements](../docs/REQUIREMENTS.md) for scope and overrides.
+
 October 20, 2026 scope override: remove the Grafana/Prometheus/Loki/Tempo stack, collector/export pipeline and associated dependencies and product controls. Keep ordinary local operational logs and built-in request history. Earlier external observability requirements are superseded.
 
 October 20, 2026 scope override: user-facing backup, archive verification and restore features are removed from every interface and public API, including offline server commands. Earlier backup/restore product requirements are superseded. Existing data and internal database upgrade safeguards are preserved.
@@ -734,7 +736,7 @@ Incremental evidence: event retention now preserves a contiguous replay suffix a
 
 Principal-boundary evidence: direct conversation/profile reads and mutations reject unauthenticated contexts and missing tenant/user bindings before querying storage. Shared SQLite/PostgreSQL checks preserve authenticated read-only access and reject forged owner IDs. Full scoped RBAC remains an open P2 gate.
 
-Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. See [identity behavior and remaining security gates](docs/IDENTITY.md).
+Tenant identity management now has dashboard, Ctrl+U terminal and console surfaces, password exchange, protected-owner checks, revision conflicts and immediate session revocation after password changes or disablement. See [identity behavior and remaining security gates](../docs/IDENTITY.md).
 
 Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Password exchange requires HTTPS. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. TLS certificate keys follow encrypted opt-in recovery rules. Hosted ingress and runner isolation remain open.
 

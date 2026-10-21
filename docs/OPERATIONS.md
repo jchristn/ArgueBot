@@ -2,7 +2,7 @@
 
 Current scope: backup archives, restore jobs and offline snapshot commands have been removed at user direction. Existing archive files are left untouched. Database migration safety snapshots remain internal. Earlier validation notes describe historical behavior.
 
-The replacement service binds to 127.0.0.1 and owns its application home exclusively. Start it with `dotnet run --project src/ArgueBot.Server -c Release -- --home .run/home`. Distribution packages, full live-provider compatibility, and release acceptance remain unfinished; see IMPROVEMENTS.md.
+The replacement service binds to 127.0.0.1 and owns its application home exclusively. Start it with `dotnet run --project src/ArgueBot.Server -c Release -- --home .run/home`. Distribution packages, full live-provider compatibility, and release acceptance remain unfinished; see [ROADMAP.md](../ROADMAP.md).
 
 Local console/TUI clients automatically attach through owner-readable `runtime/service.json` metadata or start a sibling service binary for the selected home. Source builds can locate the Release service output in the same checkout. `--server` always attaches explicitly; `--no-start` disables automatic startup. Background startup detaches the Unix session or creates a windowless Windows process, redirects startup messages to `logs/startup.log`, and leaves the service running when a client exits. Concurrent startup still relies on the exclusive home lock rather than PID metadata. The console's `service stop` uses the graceful shutdown endpoint; process supervisors may restart a stopped container according to their own policy.
 

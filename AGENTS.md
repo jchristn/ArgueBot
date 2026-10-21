@@ -1,6 +1,6 @@
 # Repository instructions
 
-Read IMPROVEMENTS.md and docs/REQUIREMENTS.md before changing the replacement runtime. The normative requirements are in ~/Code/Agents/requirements; their reviewed hashes are in docs/requirements-manifest.json.
+Read ROADMAP.md and docs/REQUIREMENTS.md before changing the runtime. The normative requirements are in ~/Code/Agents/requirements; their reviewed hashes are in docs/requirements-manifest.json.
 
 Do not change product versions or prerelease labels without an explicit user request. Use Unreleased in CHANGELOG.md. Never write secrets or real user homes into fixtures. Test with isolated application homes and 127.0.0.1 addresses.
 

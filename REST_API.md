@@ -1,6 +1,6 @@
 # REST API
 
-The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in `IMPROVEMENTS.md` and `docs/DEVELOPMENT.md`.
+The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).
 
 Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.
 
