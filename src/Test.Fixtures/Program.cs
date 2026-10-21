@@ -12,6 +12,8 @@ namespace ArgueBot.Tests.Fixtures
     {
         private static async Task<int> Main(string[] args)
         {
+            Console.InputEncoding = new UTF8Encoding(false);
+            Console.OutputEncoding = new UTF8Encoding(false);
             string mode = args.Length > 0 ? args[0] : "plain";
             if (mode == "certificate" && args.Length == 2) { CertificateFixture.Write(args[1]); return 0; }
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);

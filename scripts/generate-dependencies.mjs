@@ -23,7 +23,7 @@ for (const project of fs.readdirSync(path.join(root,'src'),{withFileTypes:true})
     }
   }
 }
-for (const folder of ['', 'dashboard']) {
+for (const folder of ['dashboard']) {
   const lock = JSON.parse(fs.readFileSync(path.join(root,folder,'package-lock.json'),'utf8'));
   for (const [location,entry] of Object.entries(lock.packages || {})) {
     if (!location || !entry.version || !entry.integrity) continue;

@@ -2,8 +2,6 @@ node_modules/
 dist/
 .env
 .env.*
-!.env.example
-*.tsbuildinfo
 arguebot-transcript-*.md
 
 # Replacement runtime, isolated evidence, and local state

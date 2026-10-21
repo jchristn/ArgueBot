@@ -23,7 +23,7 @@ namespace ArgueBot.Runners.Processes
             {
                 timeout.CancelAfter(TimeSpan.FromSeconds(profile.TimeoutSeconds));
                 CancellationToken execution = timeout.Token;
-                ProcessStartInfo start = new ProcessStartInfo(profile.Executable) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, CreateNoWindow = true };
+                ProcessStartInfo start = new ProcessStartInfo(profile.Executable) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, CreateNoWindow = true };
                 if (profile.WorkingDirectory.Length > 0) start.WorkingDirectory = profile.WorkingDirectory;
                 List<string> arguments = profile.Arguments.Count > 0 ? profile.Arguments : Defaults(profile.Provider);
                 foreach (string argument in arguments) start.ArgumentList.Add(argument);

@@ -2,15 +2,13 @@
 
 The current runtime is C# with a React/Vite dashboard. It provides one open workspace, service-owned execution, CLI and REST participants, and local tools for REST models. Accounts, pairing, roles, security audit, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-The legacy TypeScript application remains runnable through root npm commands and `go-terminal.sh` / `go-terminal.bat` until replacement cutover is verified. `go-tui` and `go-web` build and launch the current runtime. See IMPROVEMENTS.md for remaining acceptance work; passing fixture tests does not close all release gates.
+`go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. See IMPROVEMENTS.md for remaining acceptance work; passing fixture tests does not close all release gates.
 
 ## Build and test
 
 Use .NET 10 for applications, plus .NET 8 for shared library and test targets. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
 
 ```sh
-npm ci
-npm run build
 npm --prefix dashboard ci
 npm --prefix dashboard run lint
 npm --prefix dashboard run i18n:check

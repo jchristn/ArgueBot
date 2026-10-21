@@ -8,4 +8,4 @@ An omitted `throughSequence` captures current membership. Reuse it to traverse a
 
 Preview length is configured in Unicode code points, default 4096 and range 128 through 16384. Page size is one through one hundred. This bounds background interface payloads without silently truncating an export. The web has explicit full-message reading and older-page navigation; native TUI polling reads the latest preview page, while Ctrl+L opens paged/full history. Ctrl+H is avoided because legacy terminal input interprets it as Backspace. The console supports cancellable full-message enumeration, streaming JSONL and streamed Markdown export.
 
-The legacy TypeScript server and its npm entry points remain separate and runnable during migration. No transparent compatibility with that server is claimed. These changes do not complete the remaining replay-retention, authorization, terminal localization, export-job and cutover gates.
+The C# TUI and React dashboard share this persistent service contract. Broader platform, localization, packaging and live-provider acceptance work remains tracked in IMPROVEMENTS.md.

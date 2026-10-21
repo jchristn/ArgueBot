@@ -148,7 +148,7 @@ namespace Test.Shared
                     if (!service.HasExited) service.Kill(true);
                     await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); service.Dispose();
                 }
-                if (Directory.Exists(home)) Directory.Delete(home, true);
+                await ServiceLifecycleSuites.DeleteStoppedHomeAsync(home).ConfigureAwait(false);
             }
         }
         private static async Task WaitHttpRunStateAsync(ArgueBotClient client, string conversationId, string runId, string state, CancellationToken token)

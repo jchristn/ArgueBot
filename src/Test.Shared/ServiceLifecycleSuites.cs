@@ -80,7 +80,7 @@ namespace Test.Shared
             try { if (!service.HasExited) service.Kill(true); await service.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
             finally { service.Dispose(); }
         }
-        private static async Task DeleteStoppedHomeAsync(string home)
+        internal static async Task DeleteStoppedHomeAsync(string home)
         {
             // Windows file scanners can briefly retain a handle after the child process exits.
             // Keep the cleanup bounded and propagate the final failure rather than hiding it.

@@ -1,6 +1,6 @@
 # Terminal usability review
 
-This review covers the C# replacement TUI. The legacy TypeScript interface remains runnable. The changes use the existing authenticated service contract; no API schema or service ownership changes are needed.
+This review covers the C# TUI. It shares the open-workspace service contract and persistent execution owner with the React dashboard.
 
 ## Reference applications
 

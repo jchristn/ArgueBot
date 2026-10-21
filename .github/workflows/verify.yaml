@@ -54,9 +54,7 @@ jobs:
         with:
           dotnet-version: 10.0.401
       - name: Restore service
-        run: dotnet restore src/ArgueBot.Server --locked-mode && dotnet restore src/Test.Fixtures --locked-mode
-      - name: Legacy compatibility build
-        run: npm ci && npm run build
+        run: dotnet restore src/ArgueBot.Server --locked-mode && dotnet restore src/Test.Fixtures --locked-mode && dotnet restore src/ArgueBot.Cli --locked-mode
       - name: Dashboard checks
         working-directory: dashboard
         run: npm ci && npm run i18n:check && npm run lint && npm run test:ci

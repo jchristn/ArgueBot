@@ -6,7 +6,7 @@ October 20, 2026 scope override: user-facing backup, archive verification and re
 
 Scope correction (October 20, 2026): user accounts, roles, permissions, login/pairing, sessions and security audit are removed from product scope. The service exposes one open workspace. Earlier identity-related work packages below are historical requirements analysis, not future product commitments. Storage compatibility is retained rather than deleting existing data.
 
-Status: implementation in progress. The legacy application remains runnable. Work packages are not complete until their full gates pass.
+Status: implementation in progress. The C# service/TUI and React dashboard are the supported application. Work packages are not complete until their full gates pass.
 
 Verified foundation: .NET solution builds with zero warnings; shared Touchstone descriptors run through console/xUnit/NUnit; SQLite history, receipts, tenant/viewer checks, run snapshots, interrupted recovery, exclusive home ownership and engine interrupt/resume have local test coverage. A local HTTP smoke journey exercised pairing, profiles, a two-participant fixture debate, history and session revocation. Real PolyPrompt transport passed committed Postman simulations for success, rate limiting and broken streams. See docs/DEVELOPMENT.md. Full provider, hosted security, interface, operations and release gates remain open.
 
@@ -20,7 +20,7 @@ Terminal interaction audit: shared wrapping menus, scrollable setup forms and de
 
 User-directed local authentication exception (October 20, 2026): the local loopback service now defaults to RequireAuthentication=false. Open the plain dashboard URL without account, tenant selection, pairing codes, launch fragments or sessions. The service supplies the local owner context; existing persisted ownership remains intact. Authentication-specific fixtures explicitly enable the optional authenticated mode. This instruction overrides the earlier mandatory-local-auth requirement; it does not assert hosted-release readiness.
 
-Help and launcher slice: eight explanatory terminal guides replace shortcut-only pages, with headless navigation and scrolling checks. Root C# TUI/web launchers build before running; web startup prints the configured browser URL and reuses an existing home-owned service. At user direction, extra legacy web wrapper copies have been removed; the TypeScript application remains runnable through npm. These changes do not close cutover gates.
+Help and launcher slice: eight explanatory terminal guides replace shortcut-only pages, with headless navigation and scrolling checks. Root C# TUI/web launchers build before running; web startup prints the configured browser URL and reuses an existing home-owned service. Root launchers build and run the supported C# TUI and React dashboard. These changes do not close the remaining acceptance gates.
 
 Codex stream repair: a live rebuttal exposed separate progress/final item IDs being mistaken for incompatible whole-answer snapshots. The runner now reconciles text per item, with real-process regression evidence and a live local Claude/Codex completion. This does not close the full provider/parity gates.
 
@@ -46,33 +46,20 @@ Prepared October 19, 2026 against commit `e4a2f73`. The intended result is one p
 
 ArgueBot should let a user open a conversation in the terminal, watch it in a browser, close both interfaces, and return to the same history later. A conversation contains questions, debate runs, moderator interventions, follow-ups, and outcomes. The service owns that state and all execution. Interfaces display it and submit commands.
 
-The rewrite replaces both existing TypeScript debate loops with one C# engine. TUIKit and PolyPrompt are consumed as pinned NuGet dependencies, using their sibling source repositories for reference rather than project references. Existing Claude Code, Codex, and Gemini CLI integrations remain supported. PolyPrompt adds local and remote completion endpoints without pretending that a completion API supplies the agent behavior of a coding CLI.
+One C# engine owns debate execution across all interfaces. TUIKit and PolyPrompt are consumed as pinned NuGet dependencies, using their sibling source repositories for reference rather than project references. Existing Claude Code, Codex, and Gemini CLI integrations remain supported. PolyPrompt adds local and remote completion endpoints without pretending that a completion API supplies the agent behavior of a coding CLI.
 
 Default installation is local-first: application data lives in `~/.arguebot`, SQLite needs no separate database process, and the listener binds to `127.0.0.1`. Local-first does not remove authentication, authorization, tenant isolation, or the other backend requirements. Hosted deployments use the same domain model with explicit identities and permissions.
 
 Implementation proceeds in dependency order. Each work package below has a primary implementation area, concrete deliverables, and an exit gate. Work is complete only when its code, meaningful tests, user documentation, API artifacts, and relevant changelog entry agree. Checkboxes track execution, not intent. A partially implemented milestone must remain incomplete.
 
-- [ ] Keep the existing implementation runnable until the replacement passes parity and migration gates.
+- The supported implementation is the shared C# service, TUI and React dashboard; additional acceptance gates remain tracked below.
 - [ ] Do not change any product version, prerelease label, package version field, release tag, or versioned changelog heading without an explicit user request for that version change. Use an `Unreleased` changelog section for implementation work.
 - [ ] Do not publish packages, submit store entries, create external accounts, or perform a production migration as a side effect of building the replacement. Prepare and verify artifacts first; track release credentials and external review gates separately.
 - [ ] Record changes to this plan with the reason, affected acceptance criteria, and evidence. Do not silently turn mandatory requirements into optional backlog items.
 
 ## 2. Current behavior and gaps
 
-The repository already contains useful prompt construction, consensus detection, streaming CLI adapters, transcript export, intervention controls, and a browser interface. Those behaviors are migration inputs. They must be characterized before their implementations are removed.
-
-| Area | Current evidence | Required change |
-| --- | --- | --- |
-| Console execution | `src/orchestrator.ts`, `src/input.ts`, `src/ui.ts` own an interactive loop | Thin TUIKit and noninteractive clients of the shared service |
-| Web execution | `src/web/session.ts` owns a separate loop and supports two or three participants | One engine with the same participant capabilities in every surface |
-| Persistence | `src/web/server.ts` stores sessions in a process-local `Map` | Durable conversations, run checkpoints, configuration, and event replay |
-| Agent identity | `AgentName` is a fixed Claude/Codex/Gemini union | User-defined participant profiles referencing runner configurations |
-| Model access | `src/agents.ts` launches installed CLI harnesses | Retain harness support and add PolyPrompt-backed REST endpoints |
-| Web application | `web/` contains plain HTML, CSS, and JavaScript | Required React/Vite dashboard under `dashboard/`, with a shared API client |
-| Repository | No checked-in automated test suite, release pipeline, or `CHANGELOG.md` identified in the inspected tree | Full build, test, documentation, operations, and distribution structure |
-| README accuracy | README says both interfaces run the same engine, although they currently have separate orchestration implementations | Correct the description during implementation and document the actual shared-service design at cutover |
-
-The existing web theme toggle, icon-only transcript download and new-debate actions, and hover help are explicit regression requirements. A redesign must retain them. Existing CLI flags, script entry points, prompt semantics, cancellation behavior, and export formatting need a written compatibility inventory, not assumptions based on the new design.
+The current implementation has one persistent C# execution engine, CLI-harness and PolyPrompt runners, a TUIKit terminal interface and a React dashboard. The service owns SQLite or PostgreSQL state and exposes the shared API. The remaining work packages below are requirements and acceptance planning, subject to the explicit scope corrections above.
 
 ## 3. Requirements traceability and scope
 
@@ -350,7 +337,7 @@ The default terminal layout has a conversation list on the left, transcript in t
 
 `ArgueBot.Cli` provides noninteractive commands using the same client and authorization. Proposed commands are `serve`, `tui`, `web`, `conversations list|show|create|rename|archive|export|delete`, `debate start|status|pause|resume|interrupt|stop|extend`, `message send`, `endpoints`, `harnesses`, `participants`, `settings`, `backup`, `restore`, and `doctor`. Final names and aliases are frozen in P0's CLI inventory. Add `--server`, `--home`, stdin/file input, cancellation, documented exit codes, and text/JSON/JSONL modes. Machine output goes to stdout; progress/errors go to stderr. Redirected input/output must not start a full-screen TUI.
 
-Both scriptable commands and the TUI attach to an existing compatible service or start one through a documented local lifecycle. Exiting a client does not stop the service or its runs. An explicit service shutdown drains or interrupts work and persists checkpoints. Existing `go-terminal.sh/.bat` and `go-web.sh/.bat` remain as compatibility launchers during transition, with clear legacy/new behavior.
+Both scriptable commands and the TUI attach to an existing compatible service or start one through a documented local lifecycle. Exiting a client does not stop the service or its runs. An explicit service shutdown drains or interrupts work and persists checkpoints. The paired go-tui and go-web launchers build and run their respective supported interfaces.
 
 ## 11. Web dashboard and route inventory
 
@@ -454,7 +441,7 @@ Define stable required status names for main-branch protection. Configure reposi
 
 ### Planned verification entry points
 
-The following commands are acceptance interfaces to implement and document, not commands available in the current TypeScript repository. Add paired shell/batch wrappers where orchestration is needed. A clean contributor checkout should be able to run the same commands as CI without private paths or credentials.
+The following commands are acceptance interfaces to implement and document, not a claim that every listed acceptance gate has passed. Add paired shell/batch wrappers where orchestration is needed. A clean contributor checkout should be able to run the same commands as CI without private paths or credentials.
 
 ```text
 dotnet restore src/ArgueBot.sln --locked-mode
@@ -476,7 +463,7 @@ The test workflows repeat reusable-library coverage under each supported target 
 
 ## 15. Documentation, migration, and repository cleanup
 
-README is the primary installation and product guide, not a list of planned capabilities. During migration, label which commands run the legacy implementation and which use the new service. At cutover, show actual prerequisites, capabilities, storage ownership, and tested paths. Source builds need .NET/Node tooling as documented; self-contained installers must not imply users need those runtimes.
+README is the primary installation and product guide, not a list of planned capabilities. Show actual prerequisites, capabilities, storage ownership, and tested paths for the supported interfaces. Source builds need .NET/Node tooling as documented; self-contained installers must not imply users need those runtimes.
 
 | Artifact | Required content |
 | --- | --- |
@@ -498,13 +485,6 @@ README is the primary installation and product guide, not a list of planned capa
 
 ### Migration behavior
 
-Existing running web sessions are memory-only and cannot be recovered from a stopped server. Offer export guidance before cutover and a validated, idempotent JSON importer for any supported legacy snapshot/export. Markdown imports are best-effort historical content with source provenance; never infer resumable internal checkpoints from a prose transcript. Unknown or ambiguous formats are rejected with an explanation.
-
-Map existing CLI defaults/flags and browser localStorage settings into explicit new settings or participant/run defaults. A browser migration can offer a one-time reviewed import through an authenticated API; it must not silently upload local data to a remote server. Preserve the old theme preference. Existing launchers remain wrappers during migration, and old `/api/sessions` routes either have a tested time-bounded adapter or a documented breaking-change response. State the chosen compatibility period in P0 before clients are rewritten.
-
-At cutover, stop legacy writers, export remaining reachable sessions, back up data/settings, start the new service, migrate/import, and verify counts/content and representative workflows. Rollback uses the saved old artifacts and pre-upgrade backup. Do not run older binaries against a newer schema or promise automatic downgrade. Leave user homes intact on uninstall unless the user explicitly requests data removal.
-
-After parity acceptance, remove the obsolete TypeScript orchestrators, server and terminal input code, move `web/` into the supported dashboard structure, and remove unused Node backend dependencies and commands. Keep Node only for dashboard development/build where needed. Recheck scripts, image paths, license links, `.env.example`, package manifests, TypeScript configuration, README commands, archive references, CI paths, and distribution metadata. Git history preserves the prior implementation; a second unmaintained engine is not a compatibility strategy.
 
 ## 16. Actionable work packages
 
@@ -521,13 +501,13 @@ The dependency chain deliberately delivers storage, identity, and the execution 
 | P6 | Required / dashboard | P4; shell/localization foundation after P0 | Full route inventory implemented, responsive/accessibility/theme evidence |
 | P7 | Required / operations | Begins P0, completes after P4 | Instrumented service, provisioned stack, health/restart/settings verification |
 | P8 | Required / verification and benchmarks | Begins P0; gates P1-P7 | Offline suites/CI, deterministic benchmark baseline and honest reports |
-| P9 | Required / documentation and cutover | Incremental; final after P5-P8 | Reviewed docs, migration rehearsal, legacy removal and clean repository |
+| P9 | Required / documentation and release preparation | Incremental; final after P5-P8 | Reviewed docs, schema-upgrade rehearsal and clean repository |
 | P10 | Required / packaging and release readiness | Scaffold after P0; finalize P9 | Publisher matrix, verified artifacts/install paths, pending external gates listed |
 | P11 | Required / product acceptance | P5-P10 candidate artifacts | Clean-instance simulated-user report, triaged findings, final acceptance matrix |
 
 ### P0. Freeze the intended behavior and bootstrap the replacement
 
-The first implementation commits should make the plan testable without changing what users run by default. Characterization evidence is more useful here than a broad mechanical translation of the TypeScript code.
+Implementation work should preserve the supported shared-service workflows and provide characterization evidence for behavior changes.
 
 - [ ] Inventory every current flag, command, route, event, prompt, status, export, and setting. Add a parity checklist and fixtures for two/three participants and intervention/follow-up behavior.
 - [ ] Capture requirements filenames/hashes and applicability in `docs/REQUIREMENTS.md`; record the decisions in section 3 as ADRs, including local authentication, database providers, and frontend migration.
@@ -570,7 +550,7 @@ Port the existing useful behavior into the new state model rather than preservin
 - [ ] Implement PolyPrompt completion adapters and supported model discovery/validation, capability-driven options, cancellation, limits and retry rules.
 - [ ] Implement the command transition table, idempotent command processing, checkpoints, run leases, message/event batching, recovery and context selection.
 - [ ] Implement cross-client holds, note/directive visibility, follow-ups, subsequent runs and consensus reporting with preserved provenance.
-- [ ] Run characterization, process-tree, simulated REST fault, state-conflict and restart suites. Record actual differences from the TypeScript implementation.
+- [ ] Run characterization, process-tree, simulated REST fault, state-conflict and restart suites. Record actual differences from the documented shared-service behavior.
 
 Gate: one engine produces equivalent documented behavior for both surfaces; completed messages survive restart; uncertain operations are not rerun automatically; no live provider is needed for normal CI.
 
@@ -634,12 +614,12 @@ Every earlier package contributes tests here; P8 verifies the complete matrix an
 
 Gate: required checks pass; no missing provider or platform coverage is disguised as a pass; benchmark claims link to reproducible reports.
 
-### P9. Finish documentation and rehearse cutover
+### P9. Finish documentation and verify deployment workflows
 
 Documentation follows the implementation throughout; this package verifies it from the viewpoint of someone with a fresh checkout and no prior knowledge.
 
 - [ ] Complete every artifact in section 15, revise README claims, add accurate screenshots/examples, and update `CHANGELOG.md` under `Unreleased`.
-- [ ] Rehearse legacy exports/imports, browser-preference migration, new-home creation, upgrade, backup/restore and rollback using disposable data.
+- [ ] Rehearse new-home creation, browser-preference persistence, historical schema upgrades and failure rollback using disposable data.
 - [ ] Follow every README/help/API/Postman example literally and record/fix documentation mismatches in the normal implementation workflow.
 - [ ] Remove obsolete engines/dependencies only after parity gates, update all entry points/build paths/ignores, and scan for secrets, absolute developer paths, stale claims and em-dashes in new material.
 - [ ] Reconcile the requirements matrix and this plan against actual files and evidence; list intentional future extensions separately.
@@ -705,7 +685,7 @@ The largest risk is scope expansion without a single working execution path. Bui
 | Hosted process access crosses tenants | Verified OS/container workspace isolation or shell-out disabled in hosted mode |
 | Secrets leak through diagnostics/library capture | Central capture/redaction policy, secret references, tests across request/history/log/export paths |
 | Provider/API differences | Capability-driven forms and runner contracts; verify pinned package APIs and test actual adapters |
-| Rewrite stalls distribution | Keep legacy runnable until parity; scaffold packaging/CI early; track external release blockers separately |
+| Rewrite stalls distribution | Keep the supported interfaces usable as the shared runtime evolves; scaffold packaging/CI early; track external release blockers separately |
 | Localization/visual quality becomes last-minute work | Shared catalogs/components and required screenshots from the first dashboard/TUI slice |
 | Requirements change during implementation | Source-hash traceability, explicit ADR/plan updates, final applicability audit |
 

@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Remove unused pairing/account/session/permission implementations, DTOs, identity-only tests, obsolete planning archives and superseded documentation. Preserve historical database tables and migration safety; keep the legacy application runnable pending cutover.
+- Build the native CLI for clean browser-test jobs, use explicit UTF-8 for process stdin and fictional harness consoles, and bound post-shutdown fixture cleanup on Windows.
+
+- Retire the separate npm terminal and browser implementations, their source/build output, root package/dependencies, launchers and CI build. Support the C# TUI and React dashboard through go-tui and go-web; update contributor instructions and documentation accordingly.
+
+- Remove unused pairing/account/session/permission implementations, DTOs, identity-only tests, obsolete planning archives and superseded documentation. Preserve historical database tables and migration safety.
 
 - Remove the external observability stack, collector/export dependencies, configuration and dashboard links; stop scripts now stop only ArgueBot.
 
@@ -33,7 +37,7 @@
 
 - Open local workspaces without authentication by default: plain dashboard URLs, no pairing codes, connection fragments, login screen or browser session. Native clients skip enrollment; startup removes old pairing files. Existing owner-backed storage remains intact. The previous authenticated mode is explicit opt-in through RequireAuthentication=true.
 
-- Remove the extra legacy web launchers at user request. Fix repeated go-web launches by reusing the verified service for the selected home instead of opening its instance lock again. Preserve custom startup ports and print the existing listener's actual URL when attaching.
+- Consolidate web startup under the supported launchers. Fix repeated go-web launches by reusing the verified service for the selected home instead of opening its instance lock again. Preserve custom startup ports and print the existing listener's actual URL when attaching.
 
 - Expand all terminal Help topics into practical guides, including final instructions after consensus, troubleshooting, examples and state-specific recovery. Verify every topic opens, scrolls and returns to the contents at multiple widths.
 - Add go-tui.sh/.bat and update go-web.sh/.bat to build and run the C# replacement. Web launchers build current dashboard assets, start or attach to the shared service, and print the actual browser URL. TUI --help now works without an interactive terminal.
@@ -98,7 +102,7 @@
 
 - Configurable incremental event retention, bounded replay pages, typed cursor recovery and native event streaming. Dashboard reconnects refresh snapshots after expired cursors. Large stream callbacks are bounded and malformed Unicode preserves the valid prefix before failing the attempt.
 
-- Shared C# conversation runtime, durable application home and configurable runner architecture. The existing TypeScript entry points remain supported during migration. See IMPROVEMENTS.md for delivery gates and verified progress.
+- Shared C# conversation runtime, durable application home and configurable runner architecture. The TUI, CLI and React dashboard share this service. See IMPROVEMENTS.md for delivery gates and verified progress.
 
 - React dashboard with persistent conversation navigation, participant configuration, streamed workspace updates, follow-up questions, request-history inspection, API Explorer, and settings/restart controls. Dark/light icon controls and hover help remain covered by browser checks.
 - Shared SQLite/PostgreSQL driver structure, historical SQLite backup/upgrade checks, AES-GCM session protection and immediate revocation. Full hosted identity administration remains pending. Provider scope follows the user's SQLite/PostgreSQL-only instruction.

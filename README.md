@@ -4,419 +4,126 @@
 
 <h1 align="center">ArgueBot</h1>
 
-<p align="center">
-  <strong>Let Claude Code, Codex, or Gemini debate a topic so you don't have to guess.</strong>
-</p>
+<p align="center"><strong>Put agents in conversation, challenge their answers, and keep the history.</strong></p>
 
-<p align="center">
-  <a href="#why-arguebot">Why</a> &middot;
-  <a href="#how-it-works">How It Works</a> &middot;
-  <a href="#getting-started">Getting Started</a> &middot;
-  <a href="#terminal-ui-tui">Terminal UI</a> &middot;
-  <a href="#web-gui">Web GUI</a> &middot;
-  <a href="#license">License</a>
-</p>
+ArgueBot runs structured debates between two or three participants and supports follow-up questions to individual agents. Its C# TUI and React web dashboard share one persistent service, so you can switch interfaces without losing conversations or stopping accepted work. A scriptable C# CLI uses that same service.
 
----
+Participants can use Claude Code, Codex, Gemini CLI, Mux, a generic CLI harness, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
 
-## Conversation runtime rewrite
+## Getting started
 
-ArgueBot is a single open workspace with no accounts, roles, permissions, login, pairing or security audit. `stop-web.sh` / `stop-web.bat` stop the selected service (forward `--home` or `--server`). `go-web` starts or attaches to ArgueBot; Docker and external telemetry services are not needed.
+Source builds require the .NET 10 SDK. The repository pins its SDK in [global.json](global.json). Building the web dashboard also requires Node.js 24 and npm; the terminal interface does not require npm. The shared library/test matrix additionally uses .NET 8.
 
-A persistent C# runtime, TUIKit console, configurable CLI/PolyPrompt runners with service-owned local tools for REST models, and shared conversation interfaces are being implemented. The replacement supports SQLite and PostgreSQL, automatic local service startup/attachment, bounded conversation history and full-message readers, durable run controls and generation-attempt provenance, and participant configuration forms. The existing npm and go-terminal paths below still run the TypeScript application. The new go-tui and go-web launchers build and run the C# replacement. In the dashboard, **Copy conversation** copies the full transcript; the copy icon on each turn copies its full text. IDs use monospace text with adjacent copy buttons. Copying supports HTTPS and HTTP, including non-localhost HTTP, with selected-text and manual fallbacks if browser clipboard access is blocked. See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the full plan and [replacement development](docs/DEVELOPMENT.md) for runnable development commands and current limitations. [Execution and recovery](docs/EXECUTION.md) explains attempt checkpoints, explicit retries and context limits.
-
-The C# TUI has visible action buttons and a guided Question → Speakers → Settings → Review workflow. See [Using the C# terminal interface](docs/TUI.md) for startup and first-debate instructions.
-
-## Why ArgueBot?
-
-You ask an AI a question and get a confident answer. But is it the *right* answer? A single model gives you a single perspective. It won't challenge its own assumptions, probe its own blind spots, or stress-test its own reasoning.
-
-ArgueBot fixes this by pitting two frontier coding agents against each other in a structured debate. You pose a question, pick who opens, and watch them argue it out -- surfacing trade-offs, catching weak assumptions, and forcing each other to defend their positions with concrete reasoning.
-
-When they reach genuine consensus, you know the answer has survived adversarial scrutiny. When they don't, you get a clear map of the disagreements and trade-offs -- which is often more valuable than a single confident answer.
-
-**Use it when the stakes are high enough to want a second opinion, but you don't have a second expert in the room.**
-
-- Architecture decisions before you commit to a direction
-- Debugging strategies when the root cause isn't obvious
-- Code review disputes where both sides have merit
-- Technology evaluations with real trade-off analysis
-- Any question where "it depends" deserves a real exploration of *what* it depends on
-
-## How It Works
-
-```
- You                    Orchestrator               Agent A          Agent B
-  |                         |                         |               |
-  |--- prompt ------------->|                         |               |
-  |                         |--- opening prompt ----->|               |
-  |<-- streaming response --|<-- streamed response ---|               |
-  |                         |                         |               |
-  |  (intervention window)  |                         |               |
-  |                         |--- rebuttal prompt -----|-------------->|
-  |<-- streaming response --|<------------------------|-- streamed ---|
-  |                         |                         |               |
-  |  (intervention window)  |                         |               |
-  |                         |    ...continues...      |               |
-  |                         |                         |               |
-  |                         |<--- "WE HAVE CONSENSUS" |               |
-  |<-- consensus reached! --|                         |               |
-  |                         |                         |               |
-  |--- follow-up question ->|--- summary prompt ----->| (or Agent B)  |
-  |<-- streaming answer ----|<-- streamed answer -----|               |
-```
-
-1. **You write one prompt** -- a question, a problem, an architectural decision.
-2. **Two agents debate** -- alternating turns with full transcript context. Each agent sees every prior argument and must respond substantively.
-3. **You can intervene** -- between any two turns, a countdown window lets you inject moderator notes, steer the conversation, pause, or stop early.
-4. **Consensus is explicit** -- agents are instructed to write "WE HAVE CONSENSUS" only when they genuinely agree. Partial agreement doesn't count.
-5. **You ask the final question** -- choose which agent summarizes the result, then take that output wherever you need it.
-
-Responses stream in real-time so you're never staring at a blank screen.
-
-## Two Ways to Run
-
-ArgueBot has two interfaces: a **terminal UI (TUI)** and a **web GUI** in your browser. They currently use separate orchestration loops with shared prompt and consensus helpers. The replacement described above unifies execution and persistence. Complete [Getting Started](#getting-started) first, then launch either one.
-
-| | **Terminal UI (TUI)** | **Web GUI** |
-|---|---|---|
-| Start (macOS / Linux) | `./go-terminal.sh` | `npm run web`, then open <http://127.0.0.1:4317> |
-| Start (Windows) | `go-terminal.bat` | `npm run web`, then open <http://127.0.0.1:4317> |
-| Start (npm) | `npm start` | `npm run web` |
-| Debaters | Two | Two or three |
-| Settings | Command-line flags and startup prompts | Settings panel on the setup page (flags also accepted as defaults) |
-| Details | [Terminal UI](#terminal-ui-tui) | [Web GUI](#web-gui) |
-
-The terminal launcher installs dependencies on first use. For the legacy web app, install root npm dependencies first; `npm run web -- --rounds 8 --port 8080` forwards options to that application.
-
-## Build and run the C# replacement
-
-Install the .NET 10 SDK. The web launcher also needs Node.js and npm. Both launcher pairs build before running, and work from another current directory.
+Clone the repository and choose an interface:
 
 | Interface | macOS / Linux | Windows |
 | --- | --- | --- |
 | Terminal | `./go-tui.sh` | `go-tui.bat` |
-| Web | `./go-web.sh` | `go-web.bat` |
+| Web dashboard | `./go-web.sh` | `go-web.bat` |
+| Stop service | `./stop-web.sh` | `stop-web.bat` |
 
-The TUI and web launchers start or attach to the service for the selected home. Workspaces open without authentication. After building, the web launcher prints the plain dashboard URL, normally `http://127.0.0.1:4317/dashboard`, and exits. Open that URL directly: no account, tenant, pairing code, connection fragment or login is needed. The service continues in the background. Repeated launches reuse the running service and its actual HTTP/HTTPS scheme and port. Use `--port N` to choose a port when starting an absent service; it does not move an existing service.
+Both launchers build before running. The web launcher installs dashboard dependencies when needed, starts or attaches to the selected service, and prints the URL to open in your browser. The default URL is <http://127.0.0.1:4317/dashboard>. Re-running it reuses the service for that application home.
 
-Both interfaces accept `--home PATH` to select the same saved data. For example, `./go-tui.sh --home .run/demo` and `./go-web.sh --home .run/demo --port 4318`. Launch only one service for a home. The web launcher builds the React dashboard before the C# build so the server gets current assets. The TUI launcher requires an interactive terminal. See [terminal help and workflows](docs/TUI.md).
+The workspace opens directly without accounts, login, pairing or special links. Docker and external telemetry services are not required.
 
-The legacy TypeScript app remains available through `go-terminal.sh`/`.bat` and `npm run web`. Extra legacy web launcher copies have been removed.
+### Choose an application home
 
-## Getting Started
+Conversations, configuration and logs live in `~/.arguebot` by default. Use the same home in both interfaces to work with the same data:
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 18+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
-- [Codex CLI](https://github.com/openai/codex) installed and authenticated
-- [Gemini CLI](https://google-gemini.github.io/gemini-cli/) installed and authenticated if you want Gemini as one of the debaters
-
-### Install
-
-```bash
-git clone https://github.com/jchristn/arguebot.git
-cd arguebot
-npm install
+```sh
+./go-tui.sh --home .run/my-workspace
+./go-web.sh --home .run/my-workspace --port 4417
+./stop-web.sh --home .run/my-workspace
 ```
 
-### Configure API Keys
+A port override applies when starting a service. Attaching to an existing service uses its actual listener address. `--server URL` connects to an explicit service. The service owns its home and database exclusively; clients never write the database directly.
 
-ArgueBot now loads a local `.env` file automatically at startup and passes those
-variables through to the agent CLIs it spawns.
+## Configure participants
 
-Create `.env` in the project root with the providers you plan to use:
+In the TUI, use **Agents** or **Ctrl+E**. In the dashboard, open **Participants** and select **Add participant**.
 
-```bash
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-GEMINI_API_KEY=your_gemini_key
+Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex includes `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
+
+Installed harnesses must be available to the service process and configured with their own provider credentials or sign-in. A working directory selects where the harness or local tools operate. Do not enter a whole shell command in the executable field.
+
+For a REST participant, choose a provider, endpoint and model. Supported provider formats include Ollama, OpenAI-compatible, Anthropic and Gemini. Configure any credential through the named environment variable available to the service process. ArgueBot does not automatically load a project `.env` file. Restart the service when its environment changes.
+
+CLI harnesses and REST local tools execute on the service machine, within the configured local-execution policy. Historical run snapshots retain the participant settings used for that run even if you edit the reusable profile later. See [execution behavior](docs/EXECUTION.md).
+
+## Terminal interface
+
+Use **Start debate** to enter a question, choose speakers, set debate options and review before submission. The service runs the debate while the TUI displays committed history and current state.
+
+Useful controls include:
+
+- **F1**: explanatory help for the current context.
+- **F2**: action menu.
+- **Tab / Shift+Tab**: move focus; **Alt+1 / Alt+2 / Alt+3**: jump between conversations, history and notes.
+- In the conversation list, **Enter** opens the highlighted conversation, **s** offers to stop unfinished work, and **d / Delete** offers deletion. Deleting unfinished work offers a combined stop-and-delete flow.
+- **Ctrl+B**: configure a debate; **Ctrl+R**: moderator controls; **Ctrl+Y**: follow-up question.
+- **Ctrl+L**: full message history; **Ctrl+G**: generation attempts; **Ctrl+T**: theme.
+- **Ctrl+Q**: detach. Accepted work continues in the service.
+
+After consensus, open moderator controls for final instructions or use a follow-up for a specific participant. Detailed workflows, confirmation behavior and failure recovery are explained in [terminal usage](docs/TUI.md) and the built-in help.
+
+## Web dashboard
+
+The dashboard provides conversations, participant configuration, the conversation workspace, request history, API Explorer and service settings.
+
+- Click an editable table row to open its editor. Explicit copy and action buttons remain independent.
+- Conversation and participant IDs have dedicated columns, monospace text and copy buttons.
+- **Open conversation** opens its workspace. Copy individual turns or the full conversation; complete content is fetched independently of visible previews.
+- Clipboard support includes HTTPS, localhost and other HTTP origins, with a manual selection fallback when the browser blocks clipboard access.
+- Diagnostic request rows open an inspector with metadata, request/response captures and copy controls.
+- Request activity offers last-hour/day/week/30-day ranges with 60 one-minute, 96 fifteen-minute, 84 two-hour and 90 eight-hour buckets. Hover or focus the chart for interval details. Green represents HTTP 100–399; red represents HTTP 400–599.
+- API Explorer selects operations from a dropdown above the request editor.
+- Click outside a modal or press Escape to dismiss it.
+
+Closing either interface does not stop a debate. Use the conversation's stop controls to stop a run, or `stop-web` to shut down the service. Request history and local operational logs are built in; no separate monitoring stack is needed.
+
+## Scriptable CLI
+
+Build the solution, then use the CLI against the same application home:
+
+```sh
+dotnet build src/ArgueBot.sln -c Release
+dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --help
+dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations list
+dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations create "Which design should we choose?"
 ```
 
-If you already exported these in your shell, that also works. A local `.env`
-is the simplest way to make provider auth deterministic inside ArgueBot.
+Commands support participant management, notes, debate controls, generation-attempt inspection and transcript export. JSON inputs can come from stdin or `--file PATH`. Conversation export writes complete Markdown; `conversations show ID --jsonl` streams full message records. See [REST_API.md](REST_API.md) for the service contract and generated API artifacts.
 
-### Provider Auth Notes
+## Development
 
-ArgueBot runs all three CLIs in non-interactive headless mode:
+The service supports SQLite by default and PostgreSQL when configured. Tests use isolated application homes, disposable provider databases and local model/process fixtures. Historical database tables and automatic upgrade safeguards remain for existing installations; backup/restore and identity management are not product workflows.
 
-- Claude uses `claude -p - --output-format text`
-- Codex uses `codex exec ... -`
-- Gemini uses `gemini --prompt "" --output-format text`
-
-That matters because each CLI may use a different auth path in headless mode
-than in the interactive terminal UI.
-
-#### Claude
-
-- Claude can work either from `ANTHROPIC_API_KEY` or from its stored Claude
-  Code login.
-- ArgueBot checks for `ANTHROPIC_API_KEY` first, then falls back to Claude's
-  local credentials under `~/.claude/.credentials.json`.
-- If Claude works directly in your terminal but not under ArgueBot, make sure
-  the same user profile is launching both processes and that `claude auth`
-  completed for that profile.
-
-#### Codex
-
-- Codex can work either from `OPENAI_API_KEY` or from its stored `codex login`
-  credentials.
-- ArgueBot checks for `OPENAI_API_KEY` first, then falls back to Codex's local
-  credentials under `~/.codex/auth.json`.
-- If you want the most predictable setup, put `OPENAI_API_KEY` in `.env` even
-  if `codex login` already works interactively.
-
-#### Gemini
-
-- Gemini CLI has multiple auth modes, and the selected mode affects headless
-  behavior.
-- If `~/.gemini/settings.json` has `security.auth.selectedType` set to
-  `gemini-api-key`, Gemini will require `GEMINI_API_KEY` in the environment at
-  runtime. A prior `/auth` inside the interactive Gemini UI does not replace
-  that env var requirement.
-- If you want Gemini to work without exporting `GEMINI_API_KEY`, run
-  `gemini`, then `/auth`, and switch the selected auth mode to Google login.
-- If you use Vertex AI mode instead, set either `GOOGLE_API_KEY` or both
-  `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
-
-## Terminal UI (TUI)
-
-### Start the TUI
-
-```bash
-./go-terminal.sh     # macOS / Linux
-go-terminal.bat      # Windows
-npm start            # any platform
+```sh
+npm --prefix dashboard ci
+npm --prefix dashboard run build
+dotnet restore src/ArgueBot.sln --locked-mode
+dotnet build src/ArgueBot.sln -c Release --no-restore
+dotnet run --project src/Test.Automated -c Release --no-build
+npm --prefix dashboard run test:e2e
 ```
 
-ArgueBot runs in your terminal and prompts for anything you didn't pass as a flag: who goes first, the opposing agent, max rounds, the summary agent, and your opening prompt. To skip the prompts, pass flags:
+The source layout is:
 
-```bash
-./go-terminal.sh --rounds 8 --timeout 15
-npm start -- --first gemini --second codex --summary gemini --yolo
-```
+| Path | Purpose |
+| --- | --- |
+| `src/ArgueBot.Core` | Persistent conversations, execution engine and database methods |
+| `src/ArgueBot.Runners` | CLI and PolyPrompt runners plus local tool execution |
+| `src/ArgueBot.Server` | Service API, dashboard hosting and execution ownership |
+| `src/ArgueBot.Client` | Shared native API client and local service attachment |
+| `src/ArgueBot.Tui` | TUIKit terminal interface |
+| `src/ArgueBot.Cli` | Scriptable CLI |
+| `dashboard` | React/Vite web dashboard and browser tests |
+| `src/Test.*` | Shared checks, test adapters and fictional process fixtures |
+| `assets` | API contracts, localization, harness defaults and dependency inventory |
+| `postman` | Local provider simulations |
 
-> **Note:** The `--` after `npm start` is required so npm passes the flags to ArgueBot instead of consuming them itself. The `go-terminal` scripts don't need it.
-
-Prompt input is multiline. When a prompt opens, use `ENTER` to add a newline and `ESC` then `ENTER` to submit the buffer exactly as typed.
-
-### TUI Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--rounds N` | Max debate rounds | `5` (prompted) |
-| `--timeout N` | Intervention window between turns (seconds) | `10` |
-| `--agent-timeout N` | Agent response timeout (seconds) | `300` |
-| `--yolo` | Enable dangerous/no-confirmation mode for supported agent CLIs | `false` |
-| `-v`, `--verbose` | Show low-level agent status/event messages | `false` |
-| `--first claude\|codex\|gemini` | Which agent opens | prompted |
-| `--second claude\|codex\|gemini` | Which agent is the other debater | prompted |
-| `--summary claude\|codex\|gemini` | Which agent handles summary | prompted |
-| `--help` | Show help | |
-
-### Example Session
-
-```
-ArgueBot v0.1 -- Multi-Agent Debate
-───────────────────────────────────────────────
-
-Choose who goes first [default claude]: [c]laude / code[x] / [g]emini > c
-Choose the opposing agent [default codex]: [c]laude / code[x] / [g]emini > x
-Max rounds (default 5) > 3
-Which agent for summary [default claude]: [c]laude / code[x] > x
-
-Enter the prompt you wish to send to the first agent to begin. ENTER = newline, ESC then ENTER = submit.
-> Debate why the sky is blue
-  and come to a consensus.
-
-[Round 1/3]
-
-Claude Code >
-The sky is blue primarily due to Rayleigh scattering. When sunlight
-enters the atmosphere, shorter wavelengths (blue, violet) scatter more
-strongly off nitrogen and oxygen molecules, following a 1/lambda^4
-relationship. Although violet scatters even more than blue, our eyes
-are more sensitive to blue and the Sun emits more blue than violet...
-
-Continue in 8s... (type to intervene)
-ENTER = newline, ESC then ENTER = submit.
-You > /steer "Challenge whether vision matters to the explanation."
-
-Codex >
-I'd push back on calling Rayleigh scattering a complete explanation.
-The scattering cross-section is necessary but not sufficient -- you
-also need the solar emission spectrum and human photopic response to
-get from "short wavelengths scatter more" to "the sky looks blue."
-Without those, a 1/lambda^4 law alone could yield violet, not blue...
-
-Continue in 8s... (type to intervene)
-ENTER = newline, ESC then ENTER = submit.
-You >
-
-[Round 2/3]
-
-Claude Code >
-Fair point. I'll concede that the solar spectrum and human vision are
-load-bearing parts of the explanation, not optional footnotes...
-
-Codex >
-WE HAVE CONSENSUS
-
-The sky appears blue because: (1) Rayleigh scattering preferentially
-scatters shorter wavelengths via a 1/lambda^4 dependence, (2) the
-solar spectrum peaks in visible wavelengths with sufficient blue
-emission, and (3) human photopic vision is more sensitive to blue
-than violet. All three factors are necessary for the complete answer.
-
->>> Consensus reached! <<<
-
-ENTER = newline, ESC then ENTER = submit.
-Follow-up > Summarize in one sentence.
-
-Codex >
-The sky is blue because molecular scattering favors short wavelengths,
-the Sun emits enough blue light, and human eyes are more sensitive to
-blue than to the even-more-scattered violet.
-```
-
-### TUI Commands
-
-During the debate, a countdown window appears between turns. If you start typing, the timer stops and the multiline editor opens. Use `ENTER` for newline and `ESC` then `ENTER` to submit.
-
-| Command | Effect |
-|---------|--------|
-| *(wait without typing)* | Continue to next turn |
-| *(any text)* | Inject a moderator note into the transcript |
-| `/steer "focus on X"` | Add a directive to the next agent's prompt |
-| `/pause` | Pause the debate (resume with `/resume`) |
-| `/stop` | End debate early, go to follow-up Q&A |
-| `/extend N` | Add N more rounds |
-| `/reset` | Scrap the debate and start over |
-| `/help` | Show command list |
-
-During follow-up Q&A, prompts use the same multiline controls: `ENTER` adds a newline and `ESC` then `ENTER` submits.
-
-| Command | Effect |
-|---------|--------|
-| *(any text)* | Ask a follow-up question (answered by your chosen summary agent) |
-| `/save` | Export the full transcript to a markdown file |
-| `/transcript` | Show a summary of all turns |
-| `/done` | Exit |
-
-## Web GUI
-
-### Start the Web GUI
-
-```bash
-npm run web          # macOS / Linux
-npm run web           # Windows
-npm run web          # any platform
-```
-
-Then open <http://127.0.0.1:4317> in your browser. The server listens on localhost only; leave the terminal running while you use it, and press `Ctrl+C` there to stop it.
-
-### Web GUI Settings
-
-Everything you can set with a TUI flag can be set in the browser. The setup page has a **Settings** panel:
-
-| Setting | Equivalent flag | Default |
-|---------|-----------------|---------|
-| Debaters and speaking order (click agents in order) | `--first`, `--second` | first two ready agents |
-| Max rounds | `--rounds N` | `5` |
-| Pause between turns (seconds) | `--timeout N` | `10` |
-| Agent response timeout (seconds) | `--agent-timeout N` | `300` |
-| Follow-up / summary agent | `--summary AGENT` | first debater |
-| Working directory the agents run in | *(web only)* | directory the server was started in |
-| YOLO mode | `--yolo` | off |
-| Verbose (show agent status/event messages in the feed) | `-v`, `--verbose` | off |
-
-Your choices are remembered in the browser for next time; **Reset to defaults** clears them. You can also pass any of these flags when starting the server to prefill the form, and they take precedence over remembered choices:
-
-```bash
-npm run web -- --rounds 8 --agent-timeout 600 --first gemini --second claude --summary gemini
-npm run web -- --timeout 20 --verbose
-```
-
-Server-only options:
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--port N` / `ARGUEBOT_PORT` | Port to listen on | `4317` |
-| `--host HOST` / `ARGUEBOT_HOST` | Interface to bind | `127.0.0.1` |
-| `--help` | Show help | |
-
-> **Security:** The web GUI has no login. Anyone who can reach it can run agent CLIs on your machine, so it binds to localhost by default. It also rejects cross-origin requests and requests with foreign `Host` headers, so other websites you visit can't drive it.
-
-### Using the Web GUI
-
-1. **Pick the debaters** -- choose two or three agents. They speak in the order you select them. Agents whose CLI is missing or not authenticated are shown but can't be selected.
-2. **Enter a topic** -- and adjust any settings. `Cmd`/`Ctrl` + `Enter` starts the debate.
-3. **Watch them argue** -- responses stream in live. After every turn a countdown gives you a chance to step in; start typing and the countdown holds until you send or clear your message.
-4. **Shape the conversation** at any time:
-
-| Control | Effect |
-|---------|--------|
-| **Note** (composer) | Adds a moderator note to the transcript that every agent sees. Sent while an agent is speaking, it's queued until that turn finishes. |
-| **Steer** (composer) | A private directive for the next speaker only (same as `/steer`). |
-| **Cut in** | Stops the current speaker immediately and pauses so you can write. Whatever they had said so far stays in the transcript, marked as interrupted. |
-| **Pause / Resume** | Pauses before the next turn. Sending a note while paused also resumes. |
-| **+2 rounds** | Raises the round limit. When a debate runs out of rounds, **Keep debating** continues it. |
-| **End debate** | Stops the debate and moves on to follow-up questions. |
-
-The composer also accepts the TUI commands `/steer`, `/pause`, `/resume`, `/stop`, `/extend N`, and `/save`.
-
-When the debate ends, ask follow-up questions and pick which participant answers each one. **Download transcript** exports the debate as Markdown. Debates live in server memory, so reloading the page reconnects you, but restarting the server clears them.
-
-With three agents, each round gives every participant one turn, and the consensus rule asks them to declare consensus only when *all* participants agree.
-
-## Project Structure
-
-```
-src/
-  index.ts          Terminal UI entry point
-  args.ts           Debate flag parsing shared by the terminal and web UIs
-  orchestrator.ts   Terminal UI debate state machine and main loop
-  agents.ts         Agent driver -- spawns CLI subprocesses with streaming
-  prompts.ts        Prompt templates for opening, rebuttal, and summary
-  consensus.ts      Consensus detection (looks for "WE HAVE CONSENSUS")
-  ui.ts             Terminal UI -- colors, countdown timer, output helpers
-  input.ts          Terminal UI multiline input editor
-  transcript.ts     Markdown transcript export
-  types.ts          Shared TypeScript types and defaults
-  web/
-    server.ts       Web GUI entry point -- HTTP server (REST actions + Server-Sent Events)
-    session.ts      UI-agnostic debate session engine used by the web GUI
-web/
-  index.html        Web GUI markup
-  app.js            Web GUI client (no build step)
-  styles.css        Web GUI styles
-```
-
-## Bugs and Issues
-
-Found a bug or have a feature request? Please open an issue:
-
-https://github.com/jchristn/arguebot/issues
-
-When filing a bug, include:
-- The prompt you used
-- Which agents were involved
-- The error message or unexpected behavior
-- Your Node.js version (`node --version`)
+See [development and verification](docs/DEVELOPMENT.md), [service operations](docs/OPERATIONS.md), [terminal usage](docs/TUI.md) and [execution behavior](docs/EXECUTION.md). [IMPROVEMENTS.md](IMPROVEMENTS.md) tracks remaining platform, packaging, live-provider and release acceptance work; interface consolidation does not claim all acceptance gates have passed.
 
 ## License
 
-[MIT](LICENSE.md) -- see [LICENSE.md](LICENSE.md) for details.
-
-Backup and restore are not product features.
-
-The replacement service supports configurable event replay retention without deleting transcript history. Expired event cursors require a snapshot refresh; the dashboard recovers automatically and the native client exposes typed stream errors. See [execution and recovery](docs/EXECUTION.md) and [operations](docs/OPERATIONS.md).
-
-Optional loopback HTTPS now loads an operator-provisioned `keys/listener.pfx` with a password environment reference. Native clients bind self-signed local trust to the owner-protected home/endpoint certificate pin; browsers use operator-managed certificate trust. Keep TLS certificate keys in the configured application home. Hosted ingress and runner isolation remain open.
-
-Accepted background runs remain service-owned when a client disconnects. Use stop, interrupt or pause controls to change execution; no account or role controls are involved. See [execution and recovery](docs/EXECUTION.md).
-
-The replacement runtime also supports Mux as a CLI harness in web, TUI and console profiles. Select CLI protocol `mux` and executable `mux` (or its full installed path). The TUI offers a Mux preset. It streams `mux print` text output with prompts on stdin and uses Mux's existing model/endpoint configuration. See [Mux setup and argument overrides](docs/TUI.md).
-
-The replacement TUI defaults to Quiet Charcoal, with a borderless workspace, one sidebar divider and framed dialogs. Ctrl+T switches to light mode; F1 opens help.
+MIT. See [LICENSE.md](LICENSE.md).
