@@ -1,25 +1,26 @@
 namespace ArgueBot.Core.Services
 {
+    using ArgueBot.Core.Database;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Observability;
+    using ArgueBot.Core.Runners;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
     using System.Text.RegularExpressions;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Microsoft.Extensions.Logging;
-    using ArgueBot.Core.Database;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Observability;
-    using ArgueBot.Core.Runners;
+    using System.Threading.Tasks;
 
     /// <summary>Service-owned debate execution. Client disconnects never cancel accepted work.</summary>
     public sealed class ConversationEngine : IAsyncDisposable
     {
         private readonly DatabaseDriverBase _Database;
         private readonly IRunner _Runner;
+        private readonly RunnerDiagnosticStore? _DiagnosticStore;
         private readonly ILogger _Logger;
         private readonly TimeProvider _Clock;
         private readonly int _StreamBatchCharacters;
@@ -31,8 +32,8 @@ namespace ArgueBot.Core.Services
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _Gates = new ConcurrentDictionary<string, SemaphoreSlim>();
         private readonly ConcurrentDictionary<string, ExecutionWorker> _Workers = new ConcurrentDictionary<string, ExecutionWorker>();
 
-        /// <summary>Create an engine with bounded concurrency, injectable time and bounded stream commit batches. Defaults: four runs, 4096 characters or 250 milliseconds per commit, and context bounded to 262144 UTF-16 characters plus 1000 messages. Oversized context is refused before invocation.</summary>
-        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null, TimeProvider? clock = null, int streamBatchCharacters = 4096, int streamCommitMilliseconds = 250, int contextMaxCharacters = 262144, int contextMaxMessages = 1000)
+        /// <summary>Create an engine with bounded concurrency, injectable time and bounded stream commit batches. Defaults: four runs, 4096 characters or 250 milliseconds per commit, and context bounded to 262144 UTF-16 characters plus 1000 messages. Oversized context is refused before invocation. An optional diagnostic directory retains bounded process failure evidence locally.</summary>
+        public ConversationEngine(DatabaseDriverBase database, IRunner runner, int capacity = 4, ILogger? logger = null, TimeProvider? clock = null, int streamBatchCharacters = 4096, int streamCommitMilliseconds = 250, int contextMaxCharacters = 262144, int contextMaxMessages = 1000, string? diagnosticDirectory = null)
         {
             ArgumentNullException.ThrowIfNull(database); ArgumentNullException.ThrowIfNull(runner);
             if (capacity < 1 || capacity > 64) throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -43,7 +44,16 @@ namespace ArgueBot.Core.Services
             _ContextMaxCharacters = contextMaxCharacters; _ContextMaxMessages = contextMaxMessages;
             _Clock = clock ?? TimeProvider.System; _StreamBatchCharacters = streamBatchCharacters; _StreamCommitInterval = TimeSpan.FromMilliseconds(streamCommitMilliseconds);
             _Logger = logger ?? NullLogger.Instance;
+            _DiagnosticStore = diagnosticDirectory == null ? null : new RunnerDiagnosticStore(diagnosticDirectory);
             _Database = database; _Runner = runner; _Capacity = new SemaphoreSlim(capacity, capacity);
+        }
+
+        private async Task SaveDiagnosticsAsync(GenerationAttempt attempt, Exception exception)
+        {
+            if (_DiagnosticStore == null) return;
+            try { await _DiagnosticStore.SaveAsync(attempt, exception, CancellationToken.None).ConfigureAwait(false); }
+            catch (Exception failure) when (failure is not OutOfMemoryException)
+            { _Logger.LogWarning("Runner diagnostic capture failed {AttemptId} {FailureType}", attempt.Id, failure.GetType().Name); }
         }
 
         /// <summary>Create and start a durable run; duplicate keys return the original run.</summary>
@@ -190,9 +200,9 @@ namespace ArgueBot.Core.Services
                                 if (stream.Failed) throw new DomainException(503, stream.FailureCode, "Stream persistence failed.");
                                 answerState = "completed";
                             }
-                            catch (OperationCanceledException) { answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
+                            catch (OperationCanceledException ex) { await SaveDiagnosticsAsync(attempt, ex).ConfigureAwait(false); answerState = stream.Failed ? "failed" : "interrupted"; if (stream.Failed) failure = stream.FailureCode; }
                             catch (Exception ex) when (ex is not OutOfMemoryException)
-                            { answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
+                            { await SaveDiagnosticsAsync(attempt, ex).ConfigureAwait(false); answerState = "failed"; failure = ex is DomainException domain ? domain.Code : ex.GetType().Name; }
                         }
                         if (stream.Failed) { answerState = "failed"; failure = stream.FailureCode; }
                         answer.State = answerState;

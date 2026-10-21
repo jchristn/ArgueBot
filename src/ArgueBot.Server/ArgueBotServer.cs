@@ -1,13 +1,5 @@
 namespace ArgueBot.Server
 {
-    using System;
-    using System.Diagnostics;
-    using System.IO;
-    using System.Security.Cryptography;
-    using System.Security.Cryptography.X509Certificates;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Database.Implementations;
@@ -17,6 +9,14 @@ namespace ArgueBot.Server
     using ArgueBot.Runners;
     using ArgueBot.Server.Routes;
     using ArgueBot.Server.Services;
+    using Microsoft.Extensions.Logging;
+    using System;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Security.Cryptography;
+    using System.Security.Cryptography.X509Certificates;
+    using System.Threading;
+    using System.Threading.Tasks;
     using WatsonWebserver;
     using WatsonWebserver.Core;
     using WatsonWebserver.Core.OpenApi;
@@ -43,7 +43,7 @@ namespace ArgueBot.Server
                         File.Delete(Path.Combine(paths.Home, "runtime", "pairing-code"));
                         File.Delete(Path.Combine(paths.Home, "runtime", "pairing-code.tmp"));
                         File.Delete(Path.Combine(paths.Home, "runtime", "cli-session.json"));
-                        ConversationEngine engine = new ConversationEngine(database, new RunnerRouter(settings.AllowCli), settings.MaxConcurrentRuns, logger.CreateLogger("ArgueBot.Execution"), streamBatchCharacters: settings.StreamBatchCharacters, streamCommitMilliseconds: settings.StreamCommitMilliseconds, contextMaxCharacters: settings.ContextMaxCharacters, contextMaxMessages: settings.ContextMaxMessages);
+                        ConversationEngine engine = new ConversationEngine(database, new RunnerRouter(settings.AllowCli), settings.MaxConcurrentRuns, logger.CreateLogger("ArgueBot.Execution"), streamBatchCharacters: settings.StreamBatchCharacters, streamCommitMilliseconds: settings.StreamCommitMilliseconds, contextMaxCharacters: settings.ContextMaxCharacters, contextMaxMessages: settings.ContextMaxMessages, diagnosticDirectory: Path.Combine(paths.Home, "logs", "runner-failures"));
                         try
                         {
                             using (Webserver server = new Webserver(new WebserverSettings("127.0.0.1", settings.Port, settings.TlsEnabled), http => Api.SendAsync(http, new ApiError { Code = "not_found", Message = "Route not found." }, 404)))

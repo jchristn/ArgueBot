@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Default new agent profiles to a 64 MiB output limit and allow limits up to 64 MiB across the service, TUI, dashboard and API contract.
+
+- Put Follow-up directly in the TUI action bar and clarify that the note composer only adds context.
+
+- Start each TUI debate with a blank, editable question; label setup in an existing conversation and clarify that its history remains context.
+
+- Render TUI conversation previews and full messages with TUIKit Markdown, including width-aware tables, lists, quotations and code blocks while preserving original message content.
+
+- Fix Claude Code CLI turns failing on valid tool-result payloads; parse assistant text by message ID, deduplicate streamed/final snapshots, and reject empty, errored or incomplete final results. Add sanitized tool-stream replays through the runner and durable service engine.
+
+- Keep TUI wizard button colors consistent with the shared theme after step changes, including focused, hovered and disabled states.
+
+- Retain bounded CLI failure stdout, stderr, triggering events, parser details and exit status in local attempt-linked diagnostic files; add process and durable-engine regressions for evidence retention, limits and diagnostic write failure.
+
+- Show agent activity before response text arrives, distinguish reconnecting updates, and annotate failed dashboard turns with their saved attempt error code.
+
 - Archive the superseded improvement plan, extract remaining work into ROADMAP.md, and update repository instructions, documentation and generated API-reference links.
 
 - Build the native CLI for clean browser-test jobs, use explicit UTF-8 for process stdin and fictional harness consoles, and bound post-shutdown fixture cleanup on Windows.

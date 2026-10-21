@@ -81,7 +81,7 @@ namespace ArgueBot.Tui
                 Add("Credential environment reference", _Secret, "Name of a variable on the service machine. Enter its name, never its secret value.", () => _Secret.Value.Length == 0 || Regex.IsMatch(_Secret.Value, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.CultureInvariant) ? null : "Use an environment variable name.");
             }
             Add("Timeout seconds", _Timeout, "Generation deadline, from one through 3600 seconds.", () => int.TryParse(_Timeout.Value, out int value) && value >= 1 && value <= 3600 ? null : "Use one through 3600.");
-            Add("Output byte limit", _Output, "Bounded stdout/REST answer capture, 1024 through 16777216 bytes.", () => int.TryParse(_Output.Value, out int value) && value >= 1024 && value <= 16777216 ? null : "Use 1024 through 16777216.");
+            Add("Output byte limit", _Output, "Bounded stdout/REST answer capture, 1024 through 67108864 bytes.", () => int.TryParse(_Output.Value, out int value) && value >= 1024 && value <= 67108864 ? null : "Use 1024 through 67108864.");
             _Form.Add("", _Enabled); _Form.SetFieldHint(_Form.FieldCount - 1, "Disabling prevents new runs from choosing this profile; historical snapshots remain unchanged.");
         }
         internal RunnerProfile Extract()

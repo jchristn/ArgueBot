@@ -154,7 +154,7 @@
   "profile.timeout": "Response timeout (seconds)",
   "profile.timeout.help": "Maximum generation time, from one to 3600 seconds",
   "profile.maxOutput": "Capture limit (bytes)",
-  "profile.maxOutput.help": "Maximum response capture, from 1024 bytes to 16777216 bytes; excess output fails visibly",
+  "profile.maxOutput.help": "Maximum response capture, from 1024 bytes to 67108864 bytes (64 MiB default); excess output fails visibly",
   "profile.enabled": "Enabled",
   "profile.enabled.help": "Allow this profile to be selected for new runs",
   "profile.capability": "REST participants can read and write local files, list directories and run programs through ArgueBot tools. Tools run on the service machine as its account, using this working directory (or the service directory if empty). Calls and results appear in conversation history. CLI participants use their harness tools.",
@@ -399,5 +399,15 @@
   "history.timeAxis": "Time ({zone})",
   "history.total": "Total",
   "history.successLegend": "Success · HTTP 100–399",
-  "history.failureLegend": "Errors · HTTP 400–599"
+  "history.failureLegend": "Errors · HTTP 400–599",
+  "activity.agent": "Agent",
+  "activity.working": "{speaker} is working",
+  "activity.queued": "Run queued",
+  "activity.waiting": "Waiting for agent output. Some agents stay silent while thinking or using tools.",
+  "activity.streaming": "Receiving agent output.",
+  "activity.pausing": "Pause requested. Waiting for the current turn to finish.",
+  "activity.reconnecting": "Reconnecting to the service",
+  "activity.connectionHelp": "Live updates are unavailable. Agent progress cannot currently be confirmed.",
+  "messages.failed": "This turn failed",
+  "messages.failedHelp": "The agent did not complete this response. Inspect the generation attempt for details."
 }

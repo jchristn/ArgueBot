@@ -36,7 +36,7 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript separates speakers and literal content while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript renders Markdown and separates speakers while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
         }
         private static async Task HelpTopicsAsync(CancellationToken token)
         {
@@ -365,6 +365,31 @@ namespace Test.Shared
                 await PumpUntilAsync(app, () => service.Started != null, token).ConfigureAwait(false);
                 if (service.Conversation?.Title != "Which architecture should we use?" || service.Started?.ParticipantIds.Count != 2 || service.Profiles[0].Provider != "claude" || service.Profiles[1].Provider != "codex") throw new InvalidDataException("First-use setup lost its question or selected agent presets.");
                 await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
+                foreach (bool existing in new[] { true, false })
+                {
+                    backend.FeedKey(existing ? "ctrl+b" : "ctrl+n");
+                    if (!existing)
+                    {
+                        await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("New:", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                        ClickText(app, backend, "Start a debate: guided setup");
+                    }
+                    await PumpUntilAsync(app, () => app.Modals.Top is DebateWizardDialog, token).ConfigureAwait(false);
+                    DebateWizardDialog fresh = (DebateWizardDialog)app.Modals.Top!;
+                    TextField field = (TextField)fresh.Editor.QuestionForm.GetField(0);
+                    if (field.Value.Length != 0 || field.IsReadOnly || fresh.Editor.ExistingConversation != existing || fresh.Wizard.Next()) throw new InvalidDataException("New debate reused the previous question or prevented editing.");
+                    backend.FeedInput(Encoding.UTF8.GetBytes("A different debate question")); app.PumpInputOnce(); app.RenderOnce();
+                    if (field.Value != "A different debate question") throw new InvalidDataException("New debate did not accept keyboard input.");
+                    if (!fresh.Wizard.Next() || !fresh.Wizard.Next() || !fresh.Wizard.Next() || fresh.Editor.Extract().Question != field.Value || !fresh.Editor.Review().Contains(field.Value, StringComparison.Ordinal)) throw new InvalidDataException("Review and submission did not use the newly typed question.");
+                    backend.FeedKey("escape");
+                    await PumpUntilAsync(app, () => app.Modals.Top == null && !workspace.IsBusy, token).ConfigureAwait(false);
+                }
+                if (!Snapshot.ToText(app.CaptureFrame()!).Contains("Follow-up", StringComparison.Ordinal)) throw new InvalidDataException("Follow-up is not visible in the workspace action bar.");
+                ClickText(app, backend, "Follow-up");
+                await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog choice && choice.Title == "Choose follow-up respondent", token).ConfigureAwait(false);
+                ClickText(app, backend, "Claude Code");
+                await PumpUntilAsync(app, () => app.Modals.Top is TextPromptDialog, token).ConfigureAwait(false);
+                backend.FeedKey("escape");
+                await PumpUntilAsync(app, () => app.Modals.Top == null && !workspace.IsBusy, token).ConfigureAwait(false);
                 for (int attempt = 0; attempt < 3; attempt++)
                 {
                     ClickText(app, backend, "Menu");
@@ -429,6 +454,7 @@ namespace Test.Shared
                     if (dialog.Wizard.Next()) throw new InvalidDataException("The wizard accepted an empty question.");
                     ((TextField)editor.QuestionForm.GetField(0)).Value = "Compare these approaches";
                     app.RenderOnce();
+                    AssertButtonPalette(dialog.Wizard.Buttons, theme);
                     await SaveEvidenceAsync("debate-question-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
                     backend.FeedKey("f1"); app.PumpInputOnce(); app.RenderOnce();
                     if (!Snapshot.ToText(app.CaptureFrame()!).Contains("Back to dialog", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not provide help inside the wizard.");
@@ -448,6 +474,7 @@ namespace Test.Shared
                     backend.FeedKey("escape");
                     await PumpUntilAsync(app, () => !((Dropdown<string>)editor.SpeakersForm.GetField(2)).IsOpen, token).ConfigureAwait(false);
                     if (dialog.IsClosed || ((Dropdown<string>)editor.SpeakersForm.GetField(2)).IsOpen) throw new InvalidDataException("Escape discarded the wizard instead of closing the dropdown.");
+                    AssertButtonPalette(dialog.Wizard.Buttons, theme);
                     string speakers = Snapshot.ToText(app.CaptureFrame()!);
                     if (!speakers.Contains("Next", StringComparison.Ordinal) || !speakers.Contains("Cancel", StringComparison.Ordinal) || !speakers.Contains("Third agent", StringComparison.Ordinal)) throw new InvalidDataException("Speaker choices or navigation were hidden.");
                     await SaveEvidenceAsync("debate-speakers-" + theme.Name, speakers, token).ConfigureAwait(false);
@@ -460,6 +487,7 @@ namespace Test.Shared
                     dialog.Wizard.Back();
                     if (((Dropdown<string>)editor.SpeakersForm.GetField(2)).SelectedIndex != 3) throw new InvalidDataException("Back lost the speaker selection.");
                     dialog.Wizard.Next(); dialog.Wizard.Next(); app.RenderOnce();
+                    AssertButtonPalette(dialog.Wizard.Buttons, theme);
                     string review = Snapshot.ToText(app.CaptureFrame()!);
                     if (!review.Contains("Start debate", StringComparison.Ordinal) || !review.Contains("Closes each round: Gemini", StringComparison.Ordinal)) throw new InvalidDataException("Review omitted the ending speaker or Start action.");
                     await SaveEvidenceAsync("debate-review-" + theme.Name, review, token).ConfigureAwait(false);
@@ -469,6 +497,25 @@ namespace Test.Shared
                     if (request == null || request.Question != "Compare these approaches" || !request.ParticipantIds.SequenceEqual(new[] { "one", "two", "three" }) || request.MaxRounds != 6 || request.InterventionSeconds != 15) throw new InvalidDataException("Debate setup changed the prompt, speaker order or settings.");
                     app.Stop();
                 }
+            }
+        }
+        private static void AssertButtonPalette(ButtonRow row, Theme theme)
+        {
+            foreach (Button button in row.Buttons)
+            {
+                CellStyle focus = theme.Resolve(Theme.ButtonFocusedRole, theme.Selection);
+                if (!button.NormalStyle.Equals(theme.Text) || !button.FocusedStyle.Equals(focus) || !button.HoverStyle.Equals(theme.Accent) || !button.DisabledStyle.Equals(theme.Disabled)) throw new InvalidDataException("Button lost the shared " + theme.Name + " palette: " + button.Label);
+                bool enabled = button.IsEnabled; bool focused = button.IsFocused;
+                try
+                {
+                    button.IsEnabled = true; button.IsFocused = true;
+                    CellBuffer frame = new CellBuffer(button.Width, 1);
+                    button.Render(new BufferSurface(frame));
+                    if (!frame.Get(0, 0).Style.Equals(focus)) throw new InvalidDataException("Focused button rendered a different background: " + button.Label);
+                    button.IsEnabled = false; button.Render(new BufferSurface(frame));
+                    if (!frame.Get(0, 0).Style.Equals(theme.Disabled.Over(theme.Text))) throw new InvalidDataException("Disabled button lost its muted style: " + button.Label);
+                }
+                finally { button.IsEnabled = enabled; button.IsFocused = focused; }
             }
         }
         private static async Task PaletteAsync(CancellationToken token)
@@ -551,6 +598,22 @@ namespace Test.Shared
                     if (userRow < 0 || agentRow < 0 || !transcriptRows[userRow + 1].Contains("Compare the two approaches", StringComparison.Ordinal) || !transcriptRows[agentRow + 1].Contains("First, consider", StringComparison.Ordinal)) throw new InvalidDataException("Message headings must be immediately followed by their content.");
                     if (!TranscriptFormatter.Heading(new Message { Kind = "steer" }).Contains("Private directive", StringComparison.Ordinal)) throw new InvalidDataException("Private directive label disappeared.");
                     await SaveEvidenceAsync("transcript-" + theme.Name, screen, token).ConfigureAwait(false);
+                    string markdown = "# Decision\n\n**Strong evidence** and *emphasis* with `inline code`.\n\n- First item\n- Second item\n\n> Quoted evidence\n\n| Option | Result |\n| --- | --- |\n| Alpha | Useful |\n\n```text\n[red] **literal code**\n```";
+                    foreach (int width in new[] { 80, 36, 80 })
+                    {
+                        backend.Resize(width, 40);
+                        TranscriptFormatter.Render(pane, new[] { new Message { Speaker = "Agent", Kind = "answer", Content = markdown } }, theme);
+                        app.RenderOnce();
+                        string rendered = Snapshot.ToText(app.CaptureFrame()!);
+                        if (rendered.Contains("# Decision", StringComparison.Ordinal) || rendered.Contains("**Strong evidence**", StringComparison.Ordinal) || rendered.Contains("```", StringComparison.Ordinal) || !rendered.Contains("Decision", StringComparison.Ordinal) || !rendered.Contains("Second item", StringComparison.Ordinal) || !rendered.Contains("Alpha", StringComparison.Ordinal) || !rendered.Contains("[red] **literal code**", StringComparison.Ordinal)) throw new InvalidDataException("Markdown transcript lost formatting or code content at width " + width);
+                        ReadOnlyTextView reader = new ReadOnlyTextView(markdown: true) { Text = markdown };
+                        reader.ApplyTheme(theme);
+                        CellBuffer buffer = new CellBuffer(width, 40);
+                        reader.Render(new BufferSurface(buffer));
+                        string full = Snapshot.ToText(buffer);
+                        if (reader.Text != markdown || full.Contains("**Strong evidence**", StringComparison.Ordinal) || !full.Contains("[red] **literal code**", StringComparison.Ordinal) || !full.Contains("Alpha", StringComparison.Ordinal)) throw new InvalidDataException("Markdown reader lost formatted content or changed its source.");
+                        await SaveEvidenceAsync("markdown-" + theme.Name + "-" + width, rendered, token).ConfigureAwait(false);
+                    }
                     pane.Clear();
                     for (int line = 0; line < 80; line++) pane.WriteLine("History line " + line);
                     app.Focus("transcript"); app.RenderOnce();

@@ -11,6 +11,9 @@ namespace ArgueBot.Tui
     internal sealed class ReadOnlyTextView : IWidget, IFocusable, IFocusAware, IMouseAware, IThemeable, IPasteTarget
     {
         private string _Text = "";
+        private readonly bool _Markdown;
+        private MarkdownRenderOptions _MarkdownOptions = new MarkdownRenderOptions();
+        internal ReadOnlyTextView(bool markdown = false) { _Markdown = markdown; }
         private readonly List<StyledText> _Rows = new List<StyledText>();
         private int _Width = -1;
         private int _Height = 1;
@@ -27,7 +30,7 @@ namespace ArgueBot.Tui
         /// <inheritdoc />
         public Size Measure(Size available) { return available; }
         /// <inheritdoc />
-        public void ApplyTheme(Theme theme) { _Style = theme.Text; _Border = theme.Border; _Accent = theme.Accent; _Width = -1; }
+        public void ApplyTheme(Theme theme) { _MarkdownOptions = new MarkdownRenderOptions().WithTheme(theme); _Style = theme.Text; _Border = theme.Border; _Accent = theme.Accent; _Width = -1; }
         /// <inheritdoc />
         public void OnFocusChanged(bool focused) { _Focused = focused; }
         private void Scroll(int top) { _Top = Math.Max(0, Math.Min(top, Math.Max(0, _Rows.Count - _Height))); }
@@ -70,7 +73,8 @@ namespace ArgueBot.Tui
             if (_Width != width)
             {
                 _Width = width; _Rows.Clear();
-                foreach (string line in _Text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
+                if (_Markdown) _Rows.AddRange(MarkdownRenderer.Render(_Text, Math.Max(1, width - 1), _MarkdownOptions));
+                else foreach (string line in _Text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
                 {
                     IReadOnlyList<StyledText> rows = TextWrapper.Wrap(TUIKit.Text.From(line, _Style), Math.Max(1, width - 1));
                     if (rows.Count == 0) _Rows.Add(StyledText.Empty); else _Rows.AddRange(rows);

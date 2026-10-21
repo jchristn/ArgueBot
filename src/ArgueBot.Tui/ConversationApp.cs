@@ -23,7 +23,7 @@ namespace ArgueBot.Tui
         private readonly ButtonRow _Actions = new ButtonRow();
         private readonly ConversationListView _Threads = new ConversationListView();
         private readonly Pane _Transcript = new Pane("transcript");
-        private readonly TextField _Composer = new TextField { Placeholder = "Add a note to this conversation (Enter sends). Start debate runs the agents." };
+        private readonly TextField _Composer = new TextField { Placeholder = "Add context only (Enter sends). Use Follow-up to ask an agent." };
         private readonly Label _ConversationHeading = new Label(Text.From("Conversations"));
         private readonly Label _NoteHeading = new Label(Text.From("Note: Enter sends"));
         private readonly Label _HistoryTitle = new Label(Text.From("Shared debate history"));
@@ -68,6 +68,7 @@ namespace ArgueBot.Tui
             _Actions.Add("New", () => Launch(NewAsync)).TooltipText = "Create a debate with guided setup, or create an empty conversation.";
             _Actions.Add("Agents", () => Launch(ParticipantsAsync)).TooltipText = "Add or edit the CLI harnesses and REST models used as debate speakers.";
             _Actions.Add("Start debate", () => Launch(StartAsync)).TooltipText = "Choose speakers and settings for the selected conversation; review before starting.";
+            _Actions.Add("Follow-up", () => Launch(FollowupAsync)).TooltipText = "Ask an agent another question using this conversation history (Ctrl+Y).";
             _Actions.Add("Run controls", () => Launch(ControlsAsync)).TooltipText = "Pause, resume, interrupt, extend or stop a debate.";
             app.AddWidget("actions", _Actions, region => region.TopAnchored(0, 4).FillWidth().WithPadding(1, 1, 1, 0));
             app.AddWidget("conversation-heading", _ConversationHeading, region => region.ProportionalWidth(0, 0.3).TopAnchored(4, 1).WithPadding(1, 0, 2, 0));
@@ -313,7 +314,7 @@ namespace ArgueBot.Tui
                 await ParticipantsAsync().ConfigureAwait(false);
                 profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
             }
-            string question = conversationId == null ? "" : (await _Client.ConversationAsync(conversationId, _Token).ConfigureAwait(false)).Title;
+            string question = "";
             CreateRunRequest? request = await UiAsync(() =>
             {
                 DebateSetupEditor editor = new DebateSetupEditor(profiles, question, conversationId != null);

@@ -36,7 +36,7 @@ namespace ArgueBot.Tui
                 first = false;
                 CellStyle headingStyle = message.Speaker == "user" ? theme.Accent : theme.Info;
                 pane.WriteLine(Text.From(Heading(message), headingStyle).Bold());
-                foreach (string line in message.Content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n')) pane.WriteLine(Text.From(line, theme.Text));
+                pane.WriteMarkdown(message.Content, new MarkdownRenderOptions().WithTheme(theme));
                 if (message.State == "failed" && message.Content.Length == 0) pane.WriteLine(Text.From("The agent produced no answer. Press g in the conversation list to inspect the failure; e opens Agents to check its settings.", theme.Error));
                 if (message.ContentTruncated)
                 {

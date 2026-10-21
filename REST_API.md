@@ -652,7 +652,7 @@ CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill
 | workingDirectory | string | Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory. |
 | secretEnvironmentVariable | string | Environment reference to credential; never its value. |
 | timeoutSeconds | integer | Maximum generation seconds. |
-| maxOutputBytes | integer | Maximum captured output bytes. |
+| maxOutputBytes | integer | Maximum captured output bytes; defaults to 64 MiB. |
 | enabled | boolean | Whether new work can use this profile. |
 
 ### ServiceSettings

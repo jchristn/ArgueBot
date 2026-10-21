@@ -20,7 +20,7 @@ function ProfileForm({ onSave, onClose, initial }) {
       model: "",
       secretEnvironmentVariable: "",
       timeoutSeconds: 300,
-      maxOutputBytes: 1048576,
+      maxOutputBytes: 67108864,
       enabled: true,
     },
   );
@@ -164,7 +164,7 @@ function ProfileForm({ onSave, onClose, initial }) {
           })}
           {field("maxOutputBytes", "profile.maxOutput", "number", {
             min: 1024,
-            max: 16777216,
+            max: 67108864,
           })}
         </div>
         <label className="checkbox-label" title={t("profile.enabled.help")}>

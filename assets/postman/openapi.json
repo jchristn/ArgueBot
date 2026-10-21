@@ -3946,10 +3946,10 @@
           "maxOutputBytes": {
             "type": "integer",
             "format": "int32",
-            "description": "Maximum captured output bytes.",
+            "description": "Maximum captured output bytes; defaults to 64 MiB.",
             "minimum": 1024,
-            "maximum": 16777216,
-            "default": 1048576
+            "maximum": 67108864,
+            "default": 67108864
           },
           "enabled": {
             "type": "boolean",

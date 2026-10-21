@@ -1,5 +1,8 @@
 namespace ArgueBot.Runners.Processes
 {
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Runners;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
@@ -8,9 +11,6 @@ namespace ArgueBot.Runners.Processes
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Runners;
-    using ArgueBot.Core.Services;
 
     /// <summary>Direct process runner. Prompts go through stdin; both pipes are drained concurrently and bounded.</summary>
     public sealed class CliRunner : IRunner
@@ -33,16 +33,34 @@ namespace ArgueBot.Runners.Processes
                 {
                     StringBuilder prompt = new StringBuilder(instructions);
                     foreach (Message message in history) prompt.Append("\n\n[").Append(message.Speaker).Append("]\n").Append(message.Content);
+                    ClaudeOutputParser? claude = profile.Provider == "claude" ? new ClaudeOutputParser() : null;
+                    ProcessOutputCapture stdout = new ProcessOutputCapture();
+                    ProcessOutputCapture stderr = new ProcessOutputCapture();
                     Task input = FailFastAsync(SendInputAsync(process, prompt.ToString(), execution), process);
-                    Task output = FailFastAsync(ReadOutputAsync(process.StandardOutput, profile, onText, execution), process);
-                    Task errors = FailFastAsync(DrainErrorsAsync(process.StandardError, profile.MaxOutputBytes, execution), process);
+                    Task output = FailFastAsync(ReadOutputAsync(process.StandardOutput, profile, stdout, claude, onText, execution), process);
+                    Task errors = FailFastAsync(DrainErrorsAsync(process.StandardError, profile.MaxOutputBytes, stderr, execution), process);
                     try
                     {
                         await Task.WhenAll(input, output, errors, process.WaitForExitAsync(execution)).ConfigureAwait(false);
                         execution.ThrowIfCancellationRequested();
                         if (process.ExitCode != 0) throw new DomainException(502, "agent_exit", "Agent process exited with code " + process.ExitCode + ". Check its authentication and configuration.");
+                        claude?.Complete();
                     }
-                    catch { Kill(process); throw; }
+                    catch (Exception exception) when (exception is not OutOfMemoryException)
+                    {
+                        Kill(process);
+                        string record = exception.Data["ArgueBot.TriggeringRecord"] as string ?? "";
+                        exception.Data[RunnerFailureDiagnostics.ExceptionDataKey] = new RunnerFailureDiagnostics
+                        {
+                            Provider = profile.Provider,
+                            Detail = Limit(exception.Message + (exception.InnerException == null ? "" : " " + exception.InnerException.Message)),
+                            StandardOutput = stdout.ToString(), StandardError = stderr.ToString(),
+                            TriggeringRecord = Limit(record),
+                            Truncated = stdout.Truncated || stderr.Truncated || record.Length > RunnerFailureDiagnostics.CaptureCharacters,
+                            ExitCode = process.HasExited ? process.ExitCode : null
+                        };
+                        throw;
+                    }
                     finally { if (!process.HasExited) Kill(process); }
                 }
             }
@@ -61,28 +79,40 @@ namespace ArgueBot.Runners.Processes
             try { await process.StandardInput.WriteAsync(text.AsMemory(), token).ConfigureAwait(false); process.StandardInput.Close(); }
             catch (IOException) when (process.HasExited) { }
         }
-        private static async Task DrainErrorsAsync(StreamReader reader, int maximum, CancellationToken token)
+        private static async Task DrainErrorsAsync(StreamReader reader, int maximum, ProcessOutputCapture capture, CancellationToken token)
         {
             char[] buffer = new char[4096]; int total = 0; int count;
             while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) > 0)
-            { total += Encoding.UTF8.GetByteCount(buffer, 0, count); if (total > maximum) throw new IOException("Agent stderr exceeded the configured capture limit."); }
+            { capture.Append(new string(buffer, 0, count)); total += Encoding.UTF8.GetByteCount(buffer, 0, count); if (total > maximum) throw new IOException("Agent stderr exceeded the configured capture limit."); }
         }
-        private static async Task ReadOutputAsync(StreamReader reader, RunnerProfile profile, Func<string, CancellationToken, Task> onText, CancellationToken token)
+        private static async Task ReadOutputAsync(StreamReader reader, RunnerProfile profile, ProcessOutputCapture capture, ClaudeOutputParser? claude, Func<string, CancellationToken, Task> onText, CancellationToken token)
         {
             char[] buffer = new char[2048]; StringBuilder line = new StringBuilder(); StringBuilder emitted = new StringBuilder(); Dictionary<string, string> codexItems = new Dictionary<string, string>(StringComparer.Ordinal); int total = 0; int count;
             while ((count = await reader.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) > 0)
             {
+                capture.Append(new string(buffer, 0, count));
                 total += Encoding.UTF8.GetByteCount(buffer, 0, count);
                 if (total > profile.MaxOutputBytes) throw new IOException("Agent stdout exceeded the configured capture limit.");
                 string text = new string(buffer, 0, count);
                 if (profile.Provider == "plain" || profile.Provider == "mux") { await onText(text, token).ConfigureAwait(false); continue; }
                 foreach (char character in text)
                 {
-                    if (character == '\n') { await EmitLineAsync(line.ToString(), profile.Provider, emitted, codexItems, onText, token).ConfigureAwait(false); line.Clear(); }
+                    if (character == '\n') { await EmitCapturedLineAsync(line.ToString(), profile.Provider, emitted, codexItems, claude, onText, token).ConfigureAwait(false); line.Clear(); }
                     else if (character != '\r') line.Append(character);
                 }
             }
-            if (line.Length > 0) await EmitLineAsync(line.ToString(), profile.Provider, emitted, codexItems, onText, token).ConfigureAwait(false);
+            if (line.Length > 0) await EmitCapturedLineAsync(line.ToString(), profile.Provider, emitted, codexItems, claude, onText, token).ConfigureAwait(false);
+        }
+        private static string Limit(string text)
+        { return text.Length <= RunnerFailureDiagnostics.CaptureCharacters ? text : text.Substring(text.Length - RunnerFailureDiagnostics.CaptureCharacters); }
+        private static async Task EmitCapturedLineAsync(string line, string provider, StringBuilder emitted, Dictionary<string, string> codexItems, ClaudeOutputParser? claude, Func<string, CancellationToken, Task> onText, CancellationToken token)
+        {
+            try
+            {
+                if (claude != null) await claude.EmitAsync(line, onText, token).ConfigureAwait(false);
+                else await EmitLineAsync(line, provider, emitted, codexItems, onText, token).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is InvalidDataException || exception is DomainException) { exception.Data["ArgueBot.TriggeringRecord"] = line; throw; }
         }
         private static async Task EmitLineAsync(string line, string provider, StringBuilder emitted, Dictionary<string, string> codexItems, Func<string, CancellationToken, Task> onText, CancellationToken token)
         {

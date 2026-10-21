@@ -17,6 +17,7 @@ namespace ArgueBot.Tui
         private readonly Dropdown<string> _Third;
         private readonly TextField _Rounds = new TextField { Value = "6" };
         private readonly TextField _Seconds = new TextField { Value = "15" };
+        internal bool ExistingConversation { get; }
         internal Form QuestionForm { get; } = new Form();
         internal Form SpeakersForm { get; } = new Form();
         internal Form SettingsForm { get; } = new Form();
@@ -24,13 +25,14 @@ namespace ArgueBot.Tui
         {
             _Profiles = profiles.Where(profile => profile.Enabled).ToList();
             if (_Profiles.Count < 2) throw new ArgumentException("Configure at least two enabled agents.", nameof(profiles));
-            _Question = new TextField { Value = question, IsReadOnly = existing };
+            ExistingConversation = existing;
+            _Question = new TextField { Value = question, Placeholder = "Enter a new debate question" };
             string[] names = _Profiles.Select(profile => profile.Name + " (" + profile.Kind + ")").ToArray();
             _First = new Dropdown<string>(names) { SelectedIndex = 0 };
             _Second = new Dropdown<string>(names) { SelectedIndex = 1 };
             _Third = new Dropdown<string>(new[] { "None: two speakers" }.Concat(names)) { SelectedIndex = 0 };
             QuestionForm.Add("What should the agents debate?", _Question, () => string.IsNullOrWhiteSpace(_Question.Value) || _Question.Value.Length > 4000 ? "Enter a question up to 4000 characters." : null);
-            QuestionForm.SetFieldHint(0, existing ? "This is the selected conversation's question. Next: choose speakers." : "Enter your question, then choose Next. Nothing starts until Review.");
+            QuestionForm.SetFieldHint(0, existing ? "Enter a new question for this conversation. Existing history remains context. Review before starting." : "Enter your question, then choose Next. Nothing starts until Review.");
             SpeakersForm.Add("Opening agent", _First); SpeakersForm.SetFieldHint(0, "Speaks first in every round. Enter opens the list; arrows choose.");
             SpeakersForm.Add("Second agent", _Second, () => _Second.SelectedIndex == _First.SelectedIndex ? "Choose a different second agent." : null); SpeakersForm.SetFieldHint(1, "Speaks second, and last if there is no third agent.");
             SpeakersForm.Add("Third agent (optional)", _Third, () => _Third.SelectedIndex > 0 && (_Third.SelectedIndex - 1 == _First.SelectedIndex || _Third.SelectedIndex - 1 == _Second.SelectedIndex) ? "Choose a different third agent or None." : null); SpeakersForm.SetFieldHint(2, "Choose None for two speakers. A third agent closes each round.");

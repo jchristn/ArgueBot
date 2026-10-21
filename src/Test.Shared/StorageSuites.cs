@@ -252,10 +252,17 @@ namespace Test.Shared
                     Conversation conversation = await database.CreateConversationAsync(context, "recovery", token).ConfigureAwait(false); conversationId = conversation.Id;
                     RunnerProfile one = await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "one", Executable = "fixture", Arguments = new List<string> { "a b", "議論" } }, token).ConfigureAwait(false);
                     RunnerProfile two = await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "two", Executable = "fixture" }, token).ConfigureAwait(false);
+                    if (one.MaxOutputBytes != 67108864 || two.MaxOutputBytes != 67108864) throw new InvalidDataException("New profiles did not persist the 64 MiB output default.");
+                    try
+                    {
+                        await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "excessive", Executable = "fixture", MaxOutputBytes = 67108865 }, token).ConfigureAwait(false);
+                        throw new InvalidDataException("Profile accepted an output limit above 64 MiB.");
+                    }
+                    catch (DomainException exception) when (exception.Code == "invalid_limits") { }
                     CreateRunRequest request = new CreateRunRequest { ParticipantIds = new List<string> { one.Id, two.Id }, IdempotencyKey = "run" };
                     DebateRun run = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false); runId = run.Id;
                     DebateRun repeated = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false);
-                    if (run.Id != repeated.Id || run.Participants[0].Id == one.Id || !run.Participants[0].Arguments.SequenceEqual(one.Arguments)) throw new InvalidDataException("Snapshot or run idempotency failed.");
+                    if (run.Participants[0].MaxOutputBytes != 67108864 || run.Id != repeated.Id || run.Participants[0].Id == one.Id || !run.Participants[0].Arguments.SequenceEqual(one.Arguments)) throw new InvalidDataException("Snapshot or run idempotency failed.");
                     await database.Profiles.DeleteAsync(context, one.Id, token).ConfigureAwait(false);
                     repeated = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false);
                     if (repeated.Id != run.Id) throw new InvalidDataException("Deleting the reusable profile broke a committed run retry.");

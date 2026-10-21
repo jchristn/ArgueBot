@@ -59,7 +59,7 @@ namespace ArgueBot.Tui
             };
             _Wizard.Cancelled += (_, _) => RequestClose(null);
             _Wizard.OnFocusChanged(true);
-            Title = "New debate: guided setup";
+            Title = editor.ExistingConversation ? "New debate in current conversation" : "New debate: guided setup";
             FooterHint = "Tab: move | Esc: cancel";
             MaxContentWidth = 76; MaxContentHeight = 22;
         }
@@ -130,6 +130,8 @@ namespace ArgueBot.Tui
                 }
                 offset++;
             }
+            // Step changes rebuild toolkit buttons with default styles. Restore the current theme before drawing.
+            _Wizard.Buttons.ApplyTheme(_Theme);
             _Wizard.Render(new SurfaceView(content, new Rect(0, offset, content.Size.Width, Math.Max(0, content.Size.Height - offset))));
         }
     }

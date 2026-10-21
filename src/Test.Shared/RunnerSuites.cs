@@ -1,20 +1,21 @@
 namespace Test.Shared
 {
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database.Sqlite;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Runners;
+    using ArgueBot.Core.Services;
+    using ArgueBot.Runners;
+    using ArgueBot.Runners.Processes;
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
-    using System.Text.Json;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database.Sqlite;
     using System.Text;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
-    using ArgueBot.Runners;
-    using ArgueBot.Runners.Processes;
     using Touchstone.Core;
 
     /// <summary>Actual PolyPrompt HTTP transport against a local Postman simulation.</summary>
@@ -31,6 +32,8 @@ namespace Test.Shared
                 {
                     new TestCaseDescriptor("Runners", "CodexMessages", "Codex progress and final messages stream independently by item ID without duplicates", CodexMessagesAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "MuxCapture", "Mux streams UTF-8 answers, excludes stderr and passes literal stdin/arguments", MuxCaptureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
+                    new TestCaseDescriptor("Runners", "ClaudeToolReplay", "Claude tool-result events and multi-message streams produce a complete durable answer without leaking tool payloads", ClaudeToolReplayAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
+                    new TestCaseDescriptor("Runners", "CliDiagnostics", "Runner failures preserve bounded raw records, stderr, parser detail and durable attempt correlation", DiagnosticsAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "CliCaptureFailure", "Malformed output and capture overflow terminate a live process promptly", CaptureFailureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "RestTools", "Four REST providers execute real local file/process tools and continue with results", LocalToolsAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
                     new TestCaseDescriptor("Runners", "RestToolBoundaries", "Tool errors recover, incomplete streams execute nothing, execution policy and loop limits hold", ToolBoundariesAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
@@ -185,6 +188,137 @@ namespace Test.Shared
             try { await new CliRunner().GenerateAsync(profile, "input", new List<Message>(), (_, _) => Task.CompletedTask, token).ConfigureAwait(false); }
             catch (DomainException ex) when (ex.Code == "agent_exit") { failed = true; }
             if (!failed) throw new InvalidDataException("Mux nonzero exit was reported as success.");
+        }
+        private static async Task ClaudeToolReplayAsync(CancellationToken token)
+        {
+            string fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "claude-tool-stream.jsonl");
+            RunnerProfile profile = new RunnerProfile { Name = "Claude replay", Kind = "cli", Provider = "claude", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "claude-tool-replay", fixture }, TimeoutSeconds = 10 };
+            string expected = "Checking the fixture. 議論\n\nFinal fixture answer. 議論";
+            StringBuilder text = new StringBuilder();
+            try { await new RunnerRouter(true).GenerateAsync(profile, "Fictional tool replay", new List<Message>(), (delta, _) => { text.Append(delta); return Task.CompletedTask; }, token).ConfigureAwait(false); }
+            catch (InvalidDataException exception) { throw new InvalidDataException("Claude replay rejected a valid native event: " + exception.InnerException?.Message, exception); }
+            if (text.ToString() != expected) throw new InvalidDataException("Claude replay lost or duplicated answer text, or exposed tool data: " + text);
+            profile.Arguments[2] = Path.Combine(AppContext.BaseDirectory, "fixtures", "claude-tools-before-text.jsonl");
+            expected = "Final fixture answer. 議論";
+            text.Clear();
+            await new RunnerRouter(true).GenerateAsync(profile, "Tools before text", new List<Message>(), (delta, _) => { text.Append(delta); return Task.CompletedTask; }, token).ConfigureAwait(false);
+            if (text.ToString() != expected) throw new InvalidDataException("Tool-only opening prevented the final answer.");
+            foreach (string mode in new[] { "claude-empty", "claude-error-result", "claude-truncated", "claude-conflict", "claude-result-conflict", "claude-snapshots" })
+            {
+                RunnerProfile boundary = new RunnerProfile { Name = "Claude boundary", Kind = "cli", Provider = "claude", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, mode }, TimeoutSeconds = 10 };
+                Exception? failure = null; StringBuilder answer = new StringBuilder();
+                try { await new CliRunner().GenerateAsync(boundary, "Fictional Claude boundary", new List<Message>(), (delta, _) => { answer.Append(delta); return Task.CompletedTask; }, token).ConfigureAwait(false); }
+                catch (Exception exception) { failure = exception; }
+                if (mode == "claude-snapshots")
+                {
+                    if (failure != null || answer.ToString() != "First answer.\n\nFinal answer.") throw new InvalidDataException("Non-streamed Claude snapshots were not accepted without duplication.");
+                    continue;
+                }
+                string code = mode == "claude-empty" ? "empty_answer" : mode == "claude-error-result" ? "agent_result_error" : "incomplete_answer";
+                if (mode.EndsWith("conflict", StringComparison.Ordinal))
+                {
+                    if (failure is not InvalidDataException) throw new InvalidDataException("Conflicting Claude output was accepted: " + mode);
+                }
+                else if (failure is not DomainException domain || domain.Code != code) throw new InvalidDataException("Claude boundary was incorrectly accepted or misclassified: " + mode);
+                if (failure!.Data[RunnerFailureDiagnostics.ExceptionDataKey] is not RunnerFailureDiagnostics diagnostics || diagnostics.StandardOutput.Length == 0) throw new InvalidDataException("Claude boundary lost its retained output.");
+            }
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-claude-replay-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RequestContext owner = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" };
+                    profile = await database.Profiles.CreateAsync(owner, profile, token).ConfigureAwait(false);
+                    Conversation conversation = await database.CreateConversationAsync(owner, "Claude tool replay", token).ConfigureAwait(false);
+                    await using (ConversationEngine engine = new ConversationEngine(database, new RunnerRouter(true), diagnosticDirectory: Path.Combine(home, "logs", "runner-failures")))
+                    {
+                        DebateRun run = await engine.StartAsync(owner, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Fictional tool replay", ParticipantIds = new List<string> { profile.Id }, MaxRounds = 1, IdempotencyKey = "claude-tool-replay" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+                            do { await Task.Delay(20, deadline.Token).ConfigureAwait(false); run = await database.Runs.ReadAsync(owner, conversation.Id, run.Id, deadline.Token).ConfigureAwait(false); } while (run.State != "completed" && run.State != "paused");
+                        }
+                        AttemptPage attempts = await database.Attempts.EnumerateAsync(owner, conversation.Id, run.Id, token: token).ConfigureAwait(false);
+                        List<Message> messages = await database.ReadMessagesAsync(owner, conversation.Id, token).ConfigureAwait(false);
+                        if (run.State != "completed" || attempts.Items.Single().State != "completed" || messages.Single(message => message.Id == attempts.Items.Single().MessageId).Content != expected) throw new InvalidDataException("Claude tools did not reach a durable completed answer: " + run.Outcome);
+                    }
+                }
+            }
+            finally { Directory.Delete(home, true); }
+        }
+        private static async Task DiagnosticsAsync(CancellationToken token)
+        {
+            foreach (string mode in new[] { "malformed-hang", "diagnostic-schema", "codex-conflict", "diagnostic-exit", "diagnostic-large", "diagnostic-timeout", "stderr-hang", "stdout-hang" })
+            {
+                RunnerProfile profile = new RunnerProfile { Name = "Diagnostic fixture", Kind = "cli", Provider = mode == "codex-conflict" ? "codex" : "claude", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, mode }, MaxOutputBytes = mode.EndsWith("-hang", StringComparison.Ordinal) ? 1024 : 65536, TimeoutSeconds = mode == "diagnostic-timeout" ? 1 : 10 };
+                Exception? failure = null;
+                try { await new CliRunner().GenerateAsync(profile, "Fictional prompt", new List<Message>(), (_, _) => Task.CompletedTask, token).ConfigureAwait(false); }
+                catch (Exception exception) { failure = exception; }
+                if (failure?.Data[RunnerFailureDiagnostics.ExceptionDataKey] is not RunnerFailureDiagnostics capture) throw new InvalidDataException("Runner failure lost process evidence: " + mode);
+                if (capture.Provider != profile.Provider || capture.Detail.Length == 0 || capture.StandardOutput.Length > RunnerFailureDiagnostics.CaptureCharacters || capture.StandardError.Length > RunnerFailureDiagnostics.CaptureCharacters || capture.TriggeringRecord.Length > RunnerFailureDiagnostics.CaptureCharacters) throw new InvalidDataException("Missing or unbounded failure evidence: " + mode);
+                if (mode == "malformed-hang" && (capture.TriggeringRecord != "{invalid" || !capture.Detail.Contains("malformed JSONL", StringComparison.Ordinal))) throw new InvalidDataException("Malformed record was discarded.");
+                if (mode == "diagnostic-schema" && (!capture.Detail.Contains("$.message.content", StringComparison.Ordinal) || !capture.TriggeringRecord.Contains("unexpected string", StringComparison.Ordinal))) throw new InvalidDataException("Schema mismatch lost its exact record or parser path.");
+                if (mode == "codex-conflict" && (!capture.Detail.Contains("conflicts", StringComparison.Ordinal) || !capture.TriggeringRecord.Contains("Conflicting replacement.", StringComparison.Ordinal))) throw new InvalidDataException("Conflicting snapshot evidence was lost.");
+                if (mode.StartsWith("diagnostic-", StringComparison.Ordinal) && !capture.StandardError.Contains("Fictional harness diagnostic 議論", StringComparison.Ordinal)) throw new InvalidDataException("Stderr was discarded or corrupted.");
+                if (mode == "diagnostic-exit" && (capture.ExitCode != 17 || failure is not DomainException domain || domain.Code != "agent_exit")) throw new InvalidDataException("Nonzero process exit diagnostics were lost.");
+                if (mode == "diagnostic-large" && (!capture.Truncated || !capture.TriggeringRecord.EndsWith("TRIGGER-END", StringComparison.Ordinal))) throw new InvalidDataException("Oversized triggering record did not retain a bounded tail.");
+                if (mode == "stdout-hang" && (capture.StandardOutput.Length == 0 || !capture.Detail.Contains("stdout exceeded", StringComparison.Ordinal))) throw new InvalidDataException("Stdout overflow discarded its evidence.");
+                if (mode == "diagnostic-timeout" && failure is not OperationCanceledException) throw new InvalidDataException("Timeout lost cancellation semantics.");
+            }
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-diagnostics-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string directory = Path.Combine(home, "logs", "runner-failures");
+                Directory.CreateDirectory(directory);
+                for (int index = 0; index < 100; index++)
+                {
+                    string old = Path.Combine(directory, "att_fixture_" + index + ".json");
+                    await File.WriteAllTextAsync(old, "{}", token).ConfigureAwait(false);
+                    File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddDays(-2).AddSeconds(index));
+                }
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RequestContext owner = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" };
+                    RunnerProfile profile = await database.Profiles.CreateAsync(owner, new RunnerProfile { Name = "Diagnostic fixture", Kind = "cli", Provider = "claude", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "diagnostic-schema" } }, token).ConfigureAwait(false);
+                    Conversation conversation = await database.CreateConversationAsync(owner, "Failure evidence fixture", token).ConfigureAwait(false);
+                    DebateRun run;
+                    await using (ConversationEngine engine = new ConversationEngine(database, new CliRunner(), diagnosticDirectory: directory))
+                    {
+                        run = await engine.StartAsync(owner, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Fictional diagnostic input", ParticipantIds = new List<string> { profile.Id }, MaxRounds = 1, IdempotencyKey = "diagnostic-fixture" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+                            do { await Task.Delay(20, deadline.Token).ConfigureAwait(false); run = await database.Runs.ReadAsync(owner, conversation.Id, run.Id, deadline.Token).ConfigureAwait(false); } while (run.State != "paused");
+                        }
+                    }
+                    AttemptPage attempts = await database.Attempts.EnumerateAsync(owner, conversation.Id, run.Id, token: token).ConfigureAwait(false);
+                    GenerationAttempt attempt = attempts.Items.Single();
+                    string path = Path.Combine(directory, attempt.Id + ".json");
+                    if (Directory.GetFiles(directory, "att_*.json").Length != 100 || File.Exists(Path.Combine(directory, "att_fixture_0.json"))) throw new InvalidDataException("Diagnostic retention failed to prune the oldest capture.");
+                    using (JsonDocument document = JsonDocument.Parse(await File.ReadAllTextAsync(path, token).ConfigureAwait(false)))
+                    {
+                        JsonElement root = document.RootElement;
+                        if (attempt.State != "failed" || run.Outcome != "InvalidDataException" || root.GetProperty("Id").GetString() != attempt.Id || root.GetProperty("MessageId").GetString() != attempt.MessageId || !root.GetProperty("Diagnostics").GetProperty("TriggeringRecord").GetString()!.Contains("unexpected string", StringComparison.Ordinal)) throw new InvalidDataException("Durable evidence lost attempt or failed-turn correlation.");
+                    }
+                    if (!OperatingSystem.IsWindows() && (File.GetUnixFileMode(path) & (UnixFileMode.GroupRead | UnixFileMode.OtherRead)) != 0) throw new InvalidDataException("Diagnostic evidence is not owner-only.");
+                    // A full or unwritable diagnostic destination must not prevent the attempt checkpoint.
+                    Conversation blockedConversation = await database.CreateConversationAsync(owner, "Unavailable diagnostic destination", token).ConfigureAwait(false);
+                    await using (ConversationEngine blocked = new ConversationEngine(database, new CliRunner(), diagnosticDirectory: path))
+                    {
+                        DebateRun blockedRun = await blocked.StartAsync(owner, blockedConversation.Id, new CreateRunRequest { Mode = "followup", Question = "Fictional blocked capture", ParticipantIds = new List<string> { profile.Id }, MaxRounds = 1, IdempotencyKey = "blocked-capture" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+                            do { await Task.Delay(20, deadline.Token).ConfigureAwait(false); blockedRun = await database.Runs.ReadAsync(owner, blockedConversation.Id, blockedRun.Id, deadline.Token).ConfigureAwait(false); } while (blockedRun.State != "paused");
+                        }
+                        AttemptPage blockedAttempts = await database.Attempts.EnumerateAsync(owner, blockedConversation.Id, blockedRun.Id, token: token).ConfigureAwait(false);
+                        if (blockedRun.Outcome != "InvalidDataException" || blockedAttempts.Items.Single().State != "failed") throw new InvalidDataException("Diagnostic write failure masked the original attempt failure.");
+                    }
+                }
+            }
+            finally { Directory.Delete(home, true); }
         }
         private static async Task CaptureFailureAsync(CancellationToken token)
         {

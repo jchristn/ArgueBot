@@ -1,3 +1,5 @@
+import RunActivity from "../components/RunActivity.jsx";
+import FailedTurn from "../components/FailedTurn.jsx";
 import CopyButton from "../components/CopyButton.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import { useEffect, useRef, useState } from "react";
@@ -371,6 +373,7 @@ function WorkspaceContent({ id }) {
           <span>{t("debate.noRuns")}</span>
         )}
       </div>
+      <RunActivity run={run} messages={data.messages} connection={connection} />
       <div className="history-navigation">
         <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
         {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
@@ -423,6 +426,7 @@ function WorkspaceContent({ id }) {
             {message.kind === "tool" ? <pre>{message.content}</pre> : <div className="markdown">
               <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
             </div>}
+            {message.state === "failed" && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsOpen(true)} />}
             {message.state === "interrupted" && (
               <small className="warning">{t("debate.partial")}</small>
             )}

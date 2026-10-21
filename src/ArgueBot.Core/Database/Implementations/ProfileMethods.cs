@@ -87,7 +87,7 @@ namespace ArgueBot.Core.Database.Implementations
         internal static void Validate(RunnerProfile profile)
         {
             if (string.IsNullOrWhiteSpace(profile.Name) || profile.Name.Length > 200) throw new DomainException(400, "invalid_profile", "Profile name must be 1 to 200 characters.");
-            if (profile.TimeoutSeconds < 1 || profile.TimeoutSeconds > 3600 || profile.MaxOutputBytes < 1024 || profile.MaxOutputBytes > 16777216) throw new DomainException(400, "invalid_limits", "Timeout must be 1 to 3600 seconds and output 1 KiB to 16 MiB.");
+            if (profile.TimeoutSeconds < 1 || profile.TimeoutSeconds > 3600 || profile.MaxOutputBytes < 1024 || profile.MaxOutputBytes > 67108864) throw new DomainException(400, "invalid_limits", "Timeout must be 1 to 3600 seconds and output 1 KiB to 64 MiB.");
             if (profile.SecretEnvironmentVariable.Length > 0 && !Regex.IsMatch(profile.SecretEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.CultureInvariant)) throw new DomainException(400, "invalid_secret_reference", "Use an environment variable name of at most 128 characters.");
             if (profile.Arguments.Count > 128 || profile.Arguments.Any(argument => argument == null || argument.Contains('\0')) || profile.Arguments.Sum(argument => (long)argument.Length) + profile.Executable.Length > 32768) throw new DomainException(400, "invalid_arguments", "Use up to 128 literal arguments and at most 32768 total command characters, without NUL bytes.");
             if (new string[] { profile.Name, profile.Endpoint, profile.Model, profile.Executable, profile.WorkingDirectory }.Any(value => value.Contains('\0'))) throw new DomainException(400, "invalid_text", "Configuration text cannot contain NUL bytes.");

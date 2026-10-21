@@ -50,8 +50,8 @@ namespace ArgueBot.Core.Models
         /// <summary>Maximum generation seconds.</summary>
         public int TimeoutSeconds { get; set; } = 300;
 
-        /// <summary>Maximum captured output bytes.</summary>
-        public int MaxOutputBytes { get; set; } = 1048576;
+        /// <summary>Maximum captured output bytes; defaults to 64 MiB.</summary>
+        public int MaxOutputBytes { get; set; } = 67108864;
 
         /// <summary>Whether new work can use this profile.</summary>
         public bool Enabled { get; set; } = true;
