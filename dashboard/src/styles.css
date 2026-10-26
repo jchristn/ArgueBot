@@ -194,6 +194,7 @@ small {
   flex-shrink: 0;
 }
 .app-shell {
+  position: relative;
   height: 100dvh;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
@@ -292,6 +293,7 @@ small {
   white-space: nowrap;
 }
 .route-content {
+  position: relative;
   overflow: auto;
   padding: 32px;
   flex: 1;

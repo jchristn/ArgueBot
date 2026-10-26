@@ -121,7 +121,7 @@ function WorkspaceContent({ id }) {
   const { t } = useTranslation();
   const draftKey = `arguebot.draft:${location.origin}:${id}`;
   const [text, setText] = useState(() => localStorage.getItem(draftKey) || "");
-  const [mode, setMode] = useState("note");
+  const [modeChoice, setModeChoice] = useState(null);
   const [recipient, setRecipient] = useState("");
   const [starting, setStarting] = useState(false);
   const [attemptsOpen, setAttemptsOpen] = useState(false);
@@ -144,6 +144,15 @@ function WorkspaceContent({ id }) {
   const run = data?.runs.at(-1);
   const active =
     run && !["completed", "failed", "cancelled"].includes(run.state);
+  // The composer defaults to a follow-up question once a debate completes; an
+  // explicit choice holds only until the latest run changes phase.
+  const modeKey = `${run?.id || ""}:${!!active}`;
+  const mode =
+    modeChoice?.key === modeKey
+      ? modeChoice.mode
+      : run?.state === "completed"
+        ? "followup"
+        : "note";
   useEffect(() => {
     localStorage.setItem(draftKey, text);
   }, [draftKey, text]);
@@ -280,7 +289,7 @@ function WorkspaceContent({ id }) {
           </span>
         </div>
         <div className="utilities">
-          <CopyButton label="conversations.copy" disabled={!data.messagePage.totalCount} loadText={async () => {
+          <CopyButton label="conversations.copy" iconOnly disabled={!data.messagePage.totalCount} loadText={async () => {
             const messages = await api.allMessages(id);
             return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${message.content}`).join("\n\n");
           }} />
@@ -440,7 +449,7 @@ function WorkspaceContent({ id }) {
             title={t("composer.mode.help")}
             value={mode}
             onChange={(event) => {
-              setMode(event.target.value);
+              setModeChoice({ key: modeKey, mode: event.target.value });
               setRecipient("");
             }}
           >
