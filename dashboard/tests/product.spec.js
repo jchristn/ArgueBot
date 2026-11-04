@@ -20,7 +20,7 @@ test("REST participant executes local tools and preserves visible tool history",
   try {
     expect(invoke("service", "web", "--port", String(port)).status).toBe(0);
     await page.goto(origin + "/dashboard/participants");
-    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    await page.getByRole("button", { name: "Add agent", exact: true }).click();
     await page.getByLabel("Runner type", { exact: true }).selectOption("rest");
     await page.getByLabel("Display name", { exact: true }).fill("REST tool fixture");
     await page.getByLabel("Endpoint URL", { exact: true }).fill(process.env.ARGUEBOT_SIMULATION_URL);
@@ -88,7 +88,7 @@ test("plain local dashboard opens and writes without authentication or pairing",
     expect(cliProfile.status).toBe(0);
     expect(JSON.parse(cliProfile.stdout).arguments).toContain("--yolo");
     await page.goto(url + "/participants");
-    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    await page.getByRole("button", { name: "Add agent", exact: true }).click();
     const runner = page.getByLabel("Runner type", { exact: true });
     await expect(runner).toHaveValue("claude");
     await expect(page.getByRole("textbox", { name: "Argument 3", exact: true })).toHaveValue("--dangerously-skip-permissions");
@@ -222,7 +222,7 @@ for (const width of [1280, 768, 390]) {
       expect(controls).toEqual([]);
       await page.goto("/dashboard/participants");
       await page
-        .getByRole("button", { name: "Add participant", exact: true })
+        .getByRole("button", { name: "Add agent", exact: true })
         .click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await page.screenshot({
@@ -298,7 +298,7 @@ test("participant argument editor preserves blank literal arguments", async ({
   await openDashboard(page);
   await page.goto("/dashboard/participants");
   await page
-    .getByRole("button", { name: "Add participant", exact: true })
+    .getByRole("button", { name: "Add agent", exact: true })
     .click();
   const executable = page.getByRole("textbox", { name: "Executable (program only)", exact: true });
   await executable.fill("claude --dangerously-skip-permissions");

@@ -20,9 +20,11 @@ To change the published port or pass provider settings, copy `docker/.env.exampl
 
 ## Configure models and imported login credentials
 
-Use Participants > Connections and models to import credentials, define harnesses/endpoints, define models and create participant/orchestrator profiles. See [the v2 usage guide](../docs/MULTIPLE_AGENTS.md).
+Use the Participants page tabs to import credentials, define harnesses/endpoints, define models and create participant/orchestrator profiles. See [the v2 usage guide](../docs/MULTIPLE_AGENTS.md).
 
-- Claude Code: obtain an OAuth token through its CLI login/token setup on a trusted machine. Import it as `claude_oauth`, then select that credential in the Claude harness. The service injects `CLAUDE_CODE_OAUTH_TOKEN` only into its invocation environment.
+A container has no Claude Code or Codex login of its own, so every CLI harness needs a stored credential.
+
+- Claude Code: run `claude setup-token` on a trusted machine and paste the token on the Credentials tab. Import it as `claude_oauth`, then select that credential in the Claude harness. The service injects `CLAUDE_CODE_OAUTH_TOKEN` only into its invocation environment.
 - Codex: log in through the Codex CLI using a dedicated login for this workspace. Import the complete resulting `auth.json` as `codex_auth_json`. The service owns refresh and writes a per-invocation `CODEX_HOME` containing a sanitized credential copy with an empty `refresh_token` field, preserving Codex parser compatibility without refresh authority. Do not concurrently refresh another copy of this login. Replace the stored document when the status requires reauthentication.
 - HTTP models: import a token as `token`, then bind it to the endpoint's bearer, API-key header, custom header or query-string field. Use secret references, not values embedded in a base URL or static routing header.
 

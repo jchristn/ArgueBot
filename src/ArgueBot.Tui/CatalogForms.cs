@@ -56,7 +56,7 @@ namespace ArgueBot.Tui
             Dropdown<string> provider = Choice(form, "Protocol", providers, Array.IndexOf(providers, item.Provider), "Choose a harness before adjusting its executable and arguments.");
             TextField executable = Text(form, "Executable", item.Executable, "Direct program name or path on the service host.", true);
             TextField directory = Text(form, "Working directory", item.WorkingDirectory, "Optional directory on the service host.");
-            Dropdown<string> credential = Choice(form, "CLI credential", new[] { "Use existing service-host login" }.Concat(credentials.Select(value => value.Name + " (" + value.Kind + ")")).ToArray(), credentials.FindIndex(value => value.Id == item.CredentialId) + 1, "Claude OAuth token or Codex auth.json. The service injects it for each invocation.");
+            Dropdown<string> credential = Choice(form, "CLI credential", new[] { "Use existing service-host login" }.Concat(credentials.Select(value => value.Name + " (" + value.Kind + ")")).ToArray(), credentials.FindIndex(value => value.Id == item.CredentialId) + 1, "Claude OAuth token or Codex auth.json. The service injects it for each invocation. In Docker there is no host login, so choose a stored credential.");
             Checkbox enabled = new Checkbox("Enabled for new runs", item.Enabled); form.Add("", enabled);
             TextField environment = Text(form, "Inherited environment names", string.Join(", ", item.EnvironmentVariables), "Comma-separated service variable names only. Standard paths, locale, proxy and TLS settings are retained. Other variables require an explicit name here.");
             List<Func<string?>> arguments = new List<Func<string?>>();
@@ -96,7 +96,7 @@ namespace ArgueBot.Tui
             TextField name = Text(form, "Safe display name", item?.Name ?? "", "Never include a secret in the display name.", true);
             string[] kinds = new[] { "token", "claude_oauth", "codex_auth_json" };
             string[] kindLabels = new[] { "HTTP token or API key", "Claude Code OAuth token", "Codex auth.json login" };
-            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Array.IndexOf(kinds, item?.Kind ?? "token"), "Claude tokens come from claude setup-token; Codex documents from a dedicated CLI login. Existing kinds cannot change.");
+            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Array.IndexOf(kinds, item?.Kind ?? "token"), "Claude Code: run claude setup-token and paste the token. Codex: run CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. HTTP token: an API key from the provider console; bind it to an endpoint. Existing kinds cannot change.");
             TextField secret = Text(form, "Paste value (masked)", "", "Write-only. Paste a token or complete Codex auth.json. Use a dedicated CLI login that no other process refreshes."); secret.MaskChar = '*';
             TextField file = Text(form, "Or credential file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
             editor.Extract = () =>

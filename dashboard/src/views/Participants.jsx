@@ -1,4 +1,5 @@
-import CatalogPanel from "../components/CatalogPanel.jsx";
+import CatalogTab, { catalogKinds } from "../components/CatalogTab.jsx";
+import Tabs from "../components/Tabs.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import harnesses from "../../../assets/harness-defaults.json";
@@ -213,30 +214,18 @@ export default function Participants() {
   const { data, error, reload } = useData("participants", () =>
     api.participants(),
   );
+  const catalog = useData("catalog", async () => Object.fromEntries(await Promise.all(catalogKinds.map(async key => [key, await api.configuration(key)]))));
   const [modal, setModal] = useState(null);
-  return (
+  const agents = () => (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>{t("participants.title")}</h1>
-          <p>{t("participants.description")}</p>
+      <div className="tab-toolbar">
+        <p className="muted">{t("participants.description")}</p>
+        <div className="row-actions">
+          <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
+          <Button label="participants.add" icon="plus" className="primary" onClick={() => setModal({ kind: "form" })} />
         </div>
-        <Button
-          label="participants.add"
-          icon="plus"
-          className="primary"
-          onClick={() => setModal({ kind: "form" })}
-        />
       </div>
       {error && <ErrorPanel error={error} retry={reload} />}
-      <div className="filters">
-        <Button
-          label="common.refresh"
-          icon="refresh"
-          iconOnly
-          onClick={reload}
-        />
-      </div>
       <div className="table-scroll">
         <table>
           <thead>
@@ -295,6 +284,21 @@ export default function Participants() {
       {data?.length === 0 && (
         <div className="empty-state">{t("participants.empty")}</div>
       )}
+    </>
+  );
+  const tabs = [
+    { key: "agents", label: "participants.tab.agents", help: "participants.tab.agents.help", count: data?.length, render: agents },
+    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data} error={catalog.error} reload={catalog.reload} /> })),
+  ];
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <h1>{t("participants.title")}</h1>
+          <p>{t("participants.pageDescription")}</p>
+        </div>
+      </div>
+      <Tabs tabs={tabs} label="participants.title" />
       {modal?.kind === "form" && (
         <ProfileForm
           api={api}
@@ -343,7 +347,6 @@ export default function Participants() {
           </footer>
         </Modal>
       )}
-      <CatalogPanel api={api} notify={notify} />
     </>
   );
 }

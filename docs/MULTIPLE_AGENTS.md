@@ -4,9 +4,9 @@ The feature branch implements protocol 2 across the web dashboard, TUI, CLI and 
 
 ## Configure a panel
 
-Start with **Connections and models** on the dashboard's Participants page, or **Connections, models and credentials** in the TUI's Agents menu. Configure resources in this order:
+The dashboard's Participants page has a tab for each resource: **Agents**, **Models**, **CLI harnesses**, **HTTP endpoints** and **Credentials**. The TUI uses **Connections, models and credentials** in its Agents menu. Configure resources in this order:
 
-1. Import a credential if needed. HTTP tokens, Claude OAuth tokens and complete Codex `auth.json` documents have separate kinds. Values are write-only. Use a safe display name; it appears in configuration lists.
+1. Import a credential if needed. HTTP tokens, Claude OAuth tokens and complete Codex `auth.json` documents have separate kinds, and the add dialog shows how to obtain each: `claude setup-token` for Claude Code, `CODEX_HOME=~/.codex-arguebot codex login` for a dedicated Codex login, or an API key from the provider console. Values are write-only. Use a safe display name; it appears in configuration lists. A harness without a stored credential uses the login of the user running the service, which does not exist in Docker. Gemini CLI, Mux and generic harnesses take keys through inherited environment names instead.
 2. Define an HTTP endpoint or a CLI harness. Ollama uses its native chat protocol; OpenAI-compatible endpoints use chat completions. Harnesses specify a direct executable and one literal argument per row.
 3. Define a model bound to exactly one endpoint or harness. Enter its provider model ID, context character budget and tool support. These are declarations, not automatic provider capability detection.
 4. Create participant profiles that select the reusable model and optionally supply role instructions. Create a separate profile for the orchestrator, or deliberately select an existing profile to serve that role.
@@ -140,7 +140,7 @@ A Codex login is refreshed when its access token is about to expire. ArgueBot ma
 
 Attempt inspection lists each stored credential ID and the exact revision used. This metadata contains no token values. Replacing a token changes its authentication revision; rotating the encryption key does not.
 
-Open **Connections and models → Credentials → Credential encryption keys** in the dashboard, or **Connections and models → Credential encryption keys** in the TUI. Review the active key identity, then choose **Rotate master key**. CLI equivalents are `credential-keys status` and `credential-keys rotate EXPECTED_KEY_ID`. Stale identities return a conflict instead of repeating rotation.
+Open **Participants → Credentials → Credential encryption keys** in the dashboard, or **Connections and models → Credential encryption keys** in the TUI. Review the active key identity, then choose **Rotate master key**. CLI equivalents are `credential-keys status` and `credential-keys rotate EXPECTED_KEY_ID`. Stale identities return a conflict instead of repeating rotation.
 
 Rotation first decrypts every stored credential. If an enabled credential cannot be decrypted, rotation is refused before any key changes (`credential_unreadable`, naming the credential); replace it with a fresh value or disable it. Unreadable disabled credentials are left unchanged and reported as skipped.
 

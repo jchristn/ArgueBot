@@ -12,17 +12,21 @@ test("four-agent panel, explicit context, proposals and write-only configuration
   const suffix = Date.now().toString();
   try {
     await page.goto("/dashboard/participants");
-    const catalog = page.getByRole("region", { name: "Connections and models" });
-    await catalog.getByRole("combobox", { name: "Configuration type" }).selectOption("credentials");
-    await catalog.getByRole("button", { name: "Add configuration" }).click();
+    const catalog = page.getByRole("tabpanel");
+    await page.getByRole("tab", { name: /^Credentials/ }).click();
+    await expect(page).toHaveURL(/tab=credentials/);
+    await catalog.getByRole("button", { name: "Add credential", exact: true }).click();
     let dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Gateway " + suffix);
+    await expect(dialog.getByRole("region", { name: "How to get this credential" })).toContainText("claude setup-token");
+    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("token");
+    await expect(dialog.getByRole("region", { name: "How to get this credential" })).toContainText("authentication binding");
     const secret = dialog.getByLabel("Paste credential value", { exact: true });
     await expect(secret).toHaveAttribute("type", "password");
     await secret.fill("fictional-gateway-token");
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(catalog.getByText("Gateway " + suffix, { exact: true })).toBeVisible();
+    await expect(catalog.getByRole("row").filter({ hasText: "Gateway " + suffix })).toContainText("Not used yet");
     await catalog.getByRole("button", { name: "Credential encryption keys", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("Earlier keys stay available");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
@@ -51,8 +55,8 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const credentials = await (await request.get("/v2.0/api/configuration/credentials")).json();
     const credential = credentials.find(item => item.name === "Gateway " + suffix);
     expect(JSON.stringify(credentials)).not.toContain("fictional-gateway-token");
-    await catalog.getByRole("combobox", { name: "Configuration type" }).selectOption("endpoints");
-    await catalog.getByRole("button", { name: "Add configuration" }).click();
+    await page.getByRole("tab", { name: /^HTTP endpoints/ }).click();
+    await catalog.getByRole("button", { name: "Add endpoint", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Endpoint " + suffix);
     await dialog.getByRole("textbox", { name: "Base URL", exact: true }).fill(fixture.endpoint);
@@ -60,7 +64,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(dialog).toHaveCount(0);
     const endpoints = await (await request.get("/v2.0/api/configuration/endpoints")).json();
     const endpoint = endpoints.find(item => item.name === "Endpoint " + suffix);
-    await catalog.getByRole("listitem").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Preview requests", exact: true }).click();
+    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Preview requests", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText(fixture.endpoint + "/api/chat");
     await expect(page.getByRole("dialog")).toContainText("No endpoint is contacted");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
@@ -71,7 +75,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
       await page.screenshot({ path: `../.run/screenshots/v2-preview-${width}-${theme}.png`, fullPage: true });
     }
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click();
-    await catalog.getByRole("listitem").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Check connection / list models" }).click();
+    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Check connection / list models" }).click();
     await expect(page.getByRole("dialog")).toContainText("Connection check succeeded");
     await expect(page.getByRole("dialog")).toContainText("multi-agent");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
@@ -82,8 +86,8 @@ test("four-agent panel, explicit context, proposals and write-only configuration
       await page.screenshot({ path: `../.run/screenshots/v2-discovery-${width}-${theme}.png`, fullPage: true });
     }
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click();
-    await catalog.getByRole("combobox", { name: "Configuration type" }).selectOption("models");
-    await catalog.getByRole("button", { name: "Add configuration" }).click();
+    await page.getByRole("tab", { name: /^Models/ }).click();
+    await catalog.getByRole("button", { name: "Add model", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Model " + suffix);
     await dialog.getByRole("combobox", { name: "HTTP endpoint", exact: true }).selectOption(endpoint.id);
@@ -107,7 +111,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const models = await (await request.get("/v2.0/api/configuration/models")).json();
     const model = models.find(item => item.name === "Model " + suffix);
     expect(model.generation).toEqual({ maxOutputTokens: 2048, temperature: 0.25, topP: 0.9 });
-    await catalog.getByRole("listitem").filter({ hasText: "Model " + suffix }).getByRole("button", { name: "Completion and tool checks", exact: true }).click();
+    await catalog.getByRole("row").filter({ hasText: "Model " + suffix }).getByRole("button", { name: "Completion and tool checks", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("may incur provider cost");
     await page.getByRole("dialog").getByRole("button", { name: "Invoke model check (may incur cost)", exact: true }).click();
     await expect(page.getByRole("dialog").locator("article").first()).toContainText("Completed");
@@ -246,13 +250,23 @@ test("post-implementation review covers every web route and new configuration fo
       await page.screenshot({ path: `../.run/screenshots/v2-${route || "home"}-${width}-${theme}.png`, fullPage: true });
     }
     await page.goto("/dashboard/participants");
-    const catalog = page.getByRole("region", { name: "Connections and models" });
+    const tabNames = { endpoints: ["HTTP endpoints", "Add endpoint"], harnesses: ["CLI harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Credentials", "Add credential"] };
     for (const kind of ["endpoints", "harnesses", "models", "credentials"]) {
-      await catalog.getByRole("combobox", { name: "Configuration type" }).selectOption(kind);
-      await catalog.getByRole("button", { name: "Add configuration" }).click();
+      await page.getByRole("tab", { name: new RegExp("^" + tabNames[kind][0]) }).click();
+      const toolbar = page.locator(".tab-toolbar");
+      const [left, right] = await Promise.all([toolbar.locator("p").boundingBox(), toolbar.getByRole("button", { name: tabNames[kind][1], exact: true }).boundingBox()]);
+      if (width > 767) expect(Math.abs((left.y + left.height / 2) - (right.y + right.height / 2))).toBeLessThan(24);
+      await page.screenshot({ path: `../.run/screenshots/v2-${kind}-tab-${width}-${theme}.png`, fullPage: true });
+      await page.getByRole("tabpanel").getByRole("button", { name: tabNames[kind][1], exact: true }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       if (kind === "harnesses") {
+        await expect(dialog).toContainText("uses the login of the user running ArgueBot");
+        await expect(dialog.getByRole("combobox", { name: "Stored credential", exact: true }).locator("option")).toHaveCount(1);
+        await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("mux");
+        await expect(dialog.getByRole("combobox", { name: "Stored credential", exact: true })).toHaveCount(0);
+        await expect(dialog).toContainText("has no stored credential");
+        await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("claude");
         await dialog.getByRole("textbox", { name: "Inherited environment names", exact: true }).fill("GEMINI_API_KEY, FIXTURE_ROUTE");
         await expect(dialog).toContainText("never values");
         await dialog.getByRole("textbox", { name: "Inherited environment names", exact: true }).scrollIntoViewIfNeeded();
