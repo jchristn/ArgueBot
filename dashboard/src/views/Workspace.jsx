@@ -2,6 +2,7 @@ import { mergeToolActivity, messageContent } from "../utils/message-content.js";
 import { speakerHues } from "../utils/speaker-colors.js";
 import DebatePolicyEditor from "../components/DebatePolicyEditor.jsx";
 import DebatePanel from "../components/DebatePanel.jsx";
+import TranscriptTimeline, { timelineRows } from "../components/TranscriptTimeline.jsx";
 import PromptPicker, { chosenPrompts } from "../components/PromptPicker.jsx";
 import { randomId } from "../utils/random-id.js";
 import RunActivity from "../components/RunActivity.jsx";
@@ -182,11 +183,17 @@ function WorkspaceContent({ id }) {
   const [attemptsRunId, setAttemptsRunId] = useState(null);
   const [fullMessage, setFullMessage] = useState(null);
   const [collapsed, setCollapsed] = useState(() => new Set());
+  const [view, setView] = useState(() => localStorage.getItem("arguebot.transcriptView") === "cards" ? "cards" : "timeline");
+  const [expanded, setExpanded] = useState(() => new Set());
+  const seenFailures = useRef(new Set());
+  const chooseView = next => { setView(next); localStorage.setItem("arguebot.transcriptView", next); };
+  const toggleExpanded = rowId => setExpanded(current => { const next = new Set(current); if (next.has(rowId)) next.delete(rowId); else next.add(rowId); return next; });
   const [jumpTarget, setJumpTarget] = useState("");
   const toggleMessage = messageId => setCollapsed(current => { const next = new Set(current); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; });
   const jumpTo = messageId => {
     if (!messageId) return;
     setCollapsed(current => { if (!current.has(messageId)) return current; const next = new Set(current); next.delete(messageId); return next; });
+    setExpanded(current => { if (current.has(messageId)) return current; const next = new Set(current); next.add(messageId); return next; });
     tail.current = false;
     setJumpTarget(messageId);
     requestAnimationFrame(() => { const target = document.getElementById("message-" + messageId); target?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); target?.querySelector(".message-toggle")?.focus({ preventScroll: true }); });
@@ -211,6 +218,12 @@ function WorkspaceContent({ id }) {
     return { conversation, messages: messagePage.items, messagePage, runs, profiles, capabilities };
   });
   const run = data?.runs.at(-1);
+  useEffect(() => {
+    const fresh = (data?.messages || []).filter(message => ["failed", "interrupted"].includes(message.state) && !seenFailures.current.has(message.id)).map(message => message.id);
+    if (!fresh.length) return;
+    fresh.forEach(messageId => seenFailures.current.add(messageId));
+    setExpanded(current => new Set([...current, ...fresh]));
+  }, [data?.messages]);
   const hues = speakerHues([...(data?.runs || []).flatMap(item => [item.orchestrator?.name, ...(item.participants || []).map(seat => seat.name)])], (data?.messages || []).map(message => message.speaker));
   const active =
     run && !["completed", "failed", "cancelled"].includes(run.state);
@@ -346,13 +359,14 @@ function WorkspaceContent({ id }) {
       {attemptsRunId && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} initialRunId={attemptsRunId} onClose={() => setAttemptsRunId(null)} />}
       <header className="workspace-heading">
         <div>
-          <p className="eyebrow">{t("debate.title")}</p>
           <h1 title={data.conversation.title}>{data.conversation.title}</h1>
-          <CopyableId value={id} />
-          <span className="live-label">
-            <span className="status-dot" />
-            {t(connection)}
-          </span>
+          <div className="workspace-meta">
+            <CopyableId value={id} />
+            <span className="live-label">
+              <span className="status-dot" />
+              {t(connection)}
+            </span>
+          </div>
         </div>
         <div className="utilities">
           <CopyButton label="conversations.copy" disabled={!data.messagePage.totalCount} loadText={async () => {
@@ -453,16 +467,18 @@ function WorkspaceContent({ id }) {
       <div className="history-navigation">
         <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
         {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
-      </div>
-      {data.messages.length > 0 && <div className="feed-toolbar" role="toolbar" aria-label={t("messages.navigation")}>
-        <Button label="messages.collapseAll" onClick={() => setCollapsed(new Set(data.messages.map(message => message.id)))} />
-        <Button label="messages.expandAll" disabled={collapsed.size === 0} onClick={() => setCollapsed(new Set())} />
+        {data.messages.length > 0 && <div className="feed-toolbar" role="toolbar" aria-label={t("messages.navigation")}>
+        <div className="segmented" role="radiogroup" aria-label={t("timeline.view")}>{["timeline", "cards"].map(item => <button key={item} type="button" role="radio" aria-checked={view === item} className={view === item ? "active" : ""} title={t(`timeline.view.${item}.help`)} onClick={() => chooseView(item)}>{t(`timeline.view.${item}`)}</button>)}</div>
+        {view === "cards"
+          ? <><Button label="messages.collapseAll" onClick={() => setCollapsed(new Set(data.messages.map(message => message.id)))} /><Button label="messages.expandAll" disabled={collapsed.size === 0} onClick={() => setCollapsed(new Set())} /></>
+          : <><Button label="messages.collapseAll" disabled={expanded.size === 0} onClick={() => setExpanded(new Set())} /><Button label="messages.expandAll" onClick={() => setExpanded(new Set(timelineRows(mergeToolActivity(data.messages)).filter(row => row.id).map(row => row.id)))} /></>}
         <select aria-label={t("messages.jump")} title={t("messages.jump.help")} value="" onChange={event => jumpTo(event.target.value)}>
           <option value="">{t("messages.jump")}</option>
-          {mergeToolActivity(data.messages).map((message, index) => <option key={message.id} value={message.id}>{`${index + 1}. ${speakerLabel(t, message.speaker)} · ${t("state." + message.kind, { defaultValue: message.kind })}`}</option>)}
+          {(view === "timeline" ? timelineRows(mergeToolActivity(data.messages)).filter(row => row.id).map(row => row.type === "turn" ? row.message : { ...row.messages[0], kind: "tool" }) : mergeToolActivity(data.messages)).map((message, index) => <option key={message.id} value={message.id}>{`${index + 1}. ${speakerLabel(t, message.speaker)} · ${t("state." + message.kind, { defaultValue: message.kind })}`}</option>)}
         </select>
         <span className="feed-count">{t("messages.shown", { count: mergeToolActivity(data.messages).length })}</span>
       </div>}
+      </div>
       <div className={"workspace-body" + (run?.protocolVersion === 2 && panelOpen ? " with-panel" : "")}>
       <div
         className="message-feed"
@@ -486,7 +502,8 @@ function WorkspaceContent({ id }) {
             />
           </div>
         )}
-        {mergeToolActivity(data.messages).map((message) => {
+        {view === "timeline" && <TranscriptTimeline api={api} conversationId={id} messages={mergeToolActivity(data.messages)} hues={hues} expanded={expanded} onToggle={toggleExpanded} jumpTarget={jumpTarget} onFull={setFullMessage} onInspect={setAttemptsRunId} />}
+        {view === "cards" && mergeToolActivity(data.messages).map((message) => {
           const folded = collapsed.has(message.id);
           return <article
             id={"message-" + message.id}

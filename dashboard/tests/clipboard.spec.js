@@ -22,6 +22,8 @@ async function readClipboard(context,page){
  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});const reader=await context.newPage();
  try{await reader.goto(origin+'/dashboard');await reader.bringToFront();return await reader.evaluate(()=>navigator.clipboard.readText());}finally{await reader.close();await page.bringToFront();}
 }
+// These journeys exercise the card view's per-turn copy controls.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('arguebot.transcriptView','cards'));});
 test('HTTP loopback copies full paged conversations, full turns and monospace IDs',async({page,context,request})=>{
  const {conversation,messages}=await seed(request,103); await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});
  await page.goto(origin+`/dashboard/conversations/${conversation.id}`);await page.getByRole('button',{name:'Copy conversation',exact:true}).click();await expect(page.getByRole('button',{name:'Copied',exact:true})).toBeVisible();

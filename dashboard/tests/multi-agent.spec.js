@@ -231,7 +231,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await request.delete(`/v2.0/api/configuration/credentials/${credential.id}?revision=${credential.revision}`);
     const edges = await page.evaluate(() => {
       const bySpeaker = new Map();
-      for (const card of document.querySelectorAll(".message-feed article.message:not(.user-message)")) bySpeaker.set(card.querySelector("header strong").textContent, getComputedStyle(card).borderInlineStartColor);
+      for (const row of document.querySelectorAll(".message-feed .timeline-row:not(.user-row)")) bySpeaker.set(row.querySelector(".timeline-speaker").textContent, getComputedStyle(row).borderInlineStartColor);
       return [...bySpeaker.entries()];
     });
     expect(edges.length).toBeGreaterThanOrEqual(4);

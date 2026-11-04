@@ -915,5 +915,12 @@
   "prompts.picker.custom": "{count, plural, one {# custom prompt} other {# custom prompts}}",
   "prompts.picker.help": "Choose the prompt each debate step uses. Manage prompts on the Prompts page.",
   "prompts.used": "Prompts used",
-  "prompts.revision": "revision {revision}"
+  "prompts.revision": "revision {revision}",
+  "timeline.view": "Transcript view",
+  "timeline.view.timeline": "Timeline",
+  "timeline.view.timeline.help": "One line per turn, expandable, with tool calls grouped. Best for following a debate as it runs.",
+  "timeline.view.cards": "Cards",
+  "timeline.view.cards.help": "Every turn shown in full as a card.",
+  "timeline.round": "Round {round}",
+  "timeline.tools": "{count, plural, one {# tool call} other {# tool calls}}"
 }

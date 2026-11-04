@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("transcript cards collapse, jump navigation works and only the feed scrolls", async ({ page, request }) => {
+test("card view: transcript cards collapse, jump navigation works and only the feed scrolls", async ({ page, request }) => {
   test.setTimeout(90000);
   const conversation = await (await request.post("/v1.0/api/conversations", { data: { title: "Transcript navigation " + Date.now() } })).json();
   const root = `/v1.0/api/conversations/${conversation.id}/messages`;
@@ -9,6 +9,7 @@ test("transcript cards collapse, jump navigation works and only the feed scrolls
     expect((await request.post(root, { data: { action: "note", text: body, idempotencyKey: `nav-${conversation.id}-${index}` } })).ok()).toBeTruthy();
   }
   try {
+    await page.addInitScript(() => localStorage.setItem("arguebot.transcriptView", "cards"));
     for (const [width, height] of [[1280, 800], [390, 760]]) {
       await page.setViewportSize({ width, height });
       await page.goto(`/dashboard/conversations/${conversation.id}`);
@@ -48,6 +49,45 @@ test("transcript cards collapse, jump navigation works and only the feed scrolls
       await expect(target.getByRole("button", { name: /^Collapse / })).toBeFocused();
       await page.screenshot({ path: `../.run/screenshots/transcript-jump-${width}.png` });
     }
+  } finally {
+    await request.delete(`/v1.0/api/conversations/${conversation.id}`);
+  }
+});
+
+test("timeline view shows one compact row per turn, groups tool calls and expands in place", async ({ page, request }) => {
+  const conversation = await (await request.post("/v1.0/api/conversations", { data: { title: "Timeline view " + Date.now() } })).json();
+  const root = `/v1.0/api/conversations/${conversation.id}/messages`;
+  for (let index = 1; index <= 24; index++) {
+    const body = `Turn ${index} opening line\n\n` + Array.from({ length: 10 }, (_, line) => `Detail ${line + 1} of turn ${index}.`).join("\n\n");
+    await request.post(root, { data: { action: "note", text: body, idempotencyKey: `timeline-${conversation.id}-${index}` } });
+  }
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`/dashboard/conversations/${conversation.id}`);
+    const toolbar = page.getByRole("toolbar", { name: "Transcript navigation" });
+    await expect(toolbar.getByRole("radio", { name: "Timeline" })).toHaveAttribute("aria-checked", "true");
+    const rows = page.locator(".timeline-row");
+    await expect(rows).toHaveCount(24);
+    // Compact rows: far more turns fit on screen than cards would show.
+    const height = (await rows.first().boundingBox()).height;
+    expect(height).toBeLessThan(40);
+    const visible = await page.evaluate(() => { const feed = document.querySelector(".message-feed").getBoundingClientRect(); return [...document.querySelectorAll(".timeline-row")].filter(row => { const box = row.getBoundingClientRect(); return box.top >= feed.top && box.bottom <= feed.bottom; }).length; });
+    expect(visible).toBeGreaterThanOrEqual(12);
+    const first = rows.first();
+    await expect(first.locator(".timeline-preview")).toContainText("opening line");
+    await first.getByRole("button").first().click();
+    await expect(first.getByRole("button").first()).toHaveAttribute("aria-expanded", "true");
+    await expect(first.locator(".markdown")).toContainText("Detail 10 of turn");
+    await page.screenshot({ path: "../.run/screenshots/timeline-1280.png" });
+    await toolbar.getByRole("button", { name: "Expand all", exact: true }).click();
+    await expect(page.locator(".timeline-row.open")).toHaveCount(24);
+    await toolbar.getByRole("button", { name: "Collapse all", exact: true }).click();
+    await expect(page.locator(".timeline-row.open")).toHaveCount(0);
+    await toolbar.getByRole("radio", { name: "Cards" }).click();
+    await expect(page.locator("article.message")).toHaveCount(24);
+    await page.reload();
+    await expect(page.getByRole("toolbar", { name: "Transcript navigation" }).getByRole("radio", { name: "Cards" })).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("toolbar", { name: "Transcript navigation" }).getByRole("radio", { name: "Timeline" }).click();
   } finally {
     await request.delete(`/v1.0/api/conversations/${conversation.id}`);
   }

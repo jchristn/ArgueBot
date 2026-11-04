@@ -53,7 +53,7 @@ test("structural accessibility, right-to-left and expansion review across routes
           await page.goto("/dashboard/" + route);
           await expect(page.locator("main")).toBeVisible();
           await page.waitForTimeout(400);
-          if (route.startsWith("conversations/")) await expect(page.locator(".message").first()).toBeVisible();
+          if (route.startsWith("conversations/")) await expect(page.locator(".message, .timeline-row").first()).toBeVisible();
           expect(await page.evaluate(() => document.documentElement.dir)).toBe(locale === "ar-XB" ? "rtl" : "ltr");
           for (const problem of await page.evaluate(audit)) findings.push(`${locale} ${width}px /${route.replace(conversation.id, "{id}")}: ${problem}`);
           if (locale !== "en" && (route === "participants" || route.startsWith("conversations/"))) await page.screenshot({ path: `../.run/screenshots/a11y-${locale}-${route.startsWith("conversations/") ? "workspace" : route}-${width}.png`, fullPage: true });

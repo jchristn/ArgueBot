@@ -461,6 +461,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
 test("page long history, read complete text and export beyond the visible page", async ({
   page,
 }) => {
+  await page.addInitScript(() => localStorage.setItem("arguebot.transcriptView", "cards"));
   await openDashboard(page);
   await page
     .getByRole("button", { name: "New conversation", exact: true })
