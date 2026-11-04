@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
+- Conversations: a Stop debate action (with confirmation) for unfinished debates, delete errors shown inside the delete dialog with a Stop debate and delete option, and notices rendered inside an open dialog instead of beneath it.
 - Clicking a conversation row opens the conversation; tab toolbar and settings actions sit flush right; transcript cards are denser, with a stronger edge color per agent, assigned in roster order from a 12-hue palette so agents never share a color (a name hash had given Claude Code and Codex the same one).
 - Dashboard density and navigation: tighter spacing across pages, tables, forms and dialogs; a smaller row Actions trigger; a compact request inspector; a 66% taller request chart; Title Case navigation and tab names; collapsible transcript cards with Collapse all, Expand all and Jump to turn; and the message feed as the workspace's only scrolling region (hidden copy-status text no longer stretched the page).
 - Add an explicit credential reveal for the moderator: `POST /v2.0/api/configuration/credentials/{id}/reveal`, the client, `configuration credentials reveal ID` in the CLI, Reveal value in the TUI, and a confirmed Reveal value action in the dashboard with show, hide and copy. Request history excludes credential response bodies as well as request bodies; model tools never expose reveal.

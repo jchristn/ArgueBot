@@ -14,6 +14,7 @@ import { api } from "./api/client.js";
 import { connectDashboard, hasDashboardConnection } from "./api/dashboard-connect.js";
 import i18n, { registry } from "./i18n/index.js";
 import { Button, ErrorPanel, Icon } from "./components/ui.jsx";
+import Toast from "./components/Toast.jsx";
 const Home = lazy(() => import("./views/Home.jsx"));
 const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
@@ -233,18 +234,7 @@ export default function App() {
             <Button label="service.reconnect" onClick={() => location.reload()} />
           </section></main>
         )}{" "}
-        {notice && (
-          <div className="toast" role="alert">
-            <span>{notice.message}</span>
-            <Button
-              label="common.dismiss"
-              help="common.dismiss"
-              icon="close"
-              iconOnly
-              onClick={() => setNotice(null)}
-            />
-          </div>
-        )}
+        {notice && <Toast message={notice.message} onDismiss={() => setNotice(null)} />}
       </Suspense>
     </BrowserRouter>
   );
