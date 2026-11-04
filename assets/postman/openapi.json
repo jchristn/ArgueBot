@@ -8489,7 +8489,8 @@
               },
               "example": {
                 "name": "Example gateway credential",
-                "kind": "token",
+                "kind": "http_header",
+                "parameterName": "x-api-key",
                 "secretValue": "{{credentialValue}}"
               }
             }
@@ -9896,6 +9897,10 @@
             "type": "string",
             "description": "token, claude_oauth or codex_auth_json."
           },
+          "parameterName": {
+            "type": "string",
+            "description": "Header or query parameter name for http_header and http_query credentials; empty for every other kind. Fixed after creation."
+          },
           "status": {
             "type": "string",
             "description": "ready; disabled; or refresh_uncertain when a Codex token refresh was sent but its result is unknown, so the stored refresh token must not be replayed and the login must be replaced."
@@ -9918,10 +9923,19 @@
             "type": "string",
             "description": "token, claude_oauth or codex_auth_json.",
             "enum": [
+              "http_bearer",
+              "http_header",
+              "http_query",
               "token",
               "claude_oauth",
               "codex_auth_json"
             ]
+          },
+          "parameterName": {
+            "type": "string",
+            "description": "Header or query parameter name for http_header and http_query credentials; empty for every other kind. Fixed after creation.",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]{0,128}$"
           },
           "secretValue": {
             "type": "string",

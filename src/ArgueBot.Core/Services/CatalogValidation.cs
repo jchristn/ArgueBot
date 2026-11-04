@@ -56,13 +56,33 @@ namespace ArgueBot.Core.Services
                 if (!new[] { "bearer", "api_key", "header", "query" }.Contains(binding.Kind)) throw Invalid("Choose bearer, api_key, header or query authentication.");
                 if (binding.Kind == "bearer") binding.Name = "Authorization";
                 if (!Regex.IsMatch(binding.Name, "^[A-Za-z0-9_-]{1,128}$") || !names.Add((binding.Kind == "query" ? "query:" : "header:") + binding.Name)) throw Invalid("Use unique HTTP header or query names without whitespace.");
-                if (new[] { "host", "content-length", "connection", "transfer-encoding", "content-type", "accept", "cookie", "proxy-authorization" }.Contains(binding.Name.ToLowerInvariant())) throw Invalid("This protocol-controlled HTTP header cannot be overridden.");
+                if (ProtectedHeaders.Contains(binding.Name.ToLowerInvariant())) throw Invalid("This protocol-controlled HTTP header cannot be overridden.");
                 int sources = (binding.CredentialId.Length > 0 ? 1 : 0) + (binding.EnvironmentVariable.Length > 0 ? 1 : 0) + (binding.Value.Length > 0 ? 1 : 0);
                 if (sources != 1 || binding.Value.Length > 4096 || binding.Value.Any(char.IsControl)) throw Invalid("Choose exactly one credential, environment reference or nonsecret value without control characters.");
                 if ((binding.Kind != "header" || binding.Name.Equals("Authorization", StringComparison.OrdinalIgnoreCase)) && binding.Value.Length > 0) throw Invalid("Authentication values must use a stored credential or environment reference.");
                 if (binding.EnvironmentVariable.Length > 0 && !Regex.IsMatch(binding.EnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$")) throw Invalid("Use a valid service environment variable name.");
             }
         }
+        /// <summary>Validate the header or query name a typed HTTP credential is sent under.</summary>
+        internal static void ParameterName(string placement, string name)
+        {
+            if (!Regex.IsMatch(name, "^[A-Za-z0-9_-]{1,128}$")) throw new DomainException(400, "invalid_credential", "Enter a " + placement + " name of letters, digits, hyphens or underscores, up to 128 characters.", "parameterName");
+            if (placement == "header" && ProtectedHeaders.Contains(name.ToLowerInvariant())) throw new DomainException(400, "invalid_credential", "This protocol-controlled HTTP header cannot be set by a credential.", "parameterName");
+        }
+        /// <summary>Make bindings that use typed HTTP credentials follow the credential's placement and name, and reject harness-only kinds.</summary>
+        internal static void Place(List<HttpAuthBinding> bindings, IReadOnlyDictionary<string, CredentialMetadata> credentials)
+        {
+            foreach (HttpAuthBinding binding in bindings)
+            {
+                if (binding == null || binding.CredentialId.Length == 0) continue;
+                if (!credentials.TryGetValue(binding.CredentialId, out CredentialMetadata? credential)) throw Invalid("Choose an existing stored credential for each binding.");
+                if (credential.Kind == "claude_oauth" || credential.Kind == "codex_auth_json") throw new DomainException(400, "credential_kind_mismatch", "Claude Code tokens and Codex logins sign in harnesses. Choose an HTTP credential for endpoint authentication.");
+                if (credential.Kind == "http_bearer") { binding.Kind = "bearer"; binding.Name = "Authorization"; }
+                else if (credential.Kind == "http_header") { binding.Kind = "header"; binding.Name = credential.ParameterName; }
+                else if (credential.Kind == "http_query") { binding.Kind = "query"; binding.Name = credential.ParameterName; }
+            }
+        }
+        private static readonly string[] ProtectedHeaders = new[] { "host", "content-length", "connection", "transfer-encoding", "content-type", "accept", "cookie", "proxy-authorization" };
         private static void Name(string name) { if (string.IsNullOrWhiteSpace(name) || name.Length > 200 || name.Any(char.IsControl)) throw Invalid("Use a display name of 1 through 200 characters without control characters."); }
         private static DomainException Invalid(string message) { return new DomainException(400, "invalid_configuration", message); }
     }

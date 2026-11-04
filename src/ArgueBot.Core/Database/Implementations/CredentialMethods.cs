@@ -22,9 +22,9 @@ namespace ArgueBot.Core.Database.Implementations
         {
             RequireAuthenticated(context); CatalogMethods.ValidatePage(pageNumber, pageSize); List<CredentialMetadata> result = new List<CredentialMetadata>();
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT id,name,kind,status,revision FROM connection_credentials WHERE tenant_id=@tenant AND (@id='' OR id=@id) ORDER BY name,id LIMIT @limit OFFSET @offset", P("tenant", context.TenantId, "id", id, "limit", pageSize, "offset", ((long)pageNumber - 1) * pageSize)))
+            using (DbCommand command = Command(connection, null, "SELECT id,name,kind,parameter_name,status,revision FROM connection_credentials WHERE tenant_id=@tenant AND (@id='' OR id=@id) ORDER BY name,id LIMIT @limit OFFSET @offset", P("tenant", context.TenantId, "id", id, "limit", pageSize, "offset", ((long)pageNumber - 1) * pageSize)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-            { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Add(new CredentialMetadata { Id = S(reader, "id"), Name = S(reader, "name"), Kind = S(reader, "kind"), Status = S(reader, "status"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture) }); }
+            { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Add(new CredentialMetadata { Id = S(reader, "id"), Name = S(reader, "name"), Kind = S(reader, "kind"), ParameterName = S(reader, "parameter_name"), Status = S(reader, "status"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture) }); }
             return result;
         }
         /// <inheritdoc />
@@ -66,23 +66,23 @@ namespace ArgueBot.Core.Database.Implementations
             string ciphertext = encrypt(id, request.SecretValue);
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                Dictionary<string, object?> values = P("id", id, "tenant", context.TenantId, "name", request.Name, "kind", request.Kind, "ciphertext", ciphertext, "revision", request.Revision);
-                if (create) await ExecuteAsync(connection, transaction, "INSERT INTO connection_credentials(id,tenant_id,name,kind,ciphertext,status,created_utc,updated_utc) VALUES(@id,@tenant,@name,@kind,@ciphertext,'ready',@now,@now)", token, values).ConfigureAwait(false);
-                else if (await ExecuteAsync(connection, transaction, "UPDATE connection_credentials SET name=@name,kind=@kind,ciphertext=@ciphertext,status='ready',revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND revision=@revision AND kind=@kind", token, values).ConfigureAwait(false) != 1) throw new DomainException(409, "credential_changed", "Refresh credential metadata before replacing its value. Credential kind cannot change.");
+                Dictionary<string, object?> values = P("id", id, "tenant", context.TenantId, "name", request.Name, "kind", request.Kind, "parameter", request.ParameterName, "ciphertext", ciphertext, "revision", request.Revision);
+                if (create) await ExecuteAsync(connection, transaction, "INSERT INTO connection_credentials(id,tenant_id,name,kind,parameter_name,ciphertext,status,created_utc,updated_utc) VALUES(@id,@tenant,@name,@kind,@parameter,@ciphertext,'ready',@now,@now)", token, values).ConfigureAwait(false);
+                else if (await ExecuteAsync(connection, transaction, "UPDATE connection_credentials SET name=@name,kind=@kind,ciphertext=@ciphertext,status='ready',revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND revision=@revision AND kind=@kind AND parameter_name=@parameter", token, values).ConfigureAwait(false) != 1) throw new DomainException(409, "credential_changed", "Refresh credential metadata before replacing its value. Credential kind and parameter name cannot change.");
             }, token).ConfigureAwait(false);
-            return new CredentialMetadata { Id = id, Name = request.Name, Kind = request.Kind, Revision = create ? 1 : request.Revision + 1 };
+            return new CredentialMetadata { Id = id, Name = request.Name, Kind = request.Kind, ParameterName = request.ParameterName, Revision = create ? 1 : request.Revision + 1 };
         }
         /// <summary>Read ciphertext for service-owned decryption; never expose this value over HTTP.</summary>
         public async Task<string> ResolveAsync(RequestContext context, string id, CancellationToken token, Action<CredentialMetadata>? resolved = null)
         {
             RequireAuthenticated(context);
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT ciphertext,id,name,kind,status,revision FROM connection_credentials WHERE tenant_id=@tenant AND id=@id AND status='ready'", P("tenant", context.TenantId, "id", id)))
+            using (DbCommand command = Command(connection, null, "SELECT ciphertext,id,name,kind,parameter_name,status,revision FROM connection_credentials WHERE tenant_id=@tenant AND id=@id AND status='ready'", P("tenant", context.TenantId, "id", id)))
             {
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 {
                     if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(409, "credential_unavailable", "The credential is unavailable. Import a fresh login or enable its replacement before resuming.");
-                    resolved?.Invoke(new CredentialMetadata { Id = id, Name = S(reader, "name"), Kind = S(reader, "kind"), Status = S(reader, "status"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture) });
+                    resolved?.Invoke(new CredentialMetadata { Id = id, Name = S(reader, "name"), Kind = S(reader, "kind"), ParameterName = S(reader, "parameter_name"), Status = S(reader, "status"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture) });
                     return S(reader, "ciphertext");
                 }
             }

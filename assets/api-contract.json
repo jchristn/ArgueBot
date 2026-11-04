@@ -1263,7 +1263,8 @@
       "public": true,
       "example": {
         "name": "Example gateway credential",
-        "kind": "token",
+        "kind": "http_header",
+        "parameterName": "x-api-key",
         "secretValue": "{{credentialValue}}"
       },
       "query": [],

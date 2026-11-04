@@ -34,7 +34,15 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Create or revision-check an update to a reusable endpoint.</summary>
         public async Task<EndpointProfile> SaveEndpointAsync(RequestContext context, EndpointProfile item, CancellationToken token = default)
         {
-            RequireWrite(context); CatalogValidation.Validate(item);
+            RequireWrite(context);
+            if (item.AuthBindings.Any(binding => binding != null && binding.CredentialId.Length > 0))
+            {
+                Dictionary<string, CredentialMetadata> credentials = new Dictionary<string, CredentialMetadata>(StringComparer.Ordinal);
+                foreach (string id in item.AuthBindings.Where(binding => binding != null && binding.CredentialId.Length > 0).Select(binding => binding.CredentialId).Distinct(StringComparer.Ordinal))
+                    foreach (CredentialMetadata credential in await _Database.Credentials.EnumerateAsync(context, token, id).ConfigureAwait(false)) credentials[credential.Id] = credential;
+                CatalogValidation.Place(item.AuthBindings, credentials);
+            }
+            CatalogValidation.Validate(item);
             bool create = item.Id.Length == 0;
             if (create) item.Id = Ids.New("end_");
             await _Database.WriteAsync(async (connection, transaction) =>

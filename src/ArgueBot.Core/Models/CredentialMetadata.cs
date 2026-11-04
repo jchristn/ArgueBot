@@ -17,6 +17,10 @@ namespace ArgueBot.Core.Models
         /// <summary>token, claude_oauth or codex_auth_json.</summary>
         public string Kind { get { return _Kind; } set { System.ArgumentNullException.ThrowIfNull(value); _Kind = value; } }
 
+
+        private string _ParameterName = "";
+        /// <summary>Header or query parameter name for http_header and http_query credentials; empty for every other kind. Fixed after creation.</summary>
+        public string ParameterName { get { return _ParameterName; } set { System.ArgumentNullException.ThrowIfNull(value); _ParameterName = value; } }
         private string _Status = "ready";
         /// <summary>ready; disabled; or refresh_uncertain when a Codex token refresh was sent but its result is unknown, so the stored refresh token must not be replayed and the login must be replaced.</summary>
         public string Status { get { return _Status; } set { System.ArgumentNullException.ThrowIfNull(value); _Status = value; } }

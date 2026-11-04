@@ -304,7 +304,7 @@ namespace ArgueBot.Tui
             if (updated == null) return;
             _App.Post(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(5); _Feedback.Content = Text.From("Agent saved. Choose New or Start debate to use it.", _App.Theme.Success); });
         }
-        private static string CredentialKindLabel(string kind) { return kind == "claude_oauth" ? "Claude Code OAuth token" : kind == "codex_auth_json" ? "Codex auth.json" : "HTTP token or API key"; }
+        private static string CredentialKindLabel(string kind) { return kind == "claude_oauth" ? "Claude Code OAuth token" : kind == "codex_auth_json" ? "Codex auth.json" : kind == "http_bearer" ? "Bearer token" : kind == "http_header" ? "Header key and value" : kind == "http_query" ? "Query string key and value" : "HTTP token or API key"; }
         private static string CredentialStatusLabel(string status) { return status == "ready" ? "ready" : status == "disabled" ? "disabled" : status == "refresh_uncertain" ? "sign-in needed: refresh result unknown, replace auth.json" : status; }
         private async Task CatalogAsync()
         {

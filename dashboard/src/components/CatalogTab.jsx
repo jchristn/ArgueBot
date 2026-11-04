@@ -6,12 +6,17 @@ import { Button, ErrorPanel, Field, Modal } from "./ui.jsx";
 import Markdown from "react-markdown";
 import harnessDefaults from "../../../assets/harness-defaults.json";
 
-const credentialKinds = ["claude_oauth", "codex_auth_json", "token"];
+const credentialKinds = ["claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query"];
+const httpKinds = ["token", "http_bearer", "http_header", "http_query"];
+const placements = { http_bearer: "bearer", http_header: "header", http_query: "query" };
 /** Steps per credential kind. Commands are literal shell text and are not translated. */
 const credentialGuides = {
   claude_oauth: [{ text: "1", command: "claude setup-token" }, { text: "2" }, { text: "3" }],
   codex_auth_json: [{ text: "1", command: "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login", alternative: { text: "1b", command: "mkdir -p ~/.codex-arguebot && printenv OPENAI_API_KEY | CODEX_HOME=~/.codex-arguebot codex login --with-api-key" } }, { text: "2", command: "pbcopy < ~/.codex-arguebot/auth.json" }, { text: "3" }],
   token: [{ text: "1" }, { text: "2" }, { text: "3" }],
+  http_bearer: [{ text: "1" }, { text: "2" }, { text: "3" }],
+  http_header: [{ text: "1" }, { text: "2" }, { text: "3" }],
+  http_query: [{ text: "1" }, { text: "2" }, { text: "3" }],
 };
 function CommandBox({ command }) {
   const { t } = useTranslation();
@@ -22,7 +27,7 @@ const empty = {
   endpoints: { name: "", protocol: "ollama", baseUrl: "http://127.0.0.1:11434", timeoutSeconds: 300, maxConcurrentInvocations: 1, enabled: true, authBindings: [] },
   harnesses: { name: "", provider: "claude", executable: "claude", arguments: harnessDefaults.claude.arguments, workingDirectory: "", credentialId: "", environmentVariables: [], enabled: true },
   models: { name: "", endpointId: "", harnessId: "", model: "", contextMaxCharacters: 262144, maxOutputBytes: 67108864, generation: { maxOutputTokens: null, temperature: null, topP: null }, supportsTools: true, enabled: true },
-  credentials: { name: "", kind: "claude_oauth", secretValue: "" },
+  credentials: { name: "", kind: "claude_oauth", parameterName: "", secretValue: "" },
 };
 /** The catalog record kinds, in the order the Participants tabs show them. */
 export const catalogKinds = ["models", "harnesses", "endpoints", "credentials"];
@@ -37,7 +42,8 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
   const generationField = (key, min, max, step) => <Field label={`catalog.${key}`}>{props => <input {...props} type="number" min={min} max={max} step={step} value={value.generation?.[key] ?? ""} onChange={event => change("generation", { ...value.generation, [key]: event.target.value === "" ? null : Number(event.target.value) })} />}</Field>;
   const checkbox = key => <Field label={`catalog.${key}`}>{props => <input {...props} type="checkbox" checked={value[key]} onChange={event => change(key, event.target.checked)} />}</Field>;
   const usable = accepts => [["", t("catalog.none")], ...(data.credentials || []).filter(item => (item.status === "ready" || item.id === value.credentialId || item.id === accepts.current) && accepts.kinds.includes(item.kind)).map(item => [item.id, `${item.name} (${t(`credential.kind.${item.kind}`, { defaultValue: item.kind })})`])];
-  const credentials = usable({ kinds: ["token"], current: "" });
+  const credentials = usable({ kinds: httpKinds, current: "" });
+  const credentialById = id => (data.credentials || []).find(item => item.id === id);
   const harnessKind = harnessCredentialKind[value.provider] || "";
   const harnessCredentials = usable({ kinds: harnessKind ? [harnessKind] : [], current: value.credentialId });
   const bind = (index, key, next) => change("authBindings", value.authBindings.map((item, position) => position === index ? { ...item, [key]: next } : item));
@@ -53,11 +59,11 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
       <div className="form-grid">{select("protocol", [["ollama", "Ollama native chat"], ["openai", "OpenAI-compatible chat completions"]])}{field("baseUrl", "url", { required: true })}{field("timeoutSeconds", "number", { min: 1, max: 3600, required: true })}{field("maxConcurrentInvocations", "number", { min: 1, max: 64, required: true })}{checkbox("enabled")}</div>
       <fieldset className="argument-editor"><legend>{t("catalog.authBindings")}</legend><p className="muted">{t("catalog.authHelp")}</p>{credentials.length === 1 && <p className="muted">{t("catalog.authAddFirst")}</p>}
         {value.authBindings.map((binding, index) => <div className="binding-editor" key={index}>
-          <Field label="catalog.bindingKind">{props => <select {...props} value={binding.kind} onChange={event => bind(index, "kind", event.target.value)}>{["bearer", "api_key", "header", "query"].map(item => <option key={item} value={item}>{t(`catalog.auth.${item}`)}</option>)}</select>}</Field>
-          {binding.kind !== "bearer" && <Field label="catalog.bindingName">{props => <input {...props} required value={binding.name} onChange={event => bind(index, "name", event.target.value)} />}</Field>}
-          <Field label="catalog.credentialId">{props => <select {...props} value={binding.credentialId} onChange={event => { bind(index, "credentialId", event.target.value); }} >{credentials.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>}</Field>
-          <Field label="catalog.environmentVariable">{props => <input {...props} value={binding.environmentVariable} onChange={event => bind(index, "environmentVariable", event.target.value)} />}</Field>
-          {binding.kind === "header" && <Field label="catalog.staticValue">{props => <input {...props} value={binding.value} onChange={event => bind(index, "value", event.target.value)} />}</Field>}
+          <Field label="catalog.credentialId">{props => <select {...props} value={binding.credentialId} onChange={event => { const chosen = credentialById(event.target.value); change("authBindings", value.authBindings.map((item, position) => position !== index ? item : { ...item, credentialId: event.target.value, environmentVariable: "", value: "", ...(placements[chosen?.kind] ? { kind: placements[chosen.kind], name: chosen.kind === "http_bearer" ? "" : chosen.parameterName } : {}) })); }} >{credentials.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>}</Field>
+          <Field label="catalog.bindingKind">{props => <select {...props} value={binding.kind} disabled={Boolean(placements[credentialById(binding.credentialId)?.kind])} onChange={event => bind(index, "kind", event.target.value)}>{["bearer", "api_key", "header", "query"].map(item => <option key={item} value={item}>{t(`catalog.auth.${item}`)}</option>)}</select>}</Field>
+          {binding.kind !== "bearer" && <Field label="catalog.bindingName">{props => <input {...props} required readOnly={Boolean(placements[credentialById(binding.credentialId)?.kind])} value={binding.name} onChange={event => bind(index, "name", event.target.value)} />}</Field>}
+          {!placements[credentialById(binding.credentialId)?.kind] && <Field label="catalog.environmentVariable">{props => <input {...props} value={binding.environmentVariable} onChange={event => bind(index, "environmentVariable", event.target.value)} />}</Field>}
+          {binding.kind === "header" && !placements[credentialById(binding.credentialId)?.kind] && <Field label="catalog.staticValue">{props => <input {...props} value={binding.value} onChange={event => bind(index, "value", event.target.value)} />}</Field>}
           <Button type="button" label="common.remove" onClick={() => change("authBindings", value.authBindings.filter((_, position) => index !== position))} />
         </div>)}
         <Button type="button" label="catalog.addBinding" disabled={value.authBindings.length >= 32} onClick={() => change("authBindings", [...value.authBindings, { kind: "bearer", name: "", credentialId: "", environmentVariable: "", value: "" }])} />
@@ -76,7 +82,8 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
       {value.endpointId && <fieldset className="generation-settings"><legend>{t("catalog.generation")}</legend><p className="muted">{t("catalog.generationHelp")}</p>{generationField("maxOutputTokens", 1, 1048576, 1)}{generationField("temperature", 0, 2, "any")}{generationField("topP", 0, 1, "any")}</fieldset>}
     </div>}
     {kind === "credentials" && <>
-      <Field label="catalog.kind">{props => <select {...props} value={value.kind} disabled={Boolean(initial)} onChange={event => change("kind", event.target.value)}>{credentialKinds.map(item => <option key={item} value={item}>{t(`credential.kind.${item}`)}</option>)}</select>}</Field>
+      <Field label="catalog.kind">{props => <select {...props} value={value.kind} disabled={Boolean(initial)} onChange={event => setValue(current => ({ ...current, kind: event.target.value, parameterName: "" }))}>{(credentialKinds.includes(value.kind) ? credentialKinds : [...credentialKinds, value.kind]).map(item => <option key={item} value={item}>{t(`credential.kind.${item}`, { defaultValue: item })}</option>)}</select>}</Field>
+      {(value.kind === "http_header" || value.kind === "http_query") && <Field label={`catalog.parameterName.${value.kind}`}>{props => <input {...props} required readOnly={Boolean(initial)} maxLength={128} pattern="[A-Za-z0-9_\-]{1,128}" placeholder={value.kind === "http_header" ? "x-api-key" : "key"} spellCheck={false} value={value.parameterName || ""} onChange={event => change("parameterName", event.target.value.trim())} />}</Field>}
       <section className="credential-guide" aria-label={t("credential.guide.title")}>
         <h3>{t("credential.guide.title")}</h3>
         <ol>{credentialGuides[value.kind].map(step => <li key={step.text}><Markdown>{t(`credential.guide.${value.kind}.${step.text}`)}</Markdown>{step.command && <CommandBox command={step.command} />}{step.alternative && <><Markdown>{t(`credential.guide.${value.kind}.${step.alternative.text}`)}</Markdown><CommandBox command={step.alternative.command} /></>}</li>)}</ol>
@@ -84,7 +91,7 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
       {value.kind === "codex_auth_json"
         ? <Field label="catalog.secretFile">{props => <input {...props} type="file" accept=".json,application/json" onChange={async event => { const file = event.target.files?.[0]; if (file && file.size <= 65536) change("secretValue", await file.text()); else setError(new Error(t("catalog.fileLimit"))); }} />}</Field>
         : null}
-      <Field label={value.kind === "codex_auth_json" ? "catalog.secretValue.json" : "catalog.secretValue"}>{props => <input {...props} type="password" className="secret-input" autoComplete="new-password" spellCheck={false} required value={value.secretValue} onChange={event => change("secretValue", event.target.value)} />}</Field>
+      <Field label={value.kind === "codex_auth_json" ? "catalog.secretValue.json" : value.kind === "http_header" || value.kind === "http_query" ? "catalog.secretValue.parameter" : "catalog.secretValue"}>{props => <input {...props} type="password" className="secret-input" autoComplete="new-password" spellCheck={false} required value={value.secretValue} onChange={event => change("secretValue", event.target.value)} />}</Field>
       {value.kind !== "codex_auth_json" && <Field label="catalog.secretFile">{props => <input {...props} type="file" accept=".txt,.json" onChange={async event => { const file = event.target.files?.[0]; if (file && file.size <= 65536) change("secretValue", (await file.text()).trim()); else setError(new Error(t("catalog.fileLimit"))); }} />}</Field>}
       {value.secretValue && <p className="muted" role="status">{t("catalog.secretReady", { count: value.secretValue.length })}</p>}
       <p className="muted">{t("catalog.secretHelp")}</p>
@@ -130,7 +137,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
   const nameOf = (list, id) => (data?.[list] || []).find(item => item.id === id)?.name;
   const enabled = item => <span className={item.enabled ? "badge" : "badge muted-badge"}>{t(item.enabled ? "catalog.on" : "catalog.off")}</span>;
   const columns = {
-    credentials: [["catalog.column.kind", item => t(`credential.kind.${item.kind}`, { defaultValue: item.kind })], ["catalog.column.status", item => <span className={item.status === "ready" ? "badge" : "badge status-attention"} title={item.status === "refresh_uncertain" ? t("credential.status.refresh_uncertain.help") : undefined}>{t(`credential.status.${item.status}`, { defaultValue: item.status })}</span>], ["catalog.column.usedBy", item => { const names = usedBy(data, item.id); return names.length ? names.join(", ") : <span className="muted">{t("catalog.unused")}</span>; }]],
+    credentials: [["catalog.column.kind", item => <>{t(`credential.kind.${item.kind}`, { defaultValue: item.kind })}{item.parameterName && <> <code>{item.parameterName}</code></>}</>], ["catalog.column.status", item => <span className={item.status === "ready" ? "badge" : "badge status-attention"} title={item.status === "refresh_uncertain" ? t("credential.status.refresh_uncertain.help") : undefined}>{t(`credential.status.${item.status}`, { defaultValue: item.status })}</span>], ["catalog.column.usedBy", item => { const names = usedBy(data, item.id); return names.length ? names.join(", ") : <span className="muted">{t("catalog.unused")}</span>; }]],
     harnesses: [["catalog.column.program", item => <><span>{harnessDefaults[item.provider]?.name || item.provider}</span> <code>{item.executable}</code></>], ["catalog.column.login", item => harnessCredentialKind[item.provider] ? (item.credentialId ? nameOf("credentials", item.credentialId) || item.credentialId : <span className="muted">{t("catalog.localLogin")}</span>) : <span className="muted">{t("catalog.environmentOnly")}</span>], ["catalog.column.enabled", enabled]],
     endpoints: [["catalog.column.protocol", item => item.protocol === "openai" ? "OpenAI-compatible" : "Ollama"], ["catalog.column.address", item => <code>{item.baseUrl}</code>], ["catalog.column.auth", item => item.authBindings?.length ? t("catalog.bindingCount", { count: item.authBindings.length }) : <span className="muted">{t("catalog.noAuth")}</span>], ["catalog.column.enabled", enabled]],
     models: [["catalog.column.model", item => item.model ? <code>{item.model}</code> : <span className="muted">{t("catalog.harnessDefault")}</span>], ["catalog.column.runsOn", item => nameOf("endpoints", item.endpointId) || nameOf("harnesses", item.harnessId) || <span className="muted">{t("catalog.unassigned")}</span>], ["catalog.column.enabled", enabled]],

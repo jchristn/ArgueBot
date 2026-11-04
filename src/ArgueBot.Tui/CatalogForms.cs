@@ -94,9 +94,10 @@ namespace ArgueBot.Tui
         {
             CatalogEditor<CredentialRequest> editor = new CatalogEditor<CredentialRequest>(); Form form = editor.Form;
             TextField name = Text(form, "Safe display name", item?.Name ?? "", "Never include a secret in the display name.", true);
-            string[] kinds = new[] { "token", "claude_oauth", "codex_auth_json" };
-            string[] kindLabels = new[] { "HTTP token or API key", "Claude Code OAuth token", "Codex auth.json login" };
-            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Array.IndexOf(kinds, item?.Kind ?? "token"), "Claude Code: run claude setup-token and paste the token. Codex: run mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. HTTP token: an API key from the provider console; bind it to an endpoint. Existing kinds cannot change.");
+            string[] kinds = new[] { "claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query", "token" };
+            string[] kindLabels = new[] { "Claude Code OAuth token", "Codex auth.json login", "Bearer token", "Header key and value", "Query string key and value", "HTTP token (placement set on the endpoint)" };
+            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Math.Max(0, Array.IndexOf(kinds, item?.Kind ?? "claude_oauth")), "Claude Code: run claude setup-token and paste the token. Codex: run mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. Bearer, header or query: an API key from the provider console; header and query kinds also need the parameter name below. Bind it to an endpoint. Existing kinds cannot change.");
+            TextField parameter = Text(form, "Header or query name", item?.ParameterName ?? "", "Only for header and query kinds, for example x-api-key or key. Fixed after creation.");
             TextField secret = Text(form, "Paste value (masked)", "", "Write-only. Paste a token or complete Codex auth.json. Use a dedicated CLI login that no other process refreshes."); secret.MaskChar = '*';
             TextField file = Text(form, "Or credential file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
             editor.Extract = () =>
@@ -108,7 +109,8 @@ namespace ArgueBot.Tui
                     if (info.Length > 65536) throw new InvalidOperationException("Credential files must be at most 64 KiB.");
                     value = System.IO.File.ReadAllText(file.Value);
                 }
-                return new CredentialRequest { Name = name.Value, Kind = kinds[kind.SelectedIndex], SecretValue = value, Revision = item?.Revision ?? 0 };
+                string chosen = kinds[kind.SelectedIndex];
+                return new CredentialRequest { Name = name.Value, Kind = chosen, ParameterName = chosen == "http_header" || chosen == "http_query" ? parameter.Value.Trim() : "", SecretValue = value, Revision = item?.Revision ?? 0 };
             };
             return editor;
         }

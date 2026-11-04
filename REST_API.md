@@ -1052,7 +1052,8 @@ Representative request:
 ```json
 {
   "name": "Example gateway credential",
-  "kind": "token",
+  "kind": "http_header",
+  "parameterName": "x-api-key",
   "secretValue": "{{credentialValue}}"
 }
 ```
@@ -1337,6 +1338,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | id | string | Stable write-only credential reference. |
 | name | string | Safe display name. |
 | kind | string | token, claude_oauth or codex_auth_json. |
+| parameterName | string | Header or query parameter name for http_header and http_query credentials; empty for every other kind. Fixed after creation. |
 | status | string | ready; disabled; or refresh_uncertain when a Codex token refresh was sent but its result is unknown, so the stored refresh token must not be replayed and the login must be replaced. |
 | revision | integer | Current credential revision; replacement requires this value. |
 
@@ -1348,6 +1350,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | name | string | Safe display name. |
 | kind | string | token, claude_oauth or codex_auth_json. |
+| parameterName | string | Header or query parameter name for http_header and http_query credentials; empty for every other kind. Fixed after creation. |
 | secretValue | string | Write-only secret; never returned or recorded in request history. |
 | revision | integer | Expected revision for replacement. |
 

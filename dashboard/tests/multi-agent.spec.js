@@ -24,13 +24,20 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("codex_auth_json");
     await expect(guide.locator(".command-box code").first()).toHaveText("mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login");
     await page.screenshot({ path: "../.run/screenshots/v2-codex-guide.png", fullPage: true });
-    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("token");
-    await expect(dialog.getByRole("region", { name: "How to get this credential" })).toContainText("authentication binding");
-    const secret = dialog.getByLabel("Paste credential value", { exact: true });
+    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_bearer");
+    await expect(dialog.getByRole("textbox", { name: "Header name", exact: true })).toHaveCount(0);
+    await expect(guide).toContainText("Authorization: Bearer");
+    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_query");
+    await expect(dialog.getByRole("textbox", { name: "Query parameter name", exact: true })).toBeVisible();
+    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_header");
+    await dialog.getByRole("textbox", { name: "Header name", exact: true }).fill("x-api-key");
+    await page.screenshot({ path: "../.run/screenshots/v2-header-credential.png", fullPage: true });
+    const secret = dialog.getByLabel("Value", { exact: true });
     await expect(secret).toHaveAttribute("type", "password");
     await secret.fill("fictional-gateway-token");
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    await expect(catalog.getByRole("row").filter({ hasText: "Gateway " + suffix })).toContainText("Header key and value x-api-key");
     await expect(catalog.getByRole("row").filter({ hasText: "Gateway " + suffix })).toContainText("Not used yet");
     await catalog.getByRole("button", { name: "Credential encryption keys", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("Earlier keys stay available");
@@ -65,6 +72,12 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Endpoint " + suffix);
     await dialog.getByRole("textbox", { name: "Base URL", exact: true }).fill(fixture.endpoint);
+    await dialog.getByRole("button", { name: "Add binding", exact: true }).click();
+    await dialog.getByRole("combobox", { name: "Stored credential", exact: true }).selectOption({ label: `Gateway ${suffix} (Header key and value)` });
+    await expect(dialog.getByRole("combobox", { name: "Binding type", exact: true })).toHaveValue("header");
+    await expect(dialog.getByRole("combobox", { name: "Binding type", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("textbox", { name: "Header or query name", exact: true })).toHaveValue("x-api-key");
+    await page.screenshot({ path: "../.run/screenshots/v2-endpoint-typed-binding.png", fullPage: true });
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     const endpoints = await (await request.get("/v2.0/api/configuration/endpoints")).json();
@@ -72,6 +85,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Preview requests", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText(fixture.endpoint + "/api/chat");
     await expect(page.getByRole("dialog")).toContainText("No endpoint is contacted");
+    await expect(page.getByRole("dialog")).toContainText("x-api-key: [redacted]");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);

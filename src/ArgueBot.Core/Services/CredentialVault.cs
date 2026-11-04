@@ -61,7 +61,9 @@ namespace ArgueBot.Core.Services
             if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200 || request.Name.Any(char.IsControl)) throw new DomainException(400, "invalid_credential", "Use a safe display name up to 200 characters.");
             if (string.IsNullOrWhiteSpace(request.SecretValue) || request.SecretValue.Length > 65536) throw Invalid();
             if (request.Kind == "codex_auth_json") ValidateCodex(request.SecretValue);
-            else if ((request.Kind != "token" && request.Kind != "claude_oauth") || request.SecretValue.Any(char.IsControl)) throw Invalid();
+            else if (!new[] { "token", "claude_oauth", "http_bearer", "http_header", "http_query" }.Contains(request.Kind) || request.SecretValue.Any(char.IsControl)) throw Invalid();
+            if (request.Kind == "http_header" || request.Kind == "http_query") CatalogValidation.ParameterName(request.Kind == "http_header" ? "header" : "query", request.ParameterName);
+            else if (request.ParameterName.Length > 0) throw new DomainException(400, "invalid_credential", "Only header and query credentials take a parameter name.", "parameterName");
             await _KeyGate.WaitAsync(token).ConfigureAwait(false);
             try { return await _Database.Credentials.SaveAsync(context, id, request, Encrypt, token).ConfigureAwait(false); }
             finally { _KeyGate.Release(); }

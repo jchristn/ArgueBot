@@ -80,7 +80,8 @@ for (const [key, minimum, maximum] of [['maxParticipantTurns',1,100000],['maxOrc
 for (const key of ['questionInstructions','synthesisInstructions','summaryInstructions']) Object.assign(schemas.DebatePolicy.properties[key], {maxLength:4000});
 Object.assign(schemas.CredentialRequest.properties.secretValue, {writeOnly:true, maxLength:65536});
 schemas.CredentialRequest.required = ['name','kind','secretValue'];
-Object.assign(schemas.CredentialRequest.properties.kind, {enum:['token','claude_oauth','codex_auth_json']});
+Object.assign(schemas.CredentialRequest.properties.kind, {enum:['http_bearer','http_header','http_query','token','claude_oauth','codex_auth_json']});
+Object.assign(schemas.CredentialRequest.properties.parameterName, {maxLength:128, pattern:'^[A-Za-z0-9_-]{0,128}$'});
 Object.assign(schemas.HttpAuthBinding.properties.kind, {enum:['bearer','api_key','header','query']});
 // Publish only transport-reachable schemas; implementation/helper classes are not API contracts.
 const reachable = new Set();

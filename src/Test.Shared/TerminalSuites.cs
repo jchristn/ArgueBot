@@ -185,7 +185,7 @@ namespace Test.Shared
                 await ReviewCatalogAsync("Model", CatalogForms.Model(new ModelProfile { Name = "Local model", Model = "fixture", EndpointId = "endpoint_fixture", MaxOutputBytes = 1048576, Generation = new ModelGenerationSettings { MaxOutputTokens = 2048, Temperature = 0.25, TopP = 0.9 } }, new List<EndpointProfile> { new EndpointProfile { Id = "endpoint_fixture", Name = "Local Ollama" } }, new List<HarnessProfile>()), width, theme, token).ConfigureAwait(false);
                 CatalogEditor<CredentialRequest> credential = CatalogForms.Credential(null);
                 ((TextField)credential.Form.GetField(0)).Value = "Fictional credential";
-                ((TextField)credential.Form.GetField(2)).Value = "fictional-mask-check";
+                ((TextField)credential.Form.GetField(3)).Value = "fictional-mask-check";
                 await ReviewCatalogAsync("Credential", credential, width, theme, token).ConfigureAwait(false);
             }
         }

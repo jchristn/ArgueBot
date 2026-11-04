@@ -3181,7 +3181,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"token\",\n  \"secretValue\": \"{{credentialValue}}\"\n}",
+              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"http_header\",\n  \"parameterName\": \"x-api-key\",\n  \"secretValue\": \"{{credentialValue}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
