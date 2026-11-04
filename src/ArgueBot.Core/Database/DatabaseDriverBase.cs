@@ -1,5 +1,13 @@
 namespace ArgueBot.Core.Database
 {
+    using ArgueBot.Core.Backups;
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database.Implementations;
+    using ArgueBot.Core.Database.Interfaces;
+    using ArgueBot.Core.Helpers;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Observability;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Data;
@@ -12,14 +20,6 @@ namespace ArgueBot.Core.Database
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Backups;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database.Implementations;
-    using ArgueBot.Core.Database.Interfaces;
-    using ArgueBot.Core.Helpers;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Observability;
-    using ArgueBot.Core.Services;
 
     /// <summary>Tenant-scoped relational persistence. Operations serialize writes; readers use independent connections.</summary>
     public abstract class DatabaseDriverBase : IDisposable, IConversationMethods, IMessageMethods, IEventMethods
@@ -35,8 +35,27 @@ namespace ArgueBot.Core.Database
 
         /// <summary>Runner configuration methods.</summary>
         public IProfileMethods Profiles { get; }
+        /// <summary>Reusable connections and model configuration.</summary>
+        public ICatalogMethods Catalog { get; }
+        /// <summary>Durable per-run budget operations.</summary>
+        public IBudgetMethods Budgets { get; }
+        /// <summary>Explicit model-check history and admission.</summary>
+        public IModelCheckMethods ModelChecks { get; }
+
+        /// <summary>Encrypted credential storage and metadata.</summary>
+        public ICredentialMethods Credentials { get; }
         /// <summary>Execution checkpoint methods.</summary>
         public IRunMethods Runs { get; }
+        /// <summary>Versioned debate protocol, roster, context and agreement persistence.</summary>
+        public IDebateMethods Debates { get; }
+        /// <summary>Durable moderator context and application receipts.</summary>
+        public IInterjectionMethods Interjections { get; }
+        /// <summary>Historical roster membership and pending changes.</summary>
+        public IRosterMethods Rosters { get; }
+        /// <summary>Prompt selection and source-linked summaries.</summary>
+        public IMemoryMethods Memory { get; }
+        /// <summary>Moderator information requests.</summary>
+        public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
         public IHistoryMethods History { get; }
         /// <summary>Service-owned generation checkpoints and exact context provenance.</summary>
@@ -51,7 +70,15 @@ namespace ArgueBot.Core.Database
             ArgumentNullException.ThrowIfNull(settings);
             _Settings = settings; _BackupDirectory = backupDirectory;
             Profiles = new ProfileMethods(this);
+            Catalog = new CatalogMethods(this);
+            Budgets = new BudgetMethods(this); ModelChecks = new ModelCheckMethods(this);
+            Credentials = new CredentialMethods(this);
             Runs = new RunMethods(this);
+            Debates = new DebateMethods(this);
+            Interjections = new InterjectionMethods(this);
+            Rosters = new RosterMethods(this);
+            Memory = new MemoryMethods(this);
+            Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
         }

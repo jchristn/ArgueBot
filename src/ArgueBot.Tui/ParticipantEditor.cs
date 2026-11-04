@@ -1,16 +1,20 @@
 namespace ArgueBot.Tui
 {
+    using ArgueBot.Core.Models;
     using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Text.RegularExpressions;
-    using ArgueBot.Core.Models;
     using TUIKit.Widgets;
 
     internal sealed class ParticipantEditor
     {
         private readonly string _Id;
+        private readonly RunnerProfile _Original;
+        private readonly List<ModelProfile> _Models;
+        private readonly Dropdown<string> _ModelProfile;
+        private readonly TextField _Role = new TextField();
         private readonly Form _Form = new Form();
         private readonly TextField _Name = new TextField();
         private readonly Dropdown<string> _Kind = new Dropdown<string>(new[] { "cli", "rest" });
@@ -25,9 +29,12 @@ namespace ArgueBot.Tui
         private readonly Checkbox _Enabled = new Checkbox("Enabled for new runs", true);
         private readonly List<TextField> _Arguments = new List<TextField>();
         internal Form Form { get { return _Form; } }
-        internal ParticipantEditor(RunnerProfile? profile = null)
+        internal ParticipantEditor(RunnerProfile? profile = null, List<ModelProfile>? models = null)
         {
             profile ??= HarnessDefaults.Create("claude"); HarnessDefaults.ApplyMissing(profile); _Id = profile.Id;
+            _Original = profile; _Models = models ?? new List<ModelProfile>(); _Role.Value = profile.RoleInstructions;
+            _ModelProfile = new Dropdown<string>(new[] { "Direct participant configuration" }.Concat(_Models.Select(model => model.Name))) { SelectedIndex = _Models.FindIndex(model => model.Id == profile.ModelProfileId) + 1 };
+            _ModelProfile.SelectionChanged += (_, _) => Rebuild();
             _Name.Value = profile.Name; _Kind.SelectedIndex = profile.Kind == "rest" ? 1 : 0;
             _Provider = new Dropdown<string>(ProviderLabels()); _Provider.SelectedIndex = Array.IndexOf(Providers(), profile.Provider);
             if (_Provider.SelectedIndex < 0) _Provider.SelectedIndex = 0;
@@ -57,6 +64,10 @@ namespace ArgueBot.Tui
         {
             _Form.Clear();
             Add("Name", _Name, "Display name retained in historical participant snapshots.", () => string.IsNullOrWhiteSpace(_Name.Value) || _Name.Value.Length > 200 ? "Use one to 200 characters." : null);
+            if (_ModelProfile.SelectedIndex > 0)
+            {
+                _Form.Add("Reusable model", _ModelProfile); Add("Role instructions", _Role, "Participant or orchestrator role and priorities."); _Form.Add("", _Enabled); return;
+            }
             _Form.Add("Runner", _Kind); _Form.SetFieldHint(1, "CLI executes on the service machine; REST uses a PolyPrompt completion adapter.");
             _Form.Add("Harness / REST provider", _Provider); _Form.SetFieldHint(2, "Claude Code, Codex, Gemini CLI and Mux fill the executable and complete arguments automatically. Generic CLI requires your own configuration.");
             if (_Kind.SelectedIndex == 0)
@@ -82,12 +93,13 @@ namespace ArgueBot.Tui
             }
             Add("Timeout seconds", _Timeout, "Generation deadline, from one through 3600 seconds.", () => int.TryParse(_Timeout.Value, out int value) && value >= 1 && value <= 3600 ? null : "Use one through 3600.");
             Add("Output byte limit", _Output, "Bounded stdout/REST answer capture, 1024 through 67108864 bytes.", () => int.TryParse(_Output.Value, out int value) && value >= 1024 && value <= 67108864 ? null : "Use 1024 through 67108864.");
+            _Form.Add("Reusable model", _ModelProfile); Add("Role instructions", _Role, "Optional role and priorities. Choose a reusable model to inherit its endpoint or harness.");
             _Form.Add("", _Enabled); _Form.SetFieldHint(_Form.FieldCount - 1, "Disabling prevents new runs from choosing this profile; historical snapshots remain unchanged.");
         }
         internal RunnerProfile Extract()
         {
             bool rest = _Kind.SelectedIndex == 1;
-            return new RunnerProfile { Id = _Id, Name = _Name.Value, Kind = rest ? "rest" : "cli", Provider = Providers()[Math.Max(0, _Provider.SelectedIndex)], Endpoint = rest ? _Endpoint.Value : "", Model = rest ? _Model.Value : "", Executable = rest ? "" : _Executable.Value, WorkingDirectory = _Directory.Value, Arguments = rest ? new List<string>() : _Arguments.Select(field => field.Value).ToList(), SecretEnvironmentVariable = rest ? _Secret.Value : "", TimeoutSeconds = int.Parse(_Timeout.Value, CultureInfo.InvariantCulture), MaxOutputBytes = int.Parse(_Output.Value, CultureInfo.InvariantCulture), Enabled = _Enabled.Checked };
+            return new RunnerProfile { ModelProfileId = _ModelProfile.SelectedIndex == 0 ? "" : _Models[_ModelProfile.SelectedIndex - 1].Id, RoleInstructions = _Role.Value, AuthBindings = _Original.AuthBindings, CredentialId = _Original.CredentialId, ContextMaxCharacters = _Original.ContextMaxCharacters, SupportsTools = _Original.SupportsTools, Id = _Id, Name = _Name.Value, Kind = rest ? "rest" : "cli", Provider = Providers()[Math.Max(0, _Provider.SelectedIndex)], Endpoint = rest ? _Endpoint.Value : "", Model = rest ? _Model.Value : "", Executable = rest ? "" : _Executable.Value, WorkingDirectory = _Directory.Value, Arguments = rest ? new List<string>() : _Arguments.Select(field => field.Value).ToList(), SecretEnvironmentVariable = rest ? _Secret.Value : "", TimeoutSeconds = int.Parse(_Timeout.Value, CultureInfo.InvariantCulture), MaxOutputBytes = int.Parse(_Output.Value, CultureInfo.InvariantCulture), Enabled = _Enabled.Checked };
         }
     }
 }

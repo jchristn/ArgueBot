@@ -1,17 +1,22 @@
 namespace ArgueBot.Server
 {
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Server.Services;
     using System;
     using System.IO;
     using System.Runtime.InteropServices;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Server.Services;
 
     internal static class Program
     {
         private static async Task<int> Main(string[] args)
         {
+            if (args.Length == 2 && args[0] == "--context-mcp")
+            {
+                try { await ArgueBot.Runners.Mcp.McpBridge.RunAsync(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput()).ConfigureAwait(false); return 0; }
+                catch (Exception failure) when (failure is not OutOfMemoryException) { return 2; }
+            }
             string? home = null; int? port = null; bool detached = false;
             for (int index = 0; index < args.Length; index++)
             {

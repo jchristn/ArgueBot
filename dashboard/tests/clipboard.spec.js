@@ -11,7 +11,7 @@ test.beforeAll(async () => {
  const server=net.createServer(); await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); const port=server.address().port; await new Promise(resolve=>server.close(resolve));
  origin=`http://127.0.0.1:${port}`; expect(invoke('service','web','--port',String(port)).status).toBe(0);
 });
-test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'wait' }); });
+test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'ignoreErrors' }); });
 test.afterAll(async()=>{if(home){invoke('service','stop');await fs.rm(home,{recursive:true,force:true,maxRetries:20,retryDelay:100});}});
 async function seed(request,count=1){
  const conversation=await(await request.post(origin+'/v1.0/api/conversations',{data:{title:'Clipboard evidence'}})).json(); const messages=[];
@@ -57,8 +57,13 @@ test("HTTPS non-localhost uses the native clipboard", async ({ page, context, re
     const incoming = new URL(route.request().url());
     if (incoming.pathname.endsWith("/events")) return route.fulfill({ status: 200, contentType: "text/event-stream", body: ": heartbeat\n\n" });
     const headers = { ...route.request().headers(), origin }; delete headers.host;
-    const response = await route.fetch({ url: origin + incoming.pathname + incoming.search, headers });
-    await route.fulfill({ response });
+    // The page may abandon a proxied request during navigation; that is not a clipboard failure.
+    try {
+      const response = await route.fetch({ url: origin + incoming.pathname + incoming.search, headers });
+      await route.fulfill({ response });
+    } catch (failure) {
+      if (!/already handled|Target page, context or browser has been closed/.test(String(failure?.message))) throw failure;
+    }
   });
   await page.goto(`https://arguebot.test/dashboard/conversations/${conversation.id}`);
   expect(await page.evaluate(() => isSecureContext && !!navigator.clipboard)).toBe(true);

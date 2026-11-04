@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ArgueBot local conversation service",
-    "description": "Runnable local contract coverage. The open workspace has no accounts or credentials. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
+    "description": "Runnable local contract coverage. The open workspace has no user accounts. Provider credentials are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -43,6 +43,58 @@
     {
       "key": "allowExecution",
       "value": "false"
+    },
+    {
+      "key": "resourceRevision",
+      "value": ""
+    },
+    {
+      "key": "credentialValue",
+      "value": ""
+    },
+    {
+      "key": "credentialId",
+      "value": ""
+    },
+    {
+      "key": "endpointId",
+      "value": ""
+    },
+    {
+      "key": "harnessId",
+      "value": ""
+    },
+    {
+      "key": "modelProfileId",
+      "value": ""
+    },
+    {
+      "key": "secondProfileId",
+      "value": ""
+    },
+    {
+      "key": "thirdProfileId",
+      "value": ""
+    },
+    {
+      "key": "fourthProfileId",
+      "value": ""
+    },
+    {
+      "key": "orchestratorId",
+      "value": ""
+    },
+    {
+      "key": "replacementProfileId",
+      "value": ""
+    },
+    {
+      "key": "id",
+      "value": ""
+    },
+    {
+      "key": "commandKey",
+      "value": ""
     },
     {
       "key": "simulationEndpoint",
@@ -236,6 +288,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (!pm.variables.get('conversationRevision')) pm.execution.skipRequest();",
                   "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
                 ]
               }
@@ -457,6 +510,15 @@
           },
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -527,6 +589,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();",
                   "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
                 ]
               }
@@ -616,6 +679,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();",
                   "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
                 ]
@@ -960,6 +1024,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (!pm.variables.get('settingsRevision')) pm.execution.skipRequest();",
                   "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
                 ]
               }
@@ -1116,6 +1181,2230 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Conversations",
+      "description": "Lifecycle operations for v2 conversations. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Create a persistent conversation without starting any model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations",
+            "description": "Open workspace endpoint.  v2: Create a persistent conversation without starting any model",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example architecture decision\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('conversationId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Search owned titles and message content with exact totals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations",
+            "description": "Open workspace endpoint.  v2: Search owned titles and message content with exact totals",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Read an owned conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
+            "description": "Open workspace endpoint.  v2: Read an owned conversation",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Change title, pin or archive using an expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
+            "description": "Open workspace endpoint.  v2: Change title, pin or archive using an expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated example decision\",\n  \"pinned\": true,\n  \"archived\": false,\n  \"revision\": \"{{conversationRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationRevision')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Messages",
+      "description": "Lifecycle operations for v2 messages. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Read bounded owned message previews with stable membership and exact totals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+            "description": "Open workspace endpoint.  v2: Read bounded owned message previews with stable membership and exact totals",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('History page is bounded with membership metadata',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);pm.expect(page.throughSequence).to.be.at.most(page.latestSequence);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Append a public note with command deduplication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+            "description": "Open workspace endpoint.  v2: Append a public note with command deduplication",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Consider reversibility and ownership.\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('messageId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Read one complete owned message without loading other history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages/{{messageId}}",
+            "description": "Open workspace endpoint.  v2: Read one complete owned message without loading other history",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('messageId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Events",
+      "description": "Lifecycle operations for v2 events. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/events",
+            "description": "Open workspace endpoint.  v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Participants",
+      "description": "Lifecycle operations for v2 participants. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Create a reusable direct CLI or PolyPrompt completion profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants",
+            "description": "Open workspace endpoint.  v2: Create a reusable direct CLI or PolyPrompt completion profile",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example REST participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"timeoutSeconds\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('profileId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: List current runner profiles; excludes historical snapshots",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants",
+            "description": "Open workspace endpoint.  v2: List current runner profiles; excludes historical snapshots",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Edit a reusable profile without changing historical run snapshots",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}",
+            "description": "Open workspace endpoint.  v2: Edit a reusable profile without changing historical run snapshots",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated example participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Runs",
+      "description": "Lifecycle operations for v2 runs. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Read execution history and immutable participants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
+            "description": "Open workspace endpoint.  v2: Read execution history and immutable participants",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start a model-guided panel with an explicit orchestrator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Start a model-guided panel with an explicit orchestrator",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"protocolVersion\": 2,\n  \"mode\": \"debate\",\n  \"participantIds\": [\n    \"{{profileId}}\",\n    \"{{secondProfileId}}\",\n    \"{{thirdProfileId}}\",\n    \"{{fourthProfileId}}\"\n  ],\n  \"orchestratorId\": \"{{orchestratorId}}\",\n  \"maxRounds\": 3,\n  \"interventionSeconds\": 5,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('secondProfileId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('thirdProfileId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('fourthProfileId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('orchestratorId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));",
+                  "if(pm.response.code===202) pm.collectionVariables.set('runId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Read a durable checkpoint and current revision",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}",
+            "description": "Open workspace endpoint.  v2: Read a durable checkpoint and current revision",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"stop\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Page durable generation attempts with frozen participant, prompt and context provenance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/attempts",
+            "description": "Open workspace endpoint.  v2: Page durable generation attempts with frozen participant, prompt and context provenance",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Request History",
+      "description": "Lifecycle operations for v2 request history. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Inspect scoped request metadata with backend filtering and paging",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/request-history",
+            "description": "Open workspace endpoint.  v2: Inspect scoped request metadata with backend filtering and paging",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Return zero-filled UTC activity buckets for a bounded range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}",
+            "description": "Open workspace endpoint.  v2: Return zero-filled UTC activity buckets for a bounded range",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('Activity has fixed intervals and nonnegative counts',()=>{const rows=pm.response.json();const minutes=Number(pm.variables.get('bucketMinutes'));const from=Date.parse(pm.variables.get('fromUtc')),to=Date.parse(pm.variables.get('toUtc'));pm.expect(rows).to.be.an('array');if(rows.length){pm.expect(rows.length).to.equal(Math.ceil((to-from)/(minutes*60000)));rows.forEach((row,index)=>{pm.expect(Date.parse(row.startUtc)).to.equal(from+index*minutes*60000);pm.expect(row.success).to.be.at.least(0);pm.expect(row.failure).to.be.at.least(0);});}});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Read redacted request and response headers and body prefixes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/request-history/{{requestId}}",
+            "description": "Open workspace endpoint.  v2: Read redacted request and response headers and body prefixes",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('requestId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Delete one authorized retained request capture",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/request-history/{{requestId}}",
+            "description": "Open workspace endpoint.  v2: Delete one authorized retained request capture",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('requestId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Settings",
+      "description": "Lifecycle operations for v2 settings. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Read redacted file settings, revision and restart metadata",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/settings",
+            "description": "Open workspace endpoint.  v2: Read redacted file settings, revision and restart metadata",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('settingsRevision',pm.response.json().revision);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Atomically update allowlisted nonsecret settings using its revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/settings",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Atomically update allowlisted nonsecret settings using its revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revision\": \"{{settingsRevision}}\",\n  \"port\": 4317,\n  \"maxConcurrentRuns\": 4,\n  \"allowCli\": true,\n  \"databaseType\": \"Sqlite\",\n  \"connectionEnvironmentVariable\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('settingsRevision')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('settingsRevision',pm.response.json().revision);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/settings/restart",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Drain active work and stop the service; a supervisor may restart it",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/settings/shutdown",
+            "description": "Open workspace endpoint.  v2: Drain active work and stop the service; a supervisor may restart it",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "v2 Cleanup",
+      "description": "Lifecycle operations for v2 cleanup. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "v2: Delete a reusable participant, preserving historical snapshots",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}",
+            "description": "Open workspace endpoint.  v2: Delete a reusable participant, preserving historical snapshots",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "v2: Permanently delete a stopped conversation and its retained messages/events",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
+            "description": "Open workspace endpoint.  v2: Permanently delete a stopped conversation and its retained messages/events",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Capabilities",
+      "description": "Lifecycle operations for capabilities. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Discover panel limits and unanimity policy",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/capabilities",
+            "description": "Open workspace endpoint.  Discover panel limits and unanimity policy",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "pm.test('Explicit unanimous panel protocol is available',()=>{const value=pm.response.json();pm.expect(value.debateProtocol).to.equal(2);pm.expect(value.maxParticipants).to.be.at.least(2);pm.expect(value.consensusPolicy).to.equal('unanimous');pm.expect(value.deliveryModes).to.include.members(['interrupt_now','next_turn']);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Interjections",
+      "description": "Lifecycle operations for interjections. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Accept context with an explicit delivery mode",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+            "description": "Open workspace endpoint.  Accept context with an explicit delivery mode",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"runId\": \"{{runId}}\",\n  \"text\": \"Preserve reversibility during rollout.\",\n  \"deliveryMode\": \"next_turn\",\n  \"pinned\": true,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code<300) pm.test('Context has a durable delivery receipt',()=>{const value=pm.response.json();pm.expect(value.id).to.be.a('string');pm.expect(['interrupt_now','next_turn']).to.include(value.deliveryMode);pm.expect(value.contextEpoch).to.be.at.least(0);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read context receipts and exact participant deliveries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+            "description": "Open workspace endpoint.  Read context receipts and exact participant deliveries",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Roster",
+      "description": "Lifecycle operations for roster. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Queue a roster change with expected run revision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/roster",
+            "description": "Open workspace endpoint.  Queue a roster change with expected run revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"add\",\n  \"profileId\": \"{{replacementProfileId}}\",\n  \"revision\": 1,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('replacementProfileId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 expected', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read current and historical panel seats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/roster",
+            "description": "Open workspace endpoint.  Read current and historical panel seats",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Consensus",
+      "description": "Lifecycle operations for consensus. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Inspect exact proposals and every recorded vote; paged newest first",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/proposals",
+            "description": "Open workspace endpoint.  Inspect exact proposals and every recorded vote; paged newest first",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.test('Every proposal has explicit positions',()=>{pm.response.json().forEach(value=>{pm.expect(value.id).to.be.a('string');value.agreements.forEach(vote=>pm.expect(['agree','disagree','abstain','needs_information']).to.include(vote.position));});});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Context and evidence",
+      "description": "Lifecycle operations for context and evidence. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read shared and private summaries with paginated immutable source manifests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/summaries",
+            "description": "Open workspace endpoint.  Read shared and private summaries with paginated immutable source manifests",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read pending and answered moderator questions; paged newest first",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/clarifications",
+            "description": "Open workspace endpoint.  Read pending and answered moderator questions; paged newest first",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Configuration",
+      "description": "Lifecycle operations for configuration. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List endpoints without secret values; bounded pages default to 100 items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/endpoints",
+            "description": "Open workspace endpoint.  List endpoints without secret values; bounded pages default to 100 items",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create endpoints configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/endpoints",
+            "description": "Open workspace endpoint.  Create endpoints configuration",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{simulationEndpoint}}\",\n  \"timeoutSeconds\": 300,\n  \"enabled\": true,\n  \"authBindings\": [\n    {\n      \"kind\": \"bearer\",\n      \"credentialId\": \"{{credentialId}}\"\n    },\n    {\n      \"kind\": \"header\",\n      \"name\": \"X-Route\",\n      \"value\": \"example\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('endpointId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace endpoints configuration with expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}",
+            "description": "Open workspace endpoint.  Replace endpoints configuration with expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{simulationEndpoint}}\",\n  \"timeoutSeconds\": 300,\n  \"enabled\": true,\n  \"authBindings\": [\n    {\n      \"kind\": \"bearer\",\n      \"credentialId\": \"{{credentialId}}\"\n    },\n    {\n      \"kind\": \"header\",\n      \"name\": \"X-Route\",\n      \"value\": \"example\"\n    }\n  ],\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List harnesses without secret values; bounded pages default to 100 items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+            "description": "Open workspace endpoint.  List harnesses without secret values; bounded pages default to 100 items",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create harnesses configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+            "description": "Open workspace endpoint.  Create harnesses configuration",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('harnessId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace harnesses configuration with expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses/{{id}}",
+            "description": "Open workspace endpoint.  Replace harnesses configuration with expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true,\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List models without secret values; bounded pages default to 100 items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/models",
+            "description": "Open workspace endpoint.  List models without secret values; bounded pages default to 100 items",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create models configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/models",
+            "description": "Open workspace endpoint.  Create models configuration",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent\",\n  \"contextMaxCharacters\": 262144,\n  \"supportsTools\": true,\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('endpointId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('modelProfileId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace models configuration with expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}",
+            "description": "Open workspace endpoint.  Replace models configuration with expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent\",\n  \"contextMaxCharacters\": 262144,\n  \"supportsTools\": true,\n  \"enabled\": true,\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('endpointId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}/discover",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read observed completion/tool checks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}/checks",
+            "description": "Open workspace endpoint.  Read observed completion/tool checks",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Explicitly invoke a potentially billable model check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}/checks",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Explicitly invoke a potentially billable model check",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"{{commandKey}}\",\n  \"checkTools\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview normalized destinations and binding names without contacting the endpoint or resolving credentials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}/preview",
+            "description": "Open workspace endpoint.  Preview normalized destinations and binding names without contacting the endpoint or resolving credentials",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Credentials",
+      "description": "Lifecycle operations for credentials. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List credentials without secret values; bounded pages default to 100 items",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+            "description": "Open workspace endpoint.  List credentials without secret values; bounded pages default to 100 items",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create credentials configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+            "description": "Open workspace endpoint.  Create credentials configuration",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"token\",\n  \"secretValue\": \"{{credentialValue}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialValue')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('credentialId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.test('Credential response contains metadata only',()=>{const value=pm.response.json();pm.expect(value).not.to.have.property('secretValue');pm.expect(value).not.to.have.property('ciphertext');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace credentials configuration with expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}",
+            "description": "Open workspace endpoint.  Replace credentials configuration with expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"token\",\n  \"secretValue\": \"{{credentialValue}}\",\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialValue')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Credential response contains metadata only',()=>{const value=pm.response.json();pm.expect(value).not.to.have.property('secretValue');pm.expect(value).not.to.have.property('ciphertext');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disable a credential while keeping historical references",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}?revision={{resourceRevision}}",
+            "description": "Open workspace endpoint.  Disable a credential while keeping historical references",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read safe master-key identities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys",
+            "description": "Open workspace endpoint.  Read safe master-key identities",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rotate the expected master key and reencrypt credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/rotate",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Rotate the expected master key and reencrypt credentials",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('activeKeyId')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retire earlier master keys once no credential uses them",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/retire",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Retire earlier master keys once no credential uses them",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('activeKeyId')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
                 ]
               }
             },

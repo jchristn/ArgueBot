@@ -125,7 +125,7 @@ export default function RequestHistory() {
                   {[
                     "history.time",
                     "history.method",
-                    "history.path",
+                    "history.pathColumn",
                     "history.status",
                     "history.duration",
                     "common.actions",

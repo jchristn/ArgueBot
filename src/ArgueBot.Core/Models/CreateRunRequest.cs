@@ -6,6 +6,10 @@ namespace ArgueBot.Core.Models
     /// <summary>CreateRunRequest transport and domain data.</summary>
     public sealed class CreateRunRequest
     {
+        private DebatePolicy _Policy = new DebatePolicy();
+        /// <summary>Frozen execution limits and orchestration instructions for protocol 2.</summary>
+        public DebatePolicy Policy { get { return _Policy; } set { ArgumentNullException.ThrowIfNull(value); _Policy = value; } }
+
         private string _Mode = "debate";
         private string _Question = "";
         private List<string> _ParticipantIds = new List<string>();
@@ -27,6 +31,12 @@ namespace ArgueBot.Core.Models
 
         /// <summary>Unique command key.</summary>
         public string IdempotencyKey { get { return _IdempotencyKey; } set { ArgumentNullException.ThrowIfNull(value); _IdempotencyKey = value; } }
+
+        /// <summary>Debate protocol: 1 for historical compatibility, 2 for model-guided unanimous debates.</summary>
+        public int ProtocolVersion { get; set; } = 1;
+        private string _OrchestratorId = "";
+        /// <summary>Reusable orchestrator profile, required for protocol 2 debates.</summary>
+        public string OrchestratorId { get { return _OrchestratorId; } set { System.ArgumentNullException.ThrowIfNull(value); _OrchestratorId = value; } }
 
     }
 }

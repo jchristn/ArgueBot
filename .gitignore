@@ -23,3 +23,6 @@ test-results/
 *.arguebak
 
 *.arguebot-owner
+
+# Secret-free examples are tracked.
+!.env.example

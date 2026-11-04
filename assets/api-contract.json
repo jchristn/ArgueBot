@@ -449,6 +449,968 @@
       "query": [],
       "execute": false,
       "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations",
+      "group": "v2 Conversations",
+      "summary": "v2: Create a persistent conversation without starting any model",
+      "response": "Conversation",
+      "request": "ConversationRequest",
+      "status": 201,
+      "public": true,
+      "example": {
+        "title": "Example architecture decision"
+      },
+      "query": [],
+      "execute": false,
+      "save": "conversationId"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations",
+      "group": "v2 Conversations",
+      "summary": "v2: Search owned titles and message content with exact totals",
+      "response": "Page",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "search",
+        "archived",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}",
+      "group": "v2 Conversations",
+      "summary": "v2: Read an owned conversation",
+      "response": "Conversation",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/conversations/{conversationId}",
+      "group": "v2 Conversations",
+      "summary": "v2: Change title, pin or archive using an expected revision",
+      "response": "Conversation",
+      "request": "ConversationRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "title": "Updated example decision",
+        "pinned": true,
+        "archived": false,
+        "revision": "{{conversationRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/messages",
+      "group": "v2 Messages",
+      "summary": "v2: Read bounded owned message previews with stable membership and exact totals",
+      "response": "MessagePage",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize",
+        "throughSequence",
+        "tail"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/messages",
+      "group": "v2 Messages",
+      "summary": "v2: Append a public note with command deduplication",
+      "response": "Message",
+      "request": "CommandRequest",
+      "status": 201,
+      "public": true,
+      "example": {
+        "action": "note",
+        "text": "Consider reversibility and ownership.",
+        "idempotencyKey": "{{$guid}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": "messageId"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/events",
+      "group": "v2 Events",
+      "summary": "v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
+      "response": "List<DurableEvent>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "after",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/participants",
+      "group": "v2 Participants",
+      "summary": "v2: Create a reusable direct CLI or PolyPrompt completion profile",
+      "response": "RunnerProfile",
+      "request": "RunnerProfile",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Example REST participant",
+        "kind": "rest",
+        "provider": "ollama",
+        "endpoint": "{{simulationEndpoint}}",
+        "model": "fixture",
+        "timeoutSeconds": 5
+      },
+      "query": [],
+      "execute": false,
+      "save": "profileId"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/participants",
+      "group": "v2 Participants",
+      "summary": "v2: List current runner profiles; excludes historical snapshots",
+      "response": "List<RunnerProfile>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/participants/{profileId}",
+      "group": "v2 Participants",
+      "summary": "v2: Edit a reusable profile without changing historical run snapshots",
+      "response": "RunnerProfile",
+      "request": "RunnerProfile",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Updated example participant",
+        "kind": "rest",
+        "provider": "ollama",
+        "endpoint": "{{simulationEndpoint}}",
+        "model": "fixture",
+        "enabled": true
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs",
+      "group": "v2 Runs",
+      "summary": "v2: Read execution history and immutable participants",
+      "response": "List<DebateRun>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/runs",
+      "group": "v2 Runs",
+      "summary": "Start a model-guided panel with an explicit orchestrator",
+      "response": "DebateRun",
+      "request": "CreateRunRequest",
+      "status": 202,
+      "public": true,
+      "example": {
+        "protocolVersion": 2,
+        "mode": "debate",
+        "participantIds": [
+          "{{profileId}}",
+          "{{secondProfileId}}",
+          "{{thirdProfileId}}",
+          "{{fourthProfileId}}"
+        ],
+        "orchestratorId": "{{orchestratorId}}",
+        "maxRounds": 3,
+        "interventionSeconds": 5,
+        "idempotencyKey": "{{commandKey}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": "runId"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}",
+      "group": "v2 Runs",
+      "summary": "v2: Read a durable checkpoint and current revision",
+      "response": "DebateRun",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/actions",
+      "group": "v2 Runs",
+      "summary": "v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release",
+      "response": "Acknowledgement",
+      "request": "CommandRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "action": "stop",
+        "idempotencyKey": "{{$guid}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/request-history",
+      "group": "v2 Request History",
+      "summary": "v2: Inspect scoped request metadata with backend filtering and paging",
+      "response": "HistoryPage",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "search",
+        "method",
+        "status",
+        "fromUtc",
+        "toUtc",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/request-history/summary",
+      "group": "v2 Request History",
+      "summary": "v2: Return zero-filled UTC activity buckets for a bounded range",
+      "response": "List<ActivityBucket>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "fromUtc",
+        "toUtc",
+        "bucketMinutes"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/request-history/{requestId}",
+      "group": "v2 Request History",
+      "summary": "v2: Read redacted request and response headers and body prefixes",
+      "response": "RequestHistoryEntry",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/request-history/{requestId}",
+      "group": "v2 Request History",
+      "summary": "v2: Delete one authorized retained request capture",
+      "response": "DeletionResponse",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/settings",
+      "group": "v2 Settings",
+      "summary": "v2: Read redacted file settings, revision and restart metadata",
+      "response": "SettingsView",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/settings",
+      "group": "v2 Settings",
+      "summary": "v2: Atomically update allowlisted nonsecret settings using its revision",
+      "response": "SettingsView",
+      "request": "SettingsUpdate",
+      "status": 200,
+      "public": true,
+      "example": {
+        "revision": "{{settingsRevision}}",
+        "port": 4317,
+        "maxConcurrentRuns": 4,
+        "allowCli": true,
+        "databaseType": "Sqlite",
+        "connectionEnvironmentVariable": ""
+      },
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/settings/restart",
+      "group": "v2 Settings",
+      "summary": "v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
+      "response": "RestartResponse",
+      "request": "object",
+      "status": 202,
+      "public": true,
+      "example": {},
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/participants/{profileId}",
+      "group": "v2 Cleanup",
+      "summary": "v2: Delete a reusable participant, preserving historical snapshots",
+      "response": "DeletionResponse",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/conversations/{conversationId}",
+      "group": "v2 Cleanup",
+      "summary": "v2: Permanently delete a stopped conversation and its retained messages/events",
+      "response": "DeletionResponse",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/settings/shutdown",
+      "group": "v2 Settings",
+      "summary": "v2: Drain active work and stop the service; a supervisor may restart it",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 202,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/attempts",
+      "group": "v2 Runs",
+      "summary": "v2: Page durable generation attempts with frozen participant, prompt and context provenance",
+      "response": "AttemptPage",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/messages/{messageId}",
+      "group": "v2 Messages",
+      "summary": "v2: Read one complete owned message without loading other history",
+      "response": "Message",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/capabilities",
+      "group": "Capabilities",
+      "summary": "Discover panel limits and unanimity policy",
+      "response": "ServiceCapabilities",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/interjections",
+      "group": "Interjections",
+      "summary": "Accept context with an explicit delivery mode",
+      "response": "InterjectionReceipt",
+      "request": "InterjectionRequest",
+      "status": 201,
+      "public": true,
+      "example": {
+        "runId": "{{runId}}",
+        "text": "Preserve reversibility during rollout.",
+        "deliveryMode": "next_turn",
+        "pinned": true,
+        "idempotencyKey": "{{commandKey}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/interjections",
+      "group": "Interjections",
+      "summary": "Read context receipts and exact participant deliveries",
+      "response": "List<InterjectionReceipt>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/roster",
+      "group": "Roster",
+      "summary": "Queue a roster change with expected run revision",
+      "response": "Acknowledgement",
+      "request": "RosterChangeRequest",
+      "status": 202,
+      "public": true,
+      "example": {
+        "action": "add",
+        "profileId": "{{replacementProfileId}}",
+        "revision": 1,
+        "idempotencyKey": "{{commandKey}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/roster",
+      "group": "Roster",
+      "summary": "Read current and historical panel seats",
+      "response": "List<DebateSeat>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/proposals",
+      "group": "Consensus",
+      "summary": "Inspect exact proposals and every recorded vote; paged newest first",
+      "response": "List<DebateProposal>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/summaries",
+      "group": "Context and evidence",
+      "summary": "Read shared and private summaries with paginated immutable source manifests",
+      "response": "List<ContextSummary>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "id",
+        "sourcePageNumber"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications",
+      "group": "Context and evidence",
+      "summary": "Read pending and answered moderator questions; paged newest first",
+      "response": "List<ClarificationRequest>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/endpoints",
+      "group": "Configuration",
+      "summary": "List endpoints without secret values; bounded pages default to 100 items",
+      "response": "List<EndpointProfile>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/endpoints",
+      "group": "Configuration",
+      "summary": "Create endpoints configuration",
+      "response": "EndpointProfile",
+      "request": "EndpointProfile",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Example gateway",
+        "protocol": "openai",
+        "baseUrl": "{{simulationEndpoint}}",
+        "timeoutSeconds": 300,
+        "enabled": true,
+        "authBindings": [
+          {
+            "kind": "bearer",
+            "credentialId": "{{credentialId}}"
+          },
+          {
+            "kind": "header",
+            "name": "X-Route",
+            "value": "example"
+          }
+        ]
+      },
+      "query": [],
+      "execute": false,
+      "save": "endpointId"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/configuration/endpoints/{id}",
+      "group": "Configuration",
+      "summary": "Replace endpoints configuration with expected revision",
+      "response": "EndpointProfile",
+      "request": "EndpointProfile",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Example gateway",
+        "protocol": "openai",
+        "baseUrl": "{{simulationEndpoint}}",
+        "timeoutSeconds": 300,
+        "enabled": true,
+        "authBindings": [
+          {
+            "kind": "bearer",
+            "credentialId": "{{credentialId}}"
+          },
+          {
+            "kind": "header",
+            "name": "X-Route",
+            "value": "example"
+          }
+        ],
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/harnesses",
+      "group": "Configuration",
+      "summary": "List harnesses without secret values; bounded pages default to 100 items",
+      "response": "List<HarnessProfile>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/harnesses",
+      "group": "Configuration",
+      "summary": "Create harnesses configuration",
+      "response": "HarnessProfile",
+      "request": "HarnessProfile",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Claude Code",
+        "provider": "claude",
+        "executable": "claude",
+        "arguments": [
+          "-p",
+          "--verbose",
+          "--output-format",
+          "stream-json",
+          "--dangerously-skip-permissions"
+        ],
+        "credentialId": "{{credentialId}}",
+        "enabled": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "harnessId"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/configuration/harnesses/{id}",
+      "group": "Configuration",
+      "summary": "Replace harnesses configuration with expected revision",
+      "response": "HarnessProfile",
+      "request": "HarnessProfile",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Claude Code",
+        "provider": "claude",
+        "executable": "claude",
+        "arguments": [
+          "-p",
+          "--verbose",
+          "--output-format",
+          "stream-json",
+          "--dangerously-skip-permissions"
+        ],
+        "credentialId": "{{credentialId}}",
+        "enabled": true,
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/models",
+      "group": "Configuration",
+      "summary": "List models without secret values; bounded pages default to 100 items",
+      "response": "List<ModelProfile>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/models",
+      "group": "Configuration",
+      "summary": "Create models configuration",
+      "response": "ModelProfile",
+      "request": "ModelProfile",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Example model",
+        "endpointId": "{{endpointId}}",
+        "model": "multi-agent",
+        "contextMaxCharacters": 262144,
+        "supportsTools": true,
+        "enabled": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "modelProfileId"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/configuration/models/{id}",
+      "group": "Configuration",
+      "summary": "Replace models configuration with expected revision",
+      "response": "ModelProfile",
+      "request": "ModelProfile",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Example model",
+        "endpointId": "{{endpointId}}",
+        "model": "multi-agent",
+        "contextMaxCharacters": 262144,
+        "supportsTools": true,
+        "enabled": true,
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/credentials",
+      "group": "Credentials",
+      "summary": "List credentials without secret values; bounded pages default to 100 items",
+      "response": "List<CredentialMetadata>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/credentials",
+      "group": "Credentials",
+      "summary": "Create credentials configuration",
+      "response": "CredentialMetadata",
+      "request": "CredentialRequest",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Example gateway credential",
+        "kind": "token",
+        "secretValue": "{{credentialValue}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": "credentialId"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/configuration/credentials/{id}",
+      "group": "Credentials",
+      "summary": "Replace credentials configuration with expected revision",
+      "response": "CredentialMetadata",
+      "request": "CredentialRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Example gateway credential",
+        "kind": "token",
+        "secretValue": "{{credentialValue}}",
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/configuration/credentials/{id}",
+      "group": "Credentials",
+      "summary": "Disable a credential while keeping historical references",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "revision"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/endpoints/{id}/discover",
+      "group": "Configuration",
+      "summary": "Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials",
+      "response": "EndpointDiscovery",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/credential-keys",
+      "group": "Credentials",
+      "summary": "Read safe master-key identities",
+      "response": "CredentialKeyStatus",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/credential-keys/rotate",
+      "group": "Credentials",
+      "summary": "Rotate the expected master key and reencrypt credentials",
+      "response": "CredentialKeyStatus",
+      "request": "RotateCredentialKeyRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "expectedKeyId": "{{activeKeyId}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/credential-keys/retire",
+      "group": "Credentials",
+      "summary": "Retire earlier master keys once no credential uses them",
+      "response": "CredentialKeyStatus",
+      "request": "RotateCredentialKeyRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "expectedKeyId": "{{activeKeyId}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/models/{id}/checks",
+      "group": "Configuration",
+      "summary": "Read observed completion/tool checks",
+      "response": "List<ModelCheck>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "pageNumber"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/models/{id}/checks",
+      "group": "Configuration",
+      "summary": "Explicitly invoke a potentially billable model check",
+      "response": "ModelCheck",
+      "request": "ModelCheckRequest",
+      "status": 200,
+      "public": true,
+      "example": {
+        "idempotencyKey": "{{commandKey}}",
+        "checkTools": false
+      },
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/endpoints/{id}/preview",
+      "group": "Configuration",
+      "summary": "Preview normalized destinations and binding names without contacting the endpoint or resolving credentials",
+      "response": "EndpointPreview",
+      "status": 200,
+      "public": true,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "example": null,
+      "request": null
     }
   ]
 }

@@ -6,6 +6,12 @@ namespace ArgueBot.Core.Models
     /// <summary>DebateRun transport and domain data.</summary>
     public sealed class DebateRun
     {
+        private DebatePolicy _Policy = new DebatePolicy();
+        /// <summary>Frozen execution limits and orchestration instructions for protocol 2.</summary>
+        public DebatePolicy Policy { get { return _Policy; } set { ArgumentNullException.ThrowIfNull(value); _Policy = value; } }
+        /// <summary>Durable per-purpose invocation and tool reservations.</summary>
+        public DebateUsage Usage { get; set; } = new DebateUsage();
+
         private string _Id = "";
         private string _ConversationId = "";
         private string _State = "paused";
@@ -17,7 +23,7 @@ namespace ArgueBot.Core.Models
         public string Question { get { return _Question; } set { ArgumentNullException.ThrowIfNull(value); _Question = value; } }
 
         /// <summary>Run purpose derived from its immutable participant count.</summary>
-        public string Mode { get { return Participants.Count == 1 ? "followup" : "debate"; } }
+        public string Mode { get { return ExplicitMode.Length > 0 ? ExplicitMode : Participants.Count == 1 ? "followup" : "debate"; } }
 
         /// <summary>Stable execution identifier.</summary>
         public string Id { get { return _Id; } set { ArgumentNullException.ThrowIfNull(value); _Id = value; } }
@@ -52,5 +58,35 @@ namespace ArgueBot.Core.Models
         /// <summary>Creation time in UTC.</summary>
         public DateTime CreatedUtc { get; set; }
 
+        /// <summary>Persisted debate protocol, independent of API and product versions.</summary>
+        public int ProtocolVersion { get; set; } = 1;
+        /// <summary>Current question, response, synthesis, ratification or compaction phase.</summary>
+        public string Phase { get; set; } = "response";
+        /// <summary>Current moderator-context revision.</summary>
+        public long ContextEpoch { get; set; }
+        /// <summary>Current active roster revision.</summary>
+        public long RosterRevision { get; set; } = 1;
+        /// <summary>Immutable orchestrator configuration snapshot.</summary>
+        public RunnerProfile? Orchestrator { get; set; }
+        /// <summary>Current candidate proposal identifier.</summary>
+        public string ProposalId { get; set; } = "";
+        /// <summary>Current pointed question from the orchestrator.</summary>
+        public string CurrentQuestion { get; set; } = "";
+        /// <summary>Current ratification candidate text.</summary>
+        public string ProposalText { get; set; } = "";
+        /// <summary>Original run purpose, retained independently of roster changes.</summary>
+        public string ExplicitMode { get; set; } = "";
+        /// <summary>Phase resumed after successful context compaction.</summary>
+        public string ResumePhase { get; set; } = "";
+        internal RunnerProfile? ExecutionProfile { get; set; }
+
+        private string _CompactionRecipientId = "";
+        /// <summary>Private recipient partition for compaction; empty means shared evidence.</summary>
+        public string CompactionRecipientId { get { return _CompactionRecipientId; } set { System.ArgumentNullException.ThrowIfNull(value); _CompactionRecipientId = value; } }
+        /// <summary>True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates.</summary>
+        public bool RebuildFromOriginals { get; set; }
+
+        /// <summary>True when the previous orchestration step returned invalid structured output and the next attempt is its single repair request.</summary>
+        public bool RepairPending { get; set; }
     }
 }

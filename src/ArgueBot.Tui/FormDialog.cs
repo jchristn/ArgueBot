@@ -34,7 +34,9 @@ namespace ArgueBot.Tui
             _Form.SubmitRequested += (_, _) =>
             {
                 if (_Busy) return;
-                T value = extract();
+                T value;
+                try { value = extract(); }
+                catch (Exception failure) when (failure is not OutOfMemoryException) { _Error = failure.Message; return; }
                 if (_Submit == null) { Close(value); return; }
                 _Busy = true; _Error = ""; SetFieldsEnabled(false);
                 _ = SubmitAsync(value);

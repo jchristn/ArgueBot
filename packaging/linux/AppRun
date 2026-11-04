@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ "$#" -eq 0 ]; then
+  exec "$directory/opt/arguebot/ArgueBot.Tui"
+fi
+if [ "$1" = "--web" ]; then
+  shift
+  exec "$directory/opt/arguebot/arguebot-web" "$@"
+fi
+exec "$directory/opt/arguebot/ArgueBot.Cli" "$@"

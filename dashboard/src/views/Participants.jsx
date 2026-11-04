@@ -1,3 +1,4 @@
+import CatalogPanel from "../components/CatalogPanel.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import harnesses from "../../../assets/harness-defaults.json";
@@ -6,7 +7,7 @@ import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
-function ProfileForm({ onSave, onClose, initial }) {
+function ProfileForm({ onSave, onClose, initial, api }) {
   const { t } = useTranslation();
   const [profile, setProfile] = useState(
     initial ? { ...initial, ...(initial.kind === "cli" ? { executable: initial.executable || harnesses[initial.provider]?.executable || "", arguments: initial.arguments.length ? initial.arguments : [...(harnesses[initial.provider]?.arguments || [])] } : {}) } : {
@@ -24,6 +25,7 @@ function ProfileForm({ onSave, onClose, initial }) {
       enabled: true,
     },
   );
+  const { data: models } = useData("models", () => api.configuration("models"));
   const [busy, setBusy] = useState(false);
   const executableIsCommand = profile.kind === "cli" && /^\s*(claude|codex|gemini|mux)(\.exe)?\s+-/i.test(profile.executable);
   const field = (name, label, type = "text", extra = {}) => (
@@ -66,7 +68,9 @@ function ProfileForm({ onSave, onClose, initial }) {
             required: true,
             maxLength: 200,
           })}
-          <Field label="profile.kind">
+          <Field label="catalog.modelProfileId">{props => <select {...props} value={profile.modelProfileId || ""} onChange={event => setProfile(value => ({ ...value, modelProfileId: event.target.value }))}><option value="">{t("catalog.inline")}</option>{models?.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}</select>}</Field>
+          <Field label="catalog.roleInstructions">{props => <textarea {...props} value={profile.roleInstructions || ""} rows={3} onChange={event => setProfile(value => ({ ...value, roleInstructions: event.target.value }))} />}</Field>
+          {!profile.modelProfileId && <Field label="profile.kind">
             {(props) => (
               <select
                 {...props}
@@ -83,12 +87,13 @@ function ProfileForm({ onSave, onClose, initial }) {
               </select>
             )}
           </Field>
-          {profile.kind === "rest" && <Field label="profile.provider">
+          }
+          {!profile.modelProfileId && profile.kind === "rest" && <Field label="profile.provider">
             {(props) => <select {...props} value={profile.provider} onChange={(event) => setProfile((value) => ({ ...value, provider: event.target.value }))}>
               {["ollama", "openai", "anthropic", "gemini"].map((provider) => <option key={provider} value={provider}>{provider}</option>)}
             </select>}
           </Field>}
-          {profile.kind === "cli" ? (
+          {!profile.modelProfileId && (profile.kind === "cli" ? (
             <>
               <div>
               {field("executable", "profile.executable", "text", {
@@ -157,7 +162,7 @@ function ProfileForm({ onSave, onClose, initial }) {
                 autoComplete: "off",
               })}
             </>
-          )}
+          ))}
           {field("timeoutSeconds", "profile.timeout", "number", {
             min: 1,
             max: 3600,
@@ -292,6 +297,7 @@ export default function Participants() {
       )}
       {modal?.kind === "form" && (
         <ProfileForm
+          api={api}
           initial={modal.profile}
           onClose={() => setModal(null)}
           onSave={async (profile) => {
@@ -337,6 +343,7 @@ export default function Participants() {
           </footer>
         </Modal>
       )}
+      <CatalogPanel api={api} notify={notify} />
     </>
   );
 }

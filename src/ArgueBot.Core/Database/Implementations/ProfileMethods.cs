@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Database.Implementations
 {
+    using ArgueBot.Core.Database.Interfaces;
+    using ArgueBot.Core.Helpers;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
+    using System;
     using System.Collections.Generic;
     using System.Data.Common;
     using System.IO;
     using System.Linq;
     using System.Text.RegularExpressions;
-    using System.Threading.Tasks;
     using System.Threading;
-    using System;
-    using ArgueBot.Core.Database.Interfaces;
-    using ArgueBot.Core.Helpers;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
+    using System.Threading.Tasks;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Tenant and user-scoped runner profiles with ordered relational arguments.</summary>
@@ -23,7 +23,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Create a profile after validating protocol and resource limits.</summary>
         public async Task<RunnerProfile> CreateAsync(RequestContext context, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); HarnessDefaults.ApplyMissing(profile); Validate(profile);
+            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile);
             profile.Id = Ids.New("par_");
             await _Database.WriteAsync((connection, transaction) => InsertAsync(connection, transaction, context, profile, false, token), token).ConfigureAwait(false);
             return profile;
@@ -61,7 +61,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Update a reusable profile. Historical run snapshots are never changed.</summary>
         public async Task<RunnerProfile> UpdateAsync(RequestContext context, string id, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); HarnessDefaults.ApplyMissing(profile); Validate(profile);
+            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile);
             await ReadAsync(context, id, token).ConfigureAwait(false);
             profile.Id = id;
             await _Database.WriteAsync(async (connection, transaction) =>
@@ -69,6 +69,7 @@ namespace ArgueBot.Core.Database.Implementations
                 int changed = await ExecuteAsync(connection, transaction, "UPDATE profiles SET name=@name,kind=@kind,provider=@provider,endpoint=@endpoint,model=@model,executable=@exe,cwd=@cwd,secret_env=@secret,timeout_seconds=@timeout,max_output_bytes=@max,enabled=@enabled,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND snapshot=0", token, P("name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "immutable_snapshot", "Historical participant snapshots cannot be edited.");
                 await ExecuteAsync(connection, transaction, "DELETE FROM profile_arguments WHERE tenant_id=@tenant AND profile_id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
+                await CatalogMethods.SaveProfileAsync(connection, transaction, context, profile, token).ConfigureAwait(false);
                 for (int index = 0; index < profile.Arguments.Count; index++) await ExecuteAsync(connection, transaction, "INSERT INTO profile_arguments(id,tenant_id,profile_id,position,value,created_utc,updated_utc) VALUES(@id,@tenant,@profile,@position,@value,@now,@now)", token, P("id", Ids.New("arg_"), "tenant", context.TenantId, "profile", id, "position", index, "value", profile.Arguments[index])).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return profile;
@@ -86,7 +87,11 @@ namespace ArgueBot.Core.Database.Implementations
 
         internal static void Validate(RunnerProfile profile)
         {
+            CatalogValidation.Bindings(profile.AuthBindings);
+            CatalogValidation.ValidateEnvironment(profile.EnvironmentVariables);
+            if (profile.RoleInstructions.Length > 16000 || profile.ContextMaxCharacters < 8192 || profile.ContextMaxCharacters > 16777216) throw new DomainException(400, "invalid_profile", "Role instructions are limited to 16000 characters; model context must be 8192 through 16777216 characters.");
             if (string.IsNullOrWhiteSpace(profile.Name) || profile.Name.Length > 200) throw new DomainException(400, "invalid_profile", "Profile name must be 1 to 200 characters.");
+            CatalogValidation.ValidateGeneration(profile.Generation, profile.Kind == "rest");
             if (profile.TimeoutSeconds < 1 || profile.TimeoutSeconds > 3600 || profile.MaxOutputBytes < 1024 || profile.MaxOutputBytes > 67108864) throw new DomainException(400, "invalid_limits", "Timeout must be 1 to 3600 seconds and output 1 KiB to 64 MiB.");
             if (profile.SecretEnvironmentVariable.Length > 0 && !Regex.IsMatch(profile.SecretEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.CultureInvariant)) throw new DomainException(400, "invalid_secret_reference", "Use an environment variable name of at most 128 characters.");
             if (profile.Arguments.Count > 128 || profile.Arguments.Any(argument => argument == null || argument.Contains('\0')) || profile.Arguments.Sum(argument => (long)argument.Length) + profile.Executable.Length > 32768) throw new DomainException(400, "invalid_arguments", "Use up to 128 literal arguments and at most 32768 total command characters, without NUL bytes.");
@@ -104,7 +109,7 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out Uri? endpoint) || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || !string.IsNullOrEmpty(endpoint.UserInfo) || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0) throw new DomainException(400, "invalid_endpoint", "Use an absolute HTTP(S) endpoint without embedded credentials, query or fragment.");
                 if (profile.Provider != "ollama" && profile.Provider != "openai" && profile.Provider != "anthropic" && profile.Provider != "gemini") throw new DomainException(400, "invalid_provider", "REST provider must be ollama, openai, anthropic or gemini.");
-                if (profile.SecretEnvironmentVariable.Length > 0 && !endpoint.IsLoopback && endpoint.Scheme != Uri.UriSchemeHttps) throw new DomainException(400, "tls_required", "Credentialed remote REST endpoints require HTTPS.");
+                if ((profile.SecretEnvironmentVariable.Length > 0 || profile.AuthBindings.Count > 0) && !endpoint.IsLoopback && endpoint.Scheme != Uri.UriSchemeHttps) throw new DomainException(400, "tls_required", "Credentialed remote REST endpoints require HTTPS.");
                 if (string.IsNullOrWhiteSpace(profile.Model)) throw new DomainException(400, "invalid_model", "A model identifier is required.");
             }
             else throw new DomainException(400, "invalid_runner", "Runner kind must be cli or rest.");
@@ -113,6 +118,7 @@ namespace ArgueBot.Core.Database.Implementations
         internal static async Task InsertAsync(DbConnection connection, DbTransaction transaction, RequestContext context, RunnerProfile profile, bool snapshot, CancellationToken token)
         {
             await ExecuteAsync(connection, transaction, "INSERT INTO profiles(id,tenant_id,user_id,name,kind,provider,endpoint,model,executable,cwd,secret_env,timeout_seconds,max_output_bytes,enabled,snapshot,created_utc,updated_utc) VALUES(@id,@tenant,@user,@name,@kind,@provider,@endpoint,@model,@exe,@cwd,@secret,@timeout,@max,@enabled,@snapshot,@now,@now)", token, P("id", profile.Id, "tenant", context.TenantId, "user", context.UserId, "name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "snapshot", snapshot ? 1 : 0)).ConfigureAwait(false);
+            await CatalogMethods.SaveProfileAsync(connection, transaction, context, profile, token).ConfigureAwait(false);
             for (int index = 0; index < profile.Arguments.Count; index++) await ExecuteAsync(connection, transaction, "INSERT INTO profile_arguments(id,tenant_id,profile_id,position,value,created_utc,updated_utc) VALUES(@id,@tenant,@profile,@position,@value,@now,@now)", token, P("id", Ids.New("arg_"), "tenant", context.TenantId, "profile", profile.Id, "position", index, "value", profile.Arguments[index])).ConfigureAwait(false);
         }
         internal static RunnerProfile Read(DbDataReader reader)
@@ -121,6 +127,7 @@ namespace ArgueBot.Core.Database.Implementations
         }
         internal static async Task LoadArgumentsAsync(DbConnection connection, DbTransaction? transaction, RunnerProfile profile, CancellationToken token)
         {
+            await CatalogMethods.LoadProfileAsync(connection, transaction, profile, token).ConfigureAwait(false);
             using (DbCommand command = Command(connection, transaction, "SELECT value FROM profile_arguments WHERE profile_id=@id ORDER BY position", P("id", profile.Id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             { while (await reader.ReadAsync(token).ConfigureAwait(false)) profile.Arguments.Add(reader.GetString(0)); }

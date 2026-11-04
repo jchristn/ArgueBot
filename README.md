@@ -6,9 +6,21 @@
 
 <p align="center"><strong>Put agents in conversation, challenge their answers, and keep the history.</strong></p>
 
-ArgueBot runs structured debates between two or three participants and supports follow-up questions to individual agents. Its C# TUI and React web dashboard share one persistent service, so you can switch interfaces without losing conversations or stopping accepted work. A scriptable C# CLI uses that same service.
+ArgueBot runs structured debates between a configurable panel of agents and supports follow-up questions to individual agents. Its C# TUI and React web dashboard share one persistent service, so you can switch interfaces without losing conversations or stopping accepted work. A scriptable C# CLI uses that same service.
 
 Participants can use Claude Code, Codex, Gemini CLI, Mux, a generic CLI harness, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
+
+## What's new in v2.x
+
+The v2.0.0 feature branch brings Claude, Codex, Gemini and a DeepSeek model served through Ollama or an OpenAI-compatible endpoint into one debate. Choose a panel and an orchestrator, then add, remove or replace seats at safe boundaries. Every context submission offers **Interrupt now** or **Use in next turn**.
+
+The orchestrator asks focused questions, proposes a synthesis and summarizes long discussions. Agents can retrieve original turns, inspect supporting evidence and ask the moderator for clarification. Original history remains available alongside the summaries. Consensus requires every active seat to explicitly agree on the same proposal; unresolved disagreement stays visible.
+
+Reusable harnesses, models and endpoints support bearer tokens, API-key headers, custom headers and query-string credentials. Web and terminal configuration can import Claude OAuth tokens and Codex `auth.json` documents obtained through CLI login. Explicit model checks distinguish declared capabilities from an observed completion or tool round trip. Reusable models retain output limits and optional HTTP sampling settings. Harnesses explicitly select additional service environment variables instead of inheriting unrelated credentials. Run setup includes separate execution budgets and orchestration guidance. Private context has its own summary partition, and structured summaries link back to paged original sources, content hashes and earlier summaries. Credential inspection records the revision used; master-key rotation preserves older keys for recovery. The scriptable CLI and native client expose the same debate and configuration workflows.
+
+This is an implementation preview targeting **v2.0.0**, with release gates still open. See the [v2 usage guide](docs/MULTIPLE_AGENTS.md), [Docker guide](docker/README.md), [model tool contract](MCP_API.md), [implementation plan](MULTIPLE_AGENTS_PLAN.md). Existing protocol 1 histories retain their original rules.
+
+Self-contained distribution builds bundle the service, dashboard, CLI and TUI for Windows, macOS and Linux on x64 and ARM64. See [building and checking packages](packaging/README.md) for native installer formats and verification commands. These are local preview artifacts; no v2.0.0 release or package-manager entry has been published. Windows packages are unsigned. macOS bundles use free ad-hoc signatures and are not notarized. After reviewing the source and checksum, Windows users can choose **More info > Run anyway**, and macOS users can choose **Privacy & Security > Open Anyway** if the operating system blocks launch.
 
 ## Getting started
 
@@ -52,7 +64,7 @@ CLI harnesses and REST local tools execute on the service machine, within the co
 
 ## Terminal interface
 
-Use **Start debate** to enter a question, choose speakers, set debate options and review before submission. The service runs the debate while the TUI displays committed history and current state.
+Use **Start debate** to enter a question, choose speakers and an orchestrator, set debate options and review before submission. The service runs the debate while the TUI displays committed history and current state.
 
 Useful controls include:
 
@@ -127,3 +139,7 @@ See [development and verification](docs/DEVELOPMENT.md), [service operations](do
 ## License
 
 MIT. See [LICENSE.md](LICENSE.md).
+
+## AOT support
+
+Not supported. The service and persistence layer use reflection-based `System.Text.Json` serialization of runtime-selected request and provider types, without generated serialization metadata. The current application and dependency stack has not been made trim-safe. Release builds and the full .NET 8/.NET 10 shared test matrix are JIT builds; they do not establish native AOT compatibility.

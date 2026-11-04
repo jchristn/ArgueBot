@@ -80,7 +80,8 @@ namespace Test.Shared
                 foreach (string line in await File.ReadAllLinesAsync(source, token).ConfigureAwait(false))
                 {
                     BackupRecord record = JsonSerializer.Deserialize<BackupRecord>(line)!;
-                    if (record.Table.StartsWith("authorization_", StringComparison.Ordinal) || record.Table == "generation_attempts" || record.Table == "attempt_context") continue;
+                    // Schema four predates authorization, execution attempts and the v2 registry/debate tables.
+                    if (record.Table.StartsWith("authorization_", StringComparison.Ordinal) || record.Table.StartsWith("attempt_", StringComparison.Ordinal) || record.Table.StartsWith("debate_", StringComparison.Ordinal) || record.Table.StartsWith("connection_", StringComparison.Ordinal) || record.Table == "generation_attempts") continue;
                     if (record.Kind == "header") record.SchemaVersion = 4;
                     if (record.Kind == "table")
                     {

@@ -1,0 +1,47 @@
+name: arguebot
+services:
+  arguebot:
+    image: arguebot:local-v2
+    build:
+      context: ..
+      dockerfile: docker/app/Dockerfile
+    init: true
+    ports:
+      - "127.0.0.1:${ARGUEBOT_PORT:-4317}:4317"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - arguebot-data:/data
+      - arguebot-keys:/data/secrets
+      - arguebot-work:/work
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "4", "http://127.0.0.1:4317/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+  ollama:
+    image: ollama/ollama:0.40.13
+    profiles: [ollama]
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      # The Ollama image ships its CLI but not curl; "ollama list" calls the local HTTP API, so it fails until the server answers.
+      test: ["CMD-SHELL", "OLLAMA_HOST=http://127.0.0.1:11434 ollama list >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+
+volumes:
+  arguebot-data:
+  arguebot-keys:
+  arguebot-work:
+  ollama-models:

@@ -1,5 +1,10 @@
 namespace ArgueBot.Server.Routes
 {
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database;
+    using ArgueBot.Core.Database.Implementations;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
@@ -7,11 +12,6 @@ namespace ArgueBot.Server.Routes
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database;
-    using ArgueBot.Core.Database.Implementations;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
     using WatsonWebserver;
     using WatsonWebserver.Core;
     using WatsonWebserver.Core.OpenApi;
@@ -22,9 +22,9 @@ namespace ArgueBot.Server.Routes
         private readonly ConversationEngine _Engine;
         private readonly ServiceSettings _Settings;
         internal ConversationRoutes(DatabaseDriverBase database, ConversationEngine engine, ServiceSettings settings) { _Database = database; _Engine = engine; _Settings = settings; }
-        internal void Register(Webserver server)
+        internal void Register(Webserver server, string api = "/v1.0/api")
         {
-            server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
+            server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, api + "/conversations", http => Api.GuardAsync(http, async () =>
             {
                 string search = http.Request.RetrieveQueryValue("search") ?? "";
                 int page = int.TryParse(http.Request.RetrieveQueryValue("pageNumber"), out int parsedPage) ? parsedPage : 1;
@@ -32,9 +32,9 @@ namespace ArgueBot.Server.Routes
                 bool archive = http.Request.RetrieveQueryValue("archived") == "true";
                 await Api.SendAsync(http, await _Database.EnumerateConversationsAsync(Api.Context(http), search, archive, page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Search owned conversations", "Conversations"));
-            server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, "/v1.0/api/conversations", http => Api.GuardAsync(http, async () =>
+            server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, api + "/conversations", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.CreateConversationAsync(Api.Context(http), Api.Body<ConversationRequest>(http).Title, http.Token).ConfigureAwait(false), 201).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Create a conversation", "Conversations"));
-            string root = "/v1.0/api/conversations/{conversationId}";
+            string root = api + "/conversations/{conversationId}";
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root, http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.ReadConversationAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read conversation", "Conversations"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.PUT, root, http => Api.GuardAsync(http, async () =>
@@ -55,7 +55,7 @@ namespace ArgueBot.Server.Routes
             {
                 CommandRequest request = Api.Body<CommandRequest>(http);
                 if (string.IsNullOrWhiteSpace(request.Text) || string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.Action != "note") throw new DomainException(400, "invalid_message", "Use action note with text and idempotencyKey; directives use run actions.");
-                await Api.SendAsync(http, await _Database.AppendMessageAsync(Api.Context(http), new Message { ConversationId = Api.Parameter(http, "conversationId"), Content = request.Text, Kind = "note" }, request.IdempotencyKey, http.Token).ConfigureAwait(false), 201).ConfigureAwait(false);
+                await Api.SendAsync(http, await _Engine.AppendNoteAsync(Api.Context(http), Api.Parameter(http, "conversationId"), request, http.Token).ConfigureAwait(false), 201).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Append idempotent public note", "Messages"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/events", http => Api.GuardAsync(http, async () =>
             {
@@ -68,7 +68,7 @@ namespace ArgueBot.Server.Routes
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Runs.EnumerateAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("List conversation runs", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, root + "/runs", http => Api.GuardAsync(http, async () =>
-            { await Api.SendAsync(http, await _Engine.StartAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Body<CreateRunRequest>(http), http.Token).ConfigureAwait(false), 202).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Start durable debate run", "Runs"));
+            { await Api.SendAsync(http, await _Engine.StartAsync(Api.Context(http), Api.Parameter(http, "conversationId"), RunRequest(http, api), http.Token).ConfigureAwait(false), 202).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Start durable debate run", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs/{runId}", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Runs.ReadAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read run checkpoint", "Runs"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root + "/runs/{runId}/attempts", http => Api.GuardAsync(http, async () =>
@@ -84,6 +84,12 @@ namespace ArgueBot.Server.Routes
                 await _Engine.ApplyAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), Api.Body<CommandRequest>(http), http.Request.Headers["x-client-id"] ?? "default", http.Token).ConfigureAwait(false);
                 await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Apply moderator command", "Runs"));
+        }
+        private static CreateRunRequest RunRequest(HttpContextBase http, string api)
+        {
+            CreateRunRequest request = Api.Body<CreateRunRequest>(http);
+            if (api == "/v2.0/api") request.ProtocolVersion = 2;
+            return request;
         }
         private async Task StreamAsync(HttpContextBase http, long after, int pageSize)
         {

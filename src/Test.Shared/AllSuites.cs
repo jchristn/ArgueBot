@@ -20,6 +20,7 @@ namespace Test.Shared
                 suites.AddRange(BackupSuites.All);
                 suites.AddRange(ServiceLifecycleSuites.All);
                 suites.AddRange(ConfigurationSuites.All);
+                suites.AddRange(PackagingSuites.All);
                 suites.AddRange(SecuritySuites.All); suites.AddRange(RunnerSuites.All); suites.AddRange(ProviderSuites.All); return suites;
             }
         }

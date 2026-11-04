@@ -27,6 +27,7 @@ namespace ArgueBot.Runners.Processes
                 if (profile.WorkingDirectory.Length > 0) start.WorkingDirectory = profile.WorkingDirectory;
                 List<string> arguments = profile.Arguments.Count > 0 ? profile.Arguments : Defaults(profile.Provider);
                 foreach (string argument in arguments) start.ArgumentList.Add(argument);
+                HarnessEnvironment.Apply(start, profile);
                 process.StartInfo = start;
                 if (!process.Start()) throw new IOException("Agent process could not start.");
                 using (CancellationTokenRegistration registration = execution.Register(() => Kill(process)))
@@ -49,16 +50,20 @@ namespace ArgueBot.Runners.Processes
                     catch (Exception exception) when (exception is not OutOfMemoryException)
                     {
                         Kill(process);
+                        Exception failure = exception;
+                        if (exception is OperationCanceledException && timeout.IsCancellationRequested && !token.IsCancellationRequested)
+                            failure = new DomainException(504, "generation_timeout", "The agent exceeded the configured generation deadline.");
                         string record = exception.Data["ArgueBot.TriggeringRecord"] as string ?? "";
-                        exception.Data[RunnerFailureDiagnostics.ExceptionDataKey] = new RunnerFailureDiagnostics
+                        failure.Data[RunnerFailureDiagnostics.ExceptionDataKey] = new RunnerFailureDiagnostics
                         {
                             Provider = profile.Provider,
-                            Detail = Limit(exception.Message + (exception.InnerException == null ? "" : " " + exception.InnerException.Message)),
+                            Detail = Limit(failure.Message + (exception.InnerException == null ? "" : " " + exception.InnerException.Message)),
                             StandardOutput = stdout.ToString(), StandardError = stderr.ToString(),
                             TriggeringRecord = Limit(record),
                             Truncated = stdout.Truncated || stderr.Truncated || record.Length > RunnerFailureDiagnostics.CaptureCharacters,
                             ExitCode = process.HasExited ? process.ExitCode : null
                         };
+                        if (!ReferenceEquals(failure, exception)) throw failure;
                         throw;
                     }
                     finally { if (!process.HasExited) Kill(process); }

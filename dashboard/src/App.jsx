@@ -110,7 +110,7 @@ function Shell({ theme, toggleTheme, notify }) {
         <div className="sidebar-footer">
           <span className="status-dot" />
           <span>{t("common.connected")}</span>
-          <code>0.1.0</code>
+          <code>2.0.0</code>
         </div>
       </aside>
       <div className="app-main">
@@ -143,9 +143,9 @@ function Shell({ theme, toggleTheme, notify }) {
 
           </div>
         </header>
-        <div className="route-content">
+        <main className="route-content">
           <Outlet context={{ api, notify }} />
-        </div>
+        </main>
       </div>
     </div>
   );

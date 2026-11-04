@@ -1,14 +1,14 @@
 namespace ArgueBot.Tui
 {
+    using ArgueBot.Client;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Net.Http;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Client;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
@@ -20,12 +20,13 @@ namespace ArgueBot.Tui
     internal sealed class ConversationApp
     {
         private readonly ArgueBotClient _Client;
+        private readonly Dictionary<string, string> _ContextKeys = new Dictionary<string, string>();
         private readonly ButtonRow _Actions = new ButtonRow();
         private readonly ConversationListView _Threads = new ConversationListView();
         private readonly Pane _Transcript = new Pane("transcript");
-        private readonly TextField _Composer = new TextField { Placeholder = "Add context only (Enter sends). Use Follow-up to ask an agent." };
+        private readonly TextField _Composer = new TextField { Placeholder = "Context for the debate. Use Follow-up to ask one agent." };
         private readonly Label _ConversationHeading = new Label(Text.From("Conversations"));
-        private readonly Label _NoteHeading = new Label(Text.From("Note: Enter sends"));
+        private readonly Label _NoteHeading = new Label(Text.From("Add context: Enter sends"));
         private readonly Label _HistoryTitle = new Label(Text.From("Shared debate history"));
         private readonly Label _Feedback = new Label(Text.From("Connecting to the local service..."));
         private int _ActionInProgress;
@@ -139,7 +140,7 @@ namespace ArgueBot.Tui
             if (_App == null) return;
             _Composer.ApplyTheme(TerminalTheme.Inputs(_App.Theme));
             _ConversationHeading.Content = Text.From("Conversations", _App.Theme.Muted);
-            _NoteHeading.Content = Text.From("Note: Enter sends", _App.Theme.Muted);
+            _NoteHeading.Content = Text.From("Add context: Enter sends", _App.Theme.Muted);
             _HistoryTitle.Content = Text.From(_SelectedTitle ?? "Shared debate history", _App.Theme.Text).Bold();
             _LastContent = "";
         }
@@ -183,16 +184,16 @@ namespace ArgueBot.Tui
                 Dictionary<string, string> failures = new Dictionary<string, string>();
                 if (selected != null)
                 {
-                    foreach (string runId in history.Items.Where(message => message.State == "failed" && message.RunId != null).Select(message => message.RunId!).Distinct())
+                    foreach (string runId in history.Items.Where(message => (message.State == "failed" || message.State == "interrupted") && message.RunId != null).Select(message => message.RunId!).Distinct())
                     {
-                        HashSet<string> needed = history.Items.Where(message => message.RunId == runId && message.State == "failed").Select(message => message.Id).ToHashSet();
+                        HashSet<string> needed = history.Items.Where(message => message.RunId == runId && (message.State == "failed" || message.State == "interrupted")).Select(message => message.Id).ToHashSet();
                         try
                         {
                             int attemptPage = 1;
                             while (needed.Count > 0)
                             {
                                 AttemptPage attempts = await _Client.AttemptsAsync(selected, runId, attemptPage, 100, token).ConfigureAwait(false);
-                                foreach (GenerationAttempt attempt in attempts.Items.Where(attempt => attempt.State == "failed"))
+                                foreach (GenerationAttempt attempt in attempts.Items.Where(attempt => attempt.State == "failed" || attempt.State == "interrupted"))
                                 {
                                     if (needed.Remove(attempt.MessageId)) failures[attempt.MessageId] = attempt.ErrorMessage;
                                 }
@@ -219,7 +220,7 @@ namespace ArgueBot.Tui
                     if (index >= 0) _Threads.Select(index);
                     _TotalPages = Math.Max(1, (int)Math.Min(int.MaxValue, (page.TotalCount + page.PageSize - 1) / Math.Max(1, page.PageSize)));
                     if (_LastContent != content) { TranscriptFormatter.Render(_Transcript, history.Items, _App!.Theme, title, failures); _LastContent = content; }
-                    if (DateTime.UtcNow >= _FeedbackUntil) _Feedback.Content = Text.From("Connected | " + page.TotalCount + " conversations | Page " + _Page + "/" + _TotalPages + " | " + history.TotalCount + " messages", _App!.Theme.Muted);
+                    if (DateTime.UtcNow >= _FeedbackUntil) _Feedback.Content = Text.From("Connected | " + page.TotalCount + (page.TotalCount == 1 ? " conversation" : " conversations") + " | Page " + _Page + "/" + _TotalPages + " | " + history.TotalCount + " messages", _App!.Theme.Muted);
                     return Task.FromResult(true);
                 }).ConfigureAwait(false);
             }
@@ -265,9 +266,10 @@ namespace ArgueBot.Tui
         {
             if (_App == null) return;
             List<RunnerProfile> profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
-            string[] choices = new[] { "Add agent: CLI harness or REST model" }.Concat(profiles.Select(profile => profile.Name + " [" + profile.Kind + "/" + profile.Provider + "]" + (profile.Enabled ? "" : " disabled"))).ToArray();
+            string[] choices = new[] { "Add agent: CLI harness or REST model" }.Concat(profiles.Select(profile => profile.Name + " [" + profile.Kind + "/" + profile.Provider + "]" + (profile.Enabled ? "" : " disabled"))).Concat(new[] { "Connections, models and credentials" }).ToArray();
             int selected = await UiAsync(() => _App.SelectStyledAsync("Agents: choose Add agent, or select an existing agent", choices)).ConfigureAwait(false);
             if (selected < 0) return;
+            if (selected == profiles.Count + 1) { await CatalogAsync().ConfigureAwait(false); return; }
             RunnerProfile? profile = selected == 0 ? null : profiles[selected - 1];
             if (profile != null)
             {
@@ -287,9 +289,10 @@ namespace ArgueBot.Tui
                 if (kind < 0) return;
                 preset = AgentPresets.Create(kind);
             }
+            List<ModelProfile> models = await _Client.ModelsAsync(_Token).ConfigureAwait(false);
             RunnerProfile? updated = await UiAsync(async () =>
             {
-                ParticipantEditor editor = new ParticipantEditor(profile ?? preset);
+                ParticipantEditor editor = new ParticipantEditor(profile ?? preset, models);
                 FormDialog<RunnerProfile> dialog = new FormDialog<RunnerProfile>(profile == null ? "Add agent" : "Edit agent", editor.Form, editor.Extract, _App, async candidate =>
                 {
                     if (profile == null) await _Client.CreateParticipantAsync(candidate, _Token).ConfigureAwait(false);
@@ -300,6 +303,129 @@ namespace ArgueBot.Tui
             }).ConfigureAwait(false);
             if (updated == null) return;
             _App.Post(() => { _FeedbackUntil = DateTime.UtcNow.AddSeconds(5); _Feedback.Content = Text.From("Agent saved. Choose New or Start debate to use it.", _App.Theme.Success); });
+        }
+        private static string CredentialKindLabel(string kind) { return kind == "claude_oauth" ? "Claude Code OAuth token" : kind == "codex_auth_json" ? "Codex auth.json" : "HTTP token or API key"; }
+        private static string CredentialStatusLabel(string status) { return status == "ready" ? "ready" : status == "disabled" ? "disabled" : status == "refresh_uncertain" ? "sign-in needed: refresh result unknown, replace auth.json" : status; }
+        private async Task CatalogAsync()
+        {
+            int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "CLI harnesses", "Models", "Credentials (write-only)", "Credential encryption keys")).ConfigureAwait(false);
+            if (kind < 0) return;
+            if (kind == 4)
+            {
+                CredentialKeyStatus status = await _Client.CredentialKeysAsync(_Token).ConfigureAwait(false);
+                int action = await UiAsync(() => _App!.SelectStyledAsync("Credential encryption: active " + status.ActiveKeyId + ", " + status.RetainedKeyCount + (status.RetainedKeyCount == 1 ? " key" : " keys"), "Rotate master key and reencrypt stored credentials", status.RetainedKeyCount > 1 ? "Retire earlier keys (older backups lose their credentials)" : "Retire earlier keys (none to retire)", "Back")).ConfigureAwait(false);
+                if (action == 0)
+                {
+                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Rotate the master key? Credential values and revisions stay the same. Previous keys remain for recovery until you retire them. Back up the protected secrets directory after rotation.")).ConfigureAwait(false)) return;
+                    CredentialKeyStatus rotated = await _Client.RotateCredentialKeyAsync(status.ActiveKeyId, _Token).ConfigureAwait(false);
+                    await ReadPanelAsync("Credential key rotated", rotated.ReencryptedCredentials + " credentials reencrypted." + (rotated.SkippedCredentials > 0 ? " " + rotated.SkippedCredentials + " disabled credentials could not be read and were left unchanged; replace them to include them." : "") + " Active key: " + rotated.ActiveKeyId + "\nBack up the protected secrets directory separately from the database.").ConfigureAwait(false);
+                }
+                else if (action == 1 && status.RetainedKeyCount > 1)
+                {
+                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Retire " + (status.RetainedKeyCount - 1) + " earlier keys? Database backups made before the latest rotation will no longer be able to decrypt their credentials with this keyring. Every current credential already uses the active key or this is refused.", "Retire earlier keys", "Keep them")).ConfigureAwait(false)) return;
+                    CredentialKeyStatus retired = await _Client.RetireCredentialKeysAsync(status.ActiveKeyId, _Token).ConfigureAwait(false);
+                    await ReadPanelAsync("Earlier keys retired", retired.RetiredKeyCount + " earlier keys removed. One active key remains: " + retired.ActiveKeyId + "\nBack up the protected secrets directory now.").ConfigureAwait(false);
+                }
+                return;
+            }
+            List<CredentialMetadata> credentials = await _Client.CredentialsAsync(_Token).ConfigureAwait(false);
+            if (kind == 0)
+            {
+                List<EndpointProfile> items = await _Client.EndpointsAsync(_Token).ConfigureAwait(false);
+                int selected = await ChooseCatalogAsync(items.Select(item => item.Name + (item.Enabled ? "" : " (disabled)"))).ConfigureAwait(false); if (selected < 0) return;
+                if (selected > 0)
+                {
+                    int action = await UiAsync(() => _App!.SelectStyledAsync(items[selected - 1].Name, "Edit endpoint", "Check connection / list models (contacts endpoint; no completion)", "Preview requests (no endpoint contact)", "Back")).ConfigureAwait(false);
+                    if (action < 0 || action == 3) return;
+                    if (action == 2)
+                    {
+                        EndpointPreview preview = await _Client.PreviewEndpointAsync(items[selected - 1].Id, _Token).ConfigureAwait(false);
+                        await ReadPanelAsync("Request preview", "Saved configuration only; no endpoint contacted or credential resolved. All values are redacted.\n\nPOST " + preview.GenerationUrl + "\n\nGET " + preview.DiscoveryUrl + "\n\nConfigured HTTP headers:\n\n" + (preview.HeaderNames.Count == 0 ? "None" : string.Join("\n\n", preview.HeaderNames.Select(name => name + ": [redacted]"))) + "\n\nConfigured query parameters:\n\n" + (preview.QueryNames.Count == 0 ? "None" : string.Join("\n\n", preview.QueryNames.Select(name => name + "=[redacted]"))) + "\n\nStandard protocol headers are added by the transport.").ConfigureAwait(false);
+                        return;
+                    }
+                    if (action == 1)
+                    {
+                        EndpointDiscovery discovery = await _Client.DiscoverEndpointAsync(items[selected - 1].Id, _Token).ConfigureAwait(false);
+                        await UiAsync(() => _App!.SelectStyledAsync("Connection succeeded; advertised models (capabilities unverified)", discovery.Models.Count == 0 ? new[] { "No advertised models; enter an ID manually" } : discovery.Models.Concat(discovery.Truncated ? new[] { "More models omitted; enter an ID manually" } : Array.Empty<string>()).ToArray())).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                await EditCatalogAsync("HTTP endpoint", CatalogForms.Endpoint(selected == 0 ? new EndpointProfile() : items[selected - 1], credentials), async value => { await _Client.SaveEndpointAsync(value, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
+            }
+            else if (kind == 1)
+            {
+                List<HarnessProfile> items = await _Client.HarnessesAsync(_Token).ConfigureAwait(false);
+                int selected = await ChooseCatalogAsync(items.Select(item => item.Name + (item.Enabled ? "" : " (disabled)"))).ConfigureAwait(false); if (selected < 0) return;
+                HarnessProfile value;
+                if (selected == 0)
+                {
+                    int preset = await UiAsync(() => _App!.SelectStyledAsync("Choose a CLI preset", "Claude Code", "Codex", "Gemini CLI", "Mux", "Generic CLI")).ConfigureAwait(false); if (preset < 0) return;
+                    RunnerProfile defaults = HarnessDefaults.Create(new[] { "claude", "codex", "gemini", "mux", "plain" }[preset]);
+                    value = new HarnessProfile { Name = defaults.Name, Provider = defaults.Provider, Executable = defaults.Executable, Arguments = defaults.Arguments };
+                }
+                else value = items[selected - 1];
+                await EditCatalogAsync("CLI harness", CatalogForms.Harness(value, credentials), async candidate => { await _Client.SaveHarnessAsync(candidate, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
+            }
+            else if (kind == 2)
+            {
+                List<ModelProfile> items = await _Client.ModelsAsync(_Token).ConfigureAwait(false);
+                int selected = await ChooseCatalogAsync(items.Select(item => item.Name + (item.Enabled ? "" : " (disabled)"))).ConfigureAwait(false); if (selected < 0) return;
+                if (selected > 0)
+                {
+                    int action = await UiAsync(() => _App!.SelectStyledAsync(items[selected - 1].Name, "Edit model", "Observed completion and tool checks", "Back")).ConfigureAwait(false);
+                    if (action < 0 || action == 2) return;
+                    if (action == 1) { await ModelChecksAsync(items[selected - 1]).ConfigureAwait(false); return; }
+                }
+                List<EndpointProfile> endpoints = await _Client.EndpointsAsync(_Token).ConfigureAwait(false); List<HarnessProfile> harnesses = await _Client.HarnessesAsync(_Token).ConfigureAwait(false);
+                await EditCatalogAsync("Reusable model", CatalogForms.Model(selected == 0 ? new ModelProfile() : items[selected - 1], endpoints, harnesses), async value => { await _Client.SaveModelAsync(value, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
+            }
+            else
+            {
+                int selected = await ChooseCatalogAsync(credentials.Select(item => item.Name + " [" + CredentialKindLabel(item.Kind) + "] " + CredentialStatusLabel(item.Status))).ConfigureAwait(false); if (selected < 0) return;
+                CredentialMetadata? item = selected == 0 ? null : credentials[selected - 1];
+                if (item != null)
+                {
+                    int action = await UiAsync(() => _App!.SelectStyledAsync(item.Name, "Replace value", "Disable credential", "Back")).ConfigureAwait(false); if (action < 0 || action == 2) return;
+                    if (action == 1) { await _Client.DisableCredentialAsync(item.Id, item.Revision, _Token).ConfigureAwait(false); return; }
+                }
+                await EditCatalogAsync("Import credential (write-only)", CatalogForms.Credential(item), async value => { await _Client.SaveCredentialAsync(item?.Id ?? "", value, _Token).ConfigureAwait(false); value.SecretValue = ""; }).ConfigureAwait(false);
+            }
+        }
+        private async Task ModelChecksAsync(ModelProfile model)
+        {
+            int page = 1;
+            while (true)
+            {
+                List<ModelCheck> checks = await _Client.ModelChecksAsync(model.Id, page, _Token).ConfigureAwait(false);
+                List<string> choices = new List<string> { "Test completion (invokes model; may incur cost)", "Test completion and harmless tool round trip (may incur cost)" };
+                choices.AddRange(checks.Select(check => check.State + ": model revision " + check.ModelRevision + ", transport revision " + check.TransportRevision + " / " + check.CreatedUtc.ToString("u", System.Globalization.CultureInfo.InvariantCulture)));
+                int previous = -1; int next = -1;
+                if (page > 1) { previous = choices.Count; choices.Add("Previous checks"); }
+                if (checks.Count == 25) { next = choices.Count; choices.Add("Next checks"); }
+                int back = choices.Count; choices.Add("Back");
+                int selected = await UiAsync(() => _App!.SelectStyledAsync(model.Name + ": observed checks, page " + page, choices.ToArray())).ConfigureAwait(false);
+                if (selected < 0 || selected == back) return;
+                if (selected == previous) { page--; continue; }
+                if (selected == next) { page++; continue; }
+                ModelCheck result;
+                if (selected < 2)
+                {
+                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Invoke this model? This may incur provider cost. A tool check can require a second completion. CLI checks use the configured harness permissions. Check output is discarded; only safe capability observations are retained.")).ConfigureAwait(false)) continue;
+                    result = await _Client.CheckModelAsync(model.Id, new ModelCheckRequest { CheckTools = selected == 1, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+                }
+                else result = checks[selected - 2];
+                await ReadPanelAsync("Observed model check", "State: " + result.State + "\n\nCompletion observed: " + result.CompletionVerified + "\n\nTool round trip observed: " + result.ToolsVerified + "\n\nModel revision: " + result.ModelRevision + "\n\nTransport revision: " + result.TransportRevision + "\n\nExecutable version: " + (result.ExecutableVersion.Length == 0 ? "Unverified" : result.ExecutableVersion) + "\n\nSafe error code: " + result.ErrorCode + "\n\nA successful check does not certify debate quality or every model capability.").ConfigureAwait(false);
+            }
+        }
+        private Task<int> ChooseCatalogAsync(IEnumerable<string> names)
+        { return UiAsync(() => _App!.SelectStyledAsync("Add or edit configuration", new[] { "Add new configuration" }.Concat(names).ToArray())); }
+        private Task<T?> EditCatalogAsync<T>(string title, CatalogEditor<T> editor, Func<T, Task> submit) where T : class
+        {
+            return UiAsync(async () =>
+            {
+                FormDialog<T> dialog = new FormDialog<T>(title, editor.Form, editor.Extract, _App, submit); dialog.ApplyTheme(_App!.Theme);
+                return await _App.ShowAsync<T>(dialog).ConfigureAwait(false);
+            });
         }
         private async Task NewAsync()
         {
@@ -322,8 +448,24 @@ namespace ArgueBot.Tui
             if (_Selected == null) throw new InvalidOperationException("Create or open a conversation first.");
             string text = _Composer.Value; if (string.IsNullOrWhiteSpace(text)) return;
             string conversationId = _Selected;
-            await _Client.NoteAsync(conversationId, text, token: _Token).ConfigureAwait(false);
+            DebateRun? run = (await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false)).LastOrDefault();
+            if (run?.ProtocolVersion == 2)
+            {
+                int mode = await UiAsync(() => _App!.SelectStyledAsync("When should this context take effect?", "Use in next turn (current answer finishes)", "Interrupt now (stop the current answer)", "Use in next turn and pin", "Interrupt now and pin", "Cancel: keep my draft")).ConfigureAwait(false);
+                if (mode < 0 || mode == 4) return;
+                await SendInterjectionAsync(conversationId, new InterjectionRequest { RunId = run.Id, Text = text, DeliveryMode = mode == 1 || mode == 3 ? "interrupt_now" : "next_turn", Pinned = mode >= 2 }, _Token).ConfigureAwait(false);
+            }
+            else await _Client.NoteAsync(conversationId, text, token: _Token).ConfigureAwait(false);
             _App?.Post(() => { if (_Selected == conversationId && _Composer.Value == text) _Composer.Value = ""; if (_Drafts.TryGetValue(conversationId, out string? draft) && draft == text) _Drafts.Remove(conversationId); });
+        }
+        private async Task SendInterjectionAsync(string conversationId, InterjectionRequest request, CancellationToken token)
+        {
+            request.IdempotencyKey = "";
+            string identity = conversationId + ":" + System.Text.Json.JsonSerializer.Serialize(request);
+            if (!_ContextKeys.TryGetValue(identity, out string? key)) { key = Guid.NewGuid().ToString("N"); _ContextKeys[identity] = key; }
+            request.IdempotencyKey = key;
+            await _Client.InterjectAsync(conversationId, request, token).ConfigureAwait(false);
+            _ContextKeys.Remove(identity);
         }
         private async Task StartAsync()
         {
@@ -346,9 +488,10 @@ namespace ArgueBot.Tui
                 List<DebateRun> previous = await _Client.RunsAsync(conversationId, _Token).ConfigureAwait(false);
                 question = previous.FirstOrDefault(run => !string.IsNullOrWhiteSpace(run.Question))?.Question ?? (await _Client.ConversationAsync(conversationId, _Token).ConfigureAwait(false)).Title;
             }
+            ServiceCapabilities capabilities = await _Client.CapabilitiesAsync(_Token).ConfigureAwait(false);
             CreateRunRequest? request = await UiAsync(() =>
             {
-                DebateSetupEditor editor = new DebateSetupEditor(profiles, question, conversationId != null);
+                DebateSetupEditor editor = new DebateSetupEditor(profiles, question, conversationId != null, capabilities.MaxParticipants);
                 return _App.ShowAsync<CreateRunRequest>(new DebateWizardDialog(editor, _App, async candidate =>
                 {
                     if (conversationId == null)
@@ -442,9 +585,36 @@ namespace ArgueBot.Tui
                 if (choice == 0) await ConfigureDebateAsync(conversationId).ConfigureAwait(false);
                 return;
             }
-            string[] actions = new string[] { "pause", "resume", "interrupt", "continue", "extend", "steer", "stop" };
-            int selected = await UiAsync(() => _App.SelectStyledAsync("Run " + run.State + " | " + run.Outcome + ": choose a command", "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run")).ConfigureAwait(false);
+            string[] actions = new string[] { "pause", "resume", "interrupt", "continue", "extend", "steer", "stop", "roster", "proposals", "context", "memory", "clarifications", "rebuild_summary", "exclude_summary", "usage", "edit_proposal" };
+            int selected = await UiAsync(() => _App.SelectStyledAsync("Run " + run.State + " | " + run.Outcome + ": choose a command", "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run", "Change agents", "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Answer a clarification", "Rebuild summary (pause first)", "Exclude summary (pause first)", "Inspect execution usage and limits", "Edit the proposal under vote")).ConfigureAwait(false);
             if (selected < 0) return;
+            if (selected >= 7)
+            {
+                if (run.ProtocolVersion != 2) throw new InvalidOperationException("These controls require a model-guided debate. Historical runs remain available in history.");
+                if (selected == 7) await ChangeAgentsAsync(conversationId, run).ConfigureAwait(false);
+                else if (selected == 8)
+                {
+                    List<DebateProposal> proposals = await _Client.ProposalsAsync(conversationId, run.Id, _Token).ConfigureAwait(false);
+                    List<DebateSeat> seats = await _Client.RosterAsync(conversationId, run.Id, _Token).ConfigureAwait(false);
+                    string content = proposals.Count == 0 ? "The orchestrator has not proposed an answer yet." : string.Join("\n\n", proposals.Select((proposal, index) => "## Proposal " + (index + 1) + " of " + proposals.Count + (proposal.ModeratorEdited ? " (your revision)" : "") + (proposal.Superseded ? " (replaced by a revision; its votes do not count)" : "") + "\n\n" + proposal.Content + "\n\n" + proposal.Agreements.Count(vote => !vote.Superseded && vote.Position == "agree") + " of " + proposal.Agreements.Count(vote => !vote.Superseded) + " current votes agree. Context revision " + proposal.ContextEpoch + ", roster revision " + proposal.RosterRevision + ".\n\n" + string.Join("\n", proposal.Agreements.OrderBy(vote => vote.Superseded).Select(vote => "- " + (seats.FirstOrDefault(seat => seat.ParticipantId == vote.ParticipantId)?.Name ?? vote.ParticipantId) + ": **" + vote.Position + "**" + (vote.Superseded ? " (earlier vote, superseded)" : "") + ". " + vote.Rationale))));
+                    await ReadPanelAsync("Proposals and positions", content).ConfigureAwait(false);
+                }
+                else if (selected == 9)
+                {
+                    List<InterjectionReceipt> receipts = await _Client.InterjectionsAsync(conversationId, token: _Token).ConfigureAwait(false);
+                    await ReadPanelAsync("Context delivery", receipts.Count == 0 ? "No context has been submitted yet." : string.Join("\n\n", receipts.Select(receipt => "- Context " + receipt.ContextEpoch + ": " + receipt.DeliveryMode + ", " + receipt.Status + ". Original delivered to " + receipt.DeliveredParticipantIds.Count + " agents; represented by a source-linked summary for " + receipt.SummarizedParticipantIds.Count + " others. Source: " + receipt.MessageId))).ConfigureAwait(false);
+                }
+                else if (selected == 10) await InspectMemoryAsync(conversationId, run).ConfigureAwait(false);
+                else if (selected == 11) await AnswerClarificationAsync(conversationId, run).ConfigureAwait(false);
+                else if (selected == 15) await EditProposalAsync(conversationId, run).ConfigureAwait(false);
+                else if (selected == 14) await ReadPanelAsync("Execution usage and limits", "Participant invocations: " + run.Usage.ParticipantTurns + "/" + run.Policy.MaxParticipantTurns + "\n\nOrchestration: " + run.Usage.OrchestrationCalls + "/" + run.Policy.MaxOrchestrationCalls + "\n\nCompaction: " + run.Usage.CompactionCalls + "/" + run.Policy.MaxCompactionCalls + "\n\nTools: " + run.Usage.ToolCalls + "/" + run.Policy.MaxToolCalls + "\n\nEstimated initial-input tokens: " + run.Usage.EstimatedInputTokens + "/" + run.Policy.MaxEstimatedInputTokens + " (0 means no limit).\n\nEstimate is UTF-8 bytes plus framing, not billed tokens; excludes continuations/output. No currency cap.\n\nElapsed deadline includes paused time: " + (run.Policy.MaxWallClockSeconds > 0 ? run.CreatedUtc.AddSeconds(run.Policy.MaxWallClockSeconds).ToString("O") : "Legacy run: no configured deadline")).ConfigureAwait(false);
+                else
+                {
+                    bool accepted = await UiAsync(() => _App.ConfirmStyledAsync("Changing derived context invalidates the current proposal. Original turns remain intact. Continue?")).ConfigureAwait(false);
+                    if (accepted) await _Client.ActionAsync(conversationId, run.Id, new CommandRequest { Action = actions[selected], Revision = run.Revision, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+                }
+                return;
+            }
             CommandRequest command = new CommandRequest { Action = actions[selected], Revision = run.Revision, IdempotencyKey = Guid.NewGuid().ToString("N") };
             if (command.Action == "steer")
             {
@@ -453,6 +623,13 @@ namespace ArgueBot.Tui
                 string? text = await UiAsync(() => _App.PromptStyledAsync("Private directive for " + run.Participants[recipient].Name)).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(text)) return;
                 command.RecipientId = run.Participants[recipient].Id; command.Text = text;
+                if (run.ProtocolVersion == 2)
+                {
+                    int delivery = await UiAsync(() => _App.SelectStyledAsync("When should this directive take effect?", "Use in next turn (current answer finishes)", "Interrupt now (stop the current answer)")).ConfigureAwait(false);
+                    if (delivery < 0) return;
+                    await SendInterjectionAsync(conversationId, new InterjectionRequest { RunId = run.Id, Text = text, RecipientId = command.RecipientId, DeliveryMode = delivery == 0 ? "next_turn" : "interrupt_now", IdempotencyKey = command.IdempotencyKey }, _Token).ConfigureAwait(false);
+                    return;
+                }
             }
             if (command.Action == "stop" || command.Action == "interrupt")
             {
@@ -460,6 +637,123 @@ namespace ArgueBot.Tui
                 if (!accepted) return;
             }
             await _Client.ActionAsync(conversationId, run.Id, command, _Token).ConfigureAwait(false);
+        }
+        private async Task EditProposalAsync(string conversationId, DebateRun run)
+        {
+            if (run.Phase != "ratification" || run.ProposalId.Length == 0 || run.State == "completed" || run.State == "cancelled" || run.State == "failed")
+            {
+                await ReadPanelAsync("Edit proposal", "There is no proposal awaiting votes. You can edit a proposal while the panel is voting on it.").ConfigureAwait(false);
+                return;
+            }
+            string? text = await UiAsync(() => _App!.PromptStyledAsync("Revised proposal (every seat votes again)", run.ProposalText)).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text) || text.Trim() == run.ProposalText.Trim()) return;
+            bool accepted = await UiAsync(() => _App!.ConfirmStyledAsync("Replace the proposal and restart voting? Votes already cast stay with the original as history, and a vote finishing now is not counted.", "Replace and revote", "Keep current proposal")).ConfigureAwait(false);
+            if (!accepted) return;
+            await _Client.ActionAsync(conversationId, run.Id, new CommandRequest { Action = "edit_proposal", Text = text, Revision = run.Revision, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+        }
+        private async Task InspectMemoryAsync(string conversationId, DebateRun run)
+        {
+            int page = 1;
+            while (true)
+            {
+                List<ContextSummary> summaries = await _Client.SummariesAsync(conversationId, run.Id, page, _Token).ConfigureAwait(false);
+                if (summaries.Count == 0 && page == 1)
+                {
+                    await ReadPanelAsync("Summaries", "No summaries have been created yet. ArgueBot compacts context when the next invocation approaches its configured capacity. Original turns remain available in conversation history.").ConfigureAwait(false);
+                    return;
+                }
+                List<string> choices = summaries.Select(summary => (summary.Active ? "Active: " : "Historical: ") + (summary.RecipientId.Length == 0 ? "Shared: " : "Private: ") + summary.Content.Substring(0, Math.Min(70, summary.Content.Length))).ToList();
+                int previous = -1; int next = -1;
+                if (page > 1) { previous = choices.Count; choices.Add("Previous page"); }
+                if (summaries.Count == 25) { next = choices.Count; choices.Add("Next page"); }
+                int back = choices.Count; choices.Add("Back");
+                int selected = await UiAsync(() => _App!.SelectStyledAsync("Summaries, page " + page, choices.ToArray())).ConfigureAwait(false);
+                if (selected < 0 || selected == back) return;
+                if (selected == previous) { page--; continue; }
+                if (selected == next) { page++; continue; }
+                ContextSummary summary = summaries[selected];
+                await ReadPanelAsync("Summary", "Original sources remain authoritative.\n\n" + SummaryText(summary)).ConfigureAwait(false);
+                while (true)
+                {
+                    List<string> sources = summary.SourceIds.ToList();
+                    int sourcePrevious = -1; int sourceNext = -1;
+                    if (summary.SourcePageNumber > 1) { sourcePrevious = sources.Count; sources.Add("Previous sources"); }
+                    if ((long)summary.SourcePageNumber * 100 < summary.SourceCount) { sourceNext = sources.Count; sources.Add("Next sources"); }
+                    int parentStart = sources.Count;
+                    sources.AddRange(summary.ParentSummaryIds.Select(parentId => "Earlier summary: " + parentId));
+                    int sourceBack = sources.Count; sources.Add("Back to summaries");
+                    int source = await UiAsync(() => _App!.SelectStyledAsync("Original sources: page " + summary.SourcePageNumber + ", " + summary.SourceCount + " total", sources.ToArray())).ConfigureAwait(false);
+                    if (source < 0 || source == sourceBack) break;
+                    if (source >= parentStart && source < sourceBack)
+                    {
+                        summary = (await _Client.SummaryAsync(conversationId, run.Id, summary.ParentSummaryIds[source - parentStart], 1, _Token).ConfigureAwait(false)).Single();
+                        await ReadPanelAsync("Earlier summary", "Original sources remain authoritative.\n\n" + SummaryText(summary)).ConfigureAwait(false);
+                        continue;
+                    }
+                    if (source == sourcePrevious || source == sourceNext)
+                    {
+                        summary = (await _Client.SummaryAsync(conversationId, run.Id, summary.Id, summary.SourcePageNumber + (source == sourceNext ? 1 : -1), _Token).ConfigureAwait(false)).Single();
+                        continue;
+                    }
+                    Message message = await _Client.MessageAsync(conversationId, summary.SourceIds[source], _Token).ConfigureAwait(false);
+                    string digest = summary.Sources.FirstOrDefault(item => item.MessageId == message.Id)?.Digest ?? "Unavailable";
+                    await ReadPanelAsync("Source " + message.Sequence + ": " + message.Speaker, "Content SHA-256 at summary acceptance: " + digest + "\n\n" + message.Content).ConfigureAwait(false);
+                }
+            }
+        }
+        private static string SummaryText(ContextSummary summary)
+        {
+            return (summary.RecipientId.Length == 0 ? "Shared memory" : "Private to " + summary.RecipientId) + "\n\nSummary: " + summary.Id + "\n\nGeneration attempt: " + summary.AttemptId + "\n\n" + summary.Content + "\n\nSource hashes identify original content; they do not establish summary accuracy. Earlier summaries are available in the source chooser.";
+        }
+        private async Task AnswerClarificationAsync(string conversationId, DebateRun run)
+        {
+            List<ClarificationRequest> requests = (await _Client.ClarificationsAsync(conversationId, run.Id, _Token).ConfigureAwait(false)).Where(item => item.Status == "open").ToList();
+            if (requests.Count == 0) { await ReadPanelAsync("Clarifications", "No open questions from the panel.").ConfigureAwait(false); return; }
+            int selected = await UiAsync(() => _App!.SelectStyledAsync("Choose a question to answer", requests.Select(item => (item.Blocking ? "Required: " : "Optional: ") + item.Question).ToArray())).ConfigureAwait(false);
+            if (selected < 0) return;
+            ClarificationRequest request = requests[selected];
+            await ReadPanelAsync("Question", request.Question).ConfigureAwait(false);
+            int action = await UiAsync(() => _App!.SelectStyledAsync("Respond to the panel", "Answer with supporting context", "Skip: answer is unavailable", "Back")).ConfigureAwait(false);
+            if (action < 0 || action == 2) return;
+            string? text = action == 1 ? "Moderator skipped this question: " + request.Question : await UiAsync(() => _App!.PromptStyledAsync("Supporting context (shared and pinned)")).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text)) return;
+            int delivery = await UiAsync(() => _App!.SelectStyledAsync("When should this answer take effect?", "Use in next turn", "Interrupt now")).ConfigureAwait(false);
+            if (delivery < 0) return;
+            await SendInterjectionAsync(conversationId, new InterjectionRequest { RunId = run.Id, Text = text, ClarificationId = request.Id, SkipClarification = action == 1, Pinned = true, DeliveryMode = delivery == 0 ? "next_turn" : "interrupt_now", IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+            await ReadPanelAsync("Context accepted", "Your response is recorded. If the debate is paused, choose Resume when you are ready.").ConfigureAwait(false);
+        }
+        private async Task ReadPanelAsync(string title, string content)
+        {
+            await UiAsync(async () =>
+            {
+                MessageDialog dialog = new MessageDialog(new Message { Speaker = "ArgueBot", Kind = title, Content = content });
+                dialog.ApplyTheme(_App!.Theme);
+                await _App.ShowAsync(dialog).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
+        }
+        private async Task ChangeAgentsAsync(string conversationId, DebateRun run)
+        {
+            int action = await UiAsync(() => _App!.SelectStyledAsync("Change the panel at a safe boundary", "Add an agent", "Remove an agent", "Replace an agent")).ConfigureAwait(false);
+            if (action < 0) return;
+            string seat = "";
+            if (action != 0)
+            {
+                int index = await UiAsync(() => _App!.SelectStyledAsync("Choose the current agent", run.Participants.Select(profile => profile.Name).ToArray())).ConfigureAwait(false);
+                if (index < 0) return;
+                seat = run.Participants[index].Id;
+            }
+            string profileId = "";
+            if (action != 1)
+            {
+                List<RunnerProfile> profiles = (await _Client.ParticipantsAsync(_Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
+                int index = await UiAsync(() => _App!.SelectStyledAsync("Choose the new agent profile", profiles.Select(profile => profile.Name).ToArray())).ConfigureAwait(false);
+                if (index < 0) return;
+                profileId = profiles[index].Id;
+            }
+            bool accepted = await UiAsync(() => _App!.ConfirmStyledAsync("Apply this change between invocations? Earlier answers and dissent remain visible; every active agent must agree again.", "Apply change", "Cancel")).ConfigureAwait(false);
+            if (!accepted) return;
+            await _Client.ChangeRosterAsync(conversationId, run.Id, new RosterChangeRequest { Action = action == 0 ? "add" : action == 1 ? "remove" : "replace", ParticipantId = seat, ProfileId = profileId, Revision = run.Revision, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
         }
         private async Task DeleteConversationAsync()
         {
@@ -519,6 +813,7 @@ namespace ArgueBot.Tui
             void Add(string label, Func<Task> action) { labels.Add(label); actions.Add(action); }
             Add("New debate or conversation (Ctrl+N)", NewAsync);
             Add("Agents: configure CLI harnesses and REST models (Ctrl+E)", ParticipantsAsync);
+            Add("Connections, models and credentials", CatalogAsync);
             if (_Selected != null)
             {
                 Add("Start a debate in this conversation (Ctrl+B)", StartAsync);

@@ -1,5 +1,9 @@
 namespace ArgueBot.Core.Database.Implementations
 {
+    using ArgueBot.Core.Database.Interfaces;
+    using ArgueBot.Core.Helpers;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Data.Common;
@@ -9,10 +13,6 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Database.Interfaces;
-    using ArgueBot.Core.Helpers;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
     /// <summary>Atomic execution provenance and finalization. External invocation remains deliberately outside database transactions.</summary>
@@ -31,23 +31,24 @@ namespace ArgueBot.Core.Database.Implementations
             foreach (Message source in selectedContext) characters = checked(characters + source.Content.Length);
             if (characters > maxContextCharacters || selectedContext.Count > maxContextMessages) throw new DomainException(409, "context_budget_exceeded", "The selected conversation context exceeds the configured budget. No model was invoked and no transcript text was dropped.");
             if (selectedContext.Select(message => message.Id).Distinct(StringComparer.Ordinal).Count() != selectedContext.Count) throw new DomainException(400, "duplicate_context", "Context messages must be distinct.");
-            RunnerProfile profile = run.Participants[run.SpeakerIndex];
-            Message answer = new Message { Id = Ids.New("msg_"), ConversationId = run.ConversationId, RunId = run.Id, Speaker = profile.Name, Kind = run.Mode == "followup" ? "final" : run.Round == 1 && run.SpeakerIndex == 0 ? "opening" : "rebuttal", State = "streaming", CreatedUtc = DateTime.UtcNow };
-            GenerationAttempt attempt = new GenerationAttempt { Id = Ids.New("att_"), ConversationId = run.ConversationId, RunId = run.Id, MessageId = answer.Id, ParticipantId = profile.Id, Round = run.Round, SpeakerIndex = run.SpeakerIndex, PromptVersion = (run.Mode == "followup" ? "followup-v1" : "debate-v1") + (profile.Kind == "rest" ? "-local-tools-v1" : ""), PromptDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(systemPrompt))).ToLowerInvariant(), ContextCharacters = characters, ContextMessageIds = selectedContext.Select(message => message.Id).ToList() };
+            RunnerProfile profile = run.ExecutionProfile ?? run.Participants[run.SpeakerIndex];
+            Message answer = new Message { Id = Ids.New("msg_"), ConversationId = run.ConversationId, RunId = run.Id, Speaker = profile.Name, Kind = run.ProtocolVersion == 2 ? run.Phase : run.Mode == "followup" ? "final" : run.Round == 1 && run.SpeakerIndex == 0 ? "opening" : "rebuttal", RecipientId = run.ProtocolVersion == 2 && run.Phase == "compaction" && run.CompactionRecipientId.Length > 0 ? run.CompactionRecipientId : null, State = "streaming", CreatedUtc = DateTime.UtcNow };
+            GenerationAttempt attempt = new GenerationAttempt { Id = Ids.New("att_"), ConversationId = run.ConversationId, RunId = run.Id, MessageId = answer.Id, ParticipantId = profile.Id, Round = run.Round, SpeakerIndex = run.SpeakerIndex, PromptVersion = run.ProtocolVersion == 2 ? "debate-v2-" + run.Phase + (run.Phase == "compaction" ? "-memory-v2" : "-context-tools-v1") : (run.Mode == "followup" ? "followup-v1" : "debate-v1") + (profile.Kind == "rest" ? "-local-tools-v1" : ""), PromptDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(systemPrompt))).ToLowerInvariant(), ContextCharacters = characters, EstimatedInputTokens = Encoding.UTF8.GetByteCount(systemPrompt) + selectedContext.Sum(message => (long)Encoding.UTF8.GetByteCount(message.Content) + Encoding.UTF8.GetByteCount(message.Speaker) + 256) + 4096, ContextMessageIds = selectedContext.Select(message => message.Id).ToList() };
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 long pending = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM generation_attempts WHERE tenant_id=@tenant AND run_id=@run AND state IN ('pending','streaming')", token, P("tenant", context.TenantId, "run", run.Id)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 if (pending != 0) throw new DomainException(409, "uncertain_attempt", "An unfinished attempt requires service reconciliation before another external invocation.");
                 answer.Sequence = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COALESCE(MAX(sequence_number),0)+1 FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation", token, P("tenant", context.TenantId, "conversation", run.ConversationId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 attempt.Number = Convert.ToInt32(await ScalarAsync(connection, transaction, "SELECT COALESCE(MAX(number),0)+1 FROM generation_attempts WHERE tenant_id=@tenant AND run_id=@run", token, P("tenant", context.TenantId, "run", run.Id)).ConfigureAwait(false), CultureInfo.InvariantCulture);
-                await ExecuteAsync(connection, transaction, "INSERT INTO messages(id,tenant_id,conversation_id,run_id,sequence_number,speaker,kind,content,state,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@run,@sequence,@speaker,@kind,'','streaming',@now,@now)", token, P("id", answer.Id, "tenant", context.TenantId, "conversation", run.ConversationId, "run", run.Id, "sequence", answer.Sequence, "speaker", answer.Speaker, "kind", answer.Kind)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO messages(id,tenant_id,conversation_id,run_id,sequence_number,speaker,kind,recipient_id,content,state,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@run,@sequence,@speaker,@kind,@recipient,'','streaming',@now,@now)", token, P("id", answer.Id, "tenant", context.TenantId, "conversation", run.ConversationId, "run", run.Id, "sequence", answer.Sequence, "speaker", answer.Speaker, "kind", answer.Kind, "recipient", answer.RecipientId)).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "INSERT INTO generation_attempts(id,tenant_id,conversation_id,run_id,message_id,participant_id,number,round,speaker_index,state,prompt_version,prompt_digest,context_characters,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@run,@message,@participant,@number,@round,@speaker,'pending',@version,@digest,@characters,@now,@now)", token, P("id", attempt.Id, "tenant", context.TenantId, "conversation", run.ConversationId, "run", run.Id, "message", answer.Id, "participant", profile.Id, "number", attempt.Number, "round", run.Round, "speaker", run.SpeakerIndex, "version", attempt.PromptVersion, "digest", attempt.PromptDigest, "characters", characters)).ConfigureAwait(false);
                 for (int index = 0; index < selectedContext.Count; index++)
                 {
                     Message source = selectedContext[index];
-                    int inserted = await ExecuteAsync(connection, transaction, "INSERT INTO attempt_context(id,tenant_id,attempt_id,message_id,position,created_utc,updated_utc) SELECT @id,@tenant,@attempt,id,@position,@now,@now FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@message AND state='completed' AND content=@content AND (recipient_id IS NULL OR recipient_id=@participant)", token, P("id", Ids.New("act_"), "tenant", context.TenantId, "attempt", attempt.Id, "position", index, "conversation", run.ConversationId, "message", source.Id, "content", source.Content, "participant", profile.Id)).ConfigureAwait(false);
+                    int inserted = await ExecuteAsync(connection, transaction, "INSERT INTO attempt_context(id,tenant_id,attempt_id,message_id,position,created_utc,updated_utc) SELECT @id,@tenant,@attempt,id,@position,@now,@now FROM messages WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@message AND state='completed' AND content=@content AND (recipient_id IS NULL OR recipient_id=@participant)", token, P("id", Ids.New("act_"), "tenant", context.TenantId, "attempt", attempt.Id, "position", index, "conversation", run.ConversationId, "message", source.Id, "content", source.Content, "participant", run.ProtocolVersion == 2 && run.Phase == "compaction" ? run.CompactionRecipientId : profile.Id)).ConfigureAwait(false);
                     if (inserted != 1) throw new DomainException(409, "context_changed", "A selected context message is unavailable, changed or private to another participant.");
                 }
+                if (run.ProtocolVersion == 2) await DebateMethods.BeginAsync(connection, transaction, context, run, attempt, token).ConfigureAwait(false);
                 run.State = "agent_turn";
                 await RunMethods.SaveCheckpointAsync(connection, transaction, context, run, token).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE conversations SET updated_utc=@now,revision=revision+1 WHERE tenant_id=@tenant AND id=@conversation", token, P("tenant", context.TenantId, "conversation", run.ConversationId)).ConfigureAwait(false);
@@ -55,6 +56,25 @@ namespace ArgueBot.Core.Database.Implementations
                 await EventAsync(connection, transaction, context.TenantId, run.ConversationId, "attempt_created", attempt.Id, "pending", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return new GenerationWork { Answer = answer, Attempt = attempt };
+        }
+        /// <summary>Record observed endpoint capacity wait time, including cancelled waits.</summary>
+        public Task RecordEndpointWaitAsync(RequestContext context, string attemptId, long milliseconds, CancellationToken token = default)
+        {
+            RequireWrite(context);
+            if (milliseconds < 0) throw new ArgumentOutOfRangeException(nameof(milliseconds));
+            return _Database.WriteAsync(async (connection, transaction) =>
+            {
+                await ExecuteAsync(connection, transaction, "INSERT INTO attempt_timing(id,tenant_id,endpoint_wait_ms,created_utc,updated_utc) SELECT id,@tenant,@wait,@now,@now FROM generation_attempts WHERE tenant_id=@tenant AND id=@id ON CONFLICT(id) DO UPDATE SET endpoint_wait_ms=@wait,updated_utc=@now", token, P("id", attemptId, "tenant", context.TenantId, "wait", milliseconds)).ConfigureAwait(false);
+            }, token);
+        }
+        /// <summary>Record exact credential identity before external invocation; values are never copied into provenance.</summary>
+        public Task RecordCredentialAsync(RequestContext context, string attemptId, CredentialMetadata credential, CancellationToken token = default)
+        {
+            RequireWrite(context);
+            return _Database.WriteAsync(async (connection, transaction) =>
+            {
+                await ExecuteAsync(connection, transaction, "INSERT INTO attempt_credentials(id,tenant_id,attempt_id,credential_id,revision,created_utc,updated_utc) SELECT @id,@tenant,id,@credential,@revision,@now,@now FROM generation_attempts WHERE tenant_id=@tenant AND id=@attempt AND state IN ('pending','streaming') ON CONFLICT(attempt_id,credential_id,revision) DO NOTHING", token, P("id", Ids.New("acr_"), "tenant", context.TenantId, "attempt", attemptId, "credential", credential.Id, "revision", credential.Revision)).ConfigureAwait(false);
+            }, token);
         }
         /// <summary>Checkpoint imminent external invocation without claiming a transaction can include the external operation.</summary>
         public async Task MarkStreamingAsync(RequestContext context, GenerationAttempt attempt, CancellationToken token = default)
@@ -91,13 +111,19 @@ namespace ArgueBot.Core.Database.Implementations
                     }
                     if (S(reader, "message_state") != "streaming") throw new DomainException(409, "message_finalized", "This answer was already finalized outside its attempt.");
                 }
+                bool awaitingClarification = false;
+                if (run.ProtocolVersion == 2 && run.State != "cancelled" && answer.State == "completed" && attempt.Purpose != "compaction")
+                    awaitingClarification = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM debate_clarifications WHERE tenant_id=@tenant AND run_id=@run AND blocking=1 AND status='open'", token, P("tenant", context.TenantId, "run", run.Id)).ConfigureAwait(false), CultureInfo.InvariantCulture) > 0;
+                // A turn that is waiting on a blocking moderator answer does not count: no vote, proposal or speaker advance is recorded until the moderator answers or skips.
+                if (run.ProtocolVersion == 2 && !awaitingClarification) await DebateMethods.AdvanceAsync(connection, transaction, context, run, attempt, answer, token).ConfigureAwait(false);
+                if (awaitingClarification) { run.State = "paused"; run.Outcome = "awaiting_clarification"; }
                 await RunMethods.SaveCheckpointAsync(connection, transaction, context, run, token).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE messages SET state=@state,updated_utc=@now WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@message", token, P("state", answer.State, "tenant", context.TenantId, "conversation", run.ConversationId, "message", answer.Id)).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state=@state,error_code=@error,duration_ms=@duration,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("state", answer.State, "error", attempt.ErrorCode, "duration", attempt.DurationMilliseconds, "tenant", context.TenantId, "id", attempt.Id)).ConfigureAwait(false);
-                if (answer.State == "completed")
+                if (answer.State == "completed" && answer.Kind != "compaction")
                 {
                     List<string> directives = new List<string>();
-                    using (DbCommand command = Command(connection, transaction, "SELECT m.id FROM messages m JOIN attempt_context c ON c.tenant_id=m.tenant_id AND c.message_id=m.id WHERE c.tenant_id=@tenant AND c.attempt_id=@attempt AND m.recipient_id=@participant AND m.state='completed' ORDER BY c.position", P("tenant", context.TenantId, "attempt", attempt.Id, "participant", attempt.ParticipantId)))
+                    using (DbCommand command = Command(connection, transaction, "SELECT m.id FROM messages m JOIN attempt_context c ON c.tenant_id=m.tenant_id AND c.message_id=m.id WHERE c.tenant_id=@tenant AND c.attempt_id=@attempt AND m.recipient_id=@participant AND m.state='completed' AND m.kind<>'compaction' ORDER BY c.position", P("tenant", context.TenantId, "attempt", attempt.Id, "participant", attempt.ParticipantId)))
                     using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false)) { while (await reader.ReadAsync(token).ConfigureAwait(false)) directives.Add(reader.GetString(0)); }
                     foreach (string id in directives)
                     {
@@ -126,6 +152,11 @@ namespace ArgueBot.Core.Database.Implementations
                 }
                 foreach (GenerationAttempt attempt in page.Items)
                 {
+                    await DebateMethods.LoadAttemptAsync(connection, context, attempt, token).ConfigureAwait(false);
+                    attempt.EndpointWaitMilliseconds = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT endpoint_wait_ms FROM attempt_timing WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "id", attempt.Id)).ConfigureAwait(false) ?? 0, CultureInfo.InvariantCulture);
+                    using (DbCommand command = Command(connection, null, "SELECT credential_id,revision FROM attempt_credentials WHERE tenant_id=@tenant AND attempt_id=@id ORDER BY credential_id,revision", P("tenant", context.TenantId, "id", attempt.Id)))
+                    using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                    { while (await reader.ReadAsync(token).ConfigureAwait(false)) attempt.CredentialRevisions.Add(new CredentialRevision { CredentialId = S(reader, "credential_id"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture) }); }
                     using (DbCommand command = Command(connection, null, "SELECT message_id FROM attempt_context WHERE tenant_id=@tenant AND attempt_id=@id ORDER BY position", P("tenant", context.TenantId, "id", attempt.Id)))
                     using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false)) { while (await reader.ReadAsync(token).ConfigureAwait(false)) attempt.ContextMessageIds.Add(reader.GetString(0)); }
                 }

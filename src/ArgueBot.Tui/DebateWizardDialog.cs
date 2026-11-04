@@ -1,9 +1,10 @@
 namespace ArgueBot.Tui
 {
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Linq;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Models;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
@@ -71,7 +72,15 @@ namespace ArgueBot.Tui
                 _Application!.Post(() => { _Busy = false; Close(request); });
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
-            { _Application!.Post(() => { _Busy = false; _Error = exception.Message; SetFooter("Tab: move | Esc: cancel"); }); }
+            { _Application!.Post(() => { _Busy = false; _Error = Step(exception) + exception.Message; SetFooter("Tab: move | Esc: cancel"); }); }
+        }
+        /// <summary>Name the setup step that holds a field-specific service rejection.</summary>
+        private static string Step(Exception exception)
+        {
+            if (exception is not DomainException domain || domain.Field.Length == 0) return "";
+            if (domain.Field == "question") return "Question: ";
+            if (domain.Field == "participantIds" || domain.Field == "orchestratorId") return "Speakers: ";
+            return "Settings: ";
         }
         private static string? Error(Form form) { return form.ValidateAll().Select(error => error.Message).FirstOrDefault(); }
         /// <inheritdoc />

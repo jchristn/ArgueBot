@@ -1,5 +1,8 @@
 namespace ArgueBot.Server.Services
 {
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database;
+    using ArgueBot.Core.Models;
     using System;
     using System.Collections.Specialized;
     using System.Diagnostics;
@@ -7,9 +10,6 @@ namespace ArgueBot.Server.Services
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Database;
-    using ArgueBot.Core.Models;
     using WatsonWebserver.Core;
 
     internal sealed class RequestCapture
@@ -26,7 +26,8 @@ namespace ArgueBot.Server.Services
                 RequestContext context = http.Metadata as RequestContext ?? new RequestContext();
                 if (!_Settings.RequestHistoryEnabled) return;
                 int limit = Math.Clamp(_Settings.RequestHistoryBodyBytes, 0, 1048576);
-                string request = CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");
+                bool credentialBody = http.Request.Url.RawWithoutQuery.StartsWith("/v2.0/api/configuration/credentials", StringComparison.Ordinal);
+                string request = credentialBody ? "[credential body excluded]" : CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");
                 string response = ""; long responseBytes = http.Response.ServerSentEvents ? -1 : http.Response.ContentLength;
                 if (!http.Response.ServerSentEvents && (http.Response.ContentType ?? "").Contains("json", StringComparison.OrdinalIgnoreCase))
                 {

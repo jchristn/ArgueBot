@@ -1,0 +1,7 @@
+{"type":"assistant","message":{"id":"message-earlier","content":[{"type":"text","text":"Earlier audit progress."}]}}
+{"type":"assistant","message":{"id":"message-final","content":[{"type":"text","text":"Report written. Final audit answer."}]}}
+{"type":"result","subtype":"success","is_error":false,"result_index":0,"result":"Earlier audit progress."}
+{"type":"result","subtype":"success","is_error":false,"result_index":1,"result":"Report written. Final audit answer."}
+{"type":"result","subtype":"success","is_error":false,"result_index":1,"result":"Report written. Final audit answer."}
+{"type":"result","subtype":"success","is_error":false,"result_index":2,"result":"Indexed final text without an assistant snapshot."}
+{"type":"result","subtype":"success","is_error":false,"result_index":2,"result":"Indexed final text without an assistant snapshot."}

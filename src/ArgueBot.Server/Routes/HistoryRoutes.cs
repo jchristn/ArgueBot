@@ -1,11 +1,11 @@
 namespace ArgueBot.Server.Routes
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
     using ArgueBot.Core.Models;
+    using System;
+    using System.Collections.Generic;
+    using System.Globalization;
     using WatsonWebserver;
     using WatsonWebserver.Core;
     using WatsonWebserver.Core.OpenApi;
@@ -15,9 +15,9 @@ namespace ArgueBot.Server.Routes
         private readonly DatabaseDriverBase _Database;
         private readonly ServiceSettings _Settings;
         internal HistoryRoutes(DatabaseDriverBase database, ServiceSettings settings) { _Database = database; _Settings = settings; }
-        internal void Register(Webserver server)
+        internal void Register(Webserver server, string api = "/v1.0/api")
         {
-            const string root = "/v1.0/api/request-history";
+            string root = api + "/request-history";
             server.Routes.PostAuthentication.Static.Add(HttpMethod.GET, root, http => Api.GuardAsync(http, async () =>
             {
                 HistoryFilter filter = new HistoryFilter { Search = http.Request.RetrieveQueryValue("search") ?? "", Method = http.Request.RetrieveQueryValue("method") ?? "", Status = int.TryParse(http.Request.RetrieveQueryValue("status"), out int status) ? status : null, PageNumber = int.TryParse(http.Request.RetrieveQueryValue("pageNumber"), out int page) ? page : 1, PageSize = int.TryParse(http.Request.RetrieveQueryValue("pageSize"), out int size) ? size : 25, FromUtc = DateTime.TryParse(http.Request.RetrieveQueryValue("fromUtc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime from) ? from.ToUniversalTime() : null, ToUtc = DateTime.TryParse(http.Request.RetrieveQueryValue("toUtc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime to) ? to.ToUniversalTime() : null };

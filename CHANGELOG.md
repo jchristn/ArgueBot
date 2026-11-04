@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+- Set the product version to 2.0.0.
+
+- Classify provider refusals as `provider_unauthorized` (401/403), `provider_rate_limited` (429, with the provider's Retry-After interval in the message), `provider_unavailable` (5xx), `provider_disconnected` (midstream drop, partial text kept) and `provider_unreachable`, each with recovery guidance. Add 403, 5xx and midstream-disconnect scenarios to the provider simulation, and an invalid refresh response fixture.
+- Docker: health checks gain a start period and faster start interval, the published port comes from `ARGUEBOT_PORT`, a secret-free `docker/.env.example` documents provider settings, and the guide states the local-execution trust model.
+
+- Web workspace: show the debate panel beside the transcript with a remembered Show/Hide control, merge each tool call's start and result into one card (also in the TUI), make summary citations open their sources, and show moderator turns as "You". Add parameter and body-field guidance, placeholder and JSON checks to the API Explorer, a clarification dialog component test, and an automated structural accessibility, right-to-left and pseudo-locale review that found and fixed clipped right-to-left sidebar text.
+
+- Credentials: keep a Codex login usable when its refresh request never reaches the login service or is refused with 429 or 5xx (`refresh_unavailable`), and label `refresh_uncertain` as Sign-in needed across the web and TUI. Refuse master-key rotation before changing keys when an enabled credential cannot be decrypted, skip unreadable disabled ones, and add explicit retirement of earlier keys from every interface. Redact only credential-like inherited environment values.
+
+- Complete the model evidence tools: `list_turns` seat and phase filters with a `nextAfter` cursor; literal, case-insensitive `search_context` with match-centered snippets that behaves the same on SQLite and PostgreSQL; `get_supporting_details` for up to 20 IDs with summary source links and explicit gaps; and pinned constraints plus earlier positions in `get_debate_state`. Deduplicate repeated clarification requests within an invocation, and reject summaries that do not attribute a supplied pinned constraint.
+
+- Reject invalid debate setups with field-specific errors (`field` in API errors, CLI output, web and TUI setup), including over-limit panels, repeated profiles and duplicate seat names. Ask a model once for a corrected reply after an invalid question, proposal or vote before pausing (schema 26). Let the moderator edit the proposal under vote from every interface; all seats vote again and votes on the replaced proposal stay as history.
+
+- Scope private directives to their recipient: they no longer advance the shared context epoch, reset the round or interrupt another agent, and a recipient that has not yet seen one votes again before the debate finalizes, with its earlier vote kept as superseded history (schema 25).
+
+- Keep the previous summary active until a moderator rebuild validates (schema 24), and stop a turn that asks a blocking clarification from advancing or voting. Add race, vote-position and roster regression tests.
+- Require an explicit delivery choice for every web context submission and clarification answer; show protocol-aware outcomes, proposal access and Home debate status; clarify connection-form help, terminal delivery and proposal views, and reorganize CLI help.
+
+- Fix v2 debate extension after the round limit, interjections lost to concurrent run updates or stored without their run, late output after cancellation, summary-source validation order, shared-only summary rebuild deactivation and startup detection of a missing rotated credential keyring.
+
+- Add manifest-driven self-contained distribution builds for six runtime targets, native macOS/Windows/Linux packaging recipes, checksum-pinned tooling and packaging CI. Verify macOS bundle startup and Linux arm64 package installation, same-version replacement, browser/terminal entry points and data-preserving removal. Windows native execution and publication remain unverified.
+
+- Add explicit inherited environment names to reusable harnesses across web, TUI, CLI and API, freeze selections with participant snapshots, and redact selected values from model output.
+- Verify the application container on Linux arm64, including credential injection, encrypted persistence, key rotation and missing-key recovery. Fix the clean dashboard build and loopback Host/origin validation for container port mappings.
+
+- Add reusable model output-capture limits and HTTP generated-token, temperature and top-p overrides, frozen into accepted run snapshots and editable through web, TUI, CLI and API.
+
+- Classify compacted memory into seven explicit sections, expose original hashes and parent summaries across interfaces, and distinguish direct moderator-context delivery from summary-based delivery. Invalid replacement summaries preserve prior memory and original evidence.
+
+
+- Implement the v2.0.0 preview: configurable multi-agent panels, explicit unanimous ratification, a selected orchestrator model, safe-boundary roster changes, and per-interjection interrupt/next-turn delivery.
+- Add source-linked context compaction, scoped evidence tools, blocking moderator clarification and native Claude/Codex MCP invocation bridges.
+- Add reusable endpoints, harnesses and models; combined HTTP auth bindings; encrypted write-only credential import; serialized Codex refresh and isolated invocation homes.
+- Add independent execution budgets, orchestration guidance, shared endpoint capacity, actual transport-aware context sizing, private summary partitions, paged source manifests, credential revision provenance, versioned master-key rotation and explicit completion/tool verification.
+- Expose debate, configuration, memory and recovery workflows in the dashboard, TUI, CLI, native client, REST reference, API Explorer and Postman artifacts. Add an application Docker build and deployment guide.
+- Add post-implementation browser and terminal layout checks, four-agent CLI/Postman journeys, and recovery/provider tests. PostgreSQL acceptance passes locally. Linux arm64 container acceptance passes with fictional providers; live-provider and other platform acceptance remain open; see MULTIPLE_AGENTS_PLAN.md.
+
+
+- Accept successful indexed Claude results that repeat earlier assistant messages after background-agent wakeups, without duplicating text or accepting conflicting replacements for the same result index.
+
+- Distinguish CLI/REST turn deadlines from explicit interruption, stop and service shutdown; expose recovery guidance for interrupted cards, frozen timeouts and live elapsed time, open the matching historical run when inspecting a failed turn, and correlate generation logs with attempt and response IDs.
+
 - Explain I/O failures beside failed answers in the dashboard and TUI, preserve specific output-limit causes across reloads, and recover safe explanations from retained historical diagnostics.
 - Preserve the original question when b starts another debate in an existing TUI conversation, keep it editable, and freeze the reviewed question in new debate runs. Ctrl+N still starts blank.
 

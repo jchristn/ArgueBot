@@ -6,6 +6,7 @@ export class ApiError extends Error {
     super(data.message || `HTTP ${status}`);
     this.status = status;
     this.code = data.code;
+    this.field = data.field || "";
     this.requestId = data.requestId;
   }
 }
@@ -123,6 +124,41 @@ export class ApiClient {
     }
     return result;
   }
+  modelChecks(id, page = 1) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks?pageNumber=${page}`); }
+  checkModel(id, body) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks`, { method: "POST", body }); }
+  credentialKeys() { return this.request("/v2.0/api/configuration/credential-keys"); }
+  rotateCredentialKey(expectedKeyId) { return this.request("/v2.0/api/configuration/credential-keys/rotate", { method: "POST", body: { expectedKeyId } }); }
+  retireCredentialKeys(expectedKeyId) { return this.request("/v2.0/api/configuration/credential-keys/retire", { method: "POST", body: { expectedKeyId } }); }
+  summaries(id, runId, pageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?pageNumber=" + pageNumber); }
+  summary(id, runId, summaryId, sourcePageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?id=" + encodeURIComponent(summaryId) + "&sourcePageNumber=" + sourcePageNumber); }
+  clarifications(id, runId) { return this.readListPages(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/clarifications", 100); }
+  previewEndpoint(id) { return this.request("/v2.0/api/configuration/endpoints/" + encodeURIComponent(id) + "/preview"); }
+  discoverEndpoint(id) { return this.request("/v2.0/api/configuration/endpoints/" + encodeURIComponent(id) + "/discover", { method: "POST" }); }
+  async readListPages(route, size) {
+    const result = [];
+    for (let page = 1; ; page++) {
+      const items = await this.request(route + "?pageNumber=" + page);
+      result.push(...items);
+      if (items.length < size) return result;
+    }
+  }
+  async configuration(resource) {
+    const result = [];
+    for (let page = 1; ; page++) {
+      const items = await this.request("/v2.0/api/configuration/" + resource + "?pageSize=100&pageNumber=" + page);
+      result.push(...items);
+      if (items.length < 100) return result;
+    }
+  }
+  saveConfiguration(resource, body) { const { id, ...value } = body; return this.request("/v2.0/api/configuration/" + resource + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
+  disableCredential(id, revision) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
+  capabilities() { return this.request("/v2.0/api/capabilities"); }
+  v2root(id) { return "/v2.0/api/conversations/" + encodeURIComponent(id); }
+  interject(id, body) { return this.request(this.v2root(id) + "/interjections", { method: "POST", body }); }
+  interjections(id, pageNumber = 1) { return this.request(this.v2root(id) + "/interjections?pageNumber=" + pageNumber); }
+  proposals(id, runId) { return this.readListPages(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/proposals", 50); }
+  roster(id, runId) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/roster"); }
+  changeRoster(id, runId, body) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/roster", { method: "POST", body }); }
   note(id, text) {
     return this.request(this.root(id) + "/messages", {
       method: "POST",
@@ -142,9 +178,9 @@ export class ApiClient {
     );
   }
   startRun(id, request) {
-    return this.request(this.root(id) + "/runs", {
+    return this.request((request.protocolVersion === 2 ? this.v2root(id) : this.root(id)) + "/runs", {
       method: "POST",
-      body: { ...request, idempotencyKey: randomId() },
+      body: { ...request, idempotencyKey: request.idempotencyKey || randomId() },
     });
   }
   action(id, runId, request) {
@@ -152,7 +188,7 @@ export class ApiClient {
       this.root(id) + "/runs/" + encodeURIComponent(runId) + "/actions",
       {
         method: "POST",
-        body: { ...request, idempotencyKey: randomId() },
+        body: { ...request, idempotencyKey: request.idempotencyKey || randomId() },
       },
     );
   }

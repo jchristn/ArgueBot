@@ -1,0 +1,3 @@
+{"type":"assistant","message":{"id":"message-one","content":[{"type":"text","text":"Fictional final answer."}]}}
+{"type":"result","subtype":"success","is_error":false,"result_index":0,"result":"Fictional final answer."}
+{"type":"result","subtype":"success","is_error":false,"result_index":0,"result":"Conflicting replacement for the same result index."}

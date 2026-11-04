@@ -90,6 +90,46 @@ try {
   const lines = invoke(['conversations','show',conversation.id,'--jsonl']).trim().split(/\r?\n/).map(line=>JSON.parse(line));
   check(lines.length===3 && lines.at(-1).content===longNote && lines.every(item=>!item.contentTruncated), 'CLI JSONL exported previews or lost record boundaries.');
   check(invoke(['conversations','export',conversation.id]).includes(longNote), 'CLI Markdown export silently truncated content.');
+  const capabilities = command(['capabilities']);
+  check(capabilities.debateProtocol === 2 && capabilities.maxParticipants >= 4, 'CLI capabilities do not describe n-agent admission.');
+  const credential = command(['configuration','credentials','add','-'], {name:'CLI fictional token',kind:'token',secretValue:'fictional-cli-token'});
+  check(!JSON.stringify(credential).includes('fictional-cli-token'), 'CLI echoed an imported credential.');
+  const keys = command(['credential-keys','status']);
+  const rotated = command(['credential-keys','rotate',keys.activeKeyId]);
+  check(rotated.activeKeyId !== keys.activeKeyId && rotated.reencryptedCredentials === 1, 'CLI master-key rotation lost credential records.');
+  const retired = command(['credential-keys','retire',rotated.activeKeyId]);
+  check(retired.retainedKeyCount === 1 && retired.retiredKeyCount === rotated.retainedKeyCount - 1 && command(['credential-keys','status']).retainedKeyCount === 1, 'CLI key retirement did not remove earlier keys.');
+  check(command(['configuration','credentials','list']).find(item => item.id === credential.id).revision === credential.revision, 'Master rotation changed authentication revision.');
+  const endpoint = command(['configuration','endpoints','add','-'], {name:'CLI reusable endpoint',protocol:'ollama',baseUrl:process.env.ARGUEBOT_SIMULATION_URL || 'http://127.0.0.1:11434',authBindings:[]});
+  check(command(['configuration','endpoints','preview',endpoint.id]).generationUrl.endsWith('/api/chat'), 'CLI request preview lost the native Ollama path.');
+  if (process.env.ARGUEBOT_SIMULATION_URL) check(command(['configuration','endpoints','discover',endpoint.id]).models.includes('multi-agent'), 'CLI endpoint discovery did not return advertised models.');
+  const model = command(['configuration','models','add','-'], {name:'CLI reusable model',endpointId:endpoint.id,model:'multi-agent',maxOutputBytes:1048576,generation:{maxOutputTokens:2048,temperature:0.25,topP:0.9}});
+  check(model.maxOutputBytes === 1048576 && model.generation.maxOutputTokens === 2048 && model.generation.temperature === 0.25 && model.generation.topP === 0.9, 'CLI generation overrides were not preserved.');
+  if (process.env.ARGUEBOT_SIMULATION_URL) { const observed = command(['configuration','models','check',model.id,'-'], {idempotencyKey:'cli-model-check',checkTools:false}); check(observed.completionVerified && observed.state === 'completed', 'CLI explicit model check did not observe a completion.'); check(command(['configuration','models','checks',model.id]).length === 1, 'CLI model-check history was not durable.'); }
+  const harness = command(['configuration','harnesses','add','-'], {name:'CLI reusable harness',provider:'plain',executable:'dotnet',arguments:[fixture,'plain'],environmentVariables:['ARGUEBOT_FIXTURE_ALLOWED']});
+  check(harness.environmentVariables[0] === 'ARGUEBOT_FIXTURE_ALLOWED', 'CLI harness lost its inherited environment names.');
+  for (const [kind,item] of [['endpoints',endpoint],['models',model],['harnesses',harness],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
+  const replacement = command(['configuration','credentials','update',credential.id,'-'], {name:credential.name,kind:credential.kind,revision:credential.revision,secretValue:'fictional-cli-rotated'});
+  check(replacement.revision > credential.revision, 'CLI credential rotation did not advance its revision.');
+  command(['configuration','credentials','disable',credential.id,String(replacement.revision)]);
+  if (process.env.ARGUEBOT_SIMULATION_URL) {
+    const panel = ['Claude','Codex','Gemini','DeepSeek'].map(name=>command(['participants','add','-'], {name:`CLI ${name}`,modelProfileId:model.id}));
+    const moderator = command(['participants','add','-'], {name:'CLI orchestrator',modelProfileId:model.id});
+    const debate = command(['conversations','create','CLI four-agent consensus']);
+    const rejected = spawnSync('dotnet', [cli, '--home', home + path.sep, 'debate','start',debate.id,'-'], {cwd:root, input: JSON.stringify({protocolVersion:2,participantIds:[panel[0].id],orchestratorId:moderator.id,idempotencyKey:'cli-v2-one-seat'}), encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:''}});
+    check(rejected.status===2 && rejected.stderr.includes('too_few_participants (participantIds)'), `CLI did not report a field-specific admission error: ${rejected.stderr}`);
+    const live = command(['debate','start',debate.id,'-'], {protocolVersion:2,participantIds:panel.map(value=>value.id),orchestratorId:moderator.id,maxRounds:2,interventionSeconds:0,idempotencyKey:'cli-v2-start'});
+    const receipt = command(['interject',debate.id,'-'], {text:'Require a reversible rollout.',deliveryMode:'next_turn',pinned:true,idempotencyKey:'cli-v2-context'});
+    check(receipt.runId === live.id && receipt.contextEpoch > 0, 'CLI interjection did not target the active debate.');
+    check(command(['interject',debate.id,'-'], {text:'Require a reversible rollout.',deliveryMode:'next_turn',pinned:true,idempotencyKey:'cli-v2-context'}).id === receipt.id, 'CLI context retry created a duplicate.');
+    let status;
+    for (let attempt=0;attempt<200;attempt++) { status=command(['debate','status',debate.id])[0]; if(['completed','paused','failed'].includes(status.state)) break; await delay(25); }
+    check(status.state==='completed' && status.outcome==='consensus', 'CLI four-agent debate failed to reach unanimous consensus.');
+    check(command(['debate','roster',debate.id,live.id]).filter(value=>value.active).length===4, 'CLI roster omitted a seat.');
+    check(command(['debate','proposals',debate.id,live.id])[0].agreements.filter(value=>value.position==='agree').length===4, 'CLI outcome lacked four explicit votes.');
+    check(Array.isArray(command(['debate','summaries',debate.id,live.id])) && Array.isArray(command(['debate','clarifications',debate.id,live.id])), 'CLI memory views failed.');
+    check(command(['debate','interjections',debate.id]).some(value=>value.id===receipt.id), 'CLI context history lost its receipt.');
+  } else console.log('SKIP: Set ARGUEBOT_SIMULATION_URL for the four-agent CLI provider journey.');
   console.log(`CLI surface smoke passed ${checks} assertions against an isolated service.`);
 } finally {
   if(started) {

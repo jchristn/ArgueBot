@@ -31,3 +31,12 @@ it("shows the I/O cause and recovery directly beside a failed turn", async () =>
   expect(screen.getByRole("alert")).toHaveTextContent("tool results count");
   expect(screen.getByRole("alert")).toHaveTextContent("Resume keeps the original limit");
 });
+
+it("shows interrupted attempt guidance and preserves an inspection path", async () => {
+  const errorMessage = "Generation was interrupted. The original cause was not recorded. Resume keeps the original timeout.";
+  const api = { attempts: vi.fn().mockResolvedValue({ items: [{ messageId: "interrupted-test", errorMessage }], pageSize: 25, totalCount: 1 }) };
+  render(<FailedTurn api={api} conversationId="conversation-test" message={{ id: "interrupted-test", runId: "run-test", state: "interrupted" }} onInspect={() => {}} />);
+  await screen.findByText(errorMessage);
+  expect(screen.getByRole("alert")).toHaveTextContent("Interrupted");
+  expect(screen.getByRole("button", { name: "Generation attempts" })).toBeInTheDocument();
+});

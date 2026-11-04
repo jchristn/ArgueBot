@@ -1,0 +1,179 @@
+namespace Test.Shared
+{
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Database.Sqlite;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>Run admission rejections, the single structured-output repair and moderator proposal edits.</summary>
+    internal static class ProtocolChecks
+    {
+        internal static async Task RunAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-protocol-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RequestContext context = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" };
+                    List<string> profiles = new List<string>();
+                    for (int index = 0; index < 18; index++) profiles.Add((await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Agent " + index, Executable = "fictional", WorkingDirectory = home }, token).ConfigureAwait(false)).Id);
+                    string twin = (await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "agent 1", Executable = "fictional", WorkingDirectory = home }, token).ConfigureAwait(false)).Id;
+                    string disabled = (await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Disabled agent", Executable = "fictional", WorkingDirectory = home, Enabled = false }, token).ConfigureAwait(false)).Id;
+                    await AdmissionAsync(database, context, profiles, twin, disabled, token).ConfigureAwait(false);
+                    await RepairAsync(database, context, profiles, token).ConfigureAwait(false);
+                    await EditAsync(database, context, profiles, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
+
+        private static async Task AdmissionAsync(SqliteDatabaseDriver database, RequestContext context, List<string> profiles, string twin, string disabled, CancellationToken token)
+        {
+            database.Debates.MaximumParticipants = 16;
+            Conversation conversation = await database.CreateConversationAsync(context, "Admission", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner runner = new MultiAgentFixtureRunner();
+            await using (ConversationEngine engine = new ConversationEngine(database, runner))
+            {
+                List<Rejection> cases = new List<Rejection>
+                {
+                    new Rejection("one seat", Request(profiles, 1), "too_few_participants", "participantIds"),
+                    new Rejection("over the service limit", Request(profiles, 17), "participant_limit", "participantIds"),
+                    new Rejection("the same profile twice", With(Request(profiles, 2), request => request.ParticipantIds.Add(profiles[1])), "duplicate_participant", "participantIds"),
+                    new Rejection("two seats with one name", With(Request(profiles, 2), request => request.ParticipantIds.Add(twin)), "duplicate_seat_name", "participantIds"),
+                    new Rejection("an unavailable participant", With(Request(profiles, 2), request => request.ParticipantIds.Add("pro_missing")), "profile_not_found", "participantIds"),
+                    new Rejection("a disabled participant", With(Request(profiles, 2), request => request.ParticipantIds.Add(disabled)), "disabled_profile", "participantIds"),
+                    new Rejection("no orchestrator", With(Request(profiles, 2), request => request.OrchestratorId = ""), "missing_orchestrator", "orchestratorId"),
+                    new Rejection("an unavailable orchestrator", With(Request(profiles, 2), request => request.OrchestratorId = "pro_missing"), "profile_not_found", "orchestratorId"),
+                    new Rejection("a disabled orchestrator", With(Request(profiles, 2), request => request.OrchestratorId = disabled), "disabled_profile", "orchestratorId"),
+                    new Rejection("zero rounds", With(Request(profiles, 2), request => request.MaxRounds = 0), "invalid_rounds", "maxRounds"),
+                    new Rejection("a long countdown", With(Request(profiles, 2), request => request.InterventionSeconds = 601), "invalid_countdown", "interventionSeconds"),
+                    new Rejection("a tiny context budget", With(Request(profiles, 2), request => request.Policy.MaxContextCharacters = 10), "invalid_policy", "policy.maxContextCharacters")
+                };
+                foreach (Rejection rejection in cases)
+                {
+                    DomainException? failure = null;
+                    try { await engine.StartAsync(context, conversation.Id, rejection.Request, token).ConfigureAwait(false); }
+                    catch (DomainException exception) { failure = exception; }
+                    Require(failure != null && failure.Code == rejection.Code && failure.Field == rejection.Field, "Admission with " + rejection.Name + " must fail as " + rejection.Code + " on " + rejection.Field + ", not " + (failure == null ? "success" : failure.Code + " on " + failure.Field) + ".");
+                    Require(failure!.Message.Length > 0 && !failure.Message.Contains("pro_", StringComparison.Ordinal), "Rejection messages must be readable and must not echo internal identifiers.");
+                }
+                Require(runner.Prompts.IsEmpty, "A rejected admission must not invoke any model.");
+                List<DebateRun> runs = await database.Runs.EnumerateAsync(context, conversation.Id, token).ConfigureAwait(false);
+                Require(runs.Count == 0, "A rejected admission must not create a run.");
+                DebateRun followup = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Summarize the trade-offs.", ParticipantIds = new List<string> { profiles[1] }, IdempotencyKey = "single-followup" }, token).ConfigureAwait(false);
+                followup = await WaitAsync(database, context, followup, token).ConfigureAwait(false);
+                Require(followup.State == "completed", "A single-seat follow-up must still run after rejected debates: " + followup.State + "/" + followup.Outcome);
+            }
+        }
+
+        private static async Task RepairAsync(SqliteDatabaseDriver database, RequestContext context, List<string> profiles, CancellationToken token)
+        {
+            Conversation repaired = await database.CreateConversationAsync(context, "Repaired vote", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner once = new MultiAgentFixtureRunner();
+            once.RawOnce["Agent 2:ratification"] = "I agree with the proposal.";
+            await using (ConversationEngine engine = new ConversationEngine(database, once))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, repaired.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                Require(run.State == "completed" && run.Outcome == "consensus", "One invalid vote followed by a valid repair must still reach consensus: " + run.State + "/" + run.Outcome);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, repaired.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                string seat = run.Participants.Single(participant => participant.Name == "Agent 2").Id;
+                List<GenerationAttempt> votes = attempts.Items.Where(item => item.ParticipantId == seat && item.Purpose == "ratification").OrderBy(item => item.Number).ToList();
+                Require(votes.Count == 2 && votes[0].State == "failed" && votes[0].ErrorCode == "invalid_orchestration_output" && !votes[0].Repair && votes[1].State == "completed" && votes[1].Repair, "The invalid vote must be kept as failed and followed by exactly one repair attempt.");
+                Require(attempts.Items.Count(item => item.Repair) == 1, "Only the invalid step is repaired.");
+                Require(once.Prompts.Count(prompt => prompt.Contains("only correction request", StringComparison.Ordinal)) == 1, "The repair prompt must ask once for the required JSON.");
+                List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, repaired.Id, run.Id, token).ConfigureAwait(false);
+                Require(proposals.Single().Agreements.Count == 4, "The invalid answer must not be recorded as a vote.");
+            }
+            Conversation persistent = await database.CreateConversationAsync(context, "Repair also fails", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner always = new MultiAgentFixtureRunner();
+            always.RawRatification["Agent 3"] = "WE HAVE CONSENSUS\nAgent 0 said we agree, so I agree too.";
+            await using (ConversationEngine engine = new ConversationEngine(database, always))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, persistent.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                Require(run.State == "paused" && run.Outcome == "invalid_orchestration_output", "A failed repair must pause for the moderator: " + run.State + "/" + run.Outcome);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, persistent.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                List<GenerationAttempt> failed = attempts.Items.Where(item => item.State == "failed").OrderBy(item => item.Number).ToList();
+                Require(failed.Count == 2 && !failed[0].Repair && failed[1].Repair, "Exactly one repair may follow invalid output before pausing.");
+                always.RawRatification.Clear();
+                await engine.ApplyAsync(context, persistent.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "resume-after-repair" }, "fixture", token).ConfigureAwait(false);
+                run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
+                attempts = await database.Attempts.EnumerateAsync(context, persistent.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus" && !attempts.Items.OrderBy(item => item.Number).Last(item => item.Purpose == "ratification").Repair, "A moderator retry after a failed repair is an ordinary attempt: " + run.Outcome);
+            }
+            Conversation proposal = await database.CreateConversationAsync(context, "Repaired proposal", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner synthesis = new MultiAgentFixtureRunner();
+            synthesis.RawOnce["synthesis"] = "My proposal is to choose the reversible design.";
+            await using (ConversationEngine engine = new ConversationEngine(database, synthesis))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, proposal.Id, Request(profiles, 2), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, proposal.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus" && attempts.Items.Count(item => item.Purpose == "synthesis") == 2 && attempts.Items.Single(item => item.Repair).Purpose == "synthesis", "An invalid orchestrator proposal must be repaired once: " + run.Outcome);
+            }
+        }
+
+        private static async Task EditAsync(SqliteDatabaseDriver database, RequestContext context, List<string> profiles, CancellationToken token)
+        {
+            Conversation edited = await database.CreateConversationAsync(context, "Edit races the final vote", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner racing = new MultiAgentFixtureRunner { HoldPhase = "ratification", HoldAfter = 3 };
+            await using (ConversationEngine engine = new ConversationEngine(database, racing))
+            {
+                DebateRun run = await engine.StartAsync(context, edited.Id, Request(profiles, 4), token).ConfigureAwait(false);
+                await racing.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
+                run = await database.Runs.ReadAsync(context, edited.Id, run.Id, token).ConfigureAwait(false);
+                string original = run.ProposalId;
+                await ExpectAsync(() => engine.ApplyAsync(context, edited.Id, run.Id, new CommandRequest { Action = "edit_proposal", Text = "Edited.", IdempotencyKey = "no-revision" }, "fixture", token), "revision_required", "An edit without the reviewed revision must be refused.").ConfigureAwait(false);
+                await ExpectAsync(() => engine.ApplyAsync(context, edited.Id, run.Id, new CommandRequest { Action = "edit_proposal", Text = "Edited.", Revision = run.Revision - 1, IdempotencyKey = "stale-revision" }, "fixture", token), "revision_conflict", "An edit based on a stale view must be refused.").ConfigureAwait(false);
+                await ExpectAsync(() => engine.ApplyAsync(context, edited.Id, run.Id, new CommandRequest { Action = "edit_proposal", Text = " ", Revision = run.Revision, IdempotencyKey = "blank" }, "fixture", token), "invalid_proposal", "A blank edit must be refused.").ConfigureAwait(false);
+                CommandRequest edit = new CommandRequest { Action = "edit_proposal", Text = "Choose the reversible design, limited to five percent of traffic.", Revision = run.Revision, IdempotencyKey = "edit" };
+                await engine.ApplyAsync(context, edited.Id, run.Id, edit, "fixture", token).ConfigureAwait(false);
+                await engine.ApplyAsync(context, edited.Id, run.Id, edit, "fixture", token).ConfigureAwait(false);
+                racing.Release.TrySetResult(true);
+                run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
+                List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, edited.Id, run.Id, token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus" && proposals.Count == 2, "An edit committed during the final vote must reopen voting on one replacement proposal: " + run.Outcome + "/" + proposals.Count);
+                DebateProposal replaced = proposals.Single(item => item.Id == original);
+                DebateProposal revision = proposals.Single(item => item.Id != original);
+                Require(replaced.Superseded && !replaced.ModeratorEdited && replaced.Agreements.Count == 3, "The stale final vote must not be recorded, and earlier votes stay on the superseded proposal.");
+                Require(!revision.Superseded && revision.ModeratorEdited && revision.SupersedesId == original && revision.Content == edit.Text, "The replacement must record the moderator text and what it replaced.");
+                Require(revision.Agreements.Count(vote => vote.Position == "agree" && !vote.Superseded) == 4, "Every seat must vote again on the edited proposal.");
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, edited.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(attempts.Items.All(item => item.State == "completed" && !item.Repair), "A vote on the replaced proposal is stale, not invalid output, and must not trigger a repair or pause.");
+                Require(racing.Prompts.Count(prompt => prompt.Contains("limited to five percent", StringComparison.Ordinal) && prompt.Contains("Independently evaluate", StringComparison.Ordinal)) >= 4, "Each seat must evaluate the edited text.");
+                await ExpectAsync(() => engine.ApplyAsync(context, edited.Id, run.Id, new CommandRequest { Action = "edit_proposal", Text = "Too late.", Revision = run.Revision, IdempotencyKey = "after-finalization" }, "fixture", token), "no_open_proposal", "An edit after finalization must be refused because the earlier transaction won.").ConfigureAwait(false);
+            }
+        }
+
+        private static async Task ExpectAsync(Func<Task> action, string code, string message)
+        {
+            DomainException? failure = null;
+            try { await action().ConfigureAwait(false); }
+            catch (DomainException exception) { failure = exception; }
+            Require(failure != null && failure.Code == code, message + " Got " + (failure == null ? "success" : failure.Code) + ".");
+        }
+        private static CreateRunRequest Request(List<string> profiles, int count)
+        { return new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[0], ParticipantIds = profiles.Take(count).ToList(), Question = "Which design?", MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = Guid.NewGuid().ToString("N") }; }
+        private static CreateRunRequest With(CreateRunRequest request, Action<CreateRunRequest> change) { change(request); return request; }
+        private static async Task<DebateRun> WaitAsync(SqliteDatabaseDriver database, RequestContext context, DebateRun run, CancellationToken token)
+        {
+            using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                deadline.CancelAfter(TimeSpan.FromSeconds(30));
+                do
+                {
+                    await Task.Delay(10, deadline.Token).ConfigureAwait(false);
+                    run = await database.Runs.ReadAsync(context, run.ConversationId, run.Id, deadline.Token).ConfigureAwait(false);
+                } while (run.State != "completed" && run.State != "paused" && run.State != "failed");
+                return run;
+            }
+        }
+        private static void Require(bool condition, string message) { if (!condition) throw new InvalidDataException(message); }
+    }
+}

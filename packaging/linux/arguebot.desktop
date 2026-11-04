@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ArgueBot
+Comment=Moderated multi-agent debates
+Exec=arguebot
+Icon=arguebot
+Terminal=true
+Categories=Development;

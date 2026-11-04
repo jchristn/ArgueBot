@@ -9,6 +9,8 @@ function SettingsForm({ snapshot, onSave }) {
     revision: snapshot.revision,
     port: snapshot.settings.port,
     maxConcurrentRuns: snapshot.settings.maxConcurrentRuns,
+    maxParticipants: snapshot.settings.maxParticipants ?? 16,
+    listenAddress: snapshot.settings.listenAddress ?? "127.0.0.1",
     allowCli: snapshot.settings.allowCli,
     tlsEnabled: snapshot.settings.tlsEnabled,
     tlsPasswordEnvironmentVariable:
@@ -93,6 +95,8 @@ function SettingsForm({ snapshot, onSave }) {
             />
           )}
         </Field>
+        <Field label="settings.listenAddress">{props => <select {...props} value={value.listenAddress} onChange={event => change("listenAddress", event.target.value)}><option value="127.0.0.1">127.0.0.1</option><option value="0.0.0.0">0.0.0.0</option></select>}</Field>
+        <Field label="settings.maxParticipants">{props => <input {...props} type="number" min="2" max="64" value={value.maxParticipants} onChange={event => change("maxParticipants", Number(event.target.value))} />}</Field>
         <Field label="settings.streamCharacters">
           {(props) => (
             <input

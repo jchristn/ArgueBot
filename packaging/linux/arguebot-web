@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+output=$("$directory/ArgueBot.Cli" service web)
+url=$(printf '%s\n' "$output" | sed -n 's/^Open ArgueBot in your browser: //p')
+if ! printf '%s\n' "$url" | grep -Eq '^https?://127\.0\.0\.1:[0-9]+/dashboard$'; then
+  printf '%s\n' 'ArgueBot did not report a local workspace URL.' >&2
+  exit 1
+fi
+exec xdg-open "$url"

@@ -3,6 +3,10 @@
 const http = require('http');
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (req.method === 'GET' && (pathname.endsWith('/api/tags') || pathname.endsWith('/models'))) {
+    res.writeHead(pathname.includes('/unavailable/') ? 401 : 200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(pathname.includes('/unavailable/') ? { error: req.headers.authorization } : pathname.endsWith('/api/tags') ? { models: [{ name: 'multi-agent' }, { name: 'multi-agent-auth' }, { name: 'multi-agent' }] } : { data: [{ id: 'multi-agent' }, { id: 'multi-agent-auth' }] }));
+  }
   const provider = pathname.endsWith('/api/chat') ? 'ollama' : pathname.endsWith('/chat/completions') ? 'openai' : pathname.endsWith('/messages') ? 'anthropic' : pathname.includes(':streamGenerateContent') ? 'gemini' : null;
   if (req.method !== 'POST' || !provider) {
     res.writeHead(501, { 'Content-Type': 'application/json' });
@@ -10,15 +14,37 @@ const server = http.createServer((req, res) => {
   }
   let raw = '';
   req.on('data', chunk => { raw += chunk; });
-  req.on('end', () => {
+  req.on('end', async () => {
     let body;
     try { body = req.body || JSON.parse(raw); } catch {
       res.writeHead(400); return res.end('{"error":"invalid JSON"}');
     }
     const model = body.model || decodeURIComponent(pathname.split('/models/')[1]?.split(':')[0] || '');
+    if (model === 'multi-agent-slow') await new Promise(resolve => setTimeout(resolve, 300));
     const messages = body.messages || body.contents;
     if (!model || !Array.isArray(messages)) {
       res.writeHead(400); return res.end('{"error":"model and messages required"}');
+    }
+    if (model === 'deadline-stream' && provider === 'ollama') {
+      res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+      res.write(JSON.stringify({ model, message: { role: 'assistant', content: 'Partial deadline fixture.' }, done: false }) + '\n');
+      const timer = setTimeout(() => res.end(), 10000);
+      res.on('close', () => clearTimeout(timer));
+      return;
+    }
+    if (model === 'forbidden') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end('{"error":"fixture key may not use this model"}');
+    }
+    if (model === 'server-error') {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      return res.end('{"error":"fixture provider overloaded"}');
+    }
+    if (model === 'disconnect' && provider === 'ollama') {
+      // Midstream disconnect: send part of a successful stream, then drop the connection without a final chunk.
+      res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+      res.write(JSON.stringify({ model, message: { role: 'assistant', content: 'Partial answer before the connection drops.' }, done: false }) + '\n');
+      return setTimeout(() => res.socket.destroy(), 50);
     }
     if (model === 'rate-limit') {
       res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' });
@@ -58,6 +84,35 @@ const server = http.createServer((req, res) => {
       }
       res.end();
     };
+    if (model === 'check-tools' && !messages.some(message => message.role === 'tool')) return emit('', [{ id: 'probe', name: 'connection_probe', args: { value: 4 } }]);
+    if (model.startsWith('multi-agent')) {
+      if (model === 'multi-agent-auth' && (req.headers.authorization !== 'Bearer fictional-gateway-token' || req.headers['x-api-key'] !== 'fictional-gateway-token' || req.headers['x-route'] !== 'fixture' || new URL(req.url, 'http://127.0.0.1').searchParams.get('gateway_key') !== 'fictional-gateway-token')) {
+        res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end('{"error":"fictional-gateway-token auth mismatch"}');
+      }
+      if (model === 'multi-agent-auth') {
+        const options = provider === 'ollama' ? body.options : body;
+        const tokens = provider === 'ollama' ? options?.num_predict : (body.max_tokens ?? body.max_completion_tokens);
+        if (tokens !== 2048 || options?.temperature !== 0.25 || options?.top_p !== 0.9) {
+          res.writeHead(400); return res.end('{"error":"generation settings mismatch"}');
+        }
+      }
+      const instructions = messages.find(message => message.role === 'system')?.content || '';
+      if (instructions.includes('Compact the supplied')) {
+        const ids = instructions.split('Supplied source IDs: ')[1]?.split('\n')[0].split(', ') || [];
+        const pinned = instructions.split('Pinned moderator constraint source IDs: ')[1]?.split('. ')[0].split(', ') || [];
+        return emit(JSON.stringify({ summary: 'Working memory of supplied evidence.', sections: [
+          ['facts', 'No rollout outcome is established.'], ['contested_claims', 'Evidence remains contested.'],
+          ['positions', 'No final participant agreement is established.'], ['evidence', 'Original evidence is retained in the source manifest.'],
+          ['decisions', 'No ratified decision yet.'], ['questions', 'Which rollout limit is justified?'],
+          ['constraints', 'Retain reversible rollout and moderator constraints.' + pinned.map(id => ` Pinned constraint (${id}).`).join('')]
+        ].map(([kind, content]) => ({ kind, content })), sourceIds: ids }));
+      }
+      if (instructions.includes('question (required')) return emit(JSON.stringify({ question: 'Which evidence makes a reversible rollout safe?', rationale: 'Identify the constraint that distinguishes the alternatives.' }));
+      if (instructions.includes('proposal (required')) return emit(JSON.stringify({ proposal: 'Adopt a reversible rollout with explicit success criteria and a rollback threshold.' }));
+      if (instructions.includes('proposalId:')) return emit(JSON.stringify({ proposalId: instructions.match(/proposalId: "([^"]+)"/)?.[1], position: 'agree', rationale: 'The proposal addresses the shared constraints.' }));
+      if (body.tools?.some(tool => tool.function?.name === 'get_debate_state') && !messages.some(message => message.role === 'tool')) return emit('', [{ id: 'context_state', name: 'get_debate_state', args: {} }]);
+      return emit('Use a measured rollout with a clear rollback threshold. WE HAVE CONSENSUS is only prose here.');
+    }
     if (model === 'tools-disabled') return emit(!body.tools?.length ? 'Tools disabled.' : 'Unexpected tools.');
     if (!model.startsWith('local-tools') && !model.startsWith('tool-')) return emit('Fixture answer.', [], model === 'broken-stream');
     const results = provider === 'anthropic'

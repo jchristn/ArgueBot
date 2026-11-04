@@ -78,11 +78,23 @@ namespace ArgueBot.Tui
 
             1. Question: New (Ctrl+N) starts with a blank question; b or Ctrl+B in an existing conversation preserves its original question in an editable field. Enter the issue the agents should discuss. Starting in an existing conversation keeps its history as context. The question shown on Review is submitted. Enter or Next advances.
 
-            2. Speakers: select the opening agent, second agent and optional third agent. Enter opens a dropdown, arrows select and Enter confirms. Choose distinct agents. The opening agent speaks first in each round; the last selected agent speaks last. There is no separate closing-agent setting.
+            2. Panel: check at least two agents, up to the service limit. Choose the orchestrator model separately. It asks questions, drafts proposals and compacts context. Every active agent must explicitly agree on the same proposal. The opening speaker rotates each round.
 
-            3. Settings: choose the round limit and the intervention time between turns. A round gives each selected speaker a turn. The intervention window gives you time to add context or use run controls before generation continues.
+            3. Settings: choose the round limit and the intervention time between turns. A round includes a pointed question, each participant response, a proposal and every participant vote. The intervention window gives you time to add context or use run controls before generation continues.
 
             4. Review: read the question, speaker order and settings. Back or Alt+Left returns without losing answers; Next or Alt+Right advances. Only Start debate on Review submits the run. A failed submission leaves the review and error open. Do not keep pressing Start while a request is pending.
+
+            Connections and models
+
+            Agents or the main menu opens Connections, models and credentials. Import write-only credentials, then configure HTTP endpoints or CLI harnesses and reusable models. Each participant can select a reusable model and role instructions. HTTP bindings support bearer, API key, named headers and query parameters. Each binding uses one stored credential, service environment reference or nonsecret routing value.
+
+            Endpoint capacity limits simultaneous generations across debates. Model configuration offers explicit completion and harmless tool checks. These can incur provider cost; saving a form never invokes a model. Observations show the exact model and transport revisions and, for supported CLI harnesses, the reported executable version. A completion alone does not verify tool support.
+
+            Credential encryption keys shows the active key identity and offers master-key rotation. Rotation reencrypts stored values while retaining previous keys for recovery and old backups. Back up the entire protected secrets directory separately after rotation. Attempt inspection records credential revisions and time waiting for endpoint capacity.
+
+            Run setup includes separate participant, orchestration, compaction and tool budgets, an elapsed deadline, context capacity and optional initial-input estimates. Limits survive retries. Additional question, proposal and memory guidance shapes orchestration. Use Run controls > Inspect execution usage and limits to review consumption.
+
+            Context memory keeps shared and private partitions separate. Inspect summaries shows which partition a summary belongs to, and pages through its complete original-source manifest. Compaction never deletes the original turns.
 
             Control an ongoing debate
 
@@ -91,6 +103,8 @@ namespace ArgueBot.Tui
             Interrupt current generation cancels the current answer and retains partial text. Resume retries the unfinished turn and may incur another model charge. It does not reconstruct the remainder of an interrupted answer. Resume uses the run's original agent settings.
 
             A private directive goes only to the chosen participant when its context is assembled; it is different from a shared note. Extend by two rounds increases the round limit when the run's state permits it. Extending is not a general way to reopen a consensus-completed run.
+
+            New context offers Use in next turn or Interrupt now for each submission. Context invalidates older votes; the panel ratifies a fresh proposal. Run controls also let you change agents at a safe boundary, inspect proposals and delivery receipts, read summaries and their original sources, rebuild or exclude derived memory, and answer or skip a clarification. Pause before changing derived memory; resume explicitly after answering a blocking question.
 
             Stop and completion
 

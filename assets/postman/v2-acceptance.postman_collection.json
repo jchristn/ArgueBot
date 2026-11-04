@@ -1,0 +1,1999 @@
+{
+  "info": {
+    "name": "ArgueBot v2 isolated acceptance workflow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run only through scripts/test-v2-postman.mjs against a disposable workspace. Provider responses are simulated; service persistence, execution and API validation are real."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "simulationUrl",
+      "value": "http://127.0.0.1:4491/ollama"
+    },
+    {
+      "key": "isolatedFixture",
+      "value": "false"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if(pm.variables.get('isolatedFixture')!=='true' || !/^http:[/][/]127[.]0[.]0[.]1:[0-9]+$/.test(pm.variables.get('baseUrl')))pm.execution.skipRequest();"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Capabilities",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/capabilities",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Unanimity and per-command delivery are explicit',()=>{const v=pm.response.json();pm.expect(v.consensusPolicy).to.equal('unanimous');pm.expect(v.maxParticipants).to.be.at.least(4);pm.expect(v.deliveryModes).to.include.members(['next_turn','interrupt_now']);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Import fictional credential",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman fixture token\",\n  \"kind\": \"token\",\n  \"secretValue\": \"fictional-workflow-token\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('credentialId',pm.response.json().id);",
+              "pm.test('Write-only credential',()=>pm.expect(pm.response.text()).not.to.include('fictional-workflow-token'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create harness with explicit environment",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman environment fixture\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"FIXTURE_API_KEY\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "pm.test('Only names are configured',()=>pm.expect(pm.response.json().environmentVariables).to.deep.equal(['FIXTURE_API_KEY']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject environment values in names",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Invalid environment\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"KEY=fictional-value\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create endpoint",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/endpoints",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman local simulation\",\n  \"protocol\": \"ollama\",\n  \"baseUrl\": \"{{simulationUrl}}\",\n  \"maxConcurrentInvocations\": 2,\n  \"authBindings\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('endpointId',pm.response.json().id);",
+              "pm.test('Endpoint concurrency persisted',()=>pm.expect(pm.response.json().maxConcurrentInvocations).to.equal(2));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Preview saved endpoint without a provider request",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{endpointId}}/preview",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Explicit destinations and no resolved values',()=>{const v=pm.response.json();pm.expect(v.generationUrl).to.match(/[/]api[/]chat$/);pm.expect(v.discoveryUrl).to.match(/[/]api[/]tags$/);pm.expect(v.headerNames).to.have.length(0);pm.expect(v.queryNames).to.have.length(0);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discover advertised models",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{endpointId}}/discover",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Discovery does not invoke generation',()=>pm.expect(pm.response.json().models).to.include('multi-agent'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog next page",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/endpoints?pageNumber=2&pageSize=100",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Page beyond the fixture is empty',()=>pm.expect(pm.response.json()).to.have.length(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject unbounded catalog page",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/endpoints?pageSize=101",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create model",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman fixture model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent-slow\",\n  \"supportsTools\": true,\n  \"maxOutputBytes\": 1048576,\n  \"generation\": {\n    \"maxOutputTokens\": 2048,\n    \"temperature\": 0.25,\n    \"topP\": 0.9\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('modelId',pm.response.json().id);",
+              "pm.test('Generation settings retained',()=>pm.expect(pm.response.json().generation).to.deep.equal({maxOutputTokens:2048,temperature:0.25,topP:0.9}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid generation setting",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Invalid sampling\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"fictional\",\n  \"generation\": {\n    \"temperature\": 3\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create tool-check model",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman probe model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"check-tools\",\n  \"supportsTools\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('checkModelId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invoke explicit model check",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models/{{checkModelId}}/checks",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idempotencyKey\": \"workflow-model-check\",\n  \"checkTools\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "if(pm.response.code<300)pm.collectionVariables.set('checkId',pm.response.json().id);",
+              "pm.test('Completion and tool round trip observed',()=>{const v=pm.response.json();pm.expect(v.state).to.equal('completed');pm.expect(v.completionVerified).to.equal(true);pm.expect(v.toolsVerified).to.equal(true);pm.expect(v.modelRevision).to.equal(1);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retry model check without another invocation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models/{{checkModelId}}/checks",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idempotencyKey\": \"workflow-model-check\",\n  \"checkTools\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Stable model-check receipt',()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('checkId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect observed model checks",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models/{{checkModelId}}/checks",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('One durable check',()=>pm.expect(pm.response.json()).to.have.length(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create claude",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman claude\",\n  \"modelProfileId\": \"{{modelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('claude',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create codex",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman codex\",\n  \"modelProfileId\": \"{{modelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('codex',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create gemini",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman gemini\",\n  \"modelProfileId\": \"{{modelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('gemini',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create deepseek",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman deepseek\",\n  \"modelProfileId\": \"{{modelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('deepseek',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create orchestrator",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman orchestrator\",\n  \"modelProfileId\": \"{{modelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('orchestrator',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create conversation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Postman four-agent acceptance fixture\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('conversationId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 0",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 0: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-0\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 1",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 1: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-1\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 2",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 2: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-2\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 3",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 3: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-3\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 4",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 4: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-4\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 5",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 5: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-5\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 6",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 6: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-6\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 7",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 7: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-7\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 8",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 8: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-8\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 9",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 9: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-9\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 10",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 10: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-10\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 11",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 11: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-11\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 12",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 12: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-12\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed original evidence 13",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Original evidence 13: Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. Preserve uncertainty. \",\n  \"idempotencyKey\": \"memory-source-13\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid policy",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{claude}}\",\n    \"{{codex}}\"\n  ],\n  \"policy\": {\n    \"maxToolCalls\": 0\n  },\n  \"idempotencyKey\": \"invalid-policy\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start four-agent run",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{claude}}\",\n    \"{{codex}}\",\n    \"{{gemini}}\",\n    \"{{deepseek}}\"\n  ],\n  \"maxRounds\": 2,\n  \"interventionSeconds\": 0,\n  \"policy\": {\n    \"maxParticipantTurns\": 40,\n    \"maxOrchestrationCalls\": 20,\n    \"maxCompactionCalls\": 10,\n    \"maxToolCalls\": 100,\n    \"maxWallClockSeconds\": 120,\n    \"maxContextCharacters\": 16384,\n    \"questionInstructions\": \"Probe rollout evidence.\"\n  },\n  \"idempotencyKey\": \"workflow-start\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202',()=>pm.response.to.have.status(202));",
+              "if(pm.response.code<300)pm.collectionVariables.set('runId',pm.response.json().id);",
+              "pm.test('Four frozen seats and separate orchestrator',()=>{const v=pm.response.json();pm.expect(v.participants).to.have.length(4);pm.expect(v.orchestrator.name).to.equal('Postman orchestrator');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject missing delivery mode",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Invalid command\",\n  \"idempotencyKey\": \"invalid-mode\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject unknown delivery mode",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Invalid command\",\n  \"deliveryMode\": \"immediately-ish\",\n  \"idempotencyKey\": \"unknown-mode\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queue context",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Require reversible rollout.\",\n  \"deliveryMode\": \"next_turn\",\n  \"pinned\": true,\n  \"idempotencyKey\": \"workflow-context\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('receiptId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retry identical context",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Require reversible rollout.\",\n  \"deliveryMode\": \"next_turn\",\n  \"pinned\": true,\n  \"idempotencyKey\": \"workflow-context\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "pm.test('Stable command receipt',()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('receiptId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject changed command identity",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Require reversible rollout.\",\n  \"deliveryMode\": \"interrupt_now\",\n  \"pinned\": true,\n  \"idempotencyKey\": \"workflow-context\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interrupt with durable context",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Retain the rollback threshold.\",\n  \"deliveryMode\": \"interrupt_now\",\n  \"idempotencyKey\": \"workflow-interrupt\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect interrupted run",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "if(['agent_turn','interrupting'].includes(pm.response.json().state)){setTimeout(()=>{},50);pm.execution.setNextRequest('Inspect interrupted run');} else pm.test('Interruption pauses without consensus',()=>{const v=pm.response.json();pm.expect(v.state).to.equal('paused');pm.expect(v.outcome).not.to.equal('consensus');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject stale roster revision",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/roster",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"remove\",\n  \"participantId\": \"{{deepseek}}\",\n  \"revision\": -1,\n  \"idempotencyKey\": \"stale-roster\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Explicitly resume",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"resume\",\n  \"idempotencyKey\": \"workflow-resume\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wait for unanimous result",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "const v=pm.response.json();const count=Number(pm.collectionVariables.get('pollCount')||0)+1;pm.collectionVariables.set('pollCount',count);if(v.state!=='completed' && count<100){setTimeout(()=>{},100);pm.execution.setNextRequest('Wait for unanimous result');}else pm.test('Completed with consensus',()=>{pm.expect(v.state).to.equal('completed');pm.expect(v.outcome).to.equal('consensus');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect independent usage",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Frozen policy and separate usage counters',()=>{const v=pm.response.json();pm.expect(v.policy.maxParticipantTurns).to.equal(40);pm.expect(v.policy.questionInstructions).to.equal('Probe rollout evidence.');pm.expect(v.usage.participantTurns).to.be.at.least(8);pm.expect(v.usage.orchestrationCalls).to.be.at.least(2);pm.expect(v.usage.estimatedInputTokens).to.be.above(0);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid source page",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/summaries?sourcePageNumber=0",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verify explicit votes",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/proposals",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Every seat agreed on the final proposal',()=>{const v=pm.response.json()[0];pm.expect(v.agreements).to.have.length(4);pm.expect(new Set(v.agreements.map(x=>x.participantId)).size).to.equal(4);v.agreements.forEach(x=>pm.expect(x.position).to.equal('agree'));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verify context delivery",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Original and summarized delivery remain distinct',()=>{const rows=pm.response.json();pm.expect(rows).to.have.length(2);rows.forEach(x=>pm.expect(new Set([...x.deliveredParticipantIds,...x.summarizedParticipantIds]).size).to.equal(4));pm.expect(rows.find(x=>x.pinned).deliveredParticipantIds).to.have.length(4);pm.expect(rows.find(x=>!x.pinned).summarizedParticipantIds).to.have.length(4);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect summaries",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/summaries?pageNumber=1",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Structured memory retains source hashes and parent lineage',()=>{const rows=pm.response.json();pm.expect(rows.length).to.be.at.most(25);const current=rows.find(x=>x.active);pm.expect(current.sections).to.have.length(7);pm.expect(current.parentSummaryIds.length).to.be.above(0);pm.expect(current.sources.map(x=>x.messageId)).to.deep.equal(current.sourceIds);current.sources.forEach(x=>pm.expect(x.digest).to.match(/^[a-f0-9]{64}$/));pm.collectionVariables.set('summarySourceId',current.sources[0].messageId);pm.collectionVariables.set('summarySourceDigest',current.sources[0].digest);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read unchanged original summary source",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages/{{summarySourceId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Original source matches accepted SHA-256',()=>{const CryptoJS=require('crypto-js');pm.expect(CryptoJS.SHA256(pm.response.json().content).toString()).to.equal(pm.collectionVariables.get('summarySourceDigest'));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect clarification requests",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/clarifications",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect credential metadata",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('No credential values returned',()=>pm.expect(pm.response.text()).not.to.include('fictional-workflow-token'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read master-key identity",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('activeKeyId',pm.response.json().activeKeyId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rotate master encryption key",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/rotate",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Master key changed without exposing material',()=>{const v=pm.response.json();pm.expect(v.activeKeyId).not.to.equal(pm.collectionVariables.get('activeKeyId'));pm.expect(v.reencryptedCredentials).to.equal(1);pm.expect(v.retainedKeyCount).to.equal(2);pm.expect(v).not.to.have.property('keys');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject stale key rotation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/rotate",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Disable fixture credential",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{credentialId}}?revision=1",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete fixture conversation",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete claude",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{claude}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete codex",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{codex}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete gemini",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{gemini}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete deepseek",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{deepseek}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete orchestrator",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{orchestrator}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

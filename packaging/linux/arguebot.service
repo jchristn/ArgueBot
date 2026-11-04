@@ -1,0 +1,12 @@
+[Unit]
+Description=ArgueBot personal debate workspace
+After=network.target
+
+[Service]
+ExecStart=/opt/arguebot/ArgueBot.Server
+Restart=on-failure
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=default.target

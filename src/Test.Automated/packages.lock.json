@@ -116,7 +116,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[0.1.0, )"
+          "ArgueBot.Core": "[2.0.0, )"
         }
       },
       "arguebot.core": {
@@ -128,27 +128,31 @@
           "PrettyId": "[2.0.2, )"
         }
       },
+      "arguebot.publisher": {
+        "type": "Project"
+      },
       "arguebot.runners": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[0.1.0, )",
+          "ArgueBot.Core": "[2.0.0, )",
           "PolyPrompt": "[3.4.0, )"
         }
       },
       "arguebot.tui": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[0.1.0, )",
+          "ArgueBot.Client": "[2.0.0, )",
           "TUIKit": "[1.10.0, )"
         }
       },
       "test.shared": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[0.1.0, )",
-          "ArgueBot.Core": "[0.1.0, )",
-          "ArgueBot.Runners": "[0.1.0, )",
-          "ArgueBot.Tui": "[0.1.0, )",
+          "ArgueBot.Client": "[2.0.0, )",
+          "ArgueBot.Core": "[2.0.0, )",
+          "ArgueBot.Publisher": "[2.0.0, )",
+          "ArgueBot.Runners": "[2.0.0, )",
+          "ArgueBot.Tui": "[2.0.0, )",
           "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
           "Touchstone.Core": "[0.2.1, )"
         }

@@ -62,20 +62,21 @@ export function Button({
   );
 }
 export function Field({ label, children }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const id = useId();
+  const hint = i18n.exists(`${label}.help`) ? t(`${label}.help`) : "";
   return (
-    <label className="field" title={t(`${label}.help`)}>
+    <label className="field" title={hint || undefined}>
       <span>{t(label)}</span>
       {typeof children === "function"
         ? children({
             id,
-            title: t(`${label}.help`),
+            title: hint || undefined,
             "aria-label": t(label),
-            "aria-describedby": id + "-hint",
+            "aria-describedby": hint ? id + "-hint" : undefined,
           })
         : children}
-      <small id={id + "-hint"}>{t(`${label}.help`)}</small>
+      {hint && <small id={id + "-hint"}>{hint}</small>}
     </label>
   );
 }
@@ -209,4 +210,9 @@ export function Pagination({ page, onChange }) {
       </div>
     </div>
   );
+}
+
+/** Display name for a message speaker; the service records moderator-written turns as "user". */
+export function speakerLabel(t, speaker) {
+  return speaker === "user" ? t("speaker.moderator") : speaker;
 }

@@ -17,6 +17,16 @@ namespace ArgueBot.Tests.Fixtures
             string mode = args.Length > 0 ? args[0] : "plain";
             if (mode == "certificate" && args.Length == 2) { CertificateFixture.Write(args[1]); return 0; }
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);
+            if (mode == "environment" || mode == "environment-echo")
+            {
+                if (Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") != "fictional-allowed" || Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET") != null || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PATH"))) return 3;
+                Console.WriteLine(mode == "environment-echo" ? "allowed=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") + ";token=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN") : "Allowed environment verified."); return 0;
+            }
+            if (mode == "model-check")
+            {
+                Console.WriteLine(input.Contains("connection_probe", StringComparison.Ordinal) && !input.Contains("ArgueBot tool", StringComparison.Ordinal) ? "{\"contextTool\":{\"name\":\"connection_probe\",\"argumentsJson\":\"{\\\"value\\\":4}\"}}" : "ARGUEBOT_CONNECTION_OK"); return 0;
+            }
+            if (mode == "mcp-claude" || mode == "mcp-codex") return await McpClientFixture.RunAsync(args).ConfigureAwait(false);
             if (mode == "claude-tool-replay")
             {
                 byte[] replay = await File.ReadAllBytesAsync(args[1]).ConfigureAwait(false);

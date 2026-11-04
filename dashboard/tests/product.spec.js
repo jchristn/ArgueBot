@@ -37,11 +37,13 @@ test("REST participant executes local tools and preserves visible tool history",
     expect(run.status()).toBe(202);
     await page.goto(origin + `/dashboard/conversations/${conversation.id}`);
     await expect(page.getByText("Local tools verified.", { exact: true })).toBeVisible();
-    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(4);
+    await expect(page.locator(".tool-evidence summary", { hasText: "Status: started" })).toHaveCount(0);
     await expect(page.locator("article.message").filter({ hasText: "Status: completed" })).toHaveCount(4);
     expect(await fs.readFile(path.join(workspace, "tool fixture.txt"), "utf8")).toBe("Local tool evidence 議論");
     await page.reload();
-    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(4);
+    await expect(page.locator(".tool-evidence summary", { hasText: "Status: started" })).toHaveCount(0);
     await page.screenshot({ path: "../.run/screenshots/rest-local-tools.png", fullPage: true });
   } finally { invoke("service", "stop"); await fs.rm(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
 });
@@ -267,6 +269,28 @@ test("inspect redacted request history and execute a read-only API request", asy
   await expect(page.locator(".explorer-response pre")).toContainText(
     '"status":"ready"',
   );
+  const operation = page.getByRole("combobox", { name: "Operation", exact: true });
+  await operation.selectOption("post /v2.0/api/conversations/{conversationId}/runs");
+  const execute = page.getByRole("button", { name: "Execute request", exact: true });
+  await expect(page.getByRole("status").filter({ hasText: "required parameters" })).toContainText("conversationId");
+  await expect(execute).toBeDisabled();
+  await expect(page.locator("#parameter-conversationId")).toContainText("Conversation ID (cnv_...)");
+  await page.getByRole("textbox", { name: "conversationId", exact: true }).fill("cnv_fictional");
+  await expect(page.getByRole("alert")).toContainText("{{profileId}}");
+  await expect(execute).toBeDisabled();
+  await page.locator(".explorer-fields summary").click();
+  await expect(page.locator(".explorer-fields")).toContainText("orchestratorId");
+  await expect(page.locator(".explorer-fields")).toContainText("1 to 50");
+  await page.getByRole("textbox", { name: "JSON request body" }).fill('{"participantIds": [');
+  await expect(page.getByRole("alert")).toContainText("not valid JSON");
+  await page.getByRole("button", { name: "Reset to example", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("placeholder");
+  for (const width of [390, 1280]) for (const theme of ["light", "dark"]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+    await page.screenshot({ path: `../.run/screenshots/explorer-guidance-${width}-${theme}.png`, fullPage: true });
+  }
 });
 test("participant argument editor preserves blank literal arguments", async ({
   page,
@@ -328,7 +352,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
             kind: "rest",
             provider: "ollama",
             endpoint,
-            model: "fixture",
+            model: "multi-agent",
             timeoutSeconds: 5,
           }),
         });
@@ -361,6 +385,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     const start = page.getByRole("dialog");
     for (const profile of profiles)
       await start.getByLabel(profile.name, { exact: false }).check();
+    await start.getByRole("combobox", { name: "Orchestrator model" }).selectOption(profiles[0].id);
     await start.getByRole("spinbutton", { name: "Maximum rounds" }).fill("1");
     await start
       .getByRole("spinbutton", { name: "Pause between turns (seconds)" })
@@ -369,20 +394,22 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .getByRole("button", { name: "Start debate", exact: true })
       .click();
     await expect(
-      page.getByText("Fixture answer.", { exact: true }),
+      page.getByText("Use a measured rollout with a clear rollback threshold. WE HAVE CONSENSUS is only prose here.", { exact: true }),
     ).toHaveCount(2);
+    // Open the inspector only after synthesis and every vote have committed.
+    await expect(page.getByText("Unanimous: every active seat agreed to the same proposal.", { exact: true })).toBeVisible({ timeout: 15000 });
     await page
       .getByRole("button", { name: "Generation attempts", exact: true })
       .click();
     const inspector = page.getByRole("dialog");
     await expect(
       inspector.getByRole("button", { name: "Inspect attempt", exact: true }),
-    ).toHaveCount(2);
+    ).toHaveCount(6);
     await inspector
       .getByRole("button", { name: "Inspect attempt", exact: true })
       .first()
       .click();
-    await expect(inspector).toContainText("debate-v1");
+    await expect(inspector).toContainText("debate-v2");
     await expect(inspector).toContainText(
       "Use this exact source note for the fixture debate.",
     );
@@ -422,7 +449,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       page
         .getByRole("dialog")
         .getByRole("button", { name: "Inspect attempt", exact: true }),
-    ).toHaveCount(2);
+    ).toHaveCount(6);
   } finally {
     await fixture.stop();
   }
