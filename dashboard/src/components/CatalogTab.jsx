@@ -1,3 +1,4 @@
+import ActionMenu from "./ActionMenu.jsx";
 import CopyButton from "./CopyButton.jsx";
 import ModelChecksDialog from "./ModelChecksDialog.jsx";
 import { useState } from "react";
@@ -195,17 +196,17 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && items.length === 0 && <div className="empty-state">{t(`catalog.empty.${kind}`)}</div>}
     {items.length > 0 && <div className="table-scroll"><table>
-      <thead><tr><th scope="col">{t("catalog.name")}</th>{columns.map(([label]) => <th scope="col" key={label}>{t(label)}</th>)}<th scope="col">{t("common.actions")}</th></tr></thead>
+      <thead><tr><th scope="col">{t("catalog.name")}</th>{columns.map(([label]) => <th scope="col" key={label}>{t(label)}</th>)}<th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
       <tbody>{items.map(item => <tr key={item.id}>
         <td><strong>{item.name}</strong></td>
         {columns.map(([label, render]) => <td key={label}>{render(item)}</td>)}
-        <td><div className="row-actions">
-          {kind === "endpoints" && <Button label="catalog.preview" onClick={async () => { try { setPreview(await api.previewEndpoint(item.id)); } catch (failure) { notify(failure); } }} />}
-          {kind === "endpoints" && <Button label={checking === item.id ? "catalog.checking" : "catalog.discover"} disabled={!item.enabled || Boolean(checking)} onClick={async () => { setChecking(item.id); try { setDiscovery({ ...await api.discoverEndpoint(item.id), name: item.name }); } catch (failure) { notify(failure); } finally { setChecking(""); } }} />}
-          {kind === "models" && <Button label="modelCheck.title" onClick={() => setModelCheck(item)} />}
-          <Button label={kind === "credentials" ? "catalog.replace" : "common.edit"} onClick={() => setEditing(item)} />
-          {kind === "credentials" && item.status !== "disabled" && <Button label="catalog.disable" onClick={async () => { try { await api.disableCredential(item.id, item.revision); await reload(); } catch (failure) { notify(failure); } }} />}
-        </div></td>
+        <td className="actions-cell"><ActionMenu context={item.name} items={[
+          { label: "catalog.preview", hidden: kind !== "endpoints", onClick: async () => { try { setPreview(await api.previewEndpoint(item.id)); } catch (failure) { notify(failure); } } },
+          { label: checking === item.id ? "catalog.checking" : "catalog.discover", hidden: kind !== "endpoints", disabled: !item.enabled || Boolean(checking), onClick: async () => { setChecking(item.id); try { setDiscovery({ ...await api.discoverEndpoint(item.id), name: item.name }); } catch (failure) { notify(failure); } finally { setChecking(""); } } },
+          { label: "modelCheck.title", hidden: kind !== "models", onClick: () => setModelCheck(item) },
+          { label: kind === "credentials" ? "catalog.replace" : "common.edit", help: kind === "credentials" ? "catalog.replace.help" : undefined, onClick: () => setEditing(item) },
+          { label: "catalog.disable", help: "catalog.disable.help", hidden: kind !== "credentials" || item.status === "disabled", danger: true, onClick: async () => { try { await api.disableCredential(item.id, item.revision); await reload(); } catch (failure) { notify(failure); } } },
+        ]} /></td>
       </tr>)}</tbody>
     </table></div>}
     {keys && <KeyDialog api={api} notify={notify} initial={keys} onClose={() => setKeys(null)} />}

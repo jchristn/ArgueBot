@@ -1,3 +1,4 @@
+import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import RequestInspector from "../components/RequestInspector.jsx";
 import { useState } from "react";
@@ -130,7 +131,7 @@ export default function RequestHistory() {
                     "history.duration",
                     "common.actions",
                   ].map((key) => (
-                    <th scope="col" key={key}>
+                    <th scope="col" key={key} className={key === "common.actions" ? "actions-cell" : undefined}>
                       {t(key)}
                     </th>
                   ))}
@@ -158,20 +159,11 @@ export default function RequestHistory() {
                       </span>
                     </td>
                     <td>{record.durationMs} ms</td>
-                    <td>
-                      <div className="row-actions">
-                        <Button
-                          label="history.inspect"
-                          help="history.inspect.help"
-                          onClick={() => inspect(record.id)}
-                        />
-                        <Button
-                          label="common.delete"
-                          help="history.delete.help"
-                          className="danger"
-                          onClick={() => setDeleting(record.id)}
-                        />
-                      </div>
+                    <td className="actions-cell">
+                      <ActionMenu context={`${record.method} ${record.path}`} items={[
+                        { label: "history.inspect", help: "history.inspect.help", onClick: () => inspect(record.id) },
+                        { label: "common.delete", help: "history.delete.help", danger: true, onClick: () => setDeleting(record.id) },
+                      ]} />
                     </td>
                   </ObjectRow>
                 ))}

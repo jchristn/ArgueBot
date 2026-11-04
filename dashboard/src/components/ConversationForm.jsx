@@ -20,11 +20,11 @@ export default function ConversationForm({ initial = "", onSave, onClose }) {
           }
         }}
       >
-        <Field label="conversations.topic">
+        <Field label={initial ? "conversations.titleField" : "conversations.topic"}>
           {(props) => (
             <textarea
               {...props}
-              rows="5"
+              rows={initial ? 2 : 5}
               autoFocus
               required
               maxLength="4000"

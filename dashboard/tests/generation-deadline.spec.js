@@ -34,7 +34,8 @@ test("a real CLI deadline exposes its cause and frozen settings beside the parti
   await warning.getByRole("button", { name: "Generation attempts", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("combobox", { name: "Run", exact: true })).toHaveValue(run.id);
-  await dialog.getByRole("button", { name: "Inspect attempt", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Actions for Attempt/ }).first().click();
+  await page.getByRole("menuitem", { name: "Inspect attempt", exact: true }).click();
   await expect(dialog.getByText("Frozen per-turn timeout (seconds)", { exact: true })).toBeVisible();
   await expect(dialog.getByText(attempt.errorMessage, { exact: true })).toBeVisible();
   await page.screenshot({ path: "../.run/screenshots/generation-deadline.png", fullPage: true });

@@ -92,7 +92,8 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(dialog).toHaveCount(0);
     const endpoints = await (await request.get("/v2.0/api/configuration/endpoints")).json();
     const endpoint = endpoints.find(item => item.name === "Endpoint " + suffix);
-    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Preview requests", exact: true }).click();
+    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: /^Actions for / }).click();
+    await page.getByRole("menuitem", { name: "Preview requests", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText(fixture.endpoint + "/api/chat");
     await expect(page.getByRole("dialog")).toContainText("No endpoint is contacted");
     await expect(page.getByRole("dialog")).toContainText("x-api-key: [redacted]");
@@ -104,7 +105,8 @@ test("four-agent panel, explicit context, proposals and write-only configuration
       await page.screenshot({ path: `../.run/screenshots/v2-preview-${width}-${theme}.png`, fullPage: true });
     }
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click();
-    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: "Check connection / list models" }).click();
+    await catalog.getByRole("row").filter({ hasText: "Endpoint " + suffix }).getByRole("button", { name: /^Actions for / }).click();
+    await page.getByRole("menuitem", { name: "Check connection / list models" }).click();
     await expect(page.getByRole("dialog")).toContainText("Connection check succeeded");
     await expect(page.getByRole("dialog")).toContainText("multi-agent");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
@@ -140,7 +142,8 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const models = await (await request.get("/v2.0/api/configuration/models")).json();
     const model = models.find(item => item.name === "Model " + suffix);
     expect(model.generation).toEqual({ maxOutputTokens: 2048, temperature: 0.25, topP: 0.9 });
-    await catalog.getByRole("row").filter({ hasText: "Model " + suffix }).getByRole("button", { name: "Completion and tool checks", exact: true }).click();
+    await catalog.getByRole("row").filter({ hasText: "Model " + suffix }).getByRole("button", { name: /^Actions for / }).click();
+    await page.getByRole("menuitem", { name: "Completion and tool checks", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("may incur provider cost");
     await page.getByRole("dialog").getByRole("button", { name: "Invoke model check (may incur cost)", exact: true }).click();
     await expect(page.getByRole("dialog").locator("article").first()).toContainText("Completed");

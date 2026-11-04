@@ -1,3 +1,4 @@
+import ActionMenu from "./ActionMenu.jsx";
 import ObjectRow from "./ObjectRow.jsx";
 import CopyableId from "./CopyableId.jsx";
 import { Fragment, useState } from "react";
@@ -35,12 +36,12 @@ export default function AttemptDialog({ conversationId, runs, messages, initialR
     {data && <>
       <Pagination page={data} onChange={(changes) => setPaging((current) => ({ ...current, ...changes }))} />
       <div className="table-scroll"><table>
-        <thead><tr>{["attempts.number", "attempts.state", "attempts.participant", "common.actions"].map((key) => <th key={key} scope="col" title={t(key)}>{t(key)}</th>)}</tr></thead>
+        <thead><tr>{["attempts.number", "attempts.state", "attempts.participant", "common.actions"].map((key) => <th key={key} scope="col" title={t(key)} className={key === "common.actions" ? "actions-cell" : undefined}>{t(key)}</th>)}</tr></thead>
         <tbody>{data.items.map((entry) => <ObjectRow key={entry.id} inspect onOpen={() => setDetail(entry)}>
           <td>{entry.number}<CopyableId value={entry.id} /></td>
           <td><span className="badge" title={entry.errorCode || entry.state}>{t(`state.${entry.state}`, { defaultValue: entry.state })}</span>{entry.repair && <span className="badge" title={t("attempts.repair.help")}>{t("attempts.repair")}</span>}</td>
           <td>{[...(run?.participants || []), run?.orchestrator].find(participant => participant?.id === entry.participantId)?.name}<CopyableId value={entry.participantId} /></td>
-          <td><Button label="attempts.inspect" onClick={() => setDetail(entry)} /></td>
+          <td className="actions-cell"><ActionMenu context={`${t("attempts.number")} ${entry.number}`} items={[{ label: "attempts.inspect", onClick: () => setDetail(entry) }]} /></td>
         </ObjectRow>)}</tbody>
       </table></div>
       {data.items.length === 0 && <p>{t("attempts.empty")}</p>}

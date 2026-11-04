@@ -246,9 +246,10 @@ test("inspect redacted request history and execute a read-only API request", asy
     page.getByRole("heading", { name: "Request history", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Inspect request" }).first(),
+    page.getByRole("button", { name: /^Actions for / }).first(),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Inspect request" }).first().click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Inspect request" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
     page.getByRole("dialog").getByText("Request ID", { exact: true }),
@@ -403,12 +404,13 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .click();
     const inspector = page.getByRole("dialog");
     await expect(
-      inspector.getByRole("button", { name: "Inspect attempt", exact: true }),
+      inspector.getByRole("button", { name: /^Actions for Attempt/ }),
     ).toHaveCount(6);
     await inspector
-      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .getByRole("button", { name: /^Actions for Attempt/ })
       .first()
       .click();
+    await page.getByRole("menuitem", { name: "Inspect attempt", exact: true }).click();
     await expect(inspector).toContainText("debate-v2");
     await expect(inspector).toContainText(
       "Use this exact source note for the fixture debate.",
@@ -429,9 +431,10 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .getByRole("button", { name: /^Actions for Attempt/ })
       .first()
       .click();
+    await page.getByRole("menuitem", { name: "Inspect attempt", exact: true }).click();
     await page
       .getByRole("dialog")
       .locator(".inspector-section")
@@ -448,7 +451,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     await expect(
       page
         .getByRole("dialog")
-        .getByRole("button", { name: "Inspect attempt", exact: true }),
+        .getByRole("button", { name: /^Actions for Attempt/ }),
     ).toHaveCount(6);
   } finally {
     await fixture.stop();

@@ -1,3 +1,4 @@
+import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import { useState } from "react";
@@ -84,7 +85,7 @@ export default function Conversations() {
                   <th scope="col">{t("conversations.titleColumn")}</th>
                   <th scope="col">{t("common.identifier")}</th>
                   <th scope="col">{t("conversations.updated")}</th>
-                  <th scope="col">{t("common.actions")}</th>
+                  <th scope="col" className="actions-cell">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,48 +98,15 @@ export default function Conversations() {
                     <td>
                       <time>{formatDate(record.updatedUtc)}</time>
                     </td>
-                    <td>
-                      <div className="row-actions">
-                        <Button label="conversations.open" onClick={() => navigate("/dashboard/conversations/" + record.id)} />
-                        <Button
-                          label="common.edit"
-                          help="conversations.rename.help"
-                          onClick={() => setModal({ kind: "rename", record })}
-                        />
-                        <Button
-                          label={
-                            record.pinned
-                              ? "conversations.unpin"
-                              : "conversations.pin"
-                          }
-                          help="conversations.pin.help"
-                          onClick={() =>
-                            update(record, { pinned: !record.pinned })
-                          }
-                        />
-                        <Button
-                          label={
-                            record.archived
-                              ? "conversations.unarchive"
-                              : "conversations.archive"
-                          }
-                          help="conversations.archive.help"
-                          onClick={() =>
-                            update(record, { archived: !record.archived })
-                          }
-                        />
-                        <Button
-                          label="common.inspect"
-                          help="conversations.json.help"
-                          onClick={() => setModal({ kind: "json", record })}
-                        />
-                        <Button
-                          label="common.delete"
-                          help="conversations.delete.help"
-                          className="danger"
-                          onClick={() => setModal({ kind: "delete", record })}
-                        />
-                      </div>
+                    <td className="actions-cell">
+                      <ActionMenu context={record.title} items={[
+                        { label: "conversations.open", help: "conversations.open.help", onClick: () => navigate("/dashboard/conversations/" + record.id) },
+                        { label: "conversations.renameAction", help: "conversations.rename.help", onClick: () => setModal({ kind: "rename", record }) },
+                        { label: record.pinned ? "conversations.unpin" : "conversations.pin", help: "conversations.pin.help", onClick: () => update(record, { pinned: !record.pinned }) },
+                        { label: record.archived ? "conversations.unarchive" : "conversations.archive", help: "conversations.archive.help", onClick: () => update(record, { archived: !record.archived }) },
+                        { label: "common.inspect", help: "conversations.json.help", onClick: () => setModal({ kind: "json", record }) },
+                        { label: "common.delete", help: "conversations.delete.help", danger: true, onClick: () => setModal({ kind: "delete", record }) },
+                      ]} />
                     </td>
                   </ObjectRow>
                 ))}

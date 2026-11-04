@@ -1,3 +1,4 @@
+import ActionMenu from "../components/ActionMenu.jsx";
 import CatalogTab, { catalogKinds } from "../components/CatalogTab.jsx";
 import Tabs from "../components/Tabs.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
@@ -235,7 +236,7 @@ export default function Participants() {
               <th scope="col">{t("profile.typeColumn")}</th>
               <th scope="col">{t("profile.modelColumn")}</th>
               <th scope="col">{t("profile.enabledColumn")}</th>
-              <th scope="col">{t("common.actions")}</th>
+              <th scope="col" className="actions-cell">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -256,25 +257,12 @@ export default function Participants() {
                     {t(profile.enabled ? "profile.yes" : "profile.no")}
                   </span>
                 </td>
-                <td>
-                  <div className="row-actions">
-                    <Button
-                      label="common.edit"
-                      help="participants.add.help"
-                      onClick={() => setModal({ kind: "form", profile })}
-                    />
-                    <Button
-                      label="common.inspect"
-                      help="common.inspect"
-                      onClick={() => setModal({ kind: "json", profile })}
-                    />
-                    <Button
-                      label="common.delete"
-                      help="profile.delete.help"
-                      className="danger"
-                      onClick={() => setModal({ kind: "delete", profile })}
-                    />
-                  </div>
+                <td className="actions-cell">
+                  <ActionMenu context={profile.name} items={[
+                    { label: "common.edit", help: "participants.add.help", onClick: () => setModal({ kind: "form", profile }) },
+                    { label: "common.inspect", help: "common.inspect", onClick: () => setModal({ kind: "json", profile }) },
+                    { label: "common.delete", help: "profile.delete.help", danger: true, onClick: () => setModal({ kind: "delete", profile }) },
+                  ]} />
                 </td>
               </ObjectRow>
             ))}

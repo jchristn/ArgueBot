@@ -1359,3 +1359,10 @@ fieldset.invalid { border-color: var(--danger); }
 .segmented > button:hover { background: var(--raised); color: var(--text); }
 .segmented > button.active { background: var(--accent-bg); color: var(--accent); }
 .segmented > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.action-menu-trigger { min-height: 32px; width: 32px; min-width: 32px; padding: 5px; }
+.action-menu { position: fixed; z-index: 1000; min-width: 11rem; max-width: calc(100vw - 16px); overflow-y: auto; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.action-menu > button { display: block; width: 100%; padding: .5rem .75rem; border: 0; border-radius: 5px; background: transparent; color: var(--text); font: inherit; font-size: .875rem; text-align: start; white-space: nowrap; cursor: pointer; }
+.action-menu > button:hover:not(:disabled), .action-menu > button:focus-visible { background: var(--raised); outline: none; }
+.action-menu > button.danger { color: var(--danger); }
+.action-menu > button:disabled { color: var(--faint); cursor: default; }
+td.actions-cell { width: 1%; white-space: nowrap; text-align: end; }

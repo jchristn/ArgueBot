@@ -19,10 +19,10 @@ test('conversation and agent rows open edit forms without hijacking copy or expl
  const conversation=await(await page.request.post('/v1.0/api/conversations',{data:{title:original}})).json();
  await page.goto('/dashboard/conversations');await page.getByRole('searchbox').fill(original);
  const row=page.getByRole('row').filter({hasText:conversation.id});await row.getByText(original,{exact:true}).click();
- await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('textbox',{name:'Question or title'}).fill(original+' edited');await page.getByRole('dialog').getByRole('button',{name:'Save',exact:true}).click();
+ await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('textbox',{name:'Title',exact:true}).fill(original+' edited');await page.getByRole('dialog').getByRole('button',{name:'Save',exact:true}).click();
  await expect(row).toContainText(original+' edited');await row.getByRole('button',{name:'Copy ID',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
  await row.focus();await row.press('Enter');await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
- await row.getByRole('button',{name:'Open conversation',exact:true}).click();await expect(page.getByRole('heading',{name:original+' edited',exact:true})).toBeVisible();
+ await row.getByRole('button',{name:/^Actions for /}).click();await page.getByRole('menuitem',{name:'Open conversation',exact:true}).click();await expect(page.getByRole('heading',{name:original+' edited',exact:true})).toBeVisible();
  const profile=await(await page.request.post('/v1.0/api/participants',{data:{name:original,kind:'cli',provider:'claude'}})).json();
  await page.goto('/dashboard/participants');const agent=page.getByRole('row').filter({hasText:profile.id});await agent.getByText(original,{exact:true}).click();
  await expect(page.getByRole('dialog',{name:'Edit participant'})).toBeVisible();await expect(page.getByLabel('Display name',{exact:true})).toHaveValue(original);
@@ -30,7 +30,7 @@ test('conversation and agent rows open edit forms without hijacking copy or expl
  await agent.focus();await agent.press('Space');await expect(page.getByRole('dialog',{name:'Edit participant'})).toBeVisible();await page.keyboard.press('Escape');
 });
 test('request rows inspect operational data without principal or tenant fields',async({page})=>{
- await page.goto('/dashboard/history');await page.getByRole('row').filter({has:page.getByRole('button',{name:'Inspect request',exact:true})}).first().getByRole('cell').first().click();
+ await page.goto('/dashboard/history');await page.getByRole('row').filter({has:page.getByRole('button',{name:/^Actions for /})}).first().getByRole('cell').first().click();
  const dialog=page.getByRole('dialog',{name:'Inspect request'});await expect(dialog).toBeVisible();
  for(const name of ['Principal','Tenant','Validated actor'])await expect(dialog.getByText(name,{exact:true})).toHaveCount(0);
  await expect(dialog.getByText('Request ID',{exact:true})).toBeVisible();

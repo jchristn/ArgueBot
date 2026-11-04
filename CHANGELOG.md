@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
+- Dashboard tables: replace per-row button groups with a single Actions menu that renders above the table, opens above its button near the bottom of the screen and stays inside the viewport, with arrow-key, Escape and outside-click handling. The conversations list shows a Title column and a Rename action.
 - Show credential setup commands for macOS, Linux or Windows PowerShell, defaulting to the browser's platform, with a remembered switch; the TUI help uses the host shell.
 - Keep primary button text readable on hover in light and dark themes, with an automated hover-contrast check across routes.
 - Add bearer token, header key and value, and query string key and value HTTP credential types (schema 27). Header and query credentials store their parameter name, the add dialog adapts to the chosen type, and endpoint bindings that use a typed credential take its placement. Harness logins can no longer be bound to endpoints.
