@@ -243,7 +243,7 @@ test("inspect redacted request history and execute a read-only API request", asy
   await openDashboard(page);
   await page.goto("/dashboard/history");
   await expect(
-    page.getByRole("heading", { name: "Request history", exact: true }),
+    page.getByRole("heading", { name: "Request History", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /^Actions for / }).first(),

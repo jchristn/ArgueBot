@@ -95,7 +95,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const credentials = await (await request.get("/v2.0/api/configuration/credentials")).json();
     const credential = credentials.find(item => item.name === "Gateway " + suffix);
     expect(JSON.stringify(credentials)).not.toContain("fictional-gateway-token");
-    await page.getByRole("tab", { name: /^HTTP endpoints/ }).click();
+    await page.getByRole("tab", { name: /^HTTP Endpoints/ }).click();
     await catalog.getByRole("button", { name: "Add endpoint", exact: true }).click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Endpoint " + suffix);
@@ -300,7 +300,7 @@ test("post-implementation review covers every web route and new configuration fo
       await page.screenshot({ path: `../.run/screenshots/v2-${route || "home"}-${width}-${theme}.png`, fullPage: true });
     }
     await page.goto("/dashboard/participants");
-    const tabNames = { endpoints: ["HTTP endpoints", "Add endpoint"], harnesses: ["CLI harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Credentials", "Add credential"] };
+    const tabNames = { endpoints: ["HTTP Endpoints", "Add endpoint"], harnesses: ["CLI Harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Credentials", "Add credential"] };
     for (const kind of ["endpoints", "harnesses", "models", "credentials"]) {
       await page.getByRole("tab", { name: new RegExp("^" + tabNames[kind][0]) }).click();
       const toolbar = page.locator(".tab-toolbar");

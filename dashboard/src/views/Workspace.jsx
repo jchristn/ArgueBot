@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
-import { Button, ErrorPanel, Field, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
+import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -169,6 +169,17 @@ function WorkspaceContent({ id }) {
   const [starting, setStarting] = useState(false);
   const [attemptsRunId, setAttemptsRunId] = useState(null);
   const [fullMessage, setFullMessage] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const [jumpTarget, setJumpTarget] = useState("");
+  const toggleMessage = messageId => setCollapsed(current => { const next = new Set(current); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; });
+  const jumpTo = messageId => {
+    if (!messageId) return;
+    setCollapsed(current => { if (!current.has(messageId)) return current; const next = new Set(current); next.delete(messageId); return next; });
+    tail.current = false;
+    setJumpTarget(messageId);
+    requestAnimationFrame(() => { const target = document.getElementById("message-" + messageId); target?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); target?.querySelector(".message-toggle")?.focus({ preventScroll: true }); });
+    setTimeout(() => setJumpTarget(current => current === messageId ? "" : current), 1600);
+  };
   const [historyView, setHistoryView] = useState({ pageNumber: 1, pageSize: 25, tail: true });
   const [panelOpen, setPanelOpen] = useState(() => { const saved = localStorage.getItem("arguebot.debatePanel"); return saved ? saved === "open" : window.innerWidth >= 1200; });
   const togglePanel = () => setPanelOpen(current => { localStorage.setItem("arguebot.debatePanel", current ? "closed" : "open"); return !current; });
@@ -430,6 +441,15 @@ function WorkspaceContent({ id }) {
         <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
         {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
       </div>
+      {data.messages.length > 0 && <div className="feed-toolbar" role="toolbar" aria-label={t("messages.navigation")}>
+        <Button label="messages.collapseAll" onClick={() => setCollapsed(new Set(data.messages.map(message => message.id)))} />
+        <Button label="messages.expandAll" disabled={collapsed.size === 0} onClick={() => setCollapsed(new Set())} />
+        <select aria-label={t("messages.jump")} title={t("messages.jump.help")} value="" onChange={event => jumpTo(event.target.value)}>
+          <option value="">{t("messages.jump")}</option>
+          {mergeToolActivity(data.messages).map((message, index) => <option key={message.id} value={message.id}>{`${index + 1}. ${speakerLabel(t, message.speaker)} · ${t("state." + message.kind, { defaultValue: message.kind })}`}</option>)}
+        </select>
+        <span className="feed-count">{t("messages.shown", { count: mergeToolActivity(data.messages).length })}</span>
+      </div>}
       <div className={"workspace-body" + (run?.protocolVersion === 2 && panelOpen ? " with-panel" : "")}>
       <div
         className="message-feed"
@@ -453,14 +473,15 @@ function WorkspaceContent({ id }) {
             />
           </div>
         )}
-        {mergeToolActivity(data.messages).map((message) => (
-          <article
-            className={
-              "message " + (message.speaker === "user" ? "user-message" : "")
-            }
+        {mergeToolActivity(data.messages).map((message) => {
+          const folded = collapsed.has(message.id);
+          return <article
+            id={"message-" + message.id}
+            className={"message" + (message.speaker === "user" ? " user-message" : "") + (folded ? " collapsed" : "") + (jumpTarget === message.id ? " jump-target" : "")}
             key={message.id}
           >
             <header>
+              <button type="button" className="message-toggle" aria-expanded={!folded} aria-controls={"message-body-" + message.id} aria-label={t(folded ? "messages.expand" : "messages.collapse", { speaker: speakerLabel(t, message.speaker) })} title={t(folded ? "messages.expand" : "messages.collapse", { speaker: speakerLabel(t, message.speaker) })} onClick={() => toggleMessage(message.id)}><Icon name="chevron" /></button>
               <strong title={speakerLabel(t, message.speaker)}>{speakerLabel(t, message.speaker)}</strong>
               <span className="badge" title={t("composer.mode.help")}>
                 {t("state." + (message.kind === "tool" && message.content.startsWith("Conversation tool:") ? "contextTool" : message.kind === "question" && message.speaker !== "user" ? "orchestratorQuestion" : message.kind), { defaultValue: message.kind })}
@@ -475,13 +496,15 @@ function WorkspaceContent({ id }) {
               <CopyButton label="messages.copy" loadText={async () => (await api.message(id, message.id)).content} />
               {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
             </header>
+            {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
             {message.contentTruncated && <p className="muted" title={t("messages.preview.help")}>{t("messages.preview", { bytes: message.contentBytes })}</p>}
             {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{message.content}</pre></details> : <div className="markdown">
               <Markdown remarkPlugins={[remarkGfm]}>{messageContent(message)}</Markdown>
             </div>}
             {["failed", "interrupted"].includes(message.state) && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsRunId(message.runId)} />}
-          </article>
-        ))}
+            </div>}
+          </article>;
+        })}
       </div>
       {run?.protocolVersion === 2 && panelOpen && <aside className="debate-sidebar" aria-label={t("panel.title")}><DebatePanel api={api} id={id} run={run} profiles={data.profiles} notify={notify} onChange={reload} /></aside>}
       </div>
@@ -584,6 +607,10 @@ function WorkspaceContent({ id }) {
       )}
     </div>
   );
+}
+/** One line of plain text from a message, for its collapsed preview. */
+function previewText(content) {
+  return (content || "").replace(/```[\s\S]*?```/g, " ").replace(/[#*_>`|[\]()-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
 }
 export default function Workspace() {
   const { id } = useParams();

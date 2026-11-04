@@ -22,7 +22,7 @@ export default function ActivityChart({ buckets, bucketMinutes, fromUtc, toUtc }
   const magnitude = 10 ** Math.floor(Math.log10(Math.max(1, maximum / 4)));
   const step = [1, 2, 5, 10].find(value => value * magnitude >= maximum / 4) * magnitude;
   const ceiling = step * 4;
-  const left = 72, right = 16, top = 16, bottom = 204;
+  const height = 432, left = 72, right = 16, top = 16, bottom = height - 56;
   const plotWidth = width - left - right;
   const slot = plotWidth / Math.max(1, buckets.length);
   const tickCount = width < 500 ? 3 : 5;
@@ -32,7 +32,7 @@ export default function ActivityChart({ buckets, bucketMinutes, fromUtc, toUtc }
   return (
     <figure className="activity-chart" aria-label={t("history.chart")}>
       <div className="activity-plot" ref={container} onPointerLeave={() => setActive(null)}>
-        <svg viewBox={`0 0 ${width} 260`} role="group" aria-label={t("history.chart.help")} aria-describedby={selected ? tooltipId : undefined} tabIndex={0}
+        <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={t("history.chart.help")} aria-describedby={selected ? tooltipId : undefined} tabIndex={0}
           onFocus={() => setActive(0)} onBlur={() => setActive(null)} onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End", "Escape"].includes(event.key)) return;
             event.preventDefault();
@@ -56,9 +56,9 @@ export default function ActivityChart({ buckets, bucketMinutes, fromUtc, toUtc }
           })}
           {Array.from({ length: tickCount }, (_, index) => {
             const fraction = index / (tickCount - 1);
-            return <g key={index} className="chart-axis"><text x={left + fraction * plotWidth} y={225} textAnchor={index === 0 ? "start" : index === tickCount - 1 ? "end" : "middle"}>{tickDate.format(new Date(new Date(fromUtc).getTime() + fraction * (new Date(toUtc) - new Date(fromUtc))))}</text></g>;
+            return <g key={index} className="chart-axis"><text x={left + fraction * plotWidth} y={bottom + 21} textAnchor={index === 0 ? "start" : index === tickCount - 1 ? "end" : "middle"}>{tickDate.format(new Date(new Date(fromUtc).getTime() + fraction * (new Date(toUtc) - new Date(fromUtc))))}</text></g>;
           })}
-          <text className="chart-axis-label" x={left + plotWidth / 2} y={252} textAnchor="middle">{t("history.timeAxis", { zone })}</text>
+          <text className="chart-axis-label" x={left + plotWidth / 2} y={bottom + 48} textAnchor="middle">{t("history.timeAxis", { zone })}</text>
         </svg>
         {selected && <div id={tooltipId} role="tooltip" className="chart-tooltip" style={{ left: Math.max(8, Math.min(width - 248, left + (active + 0.5) * slot - 120)) }}>
           <strong>{date.format(new Date(selected.startUtc))} – {date.format(intervalEnd(selected))}</strong>

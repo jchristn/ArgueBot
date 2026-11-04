@@ -8,7 +8,7 @@ test("request activity has exact timeframes, readable axes, status colors and po
   await first;
   const chart = page.locator(".activity-chart");
   await expect(chart).toBeVisible();
-  await expect(chart.locator("svg")).toHaveCSS("height", "260px");
+  await expect(chart.locator("svg")).toHaveCSS("height", "432px");
   await expect(chart.getByText("Requests", { exact: true })).toBeVisible();
   await expect(chart.getByText(/^Time \(/)).toBeVisible();
   await expect(chart.getByText("Success · HTTP 100–399", { exact: true })).toBeVisible();
@@ -49,7 +49,7 @@ test("request activity has exact timeframes, readable axes, status colors and po
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   expect(new Date(new URL((await refreshed).url()).searchParams.get("toUtc")).getTime()).toBeGreaterThan(new Date(previousEnd).getTime());
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(chart.locator("svg")).toHaveCSS("height", "260px");
+  await expect(chart.locator("svg")).toHaveCSS("height", "432px");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
   await page.screenshot({ path: "../.run/screenshots/request-activity-mobile.png", fullPage: true });
