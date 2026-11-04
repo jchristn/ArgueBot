@@ -1,4 +1,5 @@
 import { mergeToolActivity, messageContent } from "../utils/message-content.js";
+import { speakerHues } from "../utils/speaker-colors.js";
 import DebatePolicyEditor from "../components/DebatePolicyEditor.jsx";
 import DebatePanel from "../components/DebatePanel.jsx";
 import { randomId } from "../utils/random-id.js";
@@ -199,6 +200,7 @@ function WorkspaceContent({ id }) {
     return { conversation, messages: messagePage.items, messagePage, runs, profiles, capabilities };
   });
   const run = data?.runs.at(-1);
+  const hues = speakerHues([...(data?.runs || []).flatMap(item => [item.orchestrator?.name, ...(item.participants || []).map(seat => seat.name)])], (data?.messages || []).map(message => message.speaker));
   const active =
     run && !["completed", "failed", "cancelled"].includes(run.state);
   useEffect(() => {
@@ -478,7 +480,7 @@ function WorkspaceContent({ id }) {
           return <article
             id={"message-" + message.id}
             className={"message" + (message.speaker === "user" ? " user-message" : "") + (folded ? " collapsed" : "") + (jumpTarget === message.id ? " jump-target" : "")}
-            style={{ "--speaker-hue": speakerHue(message.speaker) }}
+            style={hues.has(message.speaker) ? { "--speaker-hue": hues.get(message.speaker) } : undefined}
             key={message.id}
           >
             <header>
@@ -608,12 +610,6 @@ function WorkspaceContent({ id }) {
       )}
     </div>
   );
-}
-/** A stable hue per speaker so each seat's turns share a distinct edge color. */
-function speakerHue(speaker) {
-  let hash = 0;
-  for (const character of speaker || "") hash = (hash * 31 + character.codePointAt(0)) >>> 0;
-  return String(((hash % 12) * 30 + 200) % 360);
 }
 /** One line of plain text from a message, for its collapsed preview. */
 function previewText(content) {

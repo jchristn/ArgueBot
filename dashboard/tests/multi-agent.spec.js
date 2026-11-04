@@ -229,6 +229,13 @@ test("four-agent panel, explicit context, proposals and write-only configuration
       expect(JSON.stringify(detail)).not.toContain("fictional-gateway-token");
     }
     await request.delete(`/v2.0/api/configuration/credentials/${credential.id}?revision=${credential.revision}`);
+    const edges = await page.evaluate(() => {
+      const bySpeaker = new Map();
+      for (const card of document.querySelectorAll(".message-feed article.message:not(.user-message)")) bySpeaker.set(card.querySelector("header strong").textContent, getComputedStyle(card).borderInlineStartColor);
+      return [...bySpeaker.entries()];
+    });
+    expect(edges.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(edges.map(([, color]) => color)).size, JSON.stringify(edges)).toBe(edges.length);
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(theme => { localStorage.setItem("arguebot.theme", theme); document.documentElement.dataset.theme = theme; }, theme);
