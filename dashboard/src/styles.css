@@ -1419,3 +1419,4 @@ dialog.prompt-editor { width: min(1180px, calc(100vw - 32px)); }
 .prompt-picker > p { font-size: 11px; margin: 4px 0 8px; }
 .run-prompts > summary { cursor: pointer; }
 @media (max-width: 900px) { .prompt-editor-body { grid-template-columns: minmax(0, 1fr); } .prompt-text { min-height: 14rem; } }
+dialog.start-debate { width: min(810px, calc(100vw - 32px)); }

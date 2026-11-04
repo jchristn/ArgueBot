@@ -43,7 +43,7 @@ function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "
   const duplicateName = selectedNames.find((name, index) => name && selectedNames.findIndex(other => other.toLocaleLowerCase() === name.toLocaleLowerCase()) !== index);
   const errorFor = field => fieldError && (fieldError.field === field || (field === "policy" && fieldError.field.startsWith("policy."))) ? fieldError.message : "";
   return (
-    <Modal title="debate.new" onClose={onClose}>
+    <Modal title="debate.new" className="start-debate" onClose={onClose}>
       <form
         onChange={() => { setFieldError(null); setRemovedNotice(false); }}
         onSubmit={async (event) => {
