@@ -1339,3 +1339,6 @@ fieldset.invalid { border-color: var(--danger); }
   .tab-toolbar { flex-direction: column; align-items: stretch; }
   .tab-toolbar > .row-actions { justify-content: flex-end; }
 }
+.command-box { display: flex; align-items: center; gap: .5rem; margin: .4rem 0 .2rem; padding: .35rem .35rem .35rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.command-box > code { flex: 1; min-width: 0; font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.command-box .copy-control { flex-shrink: 0; }

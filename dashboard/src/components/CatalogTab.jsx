@@ -1,3 +1,4 @@
+import CopyButton from "./CopyButton.jsx";
 import ModelChecksDialog from "./ModelChecksDialog.jsx";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,16 @@ import Markdown from "react-markdown";
 import harnessDefaults from "../../../assets/harness-defaults.json";
 
 const credentialKinds = ["claude_oauth", "codex_auth_json", "token"];
+/** Steps per credential kind. Commands are literal shell text and are not translated. */
+const credentialGuides = {
+  claude_oauth: [{ text: "1", command: "claude setup-token" }, { text: "2" }, { text: "3" }],
+  codex_auth_json: [{ text: "1", command: "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login", alternative: { text: "1b", command: "mkdir -p ~/.codex-arguebot && printenv OPENAI_API_KEY | CODEX_HOME=~/.codex-arguebot codex login --with-api-key" } }, { text: "2", command: "pbcopy < ~/.codex-arguebot/auth.json" }, { text: "3" }],
+  token: [{ text: "1" }, { text: "2" }, { text: "3" }],
+};
+function CommandBox({ command }) {
+  const { t } = useTranslation();
+  return <div className="command-box"><code aria-label={t("credential.guide.command")}>{command}</code><CopyButton value={command} label="credential.guide.copyCommand" iconOnly /></div>;
+}
 const harnessCredentialKind = { claude: "claude_oauth", codex: "codex_auth_json" };
 const empty = {
   endpoints: { name: "", protocol: "ollama", baseUrl: "http://127.0.0.1:11434", timeoutSeconds: 300, maxConcurrentInvocations: 1, enabled: true, authBindings: [] },
@@ -68,7 +79,7 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
       <Field label="catalog.kind">{props => <select {...props} value={value.kind} disabled={Boolean(initial)} onChange={event => change("kind", event.target.value)}>{credentialKinds.map(item => <option key={item} value={item}>{t(`credential.kind.${item}`)}</option>)}</select>}</Field>
       <section className="credential-guide" aria-label={t("credential.guide.title")}>
         <h3>{t("credential.guide.title")}</h3>
-        <ol>{[1, 2, 3].map(step => <li key={step}><Markdown>{t(`credential.guide.${value.kind}.${step}`)}</Markdown></li>)}</ol>
+        <ol>{credentialGuides[value.kind].map(step => <li key={step.text}><Markdown>{t(`credential.guide.${value.kind}.${step.text}`)}</Markdown>{step.command && <CommandBox command={step.command} />}{step.alternative && <><Markdown>{t(`credential.guide.${value.kind}.${step.alternative.text}`)}</Markdown><CommandBox command={step.alternative.command} /></>}</li>)}</ol>
       </section>
       {value.kind === "codex_auth_json"
         ? <Field label="catalog.secretFile">{props => <input {...props} type="file" accept=".json,application/json" onChange={async event => { const file = event.target.files?.[0]; if (file && file.size <= 65536) change("secretValue", await file.text()); else setError(new Error(t("catalog.fileLimit"))); }} />}</Field>

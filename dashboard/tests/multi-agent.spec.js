@@ -18,7 +18,12 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await catalog.getByRole("button", { name: "Add credential", exact: true }).click();
     let dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Gateway " + suffix);
-    await expect(dialog.getByRole("region", { name: "How to get this credential" })).toContainText("claude setup-token");
+    const guide = dialog.getByRole("region", { name: "How to get this credential" });
+    await expect(guide.locator(".command-box code")).toHaveText(["claude setup-token"]);
+    await expect(guide.getByRole("button", { name: "Copy command" })).toHaveCount(1);
+    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("codex_auth_json");
+    await expect(guide.locator(".command-box code").first()).toHaveText("mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login");
+    await page.screenshot({ path: "../.run/screenshots/v2-codex-guide.png", fullPage: true });
     await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("token");
     await expect(dialog.getByRole("region", { name: "How to get this credential" })).toContainText("authentication binding");
     const secret = dialog.getByLabel("Paste credential value", { exact: true });

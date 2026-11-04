@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
-- Web Participants page: split agents, models, CLI harnesses, HTTP endpoints and credentials into URL-linked tabs with tables. Credentials show kind, status and which harnesses and endpoints use them, and the add dialog explains how to obtain a Claude Code token, a dedicated Codex login or an API key. Harness forms offer only credentials of the matching kind and explain that None uses the service user's own login, which Docker lacks. The TUI credential help gives the same steps.
+- Web Participants page: split agents, models, CLI harnesses, HTTP endpoints and credentials into URL-linked tabs with tables. Credentials show kind, status and which harnesses and endpoints use them, and the add dialog explains how to obtain a Claude Code token, a dedicated Codex login or an API key, with copyable commands. Harness forms offer only credentials of the matching kind and explain that None uses the service user's own login, which Docker lacks. The TUI credential help gives the same steps.
 
 - Classify provider refusals as `provider_unauthorized` (401/403), `provider_rate_limited` (429, with the provider's Retry-After interval in the message), `provider_unavailable` (5xx), `provider_disconnected` (midstream drop, partial text kept) and `provider_unreachable`, each with recovery guidance. Add 403, 5xx and midstream-disconnect scenarios to the provider simulation, and an invalid refresh response fixture.
 - Docker: health checks gain a start period and faster start interval, the published port comes from `ARGUEBOT_PORT`, a secret-free `docker/.env.example` documents provider settings, and the guide states the local-execution trust model.

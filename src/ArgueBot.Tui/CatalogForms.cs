@@ -96,7 +96,7 @@ namespace ArgueBot.Tui
             TextField name = Text(form, "Safe display name", item?.Name ?? "", "Never include a secret in the display name.", true);
             string[] kinds = new[] { "token", "claude_oauth", "codex_auth_json" };
             string[] kindLabels = new[] { "HTTP token or API key", "Claude Code OAuth token", "Codex auth.json login" };
-            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Array.IndexOf(kinds, item?.Kind ?? "token"), "Claude Code: run claude setup-token and paste the token. Codex: run CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. HTTP token: an API key from the provider console; bind it to an endpoint. Existing kinds cannot change.");
+            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Array.IndexOf(kinds, item?.Kind ?? "token"), "Claude Code: run claude setup-token and paste the token. Codex: run mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. HTTP token: an API key from the provider console; bind it to an endpoint. Existing kinds cannot change.");
             TextField secret = Text(form, "Paste value (masked)", "", "Write-only. Paste a token or complete Codex auth.json. Use a dedicated CLI login that no other process refreshes."); secret.MaskChar = '*';
             TextField file = Text(form, "Or credential file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
             editor.Extract = () =>

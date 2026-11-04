@@ -181,11 +181,12 @@
   "catalog.secretValue.json.help": "Paste the whole auth.json document. It is encrypted on the service and never displayed or returned.",
   "catalog.secretReady": "{count, plural, one {# character ready to save.} other {# characters ready to save.}}",
   "credential.guide.title": "How to get this credential",
-  "credential.guide.claude_oauth.1": "On a computer with Claude Code installed, run `claude setup-token` and finish signing in with your Claude subscription.",
+  "credential.guide.claude_oauth.1": "On a computer with Claude Code installed, run this command and finish signing in with your Claude subscription:",
   "credential.guide.claude_oauth.2": "Copy the long-lived token it prints. Treat it like a password.",
   "credential.guide.claude_oauth.3": "Paste it below, then choose this credential on a Claude Code harness. ArgueBot passes it to Claude Code as `CLAUDE_CODE_OAUTH_TOKEN`.",
-  "credential.guide.codex_auth_json.1": "Create a login just for ArgueBot: run `CODEX_HOME=~/.codex-arguebot codex login` and finish signing in. Add `--with-api-key` to use an OpenAI API key instead.",
-  "credential.guide.codex_auth_json.2": "Choose the file `~/.codex-arguebot/auth.json` below, or paste its contents.",
+  "credential.guide.codex_auth_json.1": "Create a Codex login just for ArgueBot. This creates its folder and signs in:",
+  "credential.guide.codex_auth_json.1b": "To use an OpenAI API key instead of a ChatGPT sign-in, run this with `OPENAI_API_KEY` set:",
+  "credential.guide.codex_auth_json.2": "Choose `~/.codex-arguebot/auth.json` below. The folder is hidden; in the macOS file picker press Cmd+Shift+. to show it. Or copy the file's contents on macOS with this command and paste them:",
   "credential.guide.codex_auth_json.3": "Pick this credential on a Codex harness. ArgueBot refreshes the login from now on, so do not use that copy anywhere else.",
   "credential.guide.token.1": "Create an API key in your provider's console, for example OpenAI, DeepSeek, Moonshot (Kimi), Alibaba Cloud (Qwen) or OpenRouter.",
   "credential.guide.token.2": "Paste it below.",
@@ -791,5 +792,8 @@
   "outcome.provider_unreachable": "ArgueBot could not connect to the provider. Check the endpoint, then resume.",
   "outcome.refresh_unavailable": "The Codex login service was unavailable. The login is unchanged; resume to retry.",
   "outcome.invalid_orchestration_output": "A model did not return the required structured answer after one correction request. Inspect it, then resume or replace the seat.",
-  "outcome.summary_validation_failed": "A summary failed validation after one correction request. The previous memory is kept; inspect it, then resume or rebuild."
+  "outcome.summary_validation_failed": "A summary failed validation after one correction request. The previous memory is kept; inspect it, then resume or rebuild.",
+  "credential.guide.command": "Command",
+  "credential.guide.copyCommand": "Copy command",
+  "credential.guide.copyCommand.help": "Copy this command to the clipboard, then paste it into a terminal."
 }
