@@ -14,7 +14,7 @@ namespace ArgueBot.Runners.Processes
         [JsonPropertyName("delta")] public CliWireEvent? Delta { get; set; }
         [JsonPropertyName("event")] public CliWireEvent? Event { get; set; }
         [JsonPropertyName("item")] public CliWireEvent? Item { get; set; }
-        [JsonPropertyName("message")] public CliWireEvent? Message { get; set; }
+        [JsonPropertyName("message"), JsonConverter(typeof(CliWireMessageConverter))] public CliWireEvent? Message { get; set; }
         [JsonPropertyName("content")] public List<CliWireEvent>? Content { get; set; }
     }
 }

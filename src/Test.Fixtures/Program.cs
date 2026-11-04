@@ -74,6 +74,8 @@ namespace ArgueBot.Tests.Fixtures
             if (mode == "codex-messages" || mode == "codex-conflict")
             {
                 Console.WriteLine("{\"type\":\"thread.started\",\"thread_id\":\"fixture-thread\"}");
+                // Codex reports configuration warnings as error items whose message is plain text, not an object.
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_w\",\"type\":\"error\",\"message\":\"Codex is ignoring 1 unrecognized configuration setting.\\n  user (/home/fixture/.codex/config.toml): `hooks.fixture` is ignored.\"}}");
                 Console.WriteLine("{\"type\":\"item.updated\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking\"}}");
                 Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking the explanation.\"}}");
                 Console.WriteLine(mode == "codex-conflict"

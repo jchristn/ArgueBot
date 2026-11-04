@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
+- Fix Codex turns failing as malformed output when Codex reports a configuration warning: its `error` items carry a plain-text `message`, which the CLI parser now accepts and ignores. Space the participant name and ID apart in the generation attempts table.
 - Add a debate prompt library (schema 29): read-only factory prompts for the question, response, proposal, vote and summary steps that reproduce the built-in text exactly, plus custom prompts made by duplicating them. Prompts use `{parameters}` validated against a per-step legend. Conversations choose a prompt per step, the start dialog can override the choice, and each debate freezes the chosen text. Available from the dashboard Prompts page, TUI Prompts menu, `prompts` CLI commands and `/v2.0/api/prompts`.
 - Conversations have a title and a separate optional opening question (schema 28, `openingQuestion` in the API, `--question` in the CLI, two prompts in the TUI). New conversation asks for both; debates default to the opening question, or the title when it is blank, and the web start dialog shows the question for editing. Updates that omit the opening question keep it.
 - Conversations: a Stop debate action (with confirmation) for unfinished debates, delete errors shown inside the delete dialog with a Stop debate and delete option, and notices rendered inside an open dialog instead of beneath it.
