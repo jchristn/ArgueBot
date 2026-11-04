@@ -222,7 +222,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
   return <section className="catalog-tab" aria-label={t(`catalog.${kind}`)}>
     <div className="tab-toolbar">
       <p className="muted">{t(`catalog.intro.${kind}`)}</p>
-      <div className="row-actions">
+      <div className="toolbar-actions">
         {kind === "credentials" && <Button label="catalog.keys" onClick={async () => { try { setKeys(await api.credentialKeys()); } catch (failure) { notify(failure); } }} />}
         <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
         <Button label={`catalog.add.${kind}`} icon="plus" className="primary" onClick={() => setEditing({})} disabled={!data} />

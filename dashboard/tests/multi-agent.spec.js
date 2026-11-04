@@ -306,6 +306,8 @@ test("post-implementation review covers every web route and new configuration fo
       const toolbar = page.locator(".tab-toolbar");
       const [left, right] = await Promise.all([toolbar.locator("p").boundingBox(), toolbar.getByRole("button", { name: tabNames[kind][1], exact: true }).boundingBox()]);
       if (width > 767) expect(Math.abs((left.y + left.height / 2) - (right.y + right.height / 2))).toBeLessThan(24);
+      const bar = await toolbar.boundingBox();
+      expect(Math.abs((bar.x + bar.width) - (right.x + right.width))).toBeLessThan(2);
       await page.screenshot({ path: `../.run/screenshots/v2-${kind}-tab-${width}-${theme}.png`, fullPage: true });
       await page.getByRole("tabpanel").getByRole("button", { name: tabNames[kind][1], exact: true }).click();
       const dialog = page.getByRole("dialog");

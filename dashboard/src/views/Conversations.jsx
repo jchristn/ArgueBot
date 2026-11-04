@@ -90,7 +90,7 @@ export default function Conversations() {
               </thead>
               <tbody>
                 {data.items.map((record) => (
-                  <ObjectRow key={record.id} onOpen={() => setModal({ kind: "rename", record })}>
+                  <ObjectRow key={record.id} open onOpen={() => navigate("/dashboard/conversations/" + record.id)}>
                     <td>
                       <strong>{record.pinned && "★ "}{record.title}</strong>
                     </td>

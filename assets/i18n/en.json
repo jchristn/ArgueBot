@@ -454,6 +454,7 @@
   "explorer.operation": "Operation",
   "explorer.operation.help": "Choose an HTTP method and API path. Its parameters and request body appear below.",
   "rows.edit": "Click or press Enter to edit this object.",
+  "rows.open": "Open this conversation. Use the Actions menu to rename, pin, archive or delete.",
   "rows.inspect": "Click or press Enter to inspect this record.",
   "conversations.open": "Open conversation",
   "participants.edit": "Edit participant",

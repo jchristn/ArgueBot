@@ -221,7 +221,7 @@ export default function Participants() {
     <>
       <div className="tab-toolbar">
         <p className="muted">{t("participants.description")}</p>
-        <div className="row-actions">
+        <div className="toolbar-actions">
           <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
           <Button label="participants.add" icon="plus" className="primary" onClick={() => setModal({ kind: "form" })} />
         </div>

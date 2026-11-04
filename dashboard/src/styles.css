@@ -517,16 +517,13 @@ td time {
   white-space: nowrap;
   color: var(--faint);
 }
-.row-actions {
+.toolbar-actions {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   flex-wrap: wrap;
-  min-width: 240px;
-}
-.row-actions .button {
-  font-size: 10px;
-  min-height: 28px;
-  padding: 4px 6px;
+  margin-inline-start: auto;
 }
 .field {
   display: flex;
@@ -604,7 +601,6 @@ td time {
   flex: 1;
 }
 .settings-section {
-  max-width: 850px;
   margin-top: 22px;
 }
 .server-details {
@@ -805,24 +801,26 @@ legend {
   min-height: 120px;
 }
 .message {
-  padding: 10px 14px;
-  margin: 0 0 8px;
+  --speaker-color: hsl(var(--speaker-hue, 225) 70% 52%);
+  padding: 5px 10px 7px;
+  margin: 0 0 5px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-inline-start: 3px solid var(--accent);
-  border-radius: 8px;
+  border-inline-start: 5px solid var(--speaker-color);
+  border-radius: 6px;
   max-width: 100%;
 }
 .message.user-message {
   background: transparent;
-  border-inline-start-color: var(--faint);
+  --speaker-color: var(--muted);
 }
 .message > header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 2px;
   font-size: 12px;
+  min-height: 24px;
   flex-wrap: wrap;
 }
 .message time {
@@ -832,7 +830,7 @@ legend {
 }
 .markdown {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .markdown p {
@@ -936,9 +934,6 @@ legend {
   }
   .run-participants {
     min-width: 200px;
-  }
-  .row-actions {
-    min-width: 160px;
   }
   .utilities {
     gap: 5px;
@@ -1334,7 +1329,7 @@ fieldset.invalid { border-color: var(--danger); }
 .page-tab.active .page-tab-count { background: var(--accent-bg); color: var(--accent); }
 .tab-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .6rem; }
 .tab-toolbar > p { margin: 0; max-width: 72ch; }
-.tab-toolbar > .row-actions { flex-shrink: 0; }
+.tab-toolbar > .toolbar-actions { flex-shrink: 0; }
 .catalog-tab > .notice { margin-bottom: 1rem; }
 .muted-badge { opacity: .7; }
 .field-note { margin: .25rem 0 .75rem; font-size: .875rem; }
@@ -1346,7 +1341,7 @@ fieldset.invalid { border-color: var(--danger); }
 .credential-guide code { overflow-wrap: anywhere; }
 @media (max-width: 767px) {
   .tab-toolbar { flex-direction: column; align-items: stretch; }
-  .tab-toolbar > .row-actions { justify-content: flex-end; }
+  .tab-toolbar > .toolbar-actions { justify-content: flex-end; }
 }
 .command-box { display: flex; align-items: center; gap: .5rem; margin: .4rem 0 .2rem; padding: .35rem .35rem .35rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .command-box > code { flex: 1; min-width: 0; font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -1387,3 +1382,17 @@ th.actions-cell, td.actions-cell { width: 1%; white-space: nowrap; text-align: e
 .message-preview { margin: 2px 0 0 30px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .message.jump-target { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .message-toggle svg { transition: none; } }
+.message > header > strong { color: var(--speaker-text, var(--text)); }
+.message:not(.user-message) { --speaker-text: hsl(var(--speaker-hue, 225) 70% 33%); }
+[data-theme=dark] .message:not(.user-message) { --speaker-text: hsl(var(--speaker-hue, 225) 80% 76%); }
+[data-theme=dark] .message { --speaker-color: hsl(var(--speaker-hue, 225) 75% 64%); }
+[data-theme=dark] .message.user-message { --speaker-color: var(--muted); }
+.message > header .badge { padding: 0 5px; }
+.message > header .copyable-id code { font-size: 10px; color: var(--faint); max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.message > header .copy-control > .icon-button { width: 24px; min-width: 24px; height: 24px; min-height: 24px; padding: 3px; border-color: transparent; }
+.message > header .copy-control > .icon-button:hover:not(:disabled) { border-color: var(--border); }
+.message > header .copy-control > .icon-button svg { width: 14px; height: 14px; }
+.message .markdown p, .message .markdown ul, .message .markdown ol, .message .markdown blockquote { margin: 0 0 .45em; }
+.message .markdown li + li { margin-top: .1em; }
+.message .markdown h1, .message .markdown h2, .message .markdown h3 { margin: .6em 0 .25em; }
+.message-preview { margin: 0 0 0 30px; }

@@ -478,6 +478,7 @@ function WorkspaceContent({ id }) {
           return <article
             id={"message-" + message.id}
             className={"message" + (message.speaker === "user" ? " user-message" : "") + (folded ? " collapsed" : "") + (jumpTarget === message.id ? " jump-target" : "")}
+            style={{ "--speaker-hue": speakerHue(message.speaker) }}
             key={message.id}
           >
             <header>
@@ -493,7 +494,7 @@ function WorkspaceContent({ id }) {
                 <span className="stream-dot" title={t("state.streaming")} />
               )}
               <CopyableId value={message.id} />
-              <CopyButton label="messages.copy" loadText={async () => (await api.message(id, message.id)).content} />
+              <CopyButton label="messages.copy" iconOnly loadText={async () => (await api.message(id, message.id)).content} />
               {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
             </header>
             {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
@@ -607,6 +608,12 @@ function WorkspaceContent({ id }) {
       )}
     </div>
   );
+}
+/** A stable hue per speaker so each seat's turns share a distinct edge color. */
+function speakerHue(speaker) {
+  let hash = 0;
+  for (const character of speaker || "") hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  return String(((hash % 12) * 30 + 200) % 360);
 }
 /** One line of plain text from a message, for its collapsed preview. */
 function previewText(content) {

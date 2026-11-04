@@ -53,6 +53,13 @@ test("table rows use an Actions menu that stays in the viewport and renames conv
     await expect(dialog).toHaveCount(0);
     await page.getByRole("searchbox").fill(`Renamed ${suffix}`);
     await expect(page.getByRole("row").filter({ hasText: created.at(-1).id })).toContainText(`Renamed ${suffix}`);
+    for (const tab of ["agents", "models", "harnesses", "endpoints", "credentials"]) {
+      await page.goto("/dashboard/participants?tab=" + tab);
+      const toolbar = page.locator(".tab-toolbar");
+      const primary = toolbar.locator(".button.primary");
+      const [bar, button] = [await toolbar.boundingBox(), await primary.boundingBox()];
+      expect(Math.abs((bar.x + bar.width) - (button.x + button.width)), tab).toBeLessThan(2);
+    }
     for (const route of ["participants", "history"]) {
       await page.goto("/dashboard/" + route);
       const header = page.getByRole("columnheader", { name: "Actions", exact: true }).first();
