@@ -163,8 +163,16 @@ pre {
   color: var(--bg);
   font-weight: 650;
 }
+.button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 82%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 82%, var(--text));
+  color: var(--bg);
+}
 .button.danger {
   color: var(--danger);
+}
+.button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
 }
 .icon-button {
   width: 36px;

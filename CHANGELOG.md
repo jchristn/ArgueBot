@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
+- Keep primary button text readable on hover in light and dark themes, with an automated hover-contrast check across routes.
 - Add bearer token, header key and value, and query string key and value HTTP credential types (schema 27). Header and query credentials store their parameter name, the add dialog adapts to the chosen type, and endpoint bindings that use a typed credential take its placement. Harness logins can no longer be bound to endpoints.
 - Web Participants page: split agents, models, CLI harnesses, HTTP endpoints and credentials into URL-linked tabs with tables. Credentials show kind, status and which harnesses and endpoints use them, and the add dialog explains how to obtain a Claude Code token, a dedicated Codex login or an API key, with copyable commands. Harness forms offer only credentials of the matching kind and explain that None uses the service user's own login, which Docker lacks. The TUI credential help gives the same steps.
 
