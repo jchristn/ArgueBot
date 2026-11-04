@@ -74,6 +74,17 @@ try {
   const fixture = path.join(root, 'src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll');
   const debaters = ['A', 'B'].map(name => command(['participants','add','-'], {name:`CLI attempt fixture ${name}`,kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain']}));
   const conversation = command(['conversations','create','CLI attempt provenance fixture']);
+  const factoryPrompts = command(['prompts','list']);
+  check(factoryPrompts.filter(item => item.factory).length === 5, 'CLI prompts list must include the five factory prompts.');
+  check(command(['prompts','parameters']).some(item => item.name === 'current_question' && item.requiredFor.includes('response')), 'CLI prompts parameters must describe placeholders.');
+  const promptCopy = command(['prompts','duplicate','pmt_factory_response']);
+  check(!promptCopy.factory && promptCopy.purpose === 'response', 'CLI prompts duplicate must create an editable copy.');
+  const promptEdited = command(['prompts','update',promptCopy.id,'-'], {name:'CLI terse answers',description:'',body:'Answer {current_question} in two sentences.',revision:promptCopy.revision});
+  check(promptEdited.revision === promptCopy.revision + 1 && promptEdited.body.startsWith('Answer {current_question}'), 'CLI prompts update must save the new text.');
+  let promptRejected = '';
+  try { invoke(['prompts','update',promptCopy.id,'-'], {name:'Bad',body:'Answer {context}.',revision:promptEdited.revision}); } catch (error) { promptRejected = error.message; }
+  check(promptRejected.includes('unknown_parameter (body)'), 'CLI prompts update must report an unknown parameter and its field.');
+  command(['prompts','delete',promptCopy.id,String(promptEdited.revision)]);
   const titled = command(['conversations','create','CLI titled fixture','--question','Which fixture question should the debate use?']);
   check(titled.title === 'CLI titled fixture' && titled.openingQuestion === 'Which fixture question should the debate use?', 'CLI create must store the title and --question opening question separately.');
 

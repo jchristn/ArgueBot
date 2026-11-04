@@ -29,6 +29,10 @@ namespace ArgueBot.Core.Models
         /// <summary>Display title.</summary>
         public string Title { get { return _Title; } set { ArgumentNullException.ThrowIfNull(value); _Title = value; } }
 
+        private Dictionary<string, string> _PromptIds = new Dictionary<string, string>();
+        /// <summary>Prompt chosen for each debate step (question, response, synthesis, ratification, compaction). Steps without an entry use the factory default.</summary>
+        public Dictionary<string, string> PromptIds { get { return _PromptIds; } set { ArgumentNullException.ThrowIfNull(value); _PromptIds = value; } }
+
         private string _OpeningQuestion = "";
         /// <summary>The question a debate in this conversation starts from. Blank means the title. A started debate freezes its own copy.</summary>
         public string OpeningQuestion { get { return _OpeningQuestion; } set { ArgumentNullException.ThrowIfNull(value); _OpeningQuestion = value; } }

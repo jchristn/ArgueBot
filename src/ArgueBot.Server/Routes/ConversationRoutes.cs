@@ -88,7 +88,7 @@ namespace ArgueBot.Server.Routes
         private async Task<Conversation> CreateAsync(HttpContextBase http)
         {
             ConversationRequest request = Api.Body<ConversationRequest>(http);
-            return await _Database.CreateConversationAsync(Api.Context(http), request.Title, http.Token, request.OpeningQuestion ?? "").ConfigureAwait(false);
+            return await _Database.CreateConversationAsync(Api.Context(http), request.Title, http.Token, request.OpeningQuestion ?? "", request.PromptIds).ConfigureAwait(false);
         }
         private static CreateRunRequest RunRequest(HttpContextBase http, string api)
         {

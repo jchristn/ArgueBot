@@ -43,6 +43,11 @@ namespace ArgueBot.Core.Database.Implementations
             if (request.InterventionSeconds < 0 || request.InterventionSeconds > 600) throw new DomainException(400, "invalid_countdown", "The moderator countdown must be 0 through 600 seconds.", "interventionSeconds");
             if (string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200) throw new DomainException(400, "invalid_key", "A command key up to 200 characters is required.", "idempotencyKey");
             if (request.ProtocolVersion == 2) BudgetMethods.Validate(request.Policy);
+            if (request.PromptIds.Count > 0)
+            {
+                using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+                    await PromptMethods.ValidateSelectionAsync(connection, null, context, request.PromptIds, token).ConfigureAwait(false);
+            }
             string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.ProtocolVersion == 1 ? request.Mode + ":" + request.Question + ":" + string.Join(",", request.ParticipantIds) + ":" + request.MaxRounds + ":" + request.InterventionSeconds : JsonSerializer.Serialize(request))));
             string legacyDigest = "";
             if (request.ProtocolVersion == 2 && JsonSerializer.Serialize(request.Policy) == JsonSerializer.Serialize(new DebatePolicy()))
@@ -102,6 +107,7 @@ namespace ArgueBot.Core.Database.Implementations
                 {
                     await DebateMethods.CreateAsync(connection, transaction, context, runId, request.Mode, orchestrator, participants, token).ConfigureAwait(false);
                     await BudgetMethods.CreateAsync(connection, transaction, context, runId, request.Policy, token).ConfigureAwait(false);
+                    await PromptMethods.FreezeAsync(connection, transaction, context, conversationId, runId, request.PromptIds, token).ConfigureAwait(false);
                 }
                 await ExecuteAsync(connection, transaction, "INSERT INTO command_receipts(id,tenant_id,user_id,conversation_id,command_key,digest,result_id,created_utc,updated_utc) VALUES(@id,@tenant,@user,@conversation,@key,@digest,@result,@now,@now)", token, P("id", Ids.New("cmd_"), "tenant", context.TenantId, "user", context.UserId, "conversation", conversationId, "key", request.IdempotencyKey, "digest", digest, "result", runId)).ConfigureAwait(false);
                 if (followup)

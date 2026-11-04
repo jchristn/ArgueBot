@@ -72,6 +72,10 @@ namespace ArgueBot.Core.Models
         public string ProposalId { get; set; } = "";
         /// <summary>Current pointed question from the orchestrator.</summary>
         public string CurrentQuestion { get; set; } = "";
+
+        private List<RunPrompt> _Prompts = new List<RunPrompt>();
+        /// <summary>Prompt text this debate froze for each step at start. Empty for runs created before prompts were stored; those use the factory text.</summary>
+        public List<RunPrompt> Prompts { get { return _Prompts; } set { ArgumentNullException.ThrowIfNull(value); _Prompts = value; } }
         /// <summary>Current ratification candidate text.</summary>
         public string ProposalText { get; set; } = "";
         /// <summary>Original run purpose, retained independently of roster changes.</summary>

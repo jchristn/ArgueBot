@@ -204,10 +204,11 @@ export default function Conversations() {
       )}
       {modal?.kind === "create" && (
         <ConversationForm
+          api={api}
           onClose={() => setModal(null)}
-          onSave={async (title, question) => {
+          onSave={async (title, question, promptIds) => {
             try {
-              const record = await api.createConversation(title, question);
+              const record = await api.createConversation(title, question, promptIds);
               setModal(null);
               navigate("/dashboard/conversations/" + record.id);
             } catch (failure) {

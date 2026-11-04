@@ -100,6 +100,26 @@ namespace ArgueBot.Tui
                     : "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login";
             }
         }
+        /// <summary>Edit a workspace prompt's name and description, and optionally replace its text from a local file.</summary>
+        internal static CatalogEditor<PromptTemplate> Prompt(PromptTemplate item)
+        {
+            CatalogEditor<PromptTemplate> editor = new CatalogEditor<PromptTemplate>(); Form form = editor.Form;
+            TextField name = Text(form, "Prompt name", item.Name, "Shown when choosing prompts for a conversation.", true);
+            TextField description = Text(form, "Description", item.Description, "Optional note about when to use this prompt.");
+            TextField file = Text(form, "Replace text from file (optional)", "", "Path to a UTF-8 text file with the new prompt text. Leave blank to keep the current text. Use {parameters} such as {question}; see prompts parameters.");
+            editor.Extract = () =>
+            {
+                string body = item.Body;
+                if (file.Value.Length > 0)
+                {
+                    System.IO.FileInfo info = new System.IO.FileInfo(file.Value);
+                    if (info.Length > 256 * 1024) throw new InvalidOperationException("Prompt files must be at most 256 KiB.");
+                    body = System.IO.File.ReadAllText(file.Value);
+                }
+                return new PromptTemplate { Id = item.Id, Name = name.Value, Description = description.Value, Purpose = item.Purpose, Body = body, Revision = item.Revision };
+            };
+            return editor;
+        }
         internal static CatalogEditor<CredentialRequest> Credential(CredentialMetadata? item)
         {
             CatalogEditor<CredentialRequest> editor = new CatalogEditor<CredentialRequest>(); Form form = editor.Form;

@@ -74,6 +74,27 @@ namespace ArgueBot.Cli
                     else if (operation == "restart") Print(await client.SendAsync<RestartResponse>(System.Net.Http.HttpMethod.Post, "v1.0/api/settings/restart", token: token).ConfigureAwait(false));
                     else { Help(); return 2; }
                 }
+                else if (command == "prompts")
+                {
+                    switch (operation)
+                    {
+                        case "list": Print(await client.PromptsAsync(words.Count > 2 ? words[2] : "", token).ConfigureAwait(false)); break;
+                        case "show": Require(words, 3); Print(await client.PromptAsync(words[2], token).ConfigureAwait(false)); break;
+                        case "parameters": Print(await client.PromptParametersAsync(token).ConfigureAwait(false)); break;
+                        case "duplicate": Require(words, 3); Print(await client.DuplicatePromptAsync(words[2], token).ConfigureAwait(false)); break;
+                        case "delete": Require(words, 4); Print(await client.DeletePromptAsync(words[2], long.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture), token).ConfigureAwait(false)); break;
+                        case "add":
+                        case "update":
+                            {
+                                Require(words, operation == "add" ? 3 : 4);
+                                PromptTemplate prompt = JsonSerializer.Deserialize<PromptTemplate>(await TextAsync(words, operation == "add" ? 2 : 3, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Provide a prompt JSON object.");
+                                if (operation == "update") prompt.Id = words[2];
+                                Print(await client.SavePromptAsync(prompt, token).ConfigureAwait(false));
+                                break;
+                            }
+                        default: throw new ArgumentException("Use prompts list [PURPOSE], show ID, parameters, add JSON|-|--file PATH, update ID JSON|-|--file PATH, duplicate ID or delete ID REVISION.");
+                    }
+                }
                 else if (command == "conversations")
                 {
                     switch (operation)
@@ -277,6 +298,16 @@ Memory
   debate summaries CONVERSATION RUN [PAGE]
   debate summary CONVERSATION RUN SUMMARY_ID [SOURCE_PAGE]
   debate rebuild_summary|exclude_summary CONVERSATION RUN
+
+Prompts
+  prompts list [PURPOSE]                    Factory defaults and your prompts; PURPOSE is question,
+                                            response, synthesis, ratification or compaction.
+  prompts show ID
+  prompts parameters                        Placeholders such as {question} and where each applies.
+  prompts add JSON|-|--file PATH            {"name","purpose","description","body"}
+  prompts update ID JSON|-|--file PATH      Include the current "revision". Factory prompts are read-only.
+  prompts duplicate ID                      Editable copy, including of a factory default.
+  prompts delete ID REVISION
 
 Configuration
   participants list

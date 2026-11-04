@@ -84,6 +84,7 @@ The dashboard provides conversations, participant configuration, the conversatio
 
 - **New conversation** asks for a title, shown in the conversation list, and an optional opening question. Starting a debate pre-fills its question from the opening question (or the title when it is blank); you can edit it before the debate starts.
 - Click a conversation row to open its workspace; click another editable row to open its editor. Each table's **Actions** column has a menu (for conversations: open, rename, pin, archive, stop debate, view JSON and delete). Copy buttons remain independent.
+- **Prompts** lists the instructions each debate step sends. Factory defaults are read-only; duplicate one to edit it, with a legend of the `{parameters}` it can use, then choose it per step when creating a conversation or starting a debate. See [docs/PROMPTS.md](docs/PROMPTS.md).
 - Participants has tabs for agents, models, CLI harnesses, HTTP endpoints and credentials. The Credentials tab explains how to obtain each kind of credential, with copyable commands for macOS, Linux and Windows PowerShell, and can reveal a stored value after confirmation.
 - Conversation and participant IDs have dedicated columns, monospace text and copy buttons.
 - In the workspace, each agent's turns have their own color. Turns collapse individually or all at once, and **Jump to turn** moves straight to any turn on the page. Copy individual turns or the full conversation; complete content is fetched independently of visible previews.

@@ -110,14 +110,32 @@ namespace ArgueBot.Client
         public Task<Page> ConversationsAsync(string search = "", bool archived = false, int page = 1, CancellationToken token = default)
         { return SendAsync<Page>(HttpMethod.Get, "v1.0/api/conversations?search=" + Uri.EscapeDataString(search) + "&archived=" + archived.ToString().ToLowerInvariant() + "&pageNumber=" + page, null, token); }
         /// <summary>Create a named conversation.</summary>
-        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default, string openingQuestion = "")
-        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title, OpeningQuestion = openingQuestion }, token); }
+        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default, string openingQuestion = "", Dictionary<string, string>? promptIds = null)
+        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title, OpeningQuestion = openingQuestion, PromptIds = promptIds }, token); }
+        /// <summary>List factory and workspace prompts, optionally for one debate step.</summary>
+        public Task<List<PromptTemplate>> PromptsAsync(string purpose = "", CancellationToken token = default)
+        { return SendAsync<List<PromptTemplate>>(HttpMethod.Get, "v2.0/api/prompts" + (purpose.Length == 0 ? "" : "?purpose=" + Uri.EscapeDataString(purpose)), token: token); }
+        /// <summary>Read one prompt.</summary>
+        public Task<PromptTemplate> PromptAsync(string id, CancellationToken token = default)
+        { return SendAsync<PromptTemplate>(HttpMethod.Get, "v2.0/api/prompts/" + Uri.EscapeDataString(id), token: token); }
+        /// <summary>Create a prompt when its ID is empty, otherwise update it with its expected revision.</summary>
+        public Task<PromptTemplate> SavePromptAsync(PromptTemplate prompt, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(prompt); return SendAsync<PromptTemplate>(prompt.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/prompts" + (prompt.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(prompt.Id)), prompt, token); }
+        /// <summary>Copy a prompt, including a factory default, into an editable prompt.</summary>
+        public Task<PromptTemplate> DuplicatePromptAsync(string id, CancellationToken token = default)
+        { return SendAsync<PromptTemplate>(HttpMethod.Post, "v2.0/api/prompts/" + Uri.EscapeDataString(id) + "/duplicate", token: token); }
+        /// <summary>Delete a workspace prompt with its expected revision.</summary>
+        public Task<Acknowledgement> DeletePromptAsync(string id, long revision, CancellationToken token = default)
+        { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/prompts/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
+        /// <summary>List prompt placeholders and where each has a value.</summary>
+        public Task<List<PromptParameter>> PromptParametersAsync(CancellationToken token = default)
+        { return SendAsync<List<PromptParameter>>(HttpMethod.Get, "v2.0/api/prompt-parameters", token: token); }
         /// <summary>Read a conversation.</summary>
         public Task<Conversation> ConversationAsync(string id, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Get, Root(id), null, token); }
         /// <summary>Update title/pin/archive using its current revision.</summary>
         public Task<Conversation> UpdateConversationAsync(Conversation conversation, CancellationToken token = default)
-        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, OpeningQuestion = conversation.OpeningQuestion, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
+        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, OpeningQuestion = conversation.OpeningQuestion, PromptIds = conversation.PromptIds, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
         /// <summary>Read one authenticated SSE connection after a committed cursor. Frames are bounded to 1048576 UTF-16 characters, idle reads to fifteen seconds, and identifiers/order are validated. Reconnect after normal completion using the last yielded sequence; expired cursors require a fresh head followed by snapshots. Enumeration cancellation/disposal closes the HTTP body.</summary>
         public async IAsyncEnumerable<DurableEvent> WatchEventsAsync(string id, long after = 0, [EnumeratorCancellation] CancellationToken token = default)
         {

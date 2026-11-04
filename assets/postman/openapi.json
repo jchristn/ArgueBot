@@ -8834,6 +8834,755 @@
         "security": []
       }
     },
+    "/v2.0/api/prompt-parameters": {
+      "get": {
+        "operationId": "get_v2_0_api_prompt_parameters",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "List prompt placeholders and the debate steps where each has a value",
+        "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests. ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful list prompt placeholders and the debate steps where each has a value",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromptParameter"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v2.0/api/prompts": {
+      "get": {
+        "operationId": "get_v2_0_api_prompts",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "List factory and workspace prompts",
+        "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests. ",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list factory and workspace prompts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromptTemplate"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "operationId": "post_v2_0_api_prompts",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Create a workspace prompt",
+        "description": "Open workspace endpoint. ",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create a workspace prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptTemplate"
+              },
+              "example": {
+                "name": "Skeptical question",
+                "purpose": "question",
+                "description": "Pushes on the weakest assumption.",
+                "body": "You are {agent_name}, the orchestrator. Debate question: {question}\nPanel: {panel}. Round {round} of {max_rounds}.\n{guidance}\nAsk the single question most likely to expose a weak assumption. Return only a JSON object with question and rationale."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/prompts/{id}": {
+      "get": {
+        "operationId": "get_v2_0_api_prompts_id_",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Read a prompt",
+        "description": "Open workspace endpoint. ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID. Copy it from the matching list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "put": {
+        "operationId": "put_v2_0_api_prompts_id_",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Update a workspace prompt with its expected revision",
+        "description": "Open workspace endpoint. ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID. Copy it from the matching list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update a workspace prompt with its expected revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptTemplate"
+              },
+              "example": {
+                "name": "Skeptical question",
+                "description": "Pushes on the weakest assumption.",
+                "body": "You are {agent_name}. Question: {question}\n{guidance}\nReturn only a JSON object with question and rationale.",
+                "revision": 1
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v2_0_api_prompts_id_",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Delete a workspace prompt; factory prompts cannot be deleted",
+        "description": "Open workspace endpoint. ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID. Copy it from the matching list."
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Expected current revision; the request is refused if the resource changed."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful delete a workspace prompt; factory prompts cannot be deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v2.0/api/prompts/{id}/duplicate": {
+      "post": {
+        "operationId": "post_v2_0_api_prompts_id_duplicate",
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Copy a prompt, including a factory default, into an editable workspace prompt",
+        "description": "Open workspace endpoint. ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID. Copy it from the matching list."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful copy a prompt, including a factory default, into an editable workspace prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/v2.0/api/configuration/endpoints/{id}/discover": {
       "post": {
         "operationId": "post_v2_0_api_configuration_endpoints_id_discover",
@@ -10335,6 +11084,13 @@
             "type": "string",
             "description": "Current pointed question from the orchestrator."
           },
+          "prompts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunPrompt"
+            },
+            "description": "Prompt text this debate froze for each step at start. Empty for runs created before prompts were stored; those use the factory text."
+          },
           "proposalText": {
             "type": "string",
             "description": "Current ratification candidate text."
@@ -11254,6 +12010,90 @@
           }
         }
       },
+      "PromptParameter": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Placeholder name, written as {name} in a prompt."
+          },
+          "description": {
+            "type": "string",
+            "description": "What the placeholder is replaced with."
+          },
+          "purposes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Debate steps where the placeholder may be used."
+          },
+          "requiredFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Debate steps whose prompts must include the placeholder."
+          }
+        }
+      },
+      "PromptTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Prompt identifier. Factory prompts use stable pmt_factory_ identifiers."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name, 1 through 200 characters."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "The debate step this prompt drives: question, response, synthesis, ratification or compaction. Fixed after creation.",
+            "enum": [
+              "question",
+              "response",
+              "synthesis",
+              "ratification",
+              "compaction"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional note about when to use this prompt, up to 1000 characters."
+          },
+          "body": {
+            "type": "string",
+            "description": "Prompt text with {parameter} placeholders. Use {{ and }} for literal braces. Up to 32000 characters.",
+            "maxLength": 32000
+          },
+          "factory": {
+            "type": "boolean",
+            "description": "True for a factory default, which cannot be edited or deleted."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optimistic revision. Updates and deletes must supply the current value."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC."
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last change time in UTC."
+          }
+        },
+        "required": [
+          "name",
+          "purpose",
+          "body"
+        ]
+      },
       "RequestHistoryEntry": {
         "type": "object",
         "properties": {
@@ -11408,6 +12248,32 @@
           "expectedKeyId": {
             "type": "string",
             "description": "Active key ID from the last status read; stale requests fail without another rotation."
+          }
+        }
+      },
+      "RunPrompt": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "description": "Debate step."
+          },
+          "promptId": {
+            "type": "string",
+            "description": "Source prompt identifier at start time."
+          },
+          "promptRevision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Source prompt revision at start time."
+          },
+          "name": {
+            "type": "string",
+            "description": "Source prompt name at start time."
+          },
+          "body": {
+            "type": "string",
+            "description": "Frozen prompt text with placeholders."
           }
         }
       },

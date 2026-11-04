@@ -23,6 +23,8 @@ Editing a reusable resource affects newly admitted runs and replacement seats. A
 
 A conversation has a title, shown in conversation lists, and an optional opening question (`openingQuestion` in the API, `--question` for `conversations create` in the CLI). A debate's question defaults to the opening question, or to the title when the opening question is blank; the web start dialog shows it for editing. Each run freezes its own copy, so later edits to the conversation never change a started debate.
 
+Each debate step's instructions come from the prompt library: factory defaults unless the conversation or the start request chooses custom prompts, frozen when the debate starts. See [PROMPTS.md](PROMPTS.md).
+
 Web and TUI setup require two or more distinct seats and an orchestrator. Reorder the opening speakers, choose rounds and the interval between calls, then review. Capabilities advertise the configured seat maximum, 16 by default and configurable from 2 through 64. Follow-up questions remain a single-agent workflow.
 
 The service rejects an invalid setup before it calls any model. Each rejection names the request field to correct (`field` in the API error, in parentheses in CLI output, next to the control in the web dialog, and as the setup step in the TUI). Rejections cover one seat (`too_few_participants`), more seats than the service admits (`participant_limit`), the same profile twice (`duplicate_participant`), two selected profiles whose names differ only by case or not at all (`duplicate_seat_name`), a missing or disabled participant or orchestrator (`profile_not_found`, `disabled_profile`, `missing_orchestrator`), and out-of-range rounds, countdown or limits.

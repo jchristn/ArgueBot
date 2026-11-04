@@ -2,6 +2,7 @@ import { mergeToolActivity, messageContent } from "../utils/message-content.js";
 import { speakerHues } from "../utils/speaker-colors.js";
 import DebatePolicyEditor from "../components/DebatePolicyEditor.jsx";
 import DebatePanel from "../components/DebatePanel.jsx";
+import PromptPicker, { chosenPrompts } from "../components/PromptPicker.jsx";
 import { randomId } from "../utils/random-id.js";
 import RunActivity from "../components/RunActivity.jsx";
 import FailedTurn from "../components/FailedTurn.jsx";
@@ -17,9 +18,12 @@ import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
-function StartDialog({ profiles, maximum, capabilities, defaultQuestion = "", onStart, onClose, notify, onRefresh }) {
+function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
   const { t } = useTranslation();
   const [question, setQuestion] = useState(defaultQuestion);
+  const [prompts, setPrompts] = useState([]);
+  const [promptIds, setPromptIds] = useState(() => ({ ...defaultPrompts }));
+  useEffect(() => { api?.prompts().then(setPrompts).catch(() => setPrompts([])); }, [api]);
   const [fieldError, setFieldError] = useState(null);
   const [removedNotice, setRemovedNotice] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -50,6 +54,7 @@ function StartDialog({ profiles, maximum, capabilities, defaultQuestion = "", on
             await onStart({
               protocolVersion: 2,
               question: question.trim(),
+              promptIds: chosenPrompts(promptIds),
               orchestratorId: orchestrator,
               idempotencyKey: commandKey,
               participantIds: selected,
@@ -69,6 +74,8 @@ function StartDialog({ profiles, maximum, capabilities, defaultQuestion = "", on
         {fieldError && <p className="field-error" role="alert">{t("debate.fieldError")}</p>}
         <Field label="debate.question">{props => <textarea {...props} rows={3} maxLength={4000} required aria-invalid={errorFor("question") ? "true" : undefined} value={question} onChange={event => { setQuestion(event.target.value); setCommandKey(randomId()); }} />}</Field>
         {errorFor("question") && <p className="field-error" role="alert">{errorFor("question")}</p>}
+        {prompts.length > 0 && <PromptPicker prompts={prompts} value={promptIds} onChange={next => { setPromptIds(next); setCommandKey(randomId()); }} />}
+        {fieldError?.field?.startsWith("promptIds") && <p className="field-error" role="alert">{fieldError.message}</p>}
         <fieldset title={t("debate.participants.help")} aria-invalid={errorFor("participantIds") || duplicateName ? "true" : undefined} className={errorFor("participantIds") || duplicateName ? "invalid" : undefined}>
           <legend>{t("debate.participants")}</legend>
           <p className="muted">{t("debate.participants.help")}</p>
@@ -602,7 +609,9 @@ function WorkspaceContent({ id }) {
           profiles={data.profiles}
           maximum={data.capabilities.maxParticipants}
           capabilities={data.capabilities}
+          api={api}
           defaultQuestion={data.conversation.openingQuestion || data.conversation.title}
+          defaultPrompts={data.conversation.promptIds || {}}
           onClose={() => setStarting(false)}
           notify={notify}
           onRefresh={reload}

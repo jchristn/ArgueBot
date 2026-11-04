@@ -51,6 +51,7 @@ export default function DebatePanel({ api, id, run, profiles, notify, onChange }
     </header>
     <p>{t("panel.unanimous")}</p>
     {run.policy && run.usage && <details><summary>{t("policy.usage")}</summary><dl className="policy-usage">{[["participantTurns", "maxParticipantTurns"], ["orchestrationCalls", "maxOrchestrationCalls"], ["compactionCalls", "maxCompactionCalls"], ["toolCalls", "maxToolCalls"], ["estimatedInputTokens", "maxEstimatedInputTokens"]].map(([used, limit]) => <div key={used}><dt>{t(`policy.${limit}`)}</dt><dd>{run.usage[used]} / {run.policy[limit] || t("policy.noLimit")}</dd></div>)}</dl><p>{t("policy.deadline", { time: run.policy.maxWallClockSeconds ? new Date(new Date(run.createdUtc).getTime() + run.policy.maxWallClockSeconds * 1000).toLocaleString() : t("policy.noLimit") })}</p><p className="muted">{t("policy.estimateHelp")}</p></details>}
+    {run.prompts?.length > 0 && <details className="run-prompts"><summary>{t("prompts.used")}</summary><dl className="server-details">{run.prompts.map(item => <div key={item.purpose}><dt>{t(`prompts.purpose.${item.purpose}`)}</dt><dd>{item.name} <span className="muted">· {t("prompts.revision", { revision: item.promptRevision })}</span></dd></div>)}</dl></details>}
     {run.currentQuestion && <blockquote>{run.currentQuestion}</blockquote>}
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && <>

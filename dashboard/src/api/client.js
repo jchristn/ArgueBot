@@ -45,10 +45,10 @@ export class ApiClient {
         new URLSearchParams({ search, archived, pageNumber, pageSize }),
     );
   }
-  createConversation(title, openingQuestion = "") {
+  createConversation(title, openingQuestion = "", promptIds = {}) {
     return this.request("/v1.0/api/conversations", {
       method: "POST",
-      body: { title, openingQuestion },
+      body: { title, openingQuestion, promptIds },
     });
   }
   conversation(id) {
@@ -151,6 +151,12 @@ export class ApiClient {
     }
   }
   saveConfiguration(resource, body) { const { id, ...value } = body; return this.request("/v2.0/api/configuration/" + resource + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
+  prompts(purpose = "") { return this.request("/v2.0/api/prompts" + (purpose ? "?purpose=" + encodeURIComponent(purpose) : "")); }
+  prompt(id) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id)); }
+  savePrompt(prompt) { return this.request("/v2.0/api/prompts" + (prompt.id ? "/" + encodeURIComponent(prompt.id) : ""), { method: prompt.id ? "PUT" : "POST", body: prompt }); }
+  duplicatePrompt(id) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "/duplicate", { method: "POST" }); }
+  deletePrompt(id, revision) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
+  promptParameters() { return this.request("/v2.0/api/prompt-parameters"); }
   revealCredential(id) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
   disableCredential(id, revision) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   capabilities() { return this.request("/v2.0/api/capabilities"); }

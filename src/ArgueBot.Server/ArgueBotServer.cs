@@ -105,6 +105,7 @@ namespace ArgueBot.Server
                                 new ConversationRoutes(database, engine, settings).Register(server, "/v2.0/api");
                                 new DebateRoutes(database, engine).Register(server);
                                 new CatalogRoutes(database, vault, checks).Register(server);
+                                new PromptRoutes(database).Register(server);
                                 ContractRoutes.Register(server);
                                 server.UseOpenApi(options => options.DocumentPath = "/openapi.generated.json");
                                 server.Start();

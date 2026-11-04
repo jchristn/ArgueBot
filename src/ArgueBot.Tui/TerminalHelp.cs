@@ -87,6 +87,7 @@ namespace ArgueBot.Tui
             Connections and models
 
             Agents or the main menu opens Connections, models and credentials. Import write-only credentials, then configure HTTP endpoints or CLI harnesses and reusable models. Each participant can select a reusable model and role instructions. HTTP bindings support bearer, API key, named headers and query parameters. Each binding uses one stored credential, service environment reference or nonsecret routing value.
+            The main menu also opens Prompts: the instructions each debate step sends. Factory prompts are read-only; duplicate one to edit it. Prompts use parameters such as {question} and {current_question}; View lists the ones each step supports. New conversation lets you choose a prompt per step.
 
             Endpoint capacity limits simultaneous generations across debates. Model configuration offers explicit completion and harmless tool checks. These can incur provider cost; saving a form never invokes a model. Observations show the exact model and transport revisions and, for supported CLI harnesses, the reported executable version. A completion alone does not verify tool support.
 

@@ -47,6 +47,7 @@ namespace ArgueBot.Core.Database.Implementations
                 run.ResumePhase = S(reader, "resume_phase"); run.CompactionRecipientId = S(reader, "compaction_recipient_id"); run.RebuildFromOriginals = Convert.ToInt64(reader["rebuild_from_originals"], CultureInfo.InvariantCulture) != 0; run.CurrentQuestion = S(reader, "question"); run.ProposalId = S(reader, "proposal_id"); orchestratorId = S(reader, "orchestrator_id");
             }
             await BudgetMethods.LoadAsync(connection, context, run, token).ConfigureAwait(false);
+            await PromptMethods.LoadRunAsync(connection, context, run, token).ConfigureAwait(false);
             using (DbCommand command = Command(connection, null, "SELECT d.purpose,d.repair,a.error_code FROM debate_attempts d JOIN generation_attempts a ON a.tenant_id=d.tenant_id AND a.id=d.attempt_id WHERE a.tenant_id=@tenant AND a.run_id=@run ORDER BY a.number DESC LIMIT 1", P("tenant", context.TenantId, "run", run.Id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {

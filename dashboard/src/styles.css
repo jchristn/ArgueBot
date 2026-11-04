@@ -691,6 +691,7 @@ dialog > header {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
+  z-index: 3;
   background: var(--surface);
 }
 dialog h2 {
@@ -1396,3 +1397,25 @@ th.actions-cell, td.actions-cell { width: 1%; white-space: nowrap; text-align: e
 .message .markdown li + li { margin-top: .1em; }
 .message .markdown h1, .message .markdown h2, .message .markdown h3 { margin: .6em 0 .25em; }
 .message-preview { margin: 0 0 0 30px; }
+
+/* Prompt library and editor. */
+.prompt-description { font-size: 11px; margin-top: 2px; max-width: 60ch; }
+dialog.prompt-editor { width: min(1180px, calc(100vw - 32px)); }
+.prompt-editor-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); gap: 14px; align-items: start; }
+.prompt-text { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.5; min-height: 22rem; }
+.prompt-legend { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--sunken); max-height: 30rem; overflow: auto; }
+.prompt-legend h3 { margin: 0 0 4px; font-size: 13px; }
+.prompt-legend > p { font-size: 11px; margin: 0 0 6px; }
+.prompt-legend ul { list-style: none; margin: 0; padding: 0; }
+.prompt-legend li { padding: 5px 0; border-top: 1px solid var(--border); }
+.prompt-legend li p { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.prompt-legend .badge { margin-inline-start: 6px; }
+.parameter-chip { border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--accent); padding: 1px 6px; cursor: pointer; font: inherit; }
+.parameter-chip:hover { border-color: var(--accent); background: var(--accent-bg); }
+.parameter-chip code { font-size: 11.5px; }
+.prompt-problems { margin: 4px 0 8px; padding-inline-start: 1.2rem; color: var(--danger); font-size: 12px; }
+.prompt-picker { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin: 0 0 12px; }
+.prompt-picker > summary { cursor: pointer; font-weight: 600; font-size: 12px; }
+.prompt-picker > p { font-size: 11px; margin: 4px 0 8px; }
+.run-prompts > summary { cursor: pointer; }
+@media (max-width: 900px) { .prompt-editor-body { grid-template-columns: minmax(0, 1fr); } .prompt-text { min-height: 14rem; } }

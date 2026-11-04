@@ -1101,6 +1101,91 @@ Success: **200**, response: `Acknowledgement`.
 | id | path | true | Resource ID. Copy it from the matching list. |
 | revision | query | false | Expected current revision; the request is refused if the resource changed. |
 
+## GET /v2.0/api/prompt-parameters
+
+List prompt placeholders and the debate steps where each has a value. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `List<PromptParameter>`.
+
+## GET /v2.0/api/prompts
+
+List factory and workspace prompts. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `List<PromptTemplate>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| purpose | query | false | Backend filter. |
+
+## POST /v2.0/api/prompts
+
+Create a workspace prompt. Open workspace endpoint.
+
+Success: **201**, response: `PromptTemplate`. Request: `PromptTemplate`.
+
+Representative request:
+
+```json
+{
+  "name": "Skeptical question",
+  "purpose": "question",
+  "description": "Pushes on the weakest assumption.",
+  "body": "You are {agent_name}, the orchestrator. Debate question: {question}\nPanel: {panel}. Round {round} of {max_rounds}.\n{guidance}\nAsk the single question most likely to expose a weak assumption. Return only a JSON object with question and rationale."
+}
+```
+
+## GET /v2.0/api/prompts/{id}
+
+Read a prompt. Open workspace endpoint.
+
+Success: **200**, response: `PromptTemplate`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
+## PUT /v2.0/api/prompts/{id}
+
+Update a workspace prompt with its expected revision. Open workspace endpoint.
+
+Success: **200**, response: `PromptTemplate`. Request: `PromptTemplate`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
+Representative request:
+
+```json
+{
+  "name": "Skeptical question",
+  "description": "Pushes on the weakest assumption.",
+  "body": "You are {agent_name}. Question: {question}\n{guidance}\nReturn only a JSON object with question and rationale.",
+  "revision": 1
+}
+```
+
+## POST /v2.0/api/prompts/{id}/duplicate
+
+Copy a prompt, including a factory default, into an editable workspace prompt. Open workspace endpoint.
+
+Success: **201**, response: `PromptTemplate`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
+## DELETE /v2.0/api/prompts/{id}
+
+Delete a workspace prompt; factory prompts cannot be deleted. Open workspace endpoint.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+| revision | query | false | Expected current revision; the request is refused if the resource changed. |
+
 ## POST /v2.0/api/configuration/endpoints/{id}/discover
 
 Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
@@ -1451,6 +1536,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | orchestrator | RunnerProfile (nullable) | Immutable orchestrator configuration snapshot. |
 | proposalId | string | Current candidate proposal identifier. |
 | currentQuestion | string | Current pointed question from the orchestrator. |
+| prompts | array | Prompt text this debate froze for each step at start. Empty for runs created before prompts were stored; those use the factory text. |
 | proposalText | string | Current ratification candidate text. |
 | explicitMode | string | Original run purpose, retained independently of roster changes. |
 | resumePhase | string | Phase resumed after successful context compaction. |
@@ -1764,6 +1850,33 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matches. |
 
+### PromptParameter
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Placeholder name, written as {name} in a prompt. |
+| description | string | What the placeholder is replaced with. |
+| purposes | array | Debate steps where the placeholder may be used. |
+| requiredFor | array | Debate steps whose prompts must include the placeholder. |
+
+### PromptTemplate
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Prompt identifier. Factory prompts use stable pmt_factory_ identifiers. |
+| name | string | Display name, 1 through 200 characters. |
+| purpose | string | The debate step this prompt drives: question, response, synthesis, ratification or compaction. Fixed after creation. |
+| description | string | Optional note about when to use this prompt, up to 1000 characters. |
+| body | string | Prompt text with {parameter} placeholders. Use {{ and }} for literal braces. Up to 32000 characters. |
+| factory | boolean | True for a factory default, which cannot be edited or deleted. |
+| revision | integer | Optimistic revision. Updates and deletes must supply the current value. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
+
 ### RequestHistoryEntry
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1826,6 +1939,18 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | expectedKeyId | string | Active key ID from the last status read; stale requests fail without another rotation. |
+
+### RunPrompt
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| purpose | string | Debate step. |
+| promptId | string | Source prompt identifier at start time. |
+| promptRevision | integer | Source prompt revision at start time. |
+| name | string | Source prompt name at start time. |
+| body | string | Frozen prompt text with placeholders. |
 
 ### RunnerProfile
 

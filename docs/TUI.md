@@ -27,10 +27,12 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 | --- | --- |
 | Help | Explains navigation, agents, debates, history and administration. |
 | Menu | Lists every available action, including search, follow-up questions, history, administration and detaching. |
-| New | Starts guided debate setup or creates an empty conversation, asking for its title and then an optional opening question. |
+| New | Starts guided debate setup or creates an empty conversation, asking for its title, an optional opening question and, when custom prompts exist, which prompt each debate step uses. |
 | Agents | Adds or edits the CLI harnesses and REST models that can speak in a debate. |
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |
 | Run controls | Pauses, resumes, interrupts, extends or stops a debate. If the conversation has no debate, offers setup. |
+
+The main menu (F2) also opens **Prompts**: view a prompt's text with its parameter legend, duplicate any prompt (including the read-only factory defaults), delete a custom prompt, or edit a custom prompt's name and description and load new text from a file. See [PROMPTS.md](PROMPTS.md).
 
 The compact footer reserves **F1 Help** and shows keys for the focused control, followed by global hints as space allows. **F2 Menu** and **Ctrl+Q Detach** remain available throughout the workspace. When the conversation list has focus, the footer shows direct actions such as **d Delete**, **b Debate** and **r Run controls**. F1 lists every shortcut; F2 remains the complete action menu. Menu options wrap instead of losing text at the right edge, and long lists scroll to keep the chosen option visible.
 

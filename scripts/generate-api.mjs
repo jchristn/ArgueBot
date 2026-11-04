@@ -83,6 +83,9 @@ schemas.CredentialRequest.required = ['name','kind','secretValue'];
 Object.assign(schemas.CredentialRequest.properties.kind, {enum:['http_bearer','http_header','http_query','token','claude_oauth','codex_auth_json']});
 Object.assign(schemas.CredentialRequest.properties.parameterName, {maxLength:128, pattern:'^[A-Za-z0-9_-]{0,128}$'});
 Object.assign(schemas.HttpAuthBinding.properties.kind, {enum:['bearer','api_key','header','query']});
+Object.assign(schemas.PromptTemplate.properties.purpose, {enum:['question','response','synthesis','ratification','compaction']});
+Object.assign(schemas.PromptTemplate.properties.body, {maxLength:32000});
+schemas.PromptTemplate.required = ['name','purpose','body'];
 // Publish only transport-reachable schemas; implementation/helper classes are not API contracts.
 const reachable = new Set();
 function visit(node) {

@@ -3457,6 +3457,281 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Prompts",
+      "description": "Lifecycle operations for prompts. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List prompt placeholders and the debate steps where each has a value",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompt-parameters",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  List prompt placeholders and the debate steps where each has a value",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List factory and workspace prompts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts",
+            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  List factory and workspace prompts",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a workspace prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts",
+            "description": "Open workspace endpoint.  Create a workspace prompt",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Skeptical question\",\n  \"purpose\": \"question\",\n  \"description\": \"Pushes on the weakest assumption.\",\n  \"body\": \"You are {agent_name}, the orchestrator. Debate question: {question}\\nPanel: {panel}. Round {round} of {max_rounds}.\\n{guidance}\\nAsk the single question most likely to expose a weak assumption. Return only a JSON object with question and rationale.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('promptId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a prompt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}",
+            "description": "Open workspace endpoint.  Read a prompt",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update a workspace prompt with its expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}",
+            "description": "Open workspace endpoint.  Update a workspace prompt with its expected revision",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Skeptical question\",\n  \"description\": \"Pushes on the weakest assumption.\",\n  \"body\": \"You are {agent_name}. Question: {question}\\n{guidance}\\nReturn only a JSON object with question and rationale.\",\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Copy a prompt, including a factory default, into an editable workspace prompt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}/duplicate",
+            "description": "Open workspace endpoint.  Copy a prompt, including a factory default, into an editable workspace prompt",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete a workspace prompt; factory prompts cannot be deleted",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}?revision={{resourceRevision}}",
+            "description": "Open workspace endpoint.  Delete a workspace prompt; factory prompts cannot be deleted",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

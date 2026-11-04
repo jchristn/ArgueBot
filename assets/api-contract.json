@@ -1322,6 +1322,118 @@
       "save": null
     },
     {
+      "method": "GET",
+      "path": "/v2.0/api/prompt-parameters",
+      "group": "Prompts",
+      "summary": "List prompt placeholders and the debate steps where each has a value",
+      "response": "List<PromptParameter>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/prompts",
+      "group": "Prompts",
+      "summary": "List factory and workspace prompts",
+      "response": "List<PromptTemplate>",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "purpose"
+      ],
+      "execute": true,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/prompts",
+      "group": "Prompts",
+      "summary": "Create a workspace prompt",
+      "response": "PromptTemplate",
+      "request": "PromptTemplate",
+      "status": 201,
+      "public": true,
+      "example": {
+        "name": "Skeptical question",
+        "purpose": "question",
+        "description": "Pushes on the weakest assumption.",
+        "body": "You are {agent_name}, the orchestrator. Debate question: {question}\nPanel: {panel}. Round {round} of {max_rounds}.\n{guidance}\nAsk the single question most likely to expose a weak assumption. Return only a JSON object with question and rationale."
+      },
+      "query": [],
+      "execute": false,
+      "save": "promptId"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/prompts/{id}",
+      "group": "Prompts",
+      "summary": "Read a prompt",
+      "response": "PromptTemplate",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/prompts/{id}",
+      "group": "Prompts",
+      "summary": "Update a workspace prompt with its expected revision",
+      "response": "PromptTemplate",
+      "request": "PromptTemplate",
+      "status": 200,
+      "public": true,
+      "example": {
+        "name": "Skeptical question",
+        "description": "Pushes on the weakest assumption.",
+        "body": "You are {agent_name}. Question: {question}\n{guidance}\nReturn only a JSON object with question and rationale.",
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/prompts/{id}/duplicate",
+      "group": "Prompts",
+      "summary": "Copy a prompt, including a factory default, into an editable workspace prompt",
+      "response": "PromptTemplate",
+      "request": null,
+      "status": 201,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/prompts/{id}",
+      "group": "Prompts",
+      "summary": "Delete a workspace prompt; factory prompts cannot be deleted",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [
+        "revision"
+      ],
+      "execute": false,
+      "save": null
+    },
+    {
       "method": "POST",
       "path": "/v2.0/api/configuration/endpoints/{id}/discover",
       "group": "Configuration",

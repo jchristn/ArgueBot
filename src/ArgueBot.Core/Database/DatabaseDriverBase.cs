@@ -54,6 +54,8 @@ namespace ArgueBot.Core.Database
         public IRosterMethods Rosters { get; }
         /// <summary>Prompt selection and source-linked summaries.</summary>
         public IMemoryMethods Memory { get; }
+        /// <summary>Debate prompt library, conversation selections and frozen run prompts.</summary>
+        public IPromptMethods Prompts { get; }
         /// <summary>Moderator information requests.</summary>
         public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -78,6 +80,7 @@ namespace ArgueBot.Core.Database
             Interjections = new InterjectionMethods(this);
             Rosters = new RosterMethods(this);
             Memory = new MemoryMethods(this);
+            Prompts = new PromptMethods(this);
             Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
@@ -157,6 +160,8 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
+                        // A restore target stays empty; the restored rows or the next normal start supply the factory prompts.
+                        if (!requireEmpty) await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false);
                         transaction.Commit();
                     }
                 }
@@ -165,7 +170,7 @@ namespace ArgueBot.Core.Database
         }
 
         /// <summary>Create a conversation for the authenticated user.</summary>
-        public async Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default, string openingQuestion = "")
+        public async Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default, string openingQuestion = "", Dictionary<string, string>? promptIds = null)
         {
             RequireWrite(context);
             if (string.IsNullOrWhiteSpace(title) || title.Length > 4000) throw new DomainException(400, "invalid_title", "Provide a title between 1 and 4000 characters.", "title");
@@ -174,6 +179,7 @@ namespace ArgueBot.Core.Database
             await WriteAsync(async (connection, transaction) =>
             {
                 await ExecuteAsync(connection, transaction, "INSERT INTO conversations(id,tenant_id,user_id,title,opening_question,created_utc,updated_utc) VALUES(@id,@tenant,@user,@title,@question,@now,@now)", token, P("id", id, "tenant", context.TenantId, "user", context.UserId, "title", title.Trim(), "question", openingQuestion.Trim())).ConfigureAwait(false);
+                if (promptIds != null) await PromptMethods.SaveSelectionAsync(connection, transaction, context, id, promptIds, token).ConfigureAwait(false);
                 await EventAsync(connection, transaction, context.TenantId, id, "conversation_created", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadConversationAsync(context, id, token).ConfigureAwait(false);
@@ -188,7 +194,10 @@ namespace ArgueBot.Core.Database
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Conversation not found.");
-                return ReadConversation(reader);
+                Conversation conversation = ReadConversation(reader);
+                reader.Close();
+                conversation.PromptIds = await PromptMethods.LoadSelectionAsync(connection, null, context, id, token).ConfigureAwait(false);
+                return conversation;
             }
         }
 
@@ -206,6 +215,7 @@ namespace ArgueBot.Core.Database
                 using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE " + filter + " ORDER BY pinned DESC,updated_utc DESC,id DESC LIMIT @limit OFFSET @offset", values))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Items.Add(ReadConversation(reader)); }
+                foreach (Conversation conversation in result.Items) conversation.PromptIds = await PromptMethods.LoadSelectionAsync(connection, null, context, conversation.Id, token).ConfigureAwait(false);
             }
             return result;
         }
@@ -221,6 +231,7 @@ namespace ArgueBot.Core.Database
             {
                 int changed = await ExecuteAsync(connection, transaction, "UPDATE conversations SET title=@title,opening_question=COALESCE(@question,opening_question),pinned=@pin,archived=@archive,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND revision=@revision", token, P("title", request.Title.Trim(), "question", request.OpeningQuestion?.Trim(), "pin", request.Pinned ? 1 : 0, "archive", request.Archived ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id, "revision", request.Revision)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "revision_conflict", "Conversation changed. Reload before saving.");
+                if (request.PromptIds != null) await PromptMethods.SaveSelectionAsync(connection, transaction, context, id, request.PromptIds, token).ConfigureAwait(false);
                 await EventAsync(connection, transaction, context.TenantId, id, "conversation_updated", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadConversationAsync(context, id, token).ConfigureAwait(false);

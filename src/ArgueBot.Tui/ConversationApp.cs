@@ -306,6 +306,51 @@ namespace ArgueBot.Tui
         }
         private static string CredentialKindLabel(string kind) { return kind == "claude_oauth" ? "Claude Code OAuth token" : kind == "codex_auth_json" ? "Codex auth.json" : kind == "http_bearer" ? "Bearer token" : kind == "http_header" ? "Header key and value" : kind == "http_query" ? "Query string key and value" : "HTTP token or API key"; }
         private static string CredentialStatusLabel(string status) { return status == "ready" ? "ready" : status == "disabled" ? "disabled" : status == "refresh_uncertain" ? "sign-in needed: refresh result unknown, replace auth.json" : status; }
+        /// <summary>Default prompts, or one chosen prompt per debate step. Null means the moderator cancelled.</summary>
+        private async Task<Dictionary<string, string>?> ChoosePromptsAsync()
+        {
+            Dictionary<string, string> chosen = new Dictionary<string, string>(StringComparer.Ordinal);
+            List<PromptTemplate> prompts = await _Client.PromptsAsync(token: _Token).ConfigureAwait(false);
+            if (prompts.All(item => item.Factory)) return chosen;
+            int mode = await UiAsync(() => _App!.SelectStyledAsync("Debate prompts for this conversation", "Use the factory default prompts", "Choose a prompt for each debate step")).ConfigureAwait(false);
+            if (mode < 0) return null;
+            if (mode == 0) return chosen;
+            foreach (string purpose in PromptCatalog.Purposes)
+            {
+                List<PromptTemplate> options = prompts.Where(item => item.Purpose == purpose).ToList();
+                if (options.Count < 2) continue;
+                int choice = await UiAsync(() => _App!.SelectStyledAsync("Prompt for the " + purpose + " step", options.Select(item => item.Name + (item.Factory ? " (factory)" : "")).ToArray())).ConfigureAwait(false);
+                if (choice < 0) return null;
+                chosen[purpose] = options[choice].Id;
+            }
+            return chosen;
+        }
+        private async Task PromptsAsync()
+        {
+            while (true)
+            {
+                List<PromptTemplate> prompts = await _Client.PromptsAsync(token: _Token).ConfigureAwait(false);
+                int selected = await UiAsync(() => _App!.SelectStyledAsync("Prompts (factory defaults are read-only)", prompts.Select(item => item.Name + " [" + item.Purpose + (item.Factory ? ", factory" : "") + "]").Concat(new[] { "Back" }).ToArray())).ConfigureAwait(false);
+                if (selected < 0 || selected >= prompts.Count) return;
+                PromptTemplate prompt = prompts[selected];
+                string[] actions = prompt.Factory ? new[] { "View text and parameters", "Duplicate to an editable copy", "Back" } : new[] { "View text and parameters", "Duplicate", "Edit name, description or text", "Delete", "Back" };
+                int action = await UiAsync(() => _App!.SelectStyledAsync(prompt.Name, actions)).ConfigureAwait(false);
+                if (action < 0 || actions[action] == "Back") continue;
+                try
+                {
+                    if (action == 0)
+                    {
+                        List<PromptParameter> parameters = await _Client.PromptParametersAsync(_Token).ConfigureAwait(false);
+                        string legend = string.Join("\n", parameters.Where(item => item.Purposes.Contains(prompt.Purpose)).Select(item => "{" + item.Name + "}" + (item.RequiredFor.Contains(prompt.Purpose) ? " (required)" : "") + ": " + item.Description));
+                        await ReadPanelAsync(prompt.Name, prompt.Body + "\n\nParameters for " + prompt.Purpose + " prompts:\n" + legend).ConfigureAwait(false);
+                    }
+                    else if (action == 1) { PromptTemplate copy = await _Client.DuplicatePromptAsync(prompt.Id, _Token).ConfigureAwait(false); await ReadPanelAsync("Prompt duplicated", "Created " + copy.Name + ". Choose it in the list to edit it.").ConfigureAwait(false); }
+                    else if (action == 2) await EditCatalogAsync("Edit prompt", CatalogForms.Prompt(prompt), async value => { await _Client.SavePromptAsync(value, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
+                    else if (action == 3 && await UiAsync(() => _App!.ConfirmStyledAsync("Delete " + prompt.Name + "? Conversations using it switch to the factory default; started debates keep their copy.")).ConfigureAwait(false)) await _Client.DeletePromptAsync(prompt.Id, prompt.Revision, _Token).ConfigureAwait(false);
+                }
+                catch (DomainException exception) { await ReadPanelAsync("Prompt not changed", exception.Message).ConfigureAwait(false); }
+            }
+        }
         private async Task CatalogAsync()
         {
             int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "CLI harnesses", "Models", "Credentials (write-only)", "Credential encryption keys")).ConfigureAwait(false);
@@ -447,7 +492,9 @@ namespace ArgueBot.Tui
                 string? title = await UiAsync(() => _App.PromptStyledAsync("Conversation title (shown in the conversation list)")).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(title)) return;
                 string? question = await UiAsync(() => _App.PromptStyledAsync("Opening question for the debate (optional; blank uses the title)")).ConfigureAwait(false);
-                Conversation conversation = await _Client.CreateConversationAsync(title, _Token, question?.Trim() ?? "").ConfigureAwait(false);
+                Dictionary<string, string>? promptIds = await ChoosePromptsAsync().ConfigureAwait(false);
+                if (promptIds == null) return;
+                Conversation conversation = await _Client.CreateConversationAsync(title, _Token, question?.Trim() ?? "", promptIds).ConfigureAwait(false);
                 await UiAsync(() => { OpenConversation(conversation.Id, conversation.Title); return Task.FromResult(true); }).ConfigureAwait(false);
                 return;
             }
@@ -823,6 +870,7 @@ namespace ArgueBot.Tui
             Add("New debate or conversation (Ctrl+N)", NewAsync);
             Add("Agents: configure CLI harnesses and REST models (Ctrl+E)", ParticipantsAsync);
             Add("Connections, models and credentials", CatalogAsync);
+            Add("Prompts: view, duplicate and edit debate prompts", PromptsAsync);
             if (_Selected != null)
             {
                 Add("Start a debate in this conversation (Ctrl+B)", StartAsync);

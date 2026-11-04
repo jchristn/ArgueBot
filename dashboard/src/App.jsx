@@ -19,6 +19,7 @@ const Home = lazy(() => import("./views/Home.jsx"));
 const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
+const Prompts = lazy(() => import("./views/Prompts.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
@@ -67,7 +68,7 @@ function Shell({ theme, toggleTheme, notify }) {
     },
     {
       title: "nav.configure",
-      links: [["participants", "nav.participants", "users"]],
+      links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"]],
     },
     {
       title: "nav.system",
@@ -217,6 +218,7 @@ export default function App() {
                 path="/dashboard/participants"
                 element={<Participants />}
               />
+              <Route path="/dashboard/prompts" element={<Prompts />} />
               <Route path="/dashboard/history" element={<RequestHistory />} />
               <Route path="/dashboard/explorer" element={<ApiExplorer />} />
               <Route path="/dashboard/settings" element={<Settings />} />

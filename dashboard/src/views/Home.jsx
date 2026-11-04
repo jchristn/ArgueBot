@@ -111,10 +111,11 @@ export default function Home() {
       <p className="product-note">{t("home.notice")}</p>
       {creating && (
         <ConversationForm
+          api={api}
           onClose={() => setCreating(false)}
-          onSave={async (title, question) => {
+          onSave={async (title, question, promptIds) => {
             try {
-              const record = await api.createConversation(title, question);
+              const record = await api.createConversation(title, question, promptIds);
               setCreating(false);
               navigate("/dashboard/conversations/" + record.id);
             } catch (failure) {
