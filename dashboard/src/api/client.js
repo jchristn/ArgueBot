@@ -151,6 +151,7 @@ export class ApiClient {
     }
   }
   saveConfiguration(resource, body) { const { id, ...value } = body; return this.request("/v2.0/api/configuration/" + resource + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
+  revealCredential(id) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
   disableCredential(id, revision) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   capabilities() { return this.request("/v2.0/api/capabilities"); }
   v2root(id) { return "/v2.0/api/conversations/" + encodeURIComponent(id); }

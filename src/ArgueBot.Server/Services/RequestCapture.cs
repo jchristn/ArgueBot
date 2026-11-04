@@ -31,7 +31,7 @@ namespace ArgueBot.Server.Services
                 string response = ""; long responseBytes = http.Response.ServerSentEvents ? -1 : http.Response.ContentLength;
                 if (!http.Response.ServerSentEvents && (http.Response.ContentType ?? "").Contains("json", StringComparison.OrdinalIgnoreCase))
                 {
-                    try { string raw = http.Response.DataAsString ?? ""; responseBytes = Encoding.UTF8.GetByteCount(raw); response = CaptureRedactor.Body(raw, http.Response.ContentType ?? ""); }
+                    try { string raw = http.Response.DataAsString ?? ""; responseBytes = Encoding.UTF8.GetByteCount(raw); response = credentialBody ? "[credential body excluded]" : CaptureRedactor.Body(raw, http.Response.ContentType ?? ""); }
                     catch (ObjectDisposedException) { response = "[streamed response omitted]"; }
                 }
                 RequestHistoryEntry entry = new RequestHistoryEntry

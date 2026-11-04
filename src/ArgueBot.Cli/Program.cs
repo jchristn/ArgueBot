@@ -118,8 +118,9 @@ namespace ArgueBot.Cli
                         catch (JsonException) { throw new ArgumentException("Supply a complete valid JSON configuration document. Input values are omitted."); }
                         Print(await client.SendAsync<JsonElement>(action == "add" ? System.Net.Http.HttpMethod.Post : System.Net.Http.HttpMethod.Put, path + (action == "add" ? "" : "/" + Uri.EscapeDataString(words[3])), document, token).ConfigureAwait(false));
                     }
+                    else if (resource == "credentials" && action == "reveal") { Require(words, 4); Print(await client.RevealCredentialAsync(words[3], token).ConfigureAwait(false)); }
                     else if (resource == "credentials" && action == "disable") { Require(words, 5); Print(await client.DisableCredentialAsync(words[3], long.Parse(words[4], System.Globalization.CultureInfo.InvariantCulture), token).ConfigureAwait(false)); }
-                    else throw new ArgumentException("Use list, add or update. Credential disable also requires ID and revision.");
+                    else throw new ArgumentException("Use list, add, update or reveal. Credential disable also requires ID and revision.");
                 }
                 else if (command == "credential-keys")
                 {
@@ -277,6 +278,7 @@ Configuration
   configuration endpoints|harnesses|models|credentials list
   configuration endpoints|harnesses|models|credentials add -|--file PATH
   configuration endpoints|harnesses|models|credentials update ID -|--file PATH
+  configuration credentials reveal ID          Print a ready credential's decrypted value
   configuration credentials disable ID REVISION
   configuration endpoints preview ID         No outbound request or credential resolution.
   configuration endpoints discover ID        Contacts the endpoint; no completion.

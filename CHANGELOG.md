@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Set the product version to 2.0.0.
+- Add an explicit credential reveal for the moderator: `POST /v2.0/api/configuration/credentials/{id}/reveal`, the client, `configuration credentials reveal ID` in the CLI, Reveal value in the TUI, and a confirmed Reveal value action in the dashboard with show, hide and copy. Request history excludes credential response bodies as well as request bodies; model tools never expose reveal.
+- Topbar: the repository link uses the GitHub mark, and the server address shows in a badge.
 - Dashboard tables: replace per-row button groups with a single Actions menu that renders above the table, opens above its button near the bottom of the screen and stays inside the viewport, with arrow-key, Escape and outside-click handling. The conversations list shows a Title column and a Rename action.
 - Show credential setup commands for macOS, Linux or Windows PowerShell, defaulting to the browser's platform, with a remembered switch; the TUI help uses the host shell.
 - Keep primary button text readable on hover in light and dark themes, with an automated hover-contrast check across routes.

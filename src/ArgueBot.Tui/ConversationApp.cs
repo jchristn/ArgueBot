@@ -385,8 +385,16 @@ namespace ArgueBot.Tui
                 CredentialMetadata? item = selected == 0 ? null : credentials[selected - 1];
                 if (item != null)
                 {
-                    int action = await UiAsync(() => _App!.SelectStyledAsync(item.Name, "Replace value", "Disable credential", "Back")).ConfigureAwait(false); if (action < 0 || action == 2) return;
-                    if (action == 1) { await _Client.DisableCredentialAsync(item.Id, item.Revision, _Token).ConfigureAwait(false); return; }
+                    int action = await UiAsync(() => _App!.SelectStyledAsync(item.Name, "Replace value", "Reveal value", "Disable credential", "Back")).ConfigureAwait(false); if (action < 0 || action == 3) return;
+                    if (action == 1)
+                    {
+                        int confirm = await UiAsync(() => _App!.SelectStyledAsync("Show " + item.Name + " on screen? Anyone who can see this terminal can read it.", "Cancel", "Reveal")).ConfigureAwait(false); if (confirm != 1) return;
+                        RevealedCredential revealed = await _Client.RevealCredentialAsync(item.Id, _Token).ConfigureAwait(false);
+                        await ReadPanelAsync("Credential value", (revealed.ParameterName.Length > 0 ? revealed.ParameterName + ": " : "") + revealed.SecretValue).ConfigureAwait(false);
+                        revealed.SecretValue = "";
+                        return;
+                    }
+                    if (action == 2) { await _Client.DisableCredentialAsync(item.Id, item.Revision, _Token).ConfigureAwait(false); return; }
                 }
                 await EditCatalogAsync("Import credential (write-only)", CatalogForms.Credential(item), async value => { await _Client.SaveCredentialAsync(item?.Id ?? "", value, _Token).ConfigureAwait(false); value.SecretValue = ""; }).ConfigureAwait(false);
             }

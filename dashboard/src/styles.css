@@ -973,7 +973,7 @@ legend {
     flex: 1;
     font-size: 10px;
   }
-  .server-context .badge {
+  .server-context .badge:not(.address-badge) {
     display: none;
   }
   .utilities > a {
@@ -1366,3 +1366,6 @@ fieldset.invalid { border-color: var(--danger); }
 .action-menu > button.danger { color: var(--danger); }
 .action-menu > button:disabled { color: var(--faint); cursor: default; }
 td.actions-cell { width: 1%; white-space: nowrap; text-align: end; }
+.secret-reveal { width: 100%; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .85rem; }
+.address-badge { gap: 6px; padding: 3px 8px; border-radius: 999px; background: var(--raised); color: var(--text); font-size: 11px; white-space: nowrap; }
+.address-badge code { font-size: 11px; background: none; padding: 0; }

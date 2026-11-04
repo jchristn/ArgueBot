@@ -8729,6 +8729,110 @@
         "security": []
       }
     },
+    "/v2.0/api/configuration/credentials/{id}/reveal": {
+      "post": {
+        "operationId": "post_v2_0_api_configuration_credentials_id_reveal",
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Reveal a ready credential's decrypted value to the moderator",
+        "description": "Open workspace endpoint. ",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID. Copy it from the matching list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful reveal a ready credential's decrypted value to the moderator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealedCredential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/v2.0/api/configuration/endpoints/{id}/discover": {
       "post": {
         "operationId": "post_v2_0_api_configuration_endpoints_id_discover",
@@ -11219,6 +11323,36 @@
           "restarting": {
             "type": "boolean",
             "description": "The host is draining and reloading configuration."
+          }
+        }
+      },
+      "RevealedCredential": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Credential identifier."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Credential kind."
+          },
+          "parameterName": {
+            "type": "string",
+            "description": "Header or query parameter name for header and query credentials; empty otherwise."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Revision of the revealed value."
+          },
+          "secretValue": {
+            "type": "string",
+            "description": "The decrypted value. A Codex login includes the refresh token the service manages."
           }
         }
       },

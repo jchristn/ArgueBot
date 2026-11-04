@@ -85,6 +85,9 @@ namespace ArgueBot.Client
         /// <summary>Import or replace a write-only credential.</summary>
         public Task<CredentialMetadata> SaveCredentialAsync(string id, CredentialRequest value, CancellationToken token = default)
         { return SendAsync<CredentialMetadata>(id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/credentials" + (id.Length == 0 ? "" : "/" + Uri.EscapeDataString(id)), value, token); }
+        /// <summary>Reveal a ready credential's decrypted value. Handle the result as a secret.</summary>
+        public Task<RevealedCredential> RevealCredentialAsync(string id, CancellationToken token = default)
+        { return SendAsync<RevealedCredential>(HttpMethod.Post, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "/reveal", token: token); }
         /// <summary>Disable a credential with an expected revision.</summary>
         public Task<Acknowledgement> DisableCredentialAsync(string id, long revision, CancellationToken token = default)
         { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }

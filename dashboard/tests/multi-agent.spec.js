@@ -49,6 +49,24 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(dialog).toHaveCount(0);
     await expect(catalog.getByRole("row").filter({ hasText: "Gateway " + suffix })).toContainText("Header key and value x-api-key");
     await expect(catalog.getByRole("row").filter({ hasText: "Gateway " + suffix })).toContainText("Not used yet");
+    const gatewayRow = catalog.getByRole("row").filter({ hasText: "Gateway " + suffix });
+    await gatewayRow.getByRole("button", { name: /^Actions for / }).click();
+    await page.getByRole("menuitem", { name: "Reveal value", exact: true }).click();
+    const reveal = page.getByRole("dialog", { name: "Reveal credential" });
+    await expect(reveal.getByRole("alert")).toContainText("Anyone who can see this screen");
+    await expect(reveal).not.toContainText("fictional-gateway-token");
+    await reveal.getByRole("button", { name: "Reveal", exact: true }).click();
+    await expect(reveal.getByLabel("Value", { exact: true })).toHaveValue("fictional-gateway-token");
+    await expect(reveal).toContainText("x-api-key");
+    await reveal.getByRole("button", { name: "Hide", exact: true }).click();
+    await expect(reveal.getByLabel("Value", { exact: true })).toHaveAttribute("type", "password");
+    await page.screenshot({ path: "../.run/screenshots/v2-reveal-credential.png", fullPage: true });
+    await reveal.getByRole("button", { name: "Close", exact: true }).last().click();
+    await expect.poll(async () => (await (await request.get("/v1.0/api/request-history?pageSize=50")).json()).items.some(item => item.path.endsWith("/reveal"))).toBeTruthy();
+    const revealEntry = (await (await request.get("/v1.0/api/request-history?pageSize=50")).json()).items.find(item => item.path.endsWith("/reveal"));
+    const revealDetail = await (await request.get(`/v1.0/api/request-history/${revealEntry.id}`)).text();
+    expect(revealDetail).toContain("[credential body excluded]");
+    expect(revealDetail).not.toContain("fictional-gateway-token");
     await catalog.getByRole("button", { name: "Credential encryption keys", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("Earlier keys stay available");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {

@@ -126,7 +126,7 @@ A failed turn displays TURN FAILED followed by its cause and recovery guidance i
 
 ## Reusable configuration and debate memory
 
-Choose **Agents → Connections, models and credentials** to manage endpoint, harness, model and credential forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Credential paste fields are masked and can read a local file. Values are write-only and never appear in configuration lists. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
+Choose **Agents → Connections, models and credentials** to manage endpoint, harness, model and credential forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Credential paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a credential, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
 
 Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
 

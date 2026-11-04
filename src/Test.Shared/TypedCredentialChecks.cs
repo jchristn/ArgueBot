@@ -41,6 +41,12 @@ namespace Test.Shared
                         CredentialMetadata replaced = await vault.SaveAsync(context, header.Id, new CredentialRequest { Name = header.Name, Kind = "http_header", ParameterName = "x-api-key", Revision = header.Revision, SecretValue = "fictional-header-5" }, token).ConfigureAwait(false);
                         Require(replaced.Revision == 2 && await vault.ResolveAsync(context, header.Id, token).ConfigureAwait(false) == "fictional-header-5", "Replacing a typed credential's value must keep its placement.");
 
+                        RevealedCredential revealed = await vault.RevealAsync(context, header.Id, token).ConfigureAwait(false);
+                        Require(revealed.SecretValue == "fictional-header-5" && revealed.ParameterName == "x-api-key" && revealed.Kind == "http_header" && revealed.Revision == 2, "Reveal must return the current value with its placement.");
+                        CredentialMetadata hiddenLater = await vault.SaveAsync(context, "", new CredentialRequest { Name = "Disabled later", Kind = "http_bearer", SecretValue = "fictional-disabled" }, token).ConfigureAwait(false);
+                        await database.Credentials.DisableAsync(context, hiddenLater.Id, hiddenLater.Revision, token).ConfigureAwait(false);
+                        await RejectAsync(() => vault.RevealAsync(context, hiddenLater.Id, token), "credential_unavailable", "", "A disabled credential must not be revealed.").ConfigureAwait(false);
+
                         // Bindings deliberately name the wrong placement; the service takes it from each credential.
                         EndpointProfile endpoint = await database.Catalog.SaveEndpointAsync(context, new EndpointProfile
                         {
@@ -73,7 +79,7 @@ namespace Test.Shared
             try { await action().ConfigureAwait(false); }
             catch (DomainException failure)
             {
-                Require(failure.Code == code && (field.Length == 0 || failure.Field == field), message + " Got " + failure.Code + " (" + failure.Field + ").");
+                Require((code.Length == 0 || failure.Code == code) && (field.Length == 0 || failure.Field == field), message + " Got " + failure.Code + " (" + failure.Field + ").");
                 return;
             }
             throw new InvalidDataException(message);

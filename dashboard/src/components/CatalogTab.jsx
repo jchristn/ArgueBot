@@ -160,6 +160,41 @@ function KeyDialog({ api, notify, initial, onClose }) {
   </Modal>;
 }
 
+function RevealDialog({ api, credential, onClose }) {
+  const { t } = useTranslation();
+  const [revealed, setRevealed] = useState(null);
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const reveal = async () => {
+    setBusy(true); setError(null);
+    try { setRevealed(await api.revealCredential(credential.id)); setVisible(true); }
+    catch (failure) { setError(failure); }
+    finally { setBusy(false); }
+  };
+  const multiline = credential.kind === "codex_auth_json";
+  return <Modal title="catalog.reveal.title" wide={multiline} onClose={onClose}>
+    <h3>{credential.name}</h3>
+    {error && <ErrorPanel error={error} />}
+    {!revealed && <>
+      <p className="notice warning" role="alert">{t("catalog.reveal.warning")}</p>
+      {credential.kind === "codex_auth_json" && <p className="muted">{t("catalog.reveal.codex")}</p>}
+      <footer className="dialog-actions"><Button label="common.cancel" onClick={onClose} disabled={busy} /><Button label="catalog.reveal.confirm" className="primary" onClick={reveal} disabled={busy} /></footer>
+    </>}
+    {revealed && <>
+      {revealed.parameterName && <p>{t(`catalog.parameterName.${revealed.kind}`)}: <code>{revealed.parameterName}</code></p>}
+      <Field label="catalog.reveal.value">{props => multiline && visible
+        ? <textarea {...props} className="secret-reveal" readOnly rows={12} spellCheck={false} value={revealed.secretValue} onFocus={event => event.target.select()} />
+        : <input {...props} className="secret-reveal" readOnly type={visible ? "text" : "password"} spellCheck={false} autoComplete="off" value={revealed.secretValue} onFocus={event => event.target.select()} />}</Field>
+      <footer className="dialog-actions">
+        <Button label={visible ? "catalog.reveal.hide" : "catalog.reveal.show"} onClick={() => setVisible(value => !value)} />
+        <CopyButton value={revealed.secretValue} label="catalog.reveal.copy" />
+        <Button label="common.close" className="primary" onClick={onClose} />
+      </footer>
+    </>}
+  </Modal>;
+}
+
 /** Names of the harnesses and endpoints that reference a credential. */
 function usedBy(data, id) {
   return [...(data.harnesses || []).filter(item => item.credentialId === id), ...(data.endpoints || []).filter(item => (item.authBindings || []).some(binding => binding.credentialId === id))].map(item => item.name);
@@ -174,6 +209,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
   const [discovery, setDiscovery] = useState(null);
   const [preview, setPreview] = useState(null);
   const [checking, setChecking] = useState("");
+  const [revealing, setRevealing] = useState(null);
   const items = data?.[kind] || [];
   const nameOf = (list, id) => (data?.[list] || []).find(item => item.id === id)?.name;
   const enabled = item => <span className={item.enabled ? "badge" : "badge muted-badge"}>{t(item.enabled ? "catalog.on" : "catalog.off")}</span>;
@@ -205,10 +241,12 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
           { label: checking === item.id ? "catalog.checking" : "catalog.discover", hidden: kind !== "endpoints", disabled: !item.enabled || Boolean(checking), onClick: async () => { setChecking(item.id); try { setDiscovery({ ...await api.discoverEndpoint(item.id), name: item.name }); } catch (failure) { notify(failure); } finally { setChecking(""); } } },
           { label: "modelCheck.title", hidden: kind !== "models", onClick: () => setModelCheck(item) },
           { label: kind === "credentials" ? "catalog.replace" : "common.edit", help: kind === "credentials" ? "catalog.replace.help" : undefined, onClick: () => setEditing(item) },
+          { label: "catalog.reveal", help: "catalog.reveal.help", hidden: kind !== "credentials" || item.status !== "ready", onClick: () => setRevealing(item) },
           { label: "catalog.disable", help: "catalog.disable.help", hidden: kind !== "credentials" || item.status === "disabled", danger: true, onClick: async () => { try { await api.disableCredential(item.id, item.revision); await reload(); } catch (failure) { notify(failure); } } },
         ]} /></td>
       </tr>)}</tbody>
     </table></div>}
+    {revealing && <RevealDialog api={api} credential={revealing} onClose={() => setRevealing(null)} />}
     {keys && <KeyDialog api={api} notify={notify} initial={keys} onClose={() => setKeys(null)} />}
     {modelCheck && <ModelChecksDialog api={api} model={modelCheck} notify={notify} onClose={() => setModelCheck(null)} />}
     {discovery && <Modal title="catalog.discoveryTitle" onClose={() => setDiscovery(null)}><h3>{discovery.name}</h3><p>{t("catalog.discoveryHelp")}</p><p className="muted">{new Date(discovery.checkedUtc).toLocaleString()} · {t("catalog.revision", { revision: discovery.revision })}</p>{discovery.models.length ? <ul className="discovered-models">{discovery.models.map(model => <li key={model}><code>{model}</code></li>)}</ul> : <p>{t("catalog.noModels")}</p>}{discovery.truncated && <p>{t("catalog.discoveryTruncated")}</p>}<footer className="dialog-actions"><Button label="common.close" onClick={() => setDiscovery(null)} /></footer></Modal>}

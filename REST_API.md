@@ -1079,6 +1079,16 @@ Representative request:
 }
 ```
 
+## POST /v2.0/api/configuration/credentials/{id}/reveal
+
+Reveal a ready credential's decrypted value to the moderator. Open workspace endpoint.
+
+Success: **200**, response: `RevealedCredential`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
 ## DELETE /v2.0/api/configuration/credentials/{id}
 
 Disable a credential while keeping historical references. Open workspace endpoint.
@@ -1780,6 +1790,19 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | restarting | boolean | The host is draining and reloading configuration. |
+
+### RevealedCredential
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Credential identifier. |
+| name | string | Display name. |
+| kind | string | Credential kind. |
+| parameterName | string | Header or query parameter name for header and query credentials; empty otherwise. |
+| revision | integer | Revision of the revealed value. |
+| secretValue | string | The decrypted value. A Codex login includes the refresh token the service manages. |
 
 ### RosterChangeRequest
 

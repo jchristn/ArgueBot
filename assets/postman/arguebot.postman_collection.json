@@ -3261,6 +3261,43 @@
           ]
         },
         {
+          "name": "Reveal a ready credential's decrypted value to the moderator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}/reveal",
+            "description": "Open workspace endpoint.  Reveal a ready credential's decrypted value to the moderator",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Disable a credential while keeping historical references",
           "request": {
             "method": "DELETE",

@@ -68,6 +68,14 @@ namespace ArgueBot.Core.Services
             try { return await _Database.Credentials.SaveAsync(context, id, request, Encrypt, token).ConfigureAwait(false); }
             finally { _KeyGate.Release(); }
         }
+        /// <summary>Decrypt a ready credential for the moderator's explicit reveal request. Never call this for model or tool output.</summary>
+        public async Task<RevealedCredential> RevealAsync(RequestContext context, string id, CancellationToken token = default)
+        {
+            CredentialMetadata? metadata = null;
+            string value = await ResolveAsync(context, id, token, current => metadata = current).ConfigureAwait(false);
+            if (metadata == null) throw new DomainException(404, "credential_not_found", "No ready credential has this ID. Disabled credentials cannot be revealed.");
+            return new RevealedCredential { Id = metadata.Id, Name = metadata.Name, Kind = metadata.Kind, ParameterName = metadata.ParameterName, Revision = metadata.Revision, SecretValue = value };
+        }
         /// <summary>Resolve only within the execution service. Callers must never serialize or log the result.</summary>
         public async Task<string> ResolveAsync(RequestContext context, string id, CancellationToken token = default, Action<CredentialMetadata>? resolved = null)
         {

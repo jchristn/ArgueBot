@@ -111,6 +111,9 @@ try {
   for (const [kind,item] of [['endpoints',endpoint],['models',model],['harnesses',harness],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
   const replacement = command(['configuration','credentials','update',credential.id,'-'], {name:credential.name,kind:credential.kind,revision:credential.revision,secretValue:'fictional-cli-rotated'});
   check(replacement.revision > credential.revision, 'CLI credential rotation did not advance its revision.');
+  const revealed = command(['configuration','credentials','reveal',credential.id]);
+  check(revealed.secretValue === 'fictional-cli-rotated' && revealed.revision === replacement.revision, 'CLI reveal did not return the current credential value.');
+  check(!JSON.stringify(command(['configuration','credentials','list'])).includes('fictional-cli-rotated'), 'Credential lists must not include values after a reveal.');
   command(['configuration','credentials','disable',credential.id,String(replacement.revision)]);
   if (process.env.ARGUEBOT_SIMULATION_URL) {
     const panel = ['Claude','Codex','Gemini','DeepSeek'].map(name=>command(['participants','add','-'], {name:`CLI ${name}`,modelProfileId:model.id}));

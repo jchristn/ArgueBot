@@ -1,6 +1,6 @@
 # Model conversation tools
 
-Protocol 2 exposes evidence tools to the model serving the current participant or orchestrator. The service binds each invocation to its run, seat, accepted history boundary and context epoch. Tool input cannot select another workspace, run or identity. Management APIs and credential values are not exposed.
+Protocol 2 exposes evidence tools to the model serving the current participant or orchestrator. The service binds each invocation to its run, seat, accepted history boundary and context epoch. Tool input cannot select another workspace, run or identity. Management APIs and credential values are not exposed. In particular, the moderator-only credential reveal operation (`POST /v2.0/api/configuration/credentials/{id}/reveal`) is deliberately absent from this tool surface, so a model can never read a stored secret.
 
 REST models receive native function definitions. Claude Code and Codex receive an invocation-specific stdio MCP server named `arguebot`. Generic CLI, Gemini CLI and Mux currently use the bounded JSON request-envelope adapter described below. Tool capability is declared on the model; disable it for a completion-only model.
 
