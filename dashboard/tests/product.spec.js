@@ -143,8 +143,8 @@ test("open, create, save note, export and restore theme", async ({ page }) => {
     .first()
     .click();
   const title = "Should we isolate billing? " + Date.now();
-  await page.getByRole("textbox", { name: "Question or title" }).fill(title);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   await page
     .getByRole("textbox", { name: "Your message" })
@@ -368,9 +368,9 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .first()
       .click();
     await page
-      .getByRole("textbox", { name: "Question or title" })
+      .getByRole("textbox", { name: "Title", exact: true })
       .fill("Attempt browser immutable question");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Create conversation", exact: true }).click();
     await page
       .getByRole("textbox", { name: "Your message" })
       .fill("Use this exact source note for the fixture debate.");
@@ -467,9 +467,9 @@ test("page long history, read complete text and export beyond the visible page",
     .first()
     .click();
   await page
-    .getByRole("textbox", { name: "Question or title" })
+    .getByRole("textbox", { name: "Title", exact: true })
     .fill("Paged browser history fixture");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Paged browser history fixture" }),
   ).toBeVisible();
@@ -604,9 +604,9 @@ test("reload snapshots after an expired event cursor before resuming live update
     .first()
     .click();
   await page
-    .getByRole("textbox", { name: "Question or title" })
+    .getByRole("textbox", { name: "Title", exact: true })
     .fill("Replay snapshot recovery fixture");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect.poll(() => resumed).toBe(true);
   const first = calls.indexOf("events");
   const second = calls.indexOf("events", first + 1);

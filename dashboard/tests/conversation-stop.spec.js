@@ -58,7 +58,7 @@ test("notifications appear above an open dialog", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
   // Raise an application notice while the dialog is open by failing a request the dialog makes.
   await page.route("**/v1.0/api/conversations", route => route.request().method() === "POST" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ code: "fixture_failure", message: "Fixture failure while a dialog is open." }) }) : route.continue());
-  await page.getByRole("dialog").getByRole("textbox").fill("Toast layering check");
+  await page.getByRole("dialog").getByRole("textbox", { name: "Title", exact: true }).fill("Toast layering check");
   await page.getByRole("dialog").getByRole("button", { name: /Create|Save/ }).click();
   const toast = page.locator(".toast");
   await expect(toast).toContainText("Fixture failure");

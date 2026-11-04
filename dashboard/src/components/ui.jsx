@@ -95,6 +95,8 @@ export function Modal({ title, onClose, children, wide = false, className = "" }
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
+    // React's autoFocus runs before showModal, which then moves focus; honor an explicit marker instead.
+    dialog.querySelector("[data-autofocus]")?.focus();
     return () => dialog.close();
   }, []);
   return (

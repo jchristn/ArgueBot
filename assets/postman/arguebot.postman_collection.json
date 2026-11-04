@@ -169,7 +169,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Example architecture decision\"\n}",
+              "raw": "{\n  \"title\": \"Billing isolation\",\n  \"openingQuestion\": \"Should billing move to its own service this quarter?\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

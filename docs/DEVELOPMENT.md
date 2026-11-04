@@ -36,7 +36,7 @@ Distribution builds use `publisher.json` and `ArgueBot.Publisher`, with native p
 
 ```sh
 dotnet run --project src/ArgueBot.Server -c Release --no-build -- --home .run/home --port 4417
-dotnet run --project src/ArgueBot.Cli -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417 conversations create "What should we build?"
+dotnet run --project src/ArgueBot.Cli -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417 conversations create "Roadmap" --question "What should we build?"
 dotnet run --project src/ArgueBot.Tui -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417
 ```
 

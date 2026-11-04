@@ -33,7 +33,7 @@ namespace ArgueBot.Server.Routes
                 await Api.SendAsync(http, await _Database.EnumerateConversationsAsync(Api.Context(http), search, archive, page, size, http.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Search owned conversations", "Conversations"));
             server.Routes.PostAuthentication.Static.Add(HttpMethod.POST, api + "/conversations", http => Api.GuardAsync(http, async () =>
-            { await Api.SendAsync(http, await _Database.CreateConversationAsync(Api.Context(http), Api.Body<ConversationRequest>(http).Title, http.Token).ConfigureAwait(false), 201).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Create a conversation", "Conversations"));
+            { await Api.SendAsync(http, await CreateAsync(http).ConfigureAwait(false), 201).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Create a conversation", "Conversations"));
             string root = api + "/conversations/{conversationId}";
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, root, http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.ReadConversationAsync(Api.Context(http), Api.Parameter(http, "conversationId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read conversation", "Conversations"));
@@ -84,6 +84,11 @@ namespace ArgueBot.Server.Routes
                 await _Engine.ApplyAsync(Api.Context(http), Api.Parameter(http, "conversationId"), Api.Parameter(http, "runId"), Api.Body<CommandRequest>(http), http.Request.Headers["x-client-id"] ?? "default", http.Token).ConfigureAwait(false);
                 await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
             }), openApiMetadata: OpenApiRouteMetadata.Create("Apply moderator command", "Runs"));
+        }
+        private async Task<Conversation> CreateAsync(HttpContextBase http)
+        {
+            ConversationRequest request = Api.Body<ConversationRequest>(http);
+            return await _Database.CreateConversationAsync(Api.Context(http), request.Title, http.Token, request.OpeningQuestion ?? "").ConfigureAwait(false);
         }
         private static CreateRunRequest RunRequest(HttpContextBase http, string api)
         {

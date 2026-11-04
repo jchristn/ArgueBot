@@ -25,6 +25,7 @@ namespace ArgueBot.Core.Backups
             if (table == "debate_state" && version < 24) columns.Remove("rebuild_from_originals");
             if (table == "debate_attempts" && version < 26) columns.Remove("repair");
             if (table == "connection_credentials" && version < 27) columns.Remove("parameter_name");
+            if (table == "conversations" && version < 28) columns.Remove("opening_question");
             if (table == "connection_endpoints" && version < 16) columns.Remove("max_concurrent_invocations");
             if (table == "connection_profiles" && version < 16) columns.Remove("transport_id");
             if (table == "authorization_user_assignments" && version < 13) columns.Remove("system_kind");

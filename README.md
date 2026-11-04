@@ -82,9 +82,11 @@ After consensus, open moderator controls for final instructions or use a follow-
 
 The dashboard provides conversations, participant configuration, the conversation workspace, request history, API Explorer and service settings.
 
-- Click an editable table row to open its editor. Explicit copy and action buttons remain independent.
+- **New conversation** asks for a title, shown in the conversation list, and an optional opening question. Starting a debate pre-fills its question from the opening question (or the title when it is blank); you can edit it before the debate starts.
+- Click a conversation row to open its workspace; click another editable row to open its editor. Each table's **Actions** column has a menu (for conversations: open, rename, pin, archive, stop debate, view JSON and delete). Copy buttons remain independent.
+- Participants has tabs for agents, models, CLI harnesses, HTTP endpoints and credentials. The Credentials tab explains how to obtain each kind of credential, with copyable commands for macOS, Linux and Windows PowerShell, and can reveal a stored value after confirmation.
 - Conversation and participant IDs have dedicated columns, monospace text and copy buttons.
-- **Open conversation** opens its workspace. Copy individual turns or the full conversation; complete content is fetched independently of visible previews.
+- In the workspace, each agent's turns have their own color. Turns collapse individually or all at once, and **Jump to turn** moves straight to any turn on the page. Copy individual turns or the full conversation; complete content is fetched independently of visible previews.
 - Clipboard support includes HTTPS, localhost and other HTTP origins, with a manual selection fallback when the browser blocks clipboard access.
 - Diagnostic request rows open an inspector with metadata, request/response captures and copy controls.
 - Request activity offers last-hour/day/week/30-day ranges with 60 one-minute, 96 fifteen-minute, 84 two-hour and 90 eight-hour buckets. Hover or focus the chart for interval details. Green represents HTTP 100–399; red represents HTTP 400–599.
@@ -101,7 +103,7 @@ Build the solution, then use the CLI against the same application home:
 dotnet build src/ArgueBot.sln -c Release
 dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --help
 dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations list
-dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations create "Which design should we choose?"
+dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations create "Design choice" --question "Which design should we choose?"
 ```
 
 Commands support participant management, notes, debate controls, generation-attempt inspection and transcript export. JSON inputs can come from stdin or `--file PATH`. Conversation export writes complete Markdown; `conversations show ID --jsonl` streams full message records. See [REST_API.md](REST_API.md) for the service contract and generated API artifacts.

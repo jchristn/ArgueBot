@@ -74,6 +74,9 @@ try {
   const fixture = path.join(root, 'src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll');
   const debaters = ['A', 'B'].map(name => command(['participants','add','-'], {name:`CLI attempt fixture ${name}`,kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain']}));
   const conversation = command(['conversations','create','CLI attempt provenance fixture']);
+  const titled = command(['conversations','create','CLI titled fixture','--question','Which fixture question should the debate use?']);
+  check(titled.title === 'CLI titled fixture' && titled.openingQuestion === 'Which fixture question should the debate use?', 'CLI create must store the title and --question opening question separately.');
+
   const run = command(['debate','start',conversation.id,'-'], {participantIds:debaters.map(item=>item.id),maxRounds:1,interventionSeconds:0,idempotencyKey:'cli-fixture-run'});
   let runs;
   for(let attempt=0;attempt<100;attempt++) {

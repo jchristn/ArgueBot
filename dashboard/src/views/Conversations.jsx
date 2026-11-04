@@ -205,9 +205,9 @@ export default function Conversations() {
       {modal?.kind === "create" && (
         <ConversationForm
           onClose={() => setModal(null)}
-          onSave={async (title) => {
+          onSave={async (title, question) => {
             try {
-              const record = await api.createConversation(title);
+              const record = await api.createConversation(title, question);
               setModal(null);
               navigate("/dashboard/conversations/" + record.id);
             } catch (failure) {
@@ -220,7 +220,7 @@ export default function Conversations() {
         <ConversationForm
           initial={modal.record.title}
           onClose={() => setModal(null)}
-          onSave={async (title) => {
+          onSave={async (title, question) => {
             await update(modal.record, { title });
             setModal(null);
           }}

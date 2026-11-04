@@ -29,6 +29,10 @@ namespace ArgueBot.Core.Models
         /// <summary>Display title.</summary>
         public string Title { get { return _Title; } set { ArgumentNullException.ThrowIfNull(value); _Title = value; } }
 
+        private string _OpeningQuestion = "";
+        /// <summary>The question a debate in this conversation starts from. Blank means the title. A started debate freezes its own copy.</summary>
+        public string OpeningQuestion { get { return _OpeningQuestion; } set { ArgumentNullException.ThrowIfNull(value); _OpeningQuestion = value; } }
+
         /// <summary>Whether pinned.</summary>
         public bool Pinned { get; set; }
 

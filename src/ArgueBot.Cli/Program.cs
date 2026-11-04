@@ -79,7 +79,14 @@ namespace ArgueBot.Cli
                     switch (operation)
                     {
                         case "list": Print(await client.ConversationsAsync(words.Count > 2 ? words[2] : "", token: token).ConfigureAwait(false)); break;
-                        case "create": Print(await client.CreateConversationAsync(await TextAsync(words, 2, token).ConfigureAwait(false), token).ConfigureAwait(false)); break;
+                        case "create":
+                            {
+                                string question = "";
+                                int flag = words.IndexOf("--question");
+                                if (flag >= 0) { if (flag + 1 >= words.Count) throw new ArgumentException("--question requires the opening question text."); question = words[flag + 1]; words.RemoveRange(flag, 2); }
+                                Print(await client.CreateConversationAsync(await TextAsync(words, 2, token).ConfigureAwait(false), token, question).ConfigureAwait(false));
+                                break;
+                            }
                         case "show":
                             Require(words, 3);
                             if (words.Contains("--jsonl")) { await foreach (Message message in client.EnumerateMessagesAsync(words[2], token).ConfigureAwait(false)) Console.WriteLine(JsonSerializer.Serialize(message, _JsonLine)); }
@@ -241,7 +248,7 @@ Service
 
 Conversations
   conversations list [SEARCH]                Search conversation history (JSON).
-  conversations create TITLE|-|--file PATH
+  conversations create TITLE|-|--file PATH [--question TEXT]
   conversations show ID [--jsonl]            Full ordered messages; --jsonl streams them.
   conversations rename ID TITLE
   conversations archive ID

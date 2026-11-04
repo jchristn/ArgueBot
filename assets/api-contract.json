@@ -26,7 +26,8 @@
       "status": 201,
       "public": true,
       "example": {
-        "title": "Example architecture decision"
+        "title": "Billing isolation",
+        "openingQuestion": "Should billing move to its own service this quarter?"
       },
       "query": [],
       "execute": false,

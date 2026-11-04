@@ -226,7 +226,8 @@
                 "$ref": "#/components/schemas/ConversationRequest"
               },
               "example": {
-                "title": "Example architecture decision"
+                "title": "Billing isolation",
+                "openingQuestion": "Should billing move to its own service this quarter?"
               }
             }
           }
@@ -9838,6 +9839,10 @@
             "type": "string",
             "description": "Display title."
           },
+          "openingQuestion": {
+            "type": "string",
+            "description": "The question a debate in this conversation starts from. Blank means the title. A started debate freezes its own copy."
+          },
           "pinned": {
             "type": "boolean",
             "description": "Whether pinned."
@@ -9869,6 +9874,11 @@
           "title": {
             "type": "string",
             "description": "Conversation title/topic."
+          },
+          "openingQuestion": {
+            "type": "string",
+            "nullable": true,
+            "description": "The question a debate in this conversation starts from; blank means the title. On update, null keeps the stored question."
           },
           "pinned": {
             "type": "boolean",
@@ -9907,7 +9917,7 @@
           },
           "question": {
             "type": "string",
-            "description": "Debate question frozen for this run; blank uses the conversation title. Follow-up questions are persisted as messages."
+            "description": "Debate question frozen for this run; blank uses the conversation's opening question, or its title when that is blank. Follow-up questions are persisted as messages."
           },
           "participantIds": {
             "type": "array",

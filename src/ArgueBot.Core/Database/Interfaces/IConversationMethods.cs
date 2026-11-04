@@ -9,7 +9,7 @@ namespace ArgueBot.Core.Database.Interfaces
     public interface IConversationMethods
     {
         /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>
-        Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default);
+        Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default, string openingQuestion = "");
         /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>
         Task<Conversation> ReadConversationAsync(RequestContext context, string id, CancellationToken token = default);
         /// <summary>Perform the documented domain operation in the authenticated ownership scope.</summary>

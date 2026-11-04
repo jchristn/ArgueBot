@@ -24,7 +24,8 @@ Representative request:
 
 ```json
 {
-  "title": "Example architecture decision"
+  "title": "Billing isolation",
+  "openingQuestion": "Should billing move to its own service this quarter?"
 }
 ```
 
@@ -1294,6 +1295,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | id | string | Stable conversation identifier. |
 | lastEventSequence | integer | Latest committed event sequence observed before this conversation read. Capture it before loading snapshots, then replay after it to cover concurrent changes. |
 | title | string | Display title. |
+| openingQuestion | string | The question a debate in this conversation starts from. Blank means the title. A started debate freezes its own copy. |
 | pinned | boolean | Whether pinned. |
 | archived | boolean | Whether archived. |
 | revision | integer | Optimistic revision. |
@@ -1307,6 +1309,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | Field | Type | Meaning |
 | --- | --- | --- |
 | title | string | Conversation title/topic. |
+| openingQuestion | string (nullable) | The question a debate in this conversation starts from; blank means the title. On update, null keeps the stored question. |
 | pinned | boolean | Pinned state. |
 | archived | boolean | Archived state. |
 | revision | integer (nullable) | Expected revision. |
@@ -1319,7 +1322,7 @@ Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advert
 | --- | --- | --- |
 | policy | DebatePolicy | Frozen execution limits and orchestration instructions for protocol 2. |
 | mode | string | Run purpose: debate or followup. Follow-up uses exactly one participant. |
-| question | string | Debate question frozen for this run; blank uses the conversation title. Follow-up questions are persisted as messages. |
+| question | string | Debate question frozen for this run; blank uses the conversation's opening question, or its title when that is blank. Follow-up questions are persisted as messages. |
 | participantIds | array | Ordered profiles. |
 | maxRounds | integer | Round limit. |
 | interventionSeconds | integer | Intervention countdown. |

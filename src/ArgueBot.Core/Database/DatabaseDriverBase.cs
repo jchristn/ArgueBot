@@ -165,14 +165,15 @@ namespace ArgueBot.Core.Database
         }
 
         /// <summary>Create a conversation for the authenticated user.</summary>
-        public async Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default)
+        public async Task<Conversation> CreateConversationAsync(RequestContext context, string title, CancellationToken token = default, string openingQuestion = "")
         {
             RequireWrite(context);
-            if (string.IsNullOrWhiteSpace(title) || title.Length > 4000) throw new DomainException(400, "invalid_title", "Provide a title between 1 and 4000 characters.");
+            if (string.IsNullOrWhiteSpace(title) || title.Length > 4000) throw new DomainException(400, "invalid_title", "Provide a title between 1 and 4000 characters.", "title");
+            ValidateOpeningQuestion(openingQuestion);
             string id = Ids.New("cnv_");
             await WriteAsync(async (connection, transaction) =>
             {
-                await ExecuteAsync(connection, transaction, "INSERT INTO conversations(id,tenant_id,user_id,title,created_utc,updated_utc) VALUES(@id,@tenant,@user,@title,@now,@now)", token, P("id", id, "tenant", context.TenantId, "user", context.UserId, "title", title.Trim())).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO conversations(id,tenant_id,user_id,title,opening_question,created_utc,updated_utc) VALUES(@id,@tenant,@user,@title,@question,@now,@now)", token, P("id", id, "tenant", context.TenantId, "user", context.UserId, "title", title.Trim(), "question", openingQuestion.Trim())).ConfigureAwait(false);
                 await EventAsync(connection, transaction, context.TenantId, id, "conversation_created", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return await ReadConversationAsync(context, id, token).ConfigureAwait(false);
@@ -215,9 +216,10 @@ namespace ArgueBot.Core.Database
             RequireWrite(context);
             await ReadConversationAsync(context, id, token).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > 4000 || request.Revision == null) throw new DomainException(400, "invalid_update", "A title and expected revision are required.");
+            ValidateOpeningQuestion(request.OpeningQuestion ?? "");
             await WriteAsync(async (connection, transaction) =>
             {
-                int changed = await ExecuteAsync(connection, transaction, "UPDATE conversations SET title=@title,pinned=@pin,archived=@archive,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND revision=@revision", token, P("title", request.Title.Trim(), "pin", request.Pinned ? 1 : 0, "archive", request.Archived ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id, "revision", request.Revision)).ConfigureAwait(false);
+                int changed = await ExecuteAsync(connection, transaction, "UPDATE conversations SET title=@title,opening_question=COALESCE(@question,opening_question),pinned=@pin,archived=@archive,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND revision=@revision", token, P("title", request.Title.Trim(), "question", request.OpeningQuestion?.Trim(), "pin", request.Pinned ? 1 : 0, "archive", request.Archived ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id, "revision", request.Revision)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "revision_conflict", "Conversation changed. Reload before saving.");
                 await EventAsync(connection, transaction, context.TenantId, id, "conversation_updated", id, "", token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
@@ -613,9 +615,14 @@ namespace ArgueBot.Core.Database
         private static void AddParameter(DbCommand command, string name, object value)
         { DbParameter parameter = command.CreateParameter(); parameter.ParameterName = name; parameter.Value = value; command.Parameters.Add(parameter); }
 
+        private static void ValidateOpeningQuestion(string question)
+        {
+            if (question.Length > 4000) throw new DomainException(400, "invalid_question", "Provide an opening question up to 4000 characters.", "openingQuestion");
+        }
+
         private static Conversation ReadConversation(DbDataReader reader)
         {
-            return new Conversation { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Title = S(reader, "title"), Pinned = Convert.ToInt64(reader["pinned"], CultureInfo.InvariantCulture) != 0, Archived = Convert.ToInt64(reader["archived"], CultureInfo.InvariantCulture) != 0, Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), LastEventSequence = Convert.ToInt64(reader["event_head"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
+            return new Conversation { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Title = S(reader, "title"), OpeningQuestion = S(reader, "opening_question"), Pinned = Convert.ToInt64(reader["pinned"], CultureInfo.InvariantCulture) != 0, Archived = Convert.ToInt64(reader["archived"], CultureInfo.InvariantCulture) != 0, Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), LastEventSequence = Convert.ToInt64(reader["event_head"], CultureInfo.InvariantCulture), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind), UpdatedUtc = DateTime.Parse(S(reader, "updated_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) };
         }
         internal static string S(DbDataReader reader, string name) { return reader.GetString(reader.GetOrdinal(name)); }
         internal static string? N(DbDataReader reader, string name) { return reader.IsDBNull(reader.GetOrdinal(name)) ? null : S(reader, name); }

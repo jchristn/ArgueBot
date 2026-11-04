@@ -444,9 +444,10 @@ namespace ArgueBot.Tui
                 if (action < 0) return;
                 if (action == 2) { await ParticipantsAsync().ConfigureAwait(false); continue; }
                 if (action == 0) { await ConfigureDebateAsync(null).ConfigureAwait(false); return; }
-                string? title = await UiAsync(() => _App.PromptStyledAsync("What question is this conversation about?")).ConfigureAwait(false);
+                string? title = await UiAsync(() => _App.PromptStyledAsync("Conversation title (shown in the conversation list)")).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(title)) return;
-                Conversation conversation = await _Client.CreateConversationAsync(title, _Token).ConfigureAwait(false);
+                string? question = await UiAsync(() => _App.PromptStyledAsync("Opening question for the debate (optional; blank uses the title)")).ConfigureAwait(false);
+                Conversation conversation = await _Client.CreateConversationAsync(title, _Token, question?.Trim() ?? "").ConfigureAwait(false);
                 await UiAsync(() => { OpenConversation(conversation.Id, conversation.Title); return Task.FromResult(true); }).ConfigureAwait(false);
                 return;
             }
@@ -504,7 +505,7 @@ namespace ArgueBot.Tui
                 {
                     if (conversationId == null)
                     {
-                        Conversation conversation = await _Client.CreateConversationAsync(candidate.Question, _Token).ConfigureAwait(false);
+                        Conversation conversation = await _Client.CreateConversationAsync(candidate.Question, _Token, candidate.Question).ConfigureAwait(false);
                         conversationId = conversation.Id;
                         await UiAsync(() => { OpenConversation(conversation.Id, conversation.Title); return Task.FromResult(true); }).ConfigureAwait(false);
                     }

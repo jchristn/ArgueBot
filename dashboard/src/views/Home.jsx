@@ -112,9 +112,9 @@ export default function Home() {
       {creating && (
         <ConversationForm
           onClose={() => setCreating(false)}
-          onSave={async (title) => {
+          onSave={async (title, question) => {
             try {
-              const record = await api.createConversation(title);
+              const record = await api.createConversation(title, question);
               setCreating(false);
               navigate("/dashboard/conversations/" + record.id);
             } catch (failure) {

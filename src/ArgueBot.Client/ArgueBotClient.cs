@@ -110,14 +110,14 @@ namespace ArgueBot.Client
         public Task<Page> ConversationsAsync(string search = "", bool archived = false, int page = 1, CancellationToken token = default)
         { return SendAsync<Page>(HttpMethod.Get, "v1.0/api/conversations?search=" + Uri.EscapeDataString(search) + "&archived=" + archived.ToString().ToLowerInvariant() + "&pageNumber=" + page, null, token); }
         /// <summary>Create a named conversation.</summary>
-        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default)
-        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title }, token); }
+        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default, string openingQuestion = "")
+        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title, OpeningQuestion = openingQuestion }, token); }
         /// <summary>Read a conversation.</summary>
         public Task<Conversation> ConversationAsync(string id, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Get, Root(id), null, token); }
         /// <summary>Update title/pin/archive using its current revision.</summary>
         public Task<Conversation> UpdateConversationAsync(Conversation conversation, CancellationToken token = default)
-        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
+        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, OpeningQuestion = conversation.OpeningQuestion, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
         /// <summary>Read one authenticated SSE connection after a committed cursor. Frames are bounded to 1048576 UTF-16 characters, idle reads to fifteen seconds, and identifiers/order are validated. Reconnect after normal completion using the last yielded sequence; expired cursors require a fresh head followed by snapshots. Enumeration cancellation/disposal closes the HTTP body.</summary>
         public async IAsyncEnumerable<DurableEvent> WatchEventsAsync(string id, long after = 0, [EnumeratorCancellation] CancellationToken token = default)
         {

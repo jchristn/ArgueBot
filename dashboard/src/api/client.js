@@ -45,10 +45,10 @@ export class ApiClient {
         new URLSearchParams({ search, archived, pageNumber, pageSize }),
     );
   }
-  createConversation(title) {
+  createConversation(title, openingQuestion = "") {
     return this.request("/v1.0/api/conversations", {
       method: "POST",
-      body: { title },
+      body: { title, openingQuestion },
     });
   }
   conversation(id) {

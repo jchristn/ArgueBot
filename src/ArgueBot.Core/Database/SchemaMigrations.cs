@@ -36,7 +36,8 @@ namespace ArgueBot.Core.Database
                     new SchemaMigration { Version = 24, Description = "Summary rebuilds keep prior memory active until a replacement validates", Statements = new List<string> { "ALTER TABLE debate_state ADD COLUMN rebuild_from_originals INTEGER NOT NULL DEFAULT 0;" } },
                     new SchemaMigration { Version = 25, Description = "Superseded-vote history so private directives can reach their recipient before finalization", Statements = new List<string> { AgreementRevisionSchema.Create } },
                     new SchemaMigration { Version = 26, Description = "One bounded repair request after invalid structured orchestration output", Statements = new List<string> { "ALTER TABLE debate_attempts ADD COLUMN repair INTEGER NOT NULL DEFAULT 0;" } },
-                    new SchemaMigration { Version = 27, Description = "Typed HTTP credentials carry their header or query parameter name", Statements = new List<string> { "ALTER TABLE connection_credentials ADD COLUMN parameter_name TEXT NOT NULL DEFAULT '';" } }
+                    new SchemaMigration { Version = 27, Description = "Typed HTTP credentials carry their header or query parameter name", Statements = new List<string> { "ALTER TABLE connection_credentials ADD COLUMN parameter_name TEXT NOT NULL DEFAULT '';" } },
+                    new SchemaMigration { Version = 28, Description = "Conversation titles separate from the opening debate question", Statements = new List<string> { "ALTER TABLE conversations ADD COLUMN opening_question TEXT NOT NULL DEFAULT '';" } }
                 };
             }
         }
