@@ -1350,3 +1350,12 @@ fieldset.invalid { border-color: var(--danger); }
 .command-box { display: flex; align-items: center; gap: .5rem; margin: .4rem 0 .2rem; padding: .35rem .35rem .35rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
 .command-box > code { flex: 1; min-width: 0; font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .command-box .copy-control { flex-shrink: 0; }
+.credential-guide-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.credential-guide-heading h3 { margin: 0; }
+.credential-guide > p.muted { margin: 0 0 .5rem; font-size: .85rem; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--surface); }
+.segmented > button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 600; padding: .3rem .7rem; cursor: pointer; }
+.segmented > button + button { border-inline-start: 1px solid var(--border); }
+.segmented > button:hover { background: var(--raised); color: var(--text); }
+.segmented > button.active { background: var(--accent-bg); color: var(--accent); }
+.segmented > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

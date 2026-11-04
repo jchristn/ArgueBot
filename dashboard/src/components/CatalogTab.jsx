@@ -9,15 +9,58 @@ import harnessDefaults from "../../../assets/harness-defaults.json";
 const credentialKinds = ["claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query"];
 const httpKinds = ["token", "http_bearer", "http_header", "http_query"];
 const placements = { http_bearer: "bearer", http_header: "header", http_query: "query" };
-/** Steps per credential kind. Commands are literal shell text and are not translated. */
+/** Steps per credential kind. Commands are literal shell text per platform and are not translated. */
+const codexHome = { posix: "~/.codex-arguebot", windows: "$HOME\\.codex-arguebot" };
+const codexLogin = {
+  mac: "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login",
+  linux: "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login",
+  windows: `New-Item -ItemType Directory -Force "${codexHome.windows}" | Out-Null; $env:CODEX_HOME = "${codexHome.windows}"; codex login; Remove-Item Env:CODEX_HOME`,
+};
+const codexApiKey = {
+  mac: "mkdir -p ~/.codex-arguebot && printenv OPENAI_API_KEY | CODEX_HOME=~/.codex-arguebot codex login --with-api-key",
+  linux: "mkdir -p ~/.codex-arguebot && printenv OPENAI_API_KEY | CODEX_HOME=~/.codex-arguebot codex login --with-api-key",
+  windows: `New-Item -ItemType Directory -Force "${codexHome.windows}" | Out-Null; $env:CODEX_HOME = "${codexHome.windows}"; $env:OPENAI_API_KEY | codex login --with-api-key; Remove-Item Env:CODEX_HOME`,
+};
+const codexCopy = {
+  mac: "pbcopy < ~/.codex-arguebot/auth.json",
+  linux: "xclip -selection clipboard < ~/.codex-arguebot/auth.json",
+  windows: `Get-Content "${codexHome.windows}\\auth.json" -Raw | Set-Clipboard`,
+};
 const credentialGuides = {
-  claude_oauth: [{ text: "1", command: "claude setup-token" }, { text: "2" }, { text: "3" }],
-  codex_auth_json: [{ text: "1", command: "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login", alternative: { text: "1b", command: "mkdir -p ~/.codex-arguebot && printenv OPENAI_API_KEY | CODEX_HOME=~/.codex-arguebot codex login --with-api-key" } }, { text: "2", command: "pbcopy < ~/.codex-arguebot/auth.json" }, { text: "3" }],
+  claude_oauth: [{ text: "1", command: { mac: "claude setup-token", linux: "claude setup-token", windows: "claude setup-token" } }, { text: "2" }, { text: "3" }],
+  codex_auth_json: [{ text: "1", command: codexLogin, alternative: { text: "1b", command: codexApiKey } }, { text: "2", platformText: true, command: codexCopy }, { text: "3" }],
   token: [{ text: "1" }, { text: "2" }, { text: "3" }],
   http_bearer: [{ text: "1" }, { text: "2" }, { text: "3" }],
   http_header: [{ text: "1" }, { text: "2" }, { text: "3" }],
   http_query: [{ text: "1" }, { text: "2" }, { text: "3" }],
 };
+const platforms = ["mac", "linux", "windows"];
+/** The platform this browser runs on, used to choose which commands to show first. */
+export function detectPlatform(agent = globalThis.navigator) {
+  const name = `${agent?.userAgentData?.platform || ""} ${agent?.platform || ""} ${agent?.userAgent || ""}`.toLowerCase();
+  if (/windows|win32|win64/.test(name)) return "windows";
+  if (/mac|iphone|ipad|darwin/.test(name)) return "mac";
+  return "linux";
+}
+function CredentialGuide({ kind }) {
+  const { t } = useTranslation();
+  const [platform, setPlatform] = useState(() => { const saved = localStorage.getItem("arguebot.commandPlatform"); return platforms.includes(saved) ? saved : detectPlatform(); });
+  const steps = credentialGuides[kind] || [];
+  const hasCommands = steps.some(step => step.command);
+  const choose = next => { setPlatform(next); localStorage.setItem("arguebot.commandPlatform", next); };
+  return <section className="credential-guide" aria-label={t("credential.guide.title")}>
+    <div className="credential-guide-heading">
+      <h3>{t("credential.guide.title")}</h3>
+      {hasCommands && <div className="segmented" role="radiogroup" aria-label={t("credential.guide.platform")}>{platforms.map(item => <button key={item} type="button" role="radio" aria-checked={platform === item} className={platform === item ? "active" : ""} onClick={() => choose(item)}>{t(`credential.guide.platform.${item}`)}</button>)}</div>}
+    </div>
+    {hasCommands && <p className="muted">{t(`credential.guide.shell.${platform}`)}</p>}
+    <ol>{steps.map(step => <li key={step.text}>
+      <Markdown>{t(`credential.guide.${kind}.${step.text}${step.platformText ? `.${platform}` : ""}`)}</Markdown>
+      {step.command && <CommandBox command={step.command[platform]} />}
+      {step.alternative && <><Markdown>{t(`credential.guide.${kind}.${step.alternative.text}`)}</Markdown><CommandBox command={step.alternative.command[platform]} /></>}
+    </li>)}</ol>
+  </section>;
+}
 function CommandBox({ command }) {
   const { t } = useTranslation();
   return <div className="command-box"><code aria-label={t("credential.guide.command")}>{command}</code><CopyButton value={command} label="credential.guide.copyCommand" iconOnly /></div>;
@@ -84,10 +127,7 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
     {kind === "credentials" && <>
       <Field label="catalog.kind">{props => <select {...props} value={value.kind} disabled={Boolean(initial)} onChange={event => setValue(current => ({ ...current, kind: event.target.value, parameterName: "" }))}>{(credentialKinds.includes(value.kind) ? credentialKinds : [...credentialKinds, value.kind]).map(item => <option key={item} value={item}>{t(`credential.kind.${item}`, { defaultValue: item })}</option>)}</select>}</Field>
       {(value.kind === "http_header" || value.kind === "http_query") && <Field label={`catalog.parameterName.${value.kind}`}>{props => <input {...props} required readOnly={Boolean(initial)} maxLength={128} pattern="[A-Za-z0-9_\-]{1,128}" placeholder={value.kind === "http_header" ? "x-api-key" : "key"} spellCheck={false} value={value.parameterName || ""} onChange={event => change("parameterName", event.target.value.trim())} />}</Field>}
-      <section className="credential-guide" aria-label={t("credential.guide.title")}>
-        <h3>{t("credential.guide.title")}</h3>
-        <ol>{credentialGuides[value.kind].map(step => <li key={step.text}><Markdown>{t(`credential.guide.${value.kind}.${step.text}`)}</Markdown>{step.command && <CommandBox command={step.command} />}{step.alternative && <><Markdown>{t(`credential.guide.${value.kind}.${step.alternative.text}`)}</Markdown><CommandBox command={step.alternative.command} /></>}</li>)}</ol>
-      </section>
+      <CredentialGuide kind={value.kind} />
       {value.kind === "codex_auth_json"
         ? <Field label="catalog.secretFile">{props => <input {...props} type="file" accept=".json,application/json" onChange={async event => { const file = event.target.files?.[0]; if (file && file.size <= 65536) change("secretValue", await file.text()); else setError(new Error(t("catalog.fileLimit"))); }} />}</Field>
         : null}

@@ -22,7 +22,17 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(guide.locator(".command-box code")).toHaveText(["claude setup-token"]);
     await expect(guide.getByRole("button", { name: "Copy command" })).toHaveCount(1);
     await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("codex_auth_json");
+    await guide.getByRole("radio", { name: "macOS" }).click();
     await expect(guide.locator(".command-box code").first()).toHaveText("mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login");
+    await expect(guide).toContainText("Cmd+Shift+.");
+    await guide.getByRole("radio", { name: "Windows" }).click();
+    await expect(guide).toContainText("PowerShell");
+    await expect(guide.locator(".command-box code").first()).toContainText('$env:CODEX_HOME = "$HOME\\.codex-arguebot"; codex login');
+    await expect(guide.locator(".command-box code").last()).toHaveText('Get-Content "$HOME\\.codex-arguebot\\auth.json" -Raw | Set-Clipboard');
+    await page.screenshot({ path: "../.run/screenshots/v2-codex-guide-windows.png", fullPage: true });
+    await guide.getByRole("radio", { name: "Linux" }).click();
+    await expect(guide.locator(".command-box code").last()).toHaveText("xclip -selection clipboard < ~/.codex-arguebot/auth.json");
+    await guide.getByRole("radio", { name: "macOS" }).click();
     await page.screenshot({ path: "../.run/screenshots/v2-codex-guide.png", fullPage: true });
     await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_bearer");
     await expect(dialog.getByRole("textbox", { name: "Header name", exact: true })).toHaveCount(0);

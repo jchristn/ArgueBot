@@ -90,13 +90,23 @@ namespace ArgueBot.Tui
             editor.Extract = () => new ModelProfile { Id = item.Id, Revision = item.Revision, Name = name.Value, EndpointId = endpoint.SelectedIndex == 0 ? "" : endpoints[endpoint.SelectedIndex - 1].Id, HarnessId = harness.SelectedIndex == 0 ? "" : harnesses[harness.SelectedIndex - 1].Id, Model = model.Value, ContextMaxCharacters = int.Parse(budget.Value, CultureInfo.InvariantCulture), MaxOutputBytes = int.Parse(output.Value, CultureInfo.InvariantCulture), Generation = new ModelGenerationSettings { MaxOutputTokens = string.IsNullOrWhiteSpace(tokens.Value) ? null : int.Parse(tokens.Value, CultureInfo.InvariantCulture), Temperature = string.IsNullOrWhiteSpace(temperature.Value) ? null : double.Parse(temperature.Value, CultureInfo.InvariantCulture), TopP = string.IsNullOrWhiteSpace(topP.Value) ? null : double.Parse(topP.Value, CultureInfo.InvariantCulture) }, SupportsTools = tools.Checked, Enabled = enabled.Checked };
             return editor;
         }
+        /// <summary>The dedicated Codex login command for the shell of the machine running the TUI.</summary>
+        internal static string CodexLoginCommand
+        {
+            get
+            {
+                return OperatingSystem.IsWindows()
+                    ? "(PowerShell) New-Item -ItemType Directory -Force \"$HOME\\.codex-arguebot\" | Out-Null; $env:CODEX_HOME = \"$HOME\\.codex-arguebot\"; codex login"
+                    : "mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login";
+            }
+        }
         internal static CatalogEditor<CredentialRequest> Credential(CredentialMetadata? item)
         {
             CatalogEditor<CredentialRequest> editor = new CatalogEditor<CredentialRequest>(); Form form = editor.Form;
             TextField name = Text(form, "Safe display name", item?.Name ?? "", "Never include a secret in the display name.", true);
             string[] kinds = new[] { "claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query", "token" };
             string[] kindLabels = new[] { "Claude Code OAuth token", "Codex auth.json login", "Bearer token", "Header key and value", "Query string key and value", "HTTP token (placement set on the endpoint)" };
-            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Math.Max(0, Array.IndexOf(kinds, item?.Kind ?? "claude_oauth")), "Claude Code: run claude setup-token and paste the token. Codex: run mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login, then give the path to its auth.json. Bearer, header or query: an API key from the provider console; header and query kinds also need the parameter name below. Bind it to an endpoint. Existing kinds cannot change.");
+            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Math.Max(0, Array.IndexOf(kinds, item?.Kind ?? "claude_oauth")), "Claude Code: run claude setup-token and paste the token. Codex: run " + CodexLoginCommand + ", then give the path to its auth.json. Bearer, header or query: an API key from the provider console; header and query kinds also need the parameter name below. Bind it to an endpoint. Existing kinds cannot change.");
             TextField parameter = Text(form, "Header or query name", item?.ParameterName ?? "", "Only for header and query kinds, for example x-api-key or key. Fixed after creation.");
             TextField secret = Text(form, "Paste value (masked)", "", "Write-only. Paste a token or complete Codex auth.json. Use a dedicated CLI login that no other process refreshes."); secret.MaskChar = '*';
             TextField file = Text(form, "Or credential file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
