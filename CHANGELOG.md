@@ -1,6 +1,43 @@
 # Changelog
 
-## Unreleased
+## Unreleased: v2.0.0
+
+v2.0.0 is a complete rewrite of ArgueBot and the successor to its Node.js prototype (0.1.0). It replaces the npm-based CLI, terminal and web interfaces with one C# service that owns all execution and storage, and three clients that share it: a terminal interface (TUI), a React web dashboard and a scriptable CLI. Debates become structured, multi-agent and moderated. This release is still an unpublished preview on the `feature/v2.0.0` branch.
+
+### Highlights
+
+- **Multi-agent debate protocol.** Panels of 2 to 16 agents by default (configurable up to 64) with a separate orchestrator. Each round the orchestrator asks one question, agents respond, the orchestrator proposes an answer and every active agent votes. Consensus requires explicit agreement from every active agent on the same proposal. Invalid structured replies get one correction request before the debate pauses.
+- **Agents.** Claude Code, Codex, Gemini CLI, Mux and generic CLI harnesses, plus REST models through Ollama or OpenAI-compatible endpoints. REST models can run local file and process tools on the service machine. Agents get built-in evidence tools: list and search turns, read full turns and summaries, check supporting evidence, inspect debate state and ask the moderator for clarification.
+- **Moderation.** Shared or private context delivered immediately or at the next turn, pinned constraints, proposal edits, roster changes at safe boundaries, and pause, resume, interrupt, extend and stop controls.
+- **Memory.** Source-linked, seven-section working memory with private partitions, so long debates fit model context without discarding original turns.
+- **Prompt library.** Read-only factory prompts for each debate step, editable duplicates with validated `{parameters}`, per-conversation choices and prompts frozen with each debate.
+- **Reusable configuration.** Models, CLI harnesses, HTTP endpoints and encrypted credentials (Claude Code tokens, Codex logins, bearer, header and query API keys) with master-key rotation, retirement and a confirmed reveal. Per-run execution budgets, timeouts and output limits.
+- **Interfaces.**
+  - Web dashboard: live timeline, full-page transcript reader, Prompts and Participants pages, request history and an API Explorer.
+  - TUI: guided setup and run controls.
+  - CLI and REST API: the same workflows, with generated OpenAPI and Postman artifacts.
+- **Operations.** SQLite by default or PostgreSQL, automatic schema upgrades with a backup first, a Docker image with health checks, and self-contained builds for Windows, macOS and Linux on x64 and ARM64.
+- **Diagnostics.** Failed turns explain their cause, such as provider authorization, rate limits, outages, disconnects, timeouts and output limits. Every generation attempt is recorded with its exact context, and local runner-failure records keep the raw agent output.
+
+### Removed before release
+
+Development of the v2.0.0 preview added and later removed several capabilities. The detailed entries below mention them as they happened; none of them ship in v2.0.0:
+
+- User accounts, roles, permissions, login, pairing, sessions, tenant administration and the security audit. ArgueBot is one open local workspace.
+- MySQL and SQL Server providers. SQLite and PostgreSQL remain.
+- The bundled external metrics, traces and logs stack. Local logs and request history remain.
+- Public backup and restore workflows. Upgrades still take an automatic backup first.
+- The Node.js 0.1.0 CLI, terminal and web interfaces and their npm commands.
+
+### Upgrade notes
+
+- Databases from earlier v2 previews upgrade automatically on startup (currently schema 29). SQLite upgrades create a backup first; PostgreSQL upgrades take a logical snapshot. Older binaries refuse a newer schema.
+- Existing protocol 1 debate histories keep their original rules. New debates use protocol 2.
+- Inline agent profiles from before schema 14 become reusable models and harnesses; historical run snapshots stay unchanged.
+
+### Detailed changes
+
+The entries below record the preview's development in reverse order, newest first.
 
 - Set the product version to 2.0.0.
 - Add a full-page transcript reader for finished and running conversations: contents by debate and round, the final proposal with a per-agent vote table, rounds with the orchestrator question, responses and vote tables, moderator context, per-agent colors with a filter to hide agents, tool calls folded or hidden, foldable turns, full text for long turns, Copy as Markdown and print or save as PDF.

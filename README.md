@@ -10,17 +10,23 @@ ArgueBot runs structured debates between a configurable panel of agents and supp
 
 Participants can use Claude Code, Codex, Gemini CLI, Mux, a generic CLI harness, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
 
-## What's new in v2.x
+## About v2.0.0
 
-The v2.0.0 feature branch brings Claude, Codex, Gemini and a DeepSeek model served through Ollama or an OpenAI-compatible endpoint into one debate. Choose a panel and an orchestrator, then add, remove or replace seats at safe boundaries. Every context submission offers **Interrupt now** or **Use in next turn**.
+**v2.0.0 is a complete rewrite of ArgueBot.** The original Node.js prototype (version 0.1.0, run through npm) let two or three CLI agents debate and detected agreement from keywords. Version 2.0.0 replaces it with a C# service, a terminal interface (TUI), a React web dashboard and a scriptable CLI that all share one persistent workspace. The npm commands are retired.
 
-The orchestrator asks focused questions, proposes a synthesis and summarizes long discussions. Agents can retrieve original turns, inspect supporting evidence and ask the moderator for clarification. Original history remains available alongside the summaries. Consensus requires every active seat to explicitly agree on the same proposal; unresolved disagreement stays visible.
+What v2.0.0 does:
 
-Reusable harnesses, models and endpoints support bearer tokens, API-key headers, custom headers and query-string credentials. Web and terminal configuration can import Claude OAuth tokens and Codex `auth.json` documents obtained through CLI login. Explicit model checks distinguish declared capabilities from an observed completion or tool round trip. Reusable models retain output limits and optional HTTP sampling settings. Harnesses explicitly select additional service environment variables instead of inheriting unrelated credentials. Run setup includes separate execution budgets and orchestration guidance. Private context has its own summary partition, and structured summaries link back to paged original sources, content hashes and earlier summaries. Credential inspection records the revision used; master-key rotation preserves older keys for recovery. The scriptable CLI and native client expose the same debate and configuration workflows.
+- **Multi-agent debates.** A panel of 2 to 16 agents (configurable up to 64): Claude Code, Codex, Gemini CLI, Mux, a generic CLI, or REST models served through Ollama or an OpenAI-compatible endpoint. An orchestrator asks one focused question per round, the agents respond, the orchestrator proposes an answer and every agent votes. Agreement requires an explicit "agree" from every active agent on the same proposal; disagreement stays visible.
+- **You moderate.** Add context for everyone or privately for one agent, either immediately or at the next turn; pin constraints; edit the proposal under vote; add, remove or replace agents between turns; pause, resume, interrupt, extend or stop.
+- **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, check evidence and ask you for clarification. Original turns are never discarded.
+- **Editable prompts.** Each debate step's instructions come from a prompt library. Factory defaults are read-only; duplicate one to change it, using `{parameters}` such as `{question}`, and choose prompts per conversation.
+- **Reusable configuration.** Models, CLI harnesses, HTTP endpoints and encrypted credentials (Claude Code tokens, Codex logins, bearer, header and query API keys) are defined once and reused. Execution budgets, timeouts and output limits are set per run.
+- **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
+- **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
-This is an implementation preview targeting **v2.0.0**, with release gates still open. See the [v2 usage guide](docs/MULTIPLE_AGENTS.md), [Docker guide](docker/README.md), [model tool contract](MCP_API.md), [implementation plan](MULTIPLE_AGENTS_PLAN.md). Existing protocol 1 histories retain their original rules.
+**Status:** v2.0.0 is an implementation preview on the `feature/v2.0.0` branch and has not been published. Distribution builds are local artifacts: Windows packages are unsigned and macOS bundles are ad-hoc signed and not notarized. Databases from earlier v2 previews upgrade automatically on startup, with a backup first. See the [CHANGELOG](CHANGELOG.md) for details, the [debate guide](docs/MULTIPLE_AGENTS.md), [prompts](docs/PROMPTS.md), the [model tools](MCP_API.md), the [Docker guide](docker/README.md) and [packaging](packaging/README.md).
 
-Self-contained distribution builds bundle the service, dashboard, CLI and TUI for Windows, macOS and Linux on x64 and ARM64. See [building and checking packages](packaging/README.md) for native installer formats and verification commands. These are local preview artifacts; no v2.0.0 release or package-manager entry has been published. Windows packages are unsigned. macOS bundles use free ad-hoc signatures and are not notarized. After reviewing the source and checksum, Windows users can choose **More info > Run anyway**, and macOS users can choose **Privacy & Security > Open Anyway** if the operating system blocks launch.
+If the operating system blocks a downloaded build, review the source and checksum first. Then on Windows choose **More info > Run anyway**, and on macOS choose **Privacy & Security > Open Anyway**.
 
 ## Getting started
 
@@ -52,7 +58,7 @@ A port override applies when starting a service. Attaching to an existing servic
 
 ## Configure participants
 
-In the TUI, use **Agents** or **Ctrl+E**. In the dashboard, open **Participants** and select **Add participant**.
+In the TUI, use **Agents** or **Ctrl+E**. In the dashboard, open **Participants** and select **Add agent** on the Agents tab.
 
 Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex includes `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
 
