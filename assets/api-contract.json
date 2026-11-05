@@ -14,7 +14,8 @@
         "challenge"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Public"
     },
     {
       "method": "POST",
@@ -24,14 +25,15 @@
       "response": "Conversation",
       "request": "ConversationRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "title": "Billing isolation",
         "openingQuestion": "Should billing move to its own service this quarter?"
       },
       "query": [],
       "execute": false,
-      "save": "conversationId"
+      "save": "conversationId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -41,7 +43,7 @@
       "response": "Page",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "search",
@@ -50,7 +52,8 @@
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -60,11 +63,12 @@
       "response": "Conversation",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -74,7 +78,7 @@
       "response": "Conversation",
       "request": "ConversationRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "title": "Updated example decision",
         "pinned": true,
@@ -83,7 +87,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -93,7 +98,7 @@
       "response": "MessagePage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
@@ -102,7 +107,8 @@
         "tail"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -112,7 +118,7 @@
       "response": "Message",
       "request": "CommandRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "action": "note",
         "text": "Consider reversibility and ownership.",
@@ -120,7 +126,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "messageId"
+      "save": "messageId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -130,14 +137,15 @@
       "response": "List<DurableEvent>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "after",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -147,7 +155,7 @@
       "response": "RunnerProfile",
       "request": "RunnerProfile",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example REST participant",
         "kind": "rest",
@@ -158,7 +166,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "profileId"
+      "save": "profileId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -168,11 +177,12 @@
       "response": "List<RunnerProfile>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -182,7 +192,7 @@
       "response": "RunnerProfile",
       "request": "RunnerProfile",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Updated example participant",
         "kind": "rest",
@@ -193,7 +203,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -203,11 +214,12 @@
       "response": "List<DebateRun>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -217,7 +229,7 @@
       "response": "DebateRun",
       "request": "CreateRunRequest",
       "status": 202,
-      "public": true,
+      "public": false,
       "example": {
         "mode": "followup",
         "question": "Summarize the options.",
@@ -228,7 +240,8 @@
       },
       "query": [],
       "execute": true,
-      "save": "runId"
+      "save": "runId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -238,11 +251,12 @@
       "response": "DebateRun",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -252,14 +266,15 @@
       "response": "Acknowledgement",
       "request": "CommandRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "action": "stop",
         "idempotencyKey": "{{$guid}}"
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -269,7 +284,7 @@
       "response": "HistoryPage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "search",
@@ -281,7 +296,8 @@
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -291,7 +307,7 @@
       "response": "List<ActivityBucket>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "fromUtc",
@@ -299,7 +315,8 @@
         "bucketMinutes"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -309,11 +326,12 @@
       "response": "RequestHistoryEntry",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "DELETE",
@@ -323,11 +341,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -337,11 +356,12 @@
       "response": "SettingsView",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "PUT",
@@ -351,7 +371,7 @@
       "response": "SettingsView",
       "request": "SettingsUpdate",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "revision": "{{settingsRevision}}",
         "port": 4317,
@@ -362,7 +382,8 @@
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "POST",
@@ -372,11 +393,12 @@
       "response": "RestartResponse",
       "request": "object",
       "status": 202,
-      "public": true,
+      "public": false,
       "example": {},
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "DELETE",
@@ -386,11 +408,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "DELETE",
@@ -400,11 +423,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -414,11 +438,12 @@
       "response": "Acknowledgement",
       "request": null,
       "status": 202,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "GET",
@@ -428,14 +453,15 @@
       "response": "AttemptPage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -445,11 +471,12 @@
       "response": "Message",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -459,13 +486,14 @@
       "response": "Conversation",
       "request": "ConversationRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "title": "Example architecture decision"
       },
       "query": [],
       "execute": false,
-      "save": "conversationId"
+      "save": "conversationId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -475,7 +503,7 @@
       "response": "Page",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "search",
@@ -484,7 +512,8 @@
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -494,11 +523,12 @@
       "response": "Conversation",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -508,7 +538,7 @@
       "response": "Conversation",
       "request": "ConversationRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "title": "Updated example decision",
         "pinned": true,
@@ -517,7 +547,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -527,7 +558,7 @@
       "response": "MessagePage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
@@ -536,7 +567,8 @@
         "tail"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -546,7 +578,7 @@
       "response": "Message",
       "request": "CommandRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "action": "note",
         "text": "Consider reversibility and ownership.",
@@ -554,7 +586,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "messageId"
+      "save": "messageId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -564,14 +597,15 @@
       "response": "List<DurableEvent>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "after",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -581,7 +615,7 @@
       "response": "RunnerProfile",
       "request": "RunnerProfile",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example REST participant",
         "kind": "rest",
@@ -592,7 +626,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "profileId"
+      "save": "profileId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -602,11 +637,12 @@
       "response": "List<RunnerProfile>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -616,7 +652,7 @@
       "response": "RunnerProfile",
       "request": "RunnerProfile",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Updated example participant",
         "kind": "rest",
@@ -627,7 +663,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -637,11 +674,12 @@
       "response": "List<DebateRun>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -651,7 +689,7 @@
       "response": "DebateRun",
       "request": "CreateRunRequest",
       "status": 202,
-      "public": true,
+      "public": false,
       "example": {
         "protocolVersion": 2,
         "mode": "debate",
@@ -668,7 +706,8 @@
       },
       "query": [],
       "execute": true,
-      "save": "runId"
+      "save": "runId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -678,11 +717,12 @@
       "response": "DebateRun",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -692,14 +732,15 @@
       "response": "Acknowledgement",
       "request": "CommandRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "action": "stop",
         "idempotencyKey": "{{$guid}}"
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -709,7 +750,7 @@
       "response": "HistoryPage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "search",
@@ -721,7 +762,8 @@
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -731,7 +773,7 @@
       "response": "List<ActivityBucket>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "fromUtc",
@@ -739,7 +781,8 @@
         "bucketMinutes"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -749,11 +792,12 @@
       "response": "RequestHistoryEntry",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "DELETE",
@@ -763,11 +807,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "TenantAdmin"
     },
     {
       "method": "GET",
@@ -777,11 +822,12 @@
       "response": "SettingsView",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "PUT",
@@ -791,7 +837,7 @@
       "response": "SettingsView",
       "request": "SettingsUpdate",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "revision": "{{settingsRevision}}",
         "port": 4317,
@@ -802,7 +848,8 @@
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "POST",
@@ -812,11 +859,12 @@
       "response": "RestartResponse",
       "request": "object",
       "status": 202,
-      "public": true,
+      "public": false,
       "example": {},
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "DELETE",
@@ -826,11 +874,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "DELETE",
@@ -840,11 +889,12 @@
       "response": "DeletionResponse",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -854,11 +904,12 @@
       "response": "Acknowledgement",
       "request": null,
       "status": 202,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "GET",
@@ -868,14 +919,15 @@
       "response": "AttemptPage",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -885,11 +937,12 @@
       "response": "Message",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -899,11 +952,12 @@
       "response": "ServiceCapabilities",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -913,7 +967,7 @@
       "response": "InterjectionReceipt",
       "request": "InterjectionRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "runId": "{{runId}}",
         "text": "Preserve reversibility during rollout.",
@@ -923,7 +977,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -933,13 +988,14 @@
       "response": "List<InterjectionReceipt>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -949,7 +1005,7 @@
       "response": "Acknowledgement",
       "request": "RosterChangeRequest",
       "status": 202,
-      "public": true,
+      "public": false,
       "example": {
         "action": "add",
         "profileId": "{{replacementProfileId}}",
@@ -958,7 +1014,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -968,11 +1025,12 @@
       "response": "List<DebateSeat>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -982,13 +1040,14 @@
       "response": "List<DebateProposal>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -998,7 +1057,7 @@
       "response": "List<ContextSummary>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
@@ -1006,7 +1065,8 @@
         "sourcePageNumber"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1016,13 +1076,14 @@
       "response": "List<ClarificationRequest>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1032,14 +1093,15 @@
       "response": "List<EndpointProfile>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1049,7 +1111,7 @@
       "response": "EndpointProfile",
       "request": "EndpointProfile",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example gateway",
         "protocol": "openai",
@@ -1070,7 +1132,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "endpointId"
+      "save": "endpointId",
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -1080,7 +1143,7 @@
       "response": "EndpointProfile",
       "request": "EndpointProfile",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example gateway",
         "protocol": "openai",
@@ -1102,7 +1165,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1112,14 +1176,15 @@
       "response": "List<HarnessProfile>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1129,7 +1194,7 @@
       "response": "HarnessProfile",
       "request": "HarnessProfile",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Claude Code",
         "provider": "claude",
@@ -1146,7 +1211,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "harnessId"
+      "save": "harnessId",
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -1156,7 +1222,7 @@
       "response": "HarnessProfile",
       "request": "HarnessProfile",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Claude Code",
         "provider": "claude",
@@ -1174,7 +1240,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1184,14 +1251,15 @@
       "response": "List<ModelProfile>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1201,7 +1269,7 @@
       "response": "ModelProfile",
       "request": "ModelProfile",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example model",
         "endpointId": "{{endpointId}}",
@@ -1212,7 +1280,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "modelProfileId"
+      "save": "modelProfileId",
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -1222,7 +1291,7 @@
       "response": "ModelProfile",
       "request": "ModelProfile",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example model",
         "endpointId": "{{endpointId}}",
@@ -1234,34 +1303,55 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
-      "path": "/v2.0/api/configuration/credentials",
-      "group": "Credentials",
-      "summary": "List credentials without secret values; bounded pages default to 100 items",
+      "path": "/v2.0/api/configuration/secrets",
+      "group": "Secrets",
+      "summary": "List secrets without secret values; bounded pages default to 100 items",
       "response": "List<CredentialMetadata>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber",
         "pageSize"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/credentials",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of GET /v2.0/api/configuration/secrets",
+      "response": "List<CredentialMetadata>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null,
+      "deprecated": true,
+      "access": "Member"
     },
     {
       "method": "POST",
-      "path": "/v2.0/api/configuration/credentials",
-      "group": "Credentials",
-      "summary": "Create credentials configuration",
+      "path": "/v2.0/api/configuration/secrets",
+      "group": "Secrets",
+      "summary": "Create secrets configuration",
       "response": "CredentialMetadata",
       "request": "CredentialRequest",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example gateway credential",
         "kind": "http_header",
@@ -1270,17 +1360,39 @@
       },
       "query": [],
       "execute": false,
-      "save": "credentialId"
+      "save": "credentialId",
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/credentials",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of POST /v2.0/api/configuration/secrets",
+      "response": "CredentialMetadata",
+      "request": "CredentialRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Example gateway credential",
+        "kind": "http_header",
+        "parameterName": "x-api-key",
+        "secretValue": "{{credentialValue}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": "credentialId",
+      "deprecated": true,
+      "access": "Member"
     },
     {
       "method": "PUT",
-      "path": "/v2.0/api/configuration/credentials/{id}",
-      "group": "Credentials",
-      "summary": "Replace credentials configuration with expected revision",
+      "path": "/v2.0/api/configuration/secrets/{id}",
+      "group": "Secrets",
+      "summary": "Replace secrets configuration with expected revision",
       "response": "CredentialMetadata",
       "request": "CredentialRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Example gateway credential",
         "kind": "token",
@@ -1289,37 +1401,95 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/configuration/credentials/{id}",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of PUT /v2.0/api/configuration/secrets/{id}",
+      "response": "CredentialMetadata",
+      "request": "CredentialRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Example gateway credential",
+        "kind": "token",
+        "secretValue": "{{credentialValue}}",
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "deprecated": true,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/secrets/{id}/reveal",
+      "group": "Secrets",
+      "summary": "Reveal a ready secret's decrypted value to the moderator",
+      "response": "RevealedCredential",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
       "path": "/v2.0/api/configuration/credentials/{id}/reveal",
-      "group": "Credentials",
-      "summary": "Reveal a ready credential's decrypted value to the moderator",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of POST /v2.0/api/configuration/secrets/{id}/reveal",
       "response": "RevealedCredential",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "deprecated": true,
+      "access": "Member"
     },
     {
       "method": "DELETE",
-      "path": "/v2.0/api/configuration/credentials/{id}",
-      "group": "Credentials",
-      "summary": "Disable a credential while keeping historical references",
+      "path": "/v2.0/api/configuration/secrets/{id}",
+      "group": "Secrets",
+      "summary": "Disable a secret while keeping historical references",
       "response": "Acknowledgement",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "revision"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/configuration/credentials/{id}",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of DELETE /v2.0/api/configuration/secrets/{id}",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "revision"
+      ],
+      "execute": false,
+      "save": null,
+      "deprecated": true,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1329,11 +1499,12 @@
       "response": "List<PromptParameter>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1343,13 +1514,14 @@
       "response": "List<PromptTemplate>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "purpose"
       ],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1359,7 +1531,7 @@
       "response": "PromptTemplate",
       "request": "PromptTemplate",
       "status": 201,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Skeptical question",
         "purpose": "question",
@@ -1368,7 +1540,8 @@
       },
       "query": [],
       "execute": false,
-      "save": "promptId"
+      "save": "promptId",
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1378,11 +1551,12 @@
       "response": "PromptTemplate",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "PUT",
@@ -1392,7 +1566,7 @@
       "response": "PromptTemplate",
       "request": "PromptTemplate",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "name": "Skeptical question",
         "description": "Pushes on the weakest assumption.",
@@ -1401,7 +1575,8 @@
       },
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1411,11 +1586,12 @@
       "response": "PromptTemplate",
       "request": null,
       "status": 201,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "DELETE",
@@ -1425,13 +1601,14 @@
       "response": "Acknowledgement",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "revision"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1441,57 +1618,113 @@
       "response": "EndpointDiscovery",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
-      "path": "/v2.0/api/configuration/credential-keys",
-      "group": "Credentials",
+      "path": "/v2.0/api/configuration/secret-keys",
+      "group": "Secrets",
       "summary": "Read safe master-key identities",
       "response": "CredentialKeyStatus",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/configuration/credential-keys",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of GET /v2.0/api/configuration/secret-keys",
+      "response": "CredentialKeyStatus",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "deprecated": true,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/secret-keys/rotate",
+      "group": "Secrets",
+      "summary": "Rotate the expected master key and reencrypt secrets",
+      "response": "CredentialKeyStatus",
+      "request": "RotateCredentialKeyRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "expectedKeyId": "{{activeKeyId}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "POST",
       "path": "/v2.0/api/configuration/credential-keys/rotate",
-      "group": "Credentials",
-      "summary": "Rotate the expected master key and reencrypt credentials",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of POST /v2.0/api/configuration/secret-keys/rotate",
       "response": "CredentialKeyStatus",
       "request": "RotateCredentialKeyRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "expectedKeyId": "{{activeKeyId}}"
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "deprecated": true,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/configuration/secret-keys/retire",
+      "group": "Secrets",
+      "summary": "Retire earlier master keys once no secret uses them",
+      "response": "CredentialKeyStatus",
+      "request": "RotateCredentialKeyRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "expectedKeyId": "{{activeKeyId}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "SystemAdmin"
     },
     {
       "method": "POST",
       "path": "/v2.0/api/configuration/credential-keys/retire",
-      "group": "Credentials",
-      "summary": "Retire earlier master keys once no credential uses them",
+      "group": "Deprecated aliases",
+      "summary": "Deprecated alias of POST /v2.0/api/configuration/secret-keys/retire",
       "response": "CredentialKeyStatus",
       "request": "RotateCredentialKeyRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "expectedKeyId": "{{activeKeyId}}"
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "deprecated": true,
+      "access": "SystemAdmin"
     },
     {
       "method": "GET",
@@ -1501,13 +1734,14 @@
       "response": "List<ModelCheck>",
       "request": null,
       "status": 200,
-      "public": true,
+      "public": false,
       "example": null,
       "query": [
         "pageNumber"
       ],
       "execute": false,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "POST",
@@ -1517,14 +1751,15 @@
       "response": "ModelCheck",
       "request": "ModelCheckRequest",
       "status": 200,
-      "public": true,
+      "public": false,
       "example": {
         "idempotencyKey": "{{commandKey}}",
         "checkTools": false
       },
       "query": [],
       "execute": true,
-      "save": null
+      "save": null,
+      "access": "Member"
     },
     {
       "method": "GET",
@@ -1533,12 +1768,588 @@
       "summary": "Preview normalized destinations and binding names without contacting the endpoint or resolving credentials",
       "response": "EndpointPreview",
       "status": 200,
-      "public": true,
+      "public": false,
       "query": [],
       "execute": false,
       "save": null,
       "example": null,
-      "request": null
+      "request": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/token",
+      "group": "Authentication",
+      "summary": "Sign in with an email and password and receive a session token",
+      "response": "TokenResponse",
+      "request": "LoginRequest",
+      "status": 201,
+      "public": true,
+      "example": {
+        "email": "admin@arguebot",
+        "password": "password",
+        "tenantId": ""
+      },
+      "query": [],
+      "execute": false,
+      "save": "token",
+      "access": "Public"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/login-info",
+      "group": "Authentication",
+      "summary": "Read sign-in page information, including the default credentials",
+      "response": "LoginInfo",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Public"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/token",
+      "group": "Authentication",
+      "summary": "Check that the bearer token is valid",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/token/details",
+      "group": "Authentication",
+      "summary": "Describe the bearer token: user, tenant, principal and expiry",
+      "response": "TokenDetails",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/token/refresh",
+      "group": "Authentication",
+      "summary": "Replace the session token with one that has a fresh lifetime",
+      "response": "TokenResponse",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": "token",
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/token",
+      "group": "Authentication",
+      "summary": "Sign out by revoking the current session token",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/me",
+      "group": "Account",
+      "summary": "Read the signed-in user",
+      "response": "User",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/me",
+      "group": "Account",
+      "summary": "Change your name or email with the expected revision",
+      "response": "User",
+      "request": "UserRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "firstName": "Default",
+        "lastName": "Admin",
+        "email": "admin@arguebot",
+        "revision": "{{userRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/me/password",
+      "group": "Account",
+      "summary": "Change your password and sign out your other sessions",
+      "response": "Acknowledgement",
+      "request": "PasswordChangeRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "currentPassword": "{{currentPassword}}",
+        "newPassword": "{{newPassword}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/me/credentials",
+      "group": "Account",
+      "summary": "List your bearer-token credentials",
+      "response": "List<AuthCredential>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/me/credentials",
+      "group": "Account",
+      "summary": "Create a bearer-token credential; the token is returned only once",
+      "response": "AuthCredentialCreated",
+      "request": "AuthCredentialRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Fictional automation",
+        "expiresUtc": null,
+        "active": true,
+        "revision": 0
+      },
+      "query": [],
+      "execute": false,
+      "save": "authCredentialId",
+      "access": "Member"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/me/credentials/{credentialId}",
+      "group": "Account",
+      "summary": "Rename, enable or disable one of your credentials",
+      "response": "AuthCredential",
+      "request": "AuthCredentialRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Fictional automation",
+        "active": false,
+        "revision": "{{resourceRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/me/credentials/{credentialId}",
+      "group": "Account",
+      "summary": "Delete one of your credentials",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/me/sessions",
+      "group": "Account",
+      "summary": "List your active sessions",
+      "response": "List<AuthSession>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/me/sessions/{sessionId}",
+      "group": "Account",
+      "summary": "Sign out one of your sessions",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/users",
+      "group": "Users",
+      "summary": "List users in your tenant",
+      "response": "List<User>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/users",
+      "group": "Users",
+      "summary": "Create a user in your tenant",
+      "response": "User",
+      "request": "UserRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "firstName": "Fictional",
+        "lastName": "Member",
+        "email": "member@example.test",
+        "password": "{{newPassword}}",
+        "isTenantAdmin": false,
+        "active": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "userId",
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/users/{userId}",
+      "group": "Users",
+      "summary": "Read a user",
+      "response": "User",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/users/{userId}",
+      "group": "Users",
+      "summary": "Update a user with the expected revision",
+      "response": "User",
+      "request": "UserRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "firstName": "Fictional",
+        "lastName": "Member",
+        "email": "member@example.test",
+        "isTenantAdmin": false,
+        "active": true,
+        "revision": "{{resourceRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/users/{userId}",
+      "group": "Users",
+      "summary": "Delete a user; their conversations and agents stay in the tenant",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/users/{userId}/password",
+      "group": "Users",
+      "summary": "Reset a user's password and sign out their sessions",
+      "response": "Acknowledgement",
+      "request": "PasswordChangeRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "newPassword": "{{newPassword}}"
+      },
+      "query": [],
+      "execute": true,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/users/{userId}/credentials",
+      "group": "Users",
+      "summary": "List a user's credentials",
+      "response": "List<AuthCredential>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/users/{userId}/credentials",
+      "group": "Users",
+      "summary": "Create a credential for a user; the token is returned only once",
+      "response": "AuthCredentialCreated",
+      "request": "AuthCredentialRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Fictional integration",
+        "active": true,
+        "revision": 0
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/users/{userId}/credentials/{credentialId}",
+      "group": "Users",
+      "summary": "Rename, enable or disable a user's credential",
+      "response": "AuthCredential",
+      "request": "AuthCredentialRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Fictional integration",
+        "active": false,
+        "revision": "{{resourceRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/users/{userId}/credentials/{credentialId}",
+      "group": "Users",
+      "summary": "Delete a user's credential",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/users/{userId}/sessions",
+      "group": "Users",
+      "summary": "List a user's active sessions",
+      "response": "List<AuthSession>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/sessions/{sessionId}",
+      "group": "Users",
+      "summary": "Revoke any session in your tenant",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/audit",
+      "group": "Audit",
+      "summary": "Search the security audit log, newest first",
+      "response": "AuditPage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "operation",
+        "outcome",
+        "userId",
+        "tenantId",
+        "fromUtc",
+        "toUtc",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/audit",
+      "group": "Audit",
+      "summary": "Delete audit records older than beforeUtc",
+      "response": "DeletedCount",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "beforeUtc"
+      ],
+      "execute": true,
+      "save": null,
+      "access": "TenantAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/tenants",
+      "group": "Tenants",
+      "summary": "List tenants",
+      "response": "List<Tenant>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/tenants",
+      "group": "Tenants",
+      "summary": "Create a tenant",
+      "response": "Tenant",
+      "request": "TenantRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "Fictional tenant",
+        "active": true
+      },
+      "query": [],
+      "execute": false,
+      "save": "tenantId",
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/tenants/{tenantId}",
+      "group": "Tenants",
+      "summary": "Read a tenant",
+      "response": "Tenant",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/tenants/{tenantId}",
+      "group": "Tenants",
+      "summary": "Rename, enable or disable a tenant with the expected revision",
+      "response": "Tenant",
+      "request": "TenantRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "name": "Fictional tenant",
+        "active": true,
+        "revision": "{{resourceRevision}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "SystemAdmin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/tenants/{tenantId}",
+      "group": "Tenants",
+      "summary": "Delete a tenant and everything in it; confirmName must be its exact name",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "confirmName"
+      ],
+      "execute": true,
+      "save": null,
+      "access": "SystemAdmin"
     }
   ]
 }

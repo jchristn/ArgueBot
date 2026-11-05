@@ -19,6 +19,9 @@ namespace ArgueBot.Client
     public sealed class ArgueBotClient : IDisposable
     {
         private readonly HttpClient _Http;
+        private volatile string _Token = "";
+        /// <summary>Bearer token (session or credential) sent as Authorization: Bearer on every request and event stream. Empty sends none.</summary>
+        public string Token { get { return _Token; } set { ArgumentNullException.ThrowIfNull(value); _Token = value.Trim(); } }
         private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
         private async Task<List<T>> ReadListPagesAsync<T>(string route, int pageSize, CancellationToken token)
         {
@@ -142,6 +145,7 @@ namespace ArgueBot.Client
             if (after < 0) throw new ArgumentOutOfRangeException(nameof(after));
             using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, Root(id) + "/events"))
             {
+                Authorize(request);
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
                 request.Headers.Add("Last-Event-ID", id + ":" + after.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 using (HttpResponseMessage response = await _Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
@@ -238,6 +242,11 @@ namespace ArgueBot.Client
         /// <summary>Apply a moderator command to a run.</summary>
         public async Task ActionAsync(string id, string runId, CommandRequest request, CancellationToken token = default)
         { if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) request.IdempotencyKey = Guid.NewGuid().ToString("N"); await SendAsync<AcceptedResponse>(HttpMethod.Post, Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/actions", request, token).ConfigureAwait(false); }
+        private void Authorize(HttpRequestMessage request)
+        {
+            string current = _Token;
+            if (current.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", current);
+        }
         /// <summary>Read a typed API response and normalize safe domain failures.</summary>
         public async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, CancellationToken token = default)
         {
@@ -246,18 +255,54 @@ namespace ArgueBot.Client
             using (HttpRequestMessage request = new HttpRequestMessage(method, path))
             {
                 if (body != null) request.Content = JsonContent.Create(body, options: _Json);
+                Authorize(request);
                 using (HttpResponseMessage response = await _Http.SendAsync(request, token).ConfigureAwait(false))
                 {
                     if (!response.IsSuccessStatusCode)
                     {
                         if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
-                        ApiError? error = await response.Content.ReadFromJsonAsync<ApiError>(_Json, token).ConfigureAwait(false);
+                        string text = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                        ApiError? error = null;
+                        try { error = text.Length == 0 ? null : JsonSerializer.Deserialize<ApiError>(text, _Json); }
+                        catch (JsonException) { }
+                        if (error?.Code == "tenant_required")
+                        {
+                            TenantRequiredError? choice = JsonSerializer.Deserialize<TenantRequiredError>(text, _Json);
+                            throw new TenantRequiredException(choice?.Tenants ?? new List<TenantChoice>());
+                        }
                         throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.", error?.Field ?? "");
                     }
                     return await response.Content.ReadFromJsonAsync<T>(_Json, token).ConfigureAwait(false) ?? throw new InvalidDataException("Server returned an empty response.");
                 }
             }
         }
+        /// <summary>Public sign-in page information, including the default credentials. Needs no token.</summary>
+        public Task<LoginInfo> LoginInfoAsync(CancellationToken token = default)
+        { return SendAsync<LoginInfo>(HttpMethod.Get, "v2.0/api/login-info", token: token); }
+        /// <summary>Sign in with an email and password. On success the session token becomes this client's <see cref="Token"/>. Throws <see cref="TenantRequiredException"/> when a tenant must be chosen.</summary>
+        public async Task<TokenResponse> LoginAsync(string email, string password, string tenantId = "", CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(email); ArgumentNullException.ThrowIfNull(password); ArgumentNullException.ThrowIfNull(tenantId);
+            TokenResponse response = await SendAsync<TokenResponse>(HttpMethod.Post, "v2.0/api/token", new LoginRequest { Email = email, Password = password, TenantId = tenantId }, token).ConfigureAwait(false);
+            Token = response.Token;
+            return response;
+        }
+        /// <summary>Replace the session token with a fresh one and use it from now on.</summary>
+        public async Task<TokenResponse> RefreshAsync(CancellationToken token = default)
+        {
+            TokenResponse response = await SendAsync<TokenResponse>(HttpMethod.Post, "v2.0/api/token/refresh", token: token).ConfigureAwait(false);
+            Token = response.Token;
+            return response;
+        }
+        /// <summary>Sign out: revoke the current session and clear <see cref="Token"/>.</summary>
+        public async Task LogoutAsync(CancellationToken token = default)
+        {
+            await SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/token", token: token).ConfigureAwait(false);
+            Token = "";
+        }
+        /// <summary>Describe the current token: user, tenant, principal and expiry.</summary>
+        public Task<TokenDetails> TokenDetailsAsync(CancellationToken token = default)
+        { return SendAsync<TokenDetails>(HttpMethod.Get, "v2.0/api/token/details", token: token); }
         /// <summary>Read the server's supported debate modes and roster capacity.</summary>
         public Task<ServiceCapabilities> CapabilitiesAsync(CancellationToken token = default)
         { return SendAsync<ServiceCapabilities>(HttpMethod.Get, "v2.0/api/capabilities", token: token); }

@@ -42,8 +42,13 @@ namespace ArgueBot.Server
             using (DatabaseDriverBase database = settings.Database.Type == DatabaseTypeEnum.Sqlite && settings.Database.ConnectionString.Length == 0 && settings.Database.ConnectionEnvironmentVariable.Length == 0 ? new SqliteDatabaseDriver(paths) : DatabaseDriverFactory.Create(settings.Database, Path.Combine(paths.Home, "backups")))
             {
                 await database.InitializeAsync(token).ConfigureAwait(false);
-                RequestContext workspaceContext = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, Role = "admin" };
-                using (CredentialVault vault = await CredentialVault.OpenAsync(database, Path.Combine(paths.Home, "secrets"), workspaceContext, token).ConfigureAwait(false))
+                // Service-owned work (key management, startup reconciliation) runs as the default administrator in the default tenant.
+                // Runs and model checks carry their own tenant into the runner; see RunnerProfile.RuntimeTenantId.
+                RequestContext systemContext = new RequestContext { TenantId = IdentitySeed.TenantId, UserId = IdentitySeed.UserId, IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, Role = "admin", PrincipalType = "Service" };
+                SessionProtector sessions = SessionProtector.Open(Path.Combine(paths.Home, "secrets"));
+                RequestAuthenticator authenticator = new RequestAuthenticator(database, sessions);
+                LocalHttpPolicy hostPolicy = new LocalHttpPolicy(settings.Port, settings.TlsEnabled, settings.ListenAddress == "0.0.0.0", settings.AllowedHosts);
+                using (CredentialVault vault = await CredentialVault.OpenAsync(database, Path.Combine(paths.Home, "secrets"), systemContext, token).ConfigureAwait(false))
                 {
                 database.Debates.MaximumParticipants = settings.MaxParticipants;
                 string homeId = LocalHomeIdentity.Ensure(paths);
@@ -54,7 +59,7 @@ namespace ArgueBot.Server
                         File.Delete(Path.Combine(paths.Home, "runtime", "pairing-code"));
                         File.Delete(Path.Combine(paths.Home, "runtime", "pairing-code.tmp"));
                         File.Delete(Path.Combine(paths.Home, "runtime", "cli-session.json"));
-                        CredentialRunner runner = new CredentialRunner(settings.AllowCli, vault, database, workspaceContext, Path.Combine(paths.Home, "runtime", "credential-homes"), BridgeCommand());
+                        CredentialRunner runner = new CredentialRunner(settings.AllowCli, vault, database, systemContext, Path.Combine(paths.Home, "runtime", "credential-homes"), BridgeCommand());
                         await database.ModelChecks.ReconcileAsync(token).ConfigureAwait(false);
                         await using (ModelCheckService checks = new ModelCheckService(database, runner))
                         {
@@ -72,31 +77,28 @@ namespace ArgueBot.Server
                                 server.Settings.IO.MaxRequestBodySize = 1048576;
                                 server.Routes.PreRouting = http => Api.GuardAsync(http, async () =>
                                 {
-                                    http.Metadata = new RequestContext { CorrelationId = Guid.NewGuid().ToString("N"), ReceivedUtc = DateTime.UtcNow, StartedTimestamp = Stopwatch.GetTimestamp() };
-                                    await LocalHttpPolicy.ValidateAsync(http, settings.Port, settings.TlsEnabled, settings.ListenAddress == "0.0.0.0").ConfigureAwait(false);
+                                    http.Metadata = new RequestContext { CorrelationId = Guid.NewGuid().ToString("N"), ReceivedUtc = DateTime.UtcNow, StartedTimestamp = Stopwatch.GetTimestamp(), SourceIp = http.Request.Source.IpAddress ?? "" };
+                                    await hostPolicy.ValidateAsync(http).ConfigureAwait(false);
                                 });
                                 server.Routes.Preflight = http => Api.GuardAsync(http, async () =>
                                 {
-                                    await LocalHttpPolicy.ValidateAsync(http, settings.Port, settings.TlsEnabled, settings.ListenAddress == "0.0.0.0").ConfigureAwait(false);
-                                    http.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, x-client-id, Last-Event-ID";
+                                    await hostPolicy.ValidateAsync(http).ConfigureAwait(false);
+                                    http.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, x-token, x-tenant-id, x-email, x-password, x-client-id, Last-Event-ID";
                                     http.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
                                     await Api.SendAsync(http, new { }, 204).ConfigureAwait(false);
                                 });
                                 RequestCapture capture = new RequestCapture(database, settings, paths);
                                 server.Routes.PostRouting = capture.CaptureAsync;
-                                server.Routes.AuthenticateRequest = http => Api.GuardAsync(http, () =>
-                                {
-                                    RequestContext? received = http.Metadata as RequestContext;
-                                    http.Metadata = new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, CorrelationId = received?.CorrelationId ?? Guid.NewGuid().ToString("N"), ReceivedUtc = received?.ReceivedUtc ?? DateTime.UtcNow, StartedTimestamp = received?.StartedTimestamp ?? Stopwatch.GetTimestamp() };
-                                    return Task.CompletedTask;
-                                });
+                                server.Routes.AuthenticateRequest = http => Api.GuardAsync(http, () => RequestGate.AuthenticateAsync(http, authenticator));
                                 server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.GuardAsync(http, async () =>
                                 {
                                     string challenge = http.Request.RetrieveQueryValue("challenge") ?? "";
                                     string proof = challenge.Length == 0 ? "" : LocalHomeIdentity.CreateProof(paths, settings.Port, challenge);
-                                    await Api.SendAsync(http, new HealthResponse { HomeId = homeId, HomeProof = proof, Status = "ready", AuthenticationRequired = false, Schema = DatabaseSchema.CurrentVersion, Protocol = ServiceProtocol.CurrentVersion }).ConfigureAwait(false);
+                                    await Api.SendAsync(http, new HealthResponse { HomeId = homeId, HomeProof = proof, Status = "ready", AuthenticationRequired = true, Schema = DatabaseSchema.CurrentVersion, Protocol = ServiceProtocol.CurrentVersion }).ConfigureAwait(false);
                                 }), openApiMetadata: OpenApiRouteMetadata.Create("Local readiness", "Health"));
                                 new DashboardRoutes().Register(server);
+                                new TokenRoutes(database, authenticator).Register(server);
+                                new IdentityRoutes(database, authenticator).Register(server);
                                 new HistoryRoutes(database, settings).Register(server);
                                 new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
                                 new ConversationRoutes(database, engine, settings).Register(server);

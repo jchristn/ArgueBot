@@ -79,46 +79,50 @@ Evidence (2026-11-04): `Runners / Identity` (SQLite, including restart) and `Pro
 
 ## Phase 2: Authentication pipeline
 
-- [ ] Replace the fixed context in `ArgueBotServer.Routes.AuthenticateRequest` with a real authenticator (`Services/RequestAuthenticator.cs`). It reads exactly one scheme:
-  - `Authorization: Bearer <token>` or `x-token` (both allowed only when equal; otherwise 400 `conflicting_credentials`).
-  - The token is either a session token (opaque AES-256-CBC with a random IV per token and an HMAC, prefix `abs_`) or a credential bearer token (looked up by SHA-256).
-  - Login headers `x-email`, `x-password` and optional `x-tenant-id` are accepted only on `POST /v2.0/api/token`.
-- [ ] Session tokens carry session ID, principal type, user ID, credential ID, tenant ID, issued and expiry times and a nonce. Validation checks the session row, active and not revoked, the expiry, and that the tenant, user and credential are still active.
-- [ ] Interactive sessions last 60 minutes and slide on use (`POST /v2.0/api/token/refresh`). Credential bearer tokens authenticate directly and update `last_used_utc` at most once a minute.
-- [ ] Tenant resolution: from the token or credential. `x-tenant-id`, if sent, must match, otherwise 403 `tenant_mismatch`. At login, if `x-tenant-id` is absent and the email exists in exactly one tenant, use it; if it exists in several, return 409 `tenant_required` with the tenant names and IDs.
+- [x] Replace the fixed context in `ArgueBotServer.Routes.AuthenticateRequest` with a real authenticator: `ArgueBot.Core/Services/RequestAuthenticator.cs` (testable without the server) behind `ArgueBot.Server/Services/RequestGate.cs`. It reads exactly one scheme:
+  - `Authorization: Bearer <token>` or `x-token` (both allowed only when equal; otherwise 401 `conflicting_credentials`). Any other `Authorization` scheme is 401 `unsupported_scheme`.
+  - The token is either a session token (opaque AES-256-GCM with a random 96-bit nonce per token, which authenticates as well as encrypts; prefix `abs_`; key in `secrets/session.key`) or a credential bearer token (looked up by SHA-256 and compared in constant time).
+  - Login headers `x-email`, `x-password` and optional `x-tenant-id` are accepted only on `POST /v2.0/api/token`; `x-password` anywhere else is 401 `password_not_accepted`.
+- [x] Session tokens carry session ID, principal type, user ID, credential ID, tenant ID, issued and expiry times and a nonce. Validation checks the session row, active and not revoked, the expiry, and that the tenant, user and credential are still active.
+- [x] Interactive sessions last 60 minutes and slide on use (`POST /v2.0/api/token/refresh`). Credential bearer tokens authenticate directly and update `last_used_utc` at most once a minute.
+- [x] Tenant resolution: from the token or credential. `x-tenant-id`, if sent, must match, otherwise 403 `tenant_mismatch`; a system administrator may use it on tenant-admin routes to act in another tenant (audited as `AuthorizationBypass`). At login the password is checked against every account with that email; if it matches in exactly one active tenant that one is used, otherwise 409 `tenant_required` lists only the tenants whose account accepted the password, so the list reveals nothing to a wrong password.
 - [x] `RequestContext` gains `PrincipalType`, `SessionId`, `CredentialId`, `AuthScheme` and `SourceIp` (added in Phase 1).
-- [ ] The authenticator sets `IsAuthenticated`, `IsAdmin` and `IsTenantAdmin` from the user.
-- [ ] `AuthSession` model and session methods on `IIdentityMethods`: issue, validate, refresh, list own and a user's sessions, and revoke one or all (`RevokeSessionsAsync` already exists for password changes and deletes).
-- [ ] Route classes, in one static map (`Services/RouteAccess.cs`), so every new route must choose a class:
+- [x] The authenticator sets `IsAuthenticated`, `IsAdmin` and `IsTenantAdmin` from the user.
+- [x] `AuthSession` model and session methods on `IIdentityMethods`: issue, validate, refresh, list own and a user's sessions, and revoke one or all (`RevokeSessionsAsync` already exists for password changes and deletes).
+- [x] Route classes, in one static map (`ArgueBot.Core/Services/RouteAccess.cs`, prefix rules), checked against every operation in the OpenAPI document by the real-service test, so every new route must choose a class:
   - **Public:** `/health`, dashboard static files, `/v2.0/api/token` (POST), `/v2.0/api/login-info`, the API contract and OpenAPI documents, `/share/*` pages and `GET /v2.0/api/shares/{token}`.
   - **Member:** all existing conversation, debate, configuration, prompt, history and explorer routes.
   - **Tenant admin:** user, credential and session management for the caller's tenant; tenant audit.
   - **System admin:** tenant management, service settings and restart, encryption key rotation and retirement.
-- [ ] Unauthenticated calls to non-public routes return 401 `authentication_required`; authenticated callers without the right class get 403 `forbidden`, with `reason`, `requiredPermission` and `requestType` as in "Authorization Failure Response".
-- [ ] Replace the loopback-only `LocalHttpPolicy` with a host allowlist: `127.0.0.1` and `localhost` always, plus names from the new `AllowedHosts` setting (`ARGUEBOT_ALLOWED_HOSTS`, comma-separated). Origins must match an allowed host. Document that remote use needs TLS or a TLS-terminating proxy.
-- [ ] Login and token routes are rate limited per source IP and per email (10 attempts per 5 minutes), returning 429 `rate_limited` with `Retry-After`.
-- [ ] Audit: login success and failure (without the password), session issue, refresh, revoke and expiry, credential create, revoke and first use per day, tenant and user changes, every 401 and 403, and admin bypasses for cross-tenant actions.
-- [ ] Remove the remaining fixed `ten_local` contexts: startup work uses an explicit system context; background runs keep the tenant and user of the request that started or resumed them.
-- [ ] Data visibility: remove `user_id = @user` filters from conversation reads, searches and updates so every member of a tenant sees the tenant's conversations. Keep `user_id` as the creator.
-- [ ] The model tool server (MCP and REST tools) stays invocation-scoped: it reads only the run's conversation inside the run's tenant and needs no bearer token.
+- [x] Unauthenticated calls to non-public routes return 401 `authentication_required`; authenticated callers without the right class get 403 `forbidden`, with `reason`, `requiredPermission` and `requestType` as in "Authorization Failure Response".
+- [x] Replace the loopback-only `LocalHttpPolicy` with a host allowlist: `127.0.0.1` and `localhost` always, plus names from the new `AllowedHosts` setting (`ARGUEBOT_ALLOWED_HOSTS`, comma-separated). Origins must match an allowed host. Document that remote use needs TLS or a TLS-terminating proxy.
+- [x] Sign-in is rate limited per source IP and per email (10 failed attempts per 5 minutes; a success clears the email), returning 429 `rate_limited` with `Retry-After`.
+- [x] Audit: login success and failure (without the password), session issue, refresh, revoke and expiry, credential create, revoke and first use per day, tenant and user changes, every 401 and 403, and admin bypasses for cross-tenant actions.
+- [x] Remove the remaining fixed `ten_local` contexts: startup work uses an explicit system context; background runs keep the tenant and user of the request that started or resumed them, and `RunnerProfile.RuntimeTenantId` makes the runner resolve endpoints and secrets inside the run's tenant.
+- [x] Data visibility: remove `user_id = @user` filters from conversation reads, searches and updates so every member of a tenant sees the tenant's conversations. Keep `user_id` as the creator.
+- [x] The model tool server (MCP and REST tools) stays invocation-scoped: it reads only the run's conversation inside the run's tenant and needs no bearer token.
 
 Acceptance: console tests for each scheme, conflicting carriers, wrong-tenant headers, expired, revoked and disabled sessions, credentials, users and tenants, cross-tenant reads and writes on every resource type returning 404, rate limiting, audit rows, and the host allowlist; PostgreSQL runs the same checks.
+
+Evidence (2026-11-04): `Service / SessionCarriers` (real TLS service: every carrier and failure code, host and origin allowlist, members, credentials, sessions, password change, disabled users and tenants, a second tenant with cross-tenant 404s for conversations, runs, messages, secrets, endpoints and prompts, tenant cascade delete, audit contents, rate limiting and OpenAPI drift) and `AuthenticatorChecks` with a controlled clock (expiry, refresh, revocation, tampered and foreign tokens, credential expiry, tenant choice, disabled tenants, rate-limit window) on SQLite (`Runners / Identity`) and PostgreSQL (`Providers / PostgresqlIdentity`). Full console run 70 of 70 runnable; PostgreSQL 4 of 4; CLI surface 57 assertions (68 with the mock provider journey).
 
 ## Phase 3: Management API
 
 All routes are under `/v2.0/api`, use PrettyId string IDs, return field-specific `ApiError` codes, and cascade deletes.
 
-- [ ] Session: `POST /token` (login with headers or JSON `{ email, password, tenantId? }`, returns `{ token, expiresUtc, user, tenant }`), `POST /token/refresh`, `GET /token` (validate), `GET /token/details`, `DELETE /token` (logout).
-- [ ] `GET /login-info` (public): product version, whether a tenant must be chosen, and the default credentials text for the login page.
-- [ ] `GET /me`, `PUT /me` (names), `PUT /me/password` (current and new password; revokes the caller's other sessions).
-- [ ] Credentials (own): `GET /me/credentials`, `POST /me/credentials` (name, optional expiry; returns the raw token once), `PUT /me/credentials/{id}` (rename, enable or disable), `DELETE /me/credentials/{id}`.
-- [ ] Sessions (own): `GET /me/sessions`, `DELETE /me/sessions/{id}`.
-- [ ] Tenant admin: `GET|POST /users`, `GET|PUT|DELETE /users/{id}`, `PUT /users/{id}/password`, `GET|POST|DELETE /users/{id}/credentials[/{credentialId}]`, `GET /users/{id}/sessions`, `DELETE /sessions/{id}`, `GET /audit` (filtered, paged, retention delete).
-- [ ] System admin: `GET|POST /tenants`, `GET|PUT|DELETE /tenants/{id}`. Deleting a tenant cascades to everything in it and requires the tenant name as confirmation. Protected tenants, users and credentials cannot be deleted or disabled through the API.
-- [ ] Rename provider secrets: `/v2.0/api/configuration/secrets` (list, create, replace, disable, reveal) and `/configuration/secret-keys` (encryption keys). Keep the old `/configuration/credentials` routes as deprecated aliases for 2.1.x, marked in the contract and REST_API.
-- [ ] Contract: every operation in `assets/api-contract.json` declares its access class and a bearer security requirement (none for public routes); `generate-api.mjs` emits the OpenAPI `bearerAuth` scheme and per-operation security.
+- [x] Session: `POST /token` (login with headers or JSON `{ email, password, tenantId? }`, returns `{ token, expiresUtc, user, tenant }`), `POST /token/refresh`, `GET /token` (validate), `GET /token/details`, `DELETE /token` (logout).
+- [x] `GET /login-info` (public): product version, whether a tenant must be chosen, and the default credentials text for the login page.
+- [x] `GET /me`, `PUT /me` (names), `PUT /me/password` (current and new password; revokes the caller's other sessions).
+- [x] Credentials (own): `GET /me/credentials`, `POST /me/credentials` (name, optional expiry; returns the raw token once), `PUT /me/credentials/{id}` (rename, enable or disable), `DELETE /me/credentials/{id}`.
+- [x] Sessions (own): `GET /me/sessions`, `DELETE /me/sessions/{id}`.
+- [x] Tenant admin: `GET|POST /users`, `GET|PUT|DELETE /users/{id}`, `PUT /users/{id}/password`, `GET|POST|DELETE /users/{id}/credentials[/{credentialId}]`, `GET /users/{id}/sessions`, `DELETE /sessions/{id}`, `GET /audit` (filtered, paged, retention delete).
+- [x] System admin: `GET|POST /tenants`, `GET|PUT|DELETE /tenants/{id}`. Deleting a tenant cascades to everything in it and requires the tenant name as confirmation. Protected tenants, users and credentials cannot be deleted or disabled through the API.
+- [x] Rename provider secrets: `/v2.0/api/configuration/secrets` (list, create, replace, disable, reveal) and `/configuration/secret-keys` (encryption keys). Keep the old `/configuration/credentials` routes as deprecated aliases for 2.1.x, marked in the contract and REST_API.
+- [x] Contract: every operation in `assets/api-contract.json` declares its access class and a bearer security requirement (none for public routes); `generate-api.mjs` emits the OpenAPI `bearerAuth` scheme and per-operation security.
 
 Acceptance: contract drift check passes; console and CLI tests cover each route's success, validation, 401, 403 and cross-tenant 404 behavior; raw credential tokens never appear in any later response or in request history.
+
+Evidence (2026-11-04): `node scripts/generate-api.mjs` emits 131 operations with `x-arguebot-access`, `bearerAuth` and `xToken` schemes, 401 responses, `AuthorizationError` 403 bodies and deprecated aliases. The real-service test reads the served OpenAPI document and confirms every operation's access class matches the gate, every admin route refuses a member with 403 naming its class, and every GET route is served. Request history excludes bodies for sign-in, token, credential, secret, share, user and password routes. CLI commands for the new routes land in Phase 6.
 
 ## Phase 4: Dashboard
 
@@ -179,8 +183,8 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 
 - [x] Phase 0: branch, housekeeping and images (November 4, 2026: build with no warnings, Terminal suite 20 of 20, Compose resolves the named image and the build override, scripts pass `bash -n`)
 - [x] Phase 1: schema and identity data
-- [ ] Phase 2: authentication pipeline
-- [ ] Phase 3: management API
+- [x] Phase 2: authentication pipeline
+- [x] Phase 3: management API
 - [ ] Phase 4: dashboard
 - [ ] Phase 5: public share links
 - [ ] Phase 6: CLI and TUI

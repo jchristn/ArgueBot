@@ -72,7 +72,10 @@ namespace ArgueBot.Core.Services
         public async Task<RevealedCredential> RevealAsync(RequestContext context, string id, CancellationToken token = default)
         {
             CredentialMetadata? metadata = null;
-            string value = await ResolveAsync(context, id, token, current => metadata = current).ConfigureAwait(false);
+            string value;
+            // An unknown, disabled or other-tenant secret reads as not found, so the response reveals nothing about other tenants.
+            try { value = await ResolveAsync(context, id, token, current => metadata = current).ConfigureAwait(false); }
+            catch (DomainException ex) when (ex.Code == "credential_unavailable") { throw new DomainException(404, "credential_not_found", "No ready credential has this ID. Disabled credentials cannot be revealed."); }
             if (metadata == null) throw new DomainException(404, "credential_not_found", "No ready credential has this ID. Disabled credentials cannot be revealed.");
             return new RevealedCredential { Id = metadata.Id, Name = metadata.Name, Kind = metadata.Kind, ParameterName = metadata.ParameterName, Revision = metadata.Revision, SecretValue = value };
         }

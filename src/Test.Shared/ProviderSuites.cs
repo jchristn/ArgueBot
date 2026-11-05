@@ -59,6 +59,7 @@ namespace Test.Shared
                 using (DatabaseDriverBase database = DatabaseDriverFactory.Create(new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = variable }, home))
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
+                    await AuthenticatorChecks.RunAsync(database, token).ConfigureAwait(false);
                     await IdentityChecks.RunAsync(database, token).ConfigureAwait(false);
                 }
             }

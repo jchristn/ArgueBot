@@ -78,7 +78,8 @@ namespace ArgueBot.Core.Database.Implementations
             if (id == context.TenantId) throw new DomainException(409, "own_tenant", "You cannot delete the tenant you are signed in to.");
             if (!string.Equals(confirmName, current.Name, StringComparison.Ordinal)) throw new DomainException(400, "confirmation_mismatch", "Type the tenant's exact name to confirm deletion.", "confirmName");
             // Delete child rows first: every table with a tenant_id column, newest tables first, then the tenant itself.
-            List<string> tables = BackupSchema.Tables().Where(table => table.Key != "tenants" && table.Value.ContainsKey("tenant_id")).Select(table => table.Key).Reverse().ToList();
+            // The audit log is kept so the tenant's security history outlives it; its retention delete removes it later.
+            List<string> tables = BackupSchema.Tables().Where(table => table.Key != "tenants" && table.Key != "audit_events" && table.Value.ContainsKey("tenant_id")).Select(table => table.Key).Reverse().ToList();
             await _Database.WriteAsync(async (connection, transaction) =>
             {
                 foreach (string table in tables) await ExecuteAsync(connection, transaction, "DELETE FROM " + table + " WHERE tenant_id=@tenant", token, P("tenant", id)).ConfigureAwait(false);
@@ -158,7 +159,10 @@ namespace ArgueBot.Core.Database.Implementations
             if (id == context.UserId) throw new DomainException(409, "own_access", "You cannot delete yourself.");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                Dictionary<string, object?> values = P("tenant", context.TenantId, "user", id, "heir", context.UserId);
+                // The heir is the deleting administrator when they belong to this tenant (a system administrator may act in another), otherwise the tenant's oldest other administrator.
+                string heir = Convert.ToString(await ScalarAsync(connection, transaction, "SELECT id FROM users WHERE tenant_id=@tenant AND id<>@user AND (id=@self OR is_tenant_admin=1 OR is_admin=1) ORDER BY CASE WHEN id=@self THEN 0 ELSE 1 END,created_utc,id LIMIT 1", token, P("tenant", context.TenantId, "user", id, "self", context.UserId)).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? "";
+                if (heir.Length == 0) throw new DomainException(409, "no_heir", "This tenant has no other administrator to keep the user's conversations. Make another user a tenant administrator first.");
+                Dictionary<string, object?> values = P("tenant", context.TenantId, "user", id, "heir", heir);
                 // Data is shared per tenant: keep the user's conversations, agents and receipts, credited to the administrator deleting them.
                 foreach (string table in new[] { "conversations", "profiles", "command_receipts" }) await ExecuteAsync(connection, transaction, "UPDATE " + table + " SET user_id=@heir WHERE tenant_id=@tenant AND user_id=@user", token, values).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE conversation_shares SET created_by_user_id=@heir WHERE tenant_id=@tenant AND created_by_user_id=@user", token, values).ConfigureAwait(false);
@@ -246,6 +250,75 @@ namespace ArgueBot.Core.Database.Implementations
         }
 
         /// <summary>Revoke a user's active sessions, optionally keeping one and optionally only those created by one credential.</summary>
+        /// <inheritdoc />
+        public async Task<List<AuthSession>> SessionsAsync(RequestContext context, string userId, CancellationToken token = default)
+        {
+            await RequireCredentialOwnerAsync(context, userId, token).ConfigureAwait(false);
+            List<AuthSession> result = new List<AuthSession>();
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, null, "SELECT * FROM auth_sessions WHERE tenant_id=@tenant AND user_id=@user AND active=1 AND revoked_utc IS NULL AND expires_utc>@now ORDER BY created_utc DESC,id", P("tenant", context.TenantId, "user", userId)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(token).ConfigureAwait(false))
+                {
+                    string id = S(reader, "id");
+                    result.Add(new AuthSession { Id = id, TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), CredentialId = S(reader, "credential_id"), PrincipalType = S(reader, "principal_type"), AuthScheme = S(reader, "auth_scheme"), SourceIp = S(reader, "source_ip"), UserAgent = S(reader, "user_agent"), CreatedUtc = Time(reader, "created_utc"), ExpiresUtc = Time(reader, "expires_utc"), LastUsedUtc = OptionalTime(reader, "last_used_utc"), RevokedUtc = OptionalTime(reader, "revoked_utc"), RevocationReason = S(reader, "revocation_reason"), Active = Flag(reader, "active"), Current = id == context.SessionId });
+                }
+            }
+            return result;
+        }
+
+        /// <inheritdoc />
+        public async Task RevokeSessionAsync(RequestContext context, string id, CancellationToken token = default)
+        {
+            RequireAuthenticated(context);
+            string owner;
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+                owner = Convert.ToString(await ScalarAsync(connection, null, "SELECT user_id FROM auth_sessions WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? "";
+            if (owner.Length == 0 || (owner != context.UserId && !IsTenantAdmin(context))) throw NotFound("session_not_found", "Session not found.");
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                await ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,revoked_utc=@now,revocation_reason=@reason,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND active=1", token, P("tenant", context.TenantId, "id", id, "reason", owner == context.UserId ? "Signed out" : "Revoked by an administrator")).ConfigureAwait(false);
+                await AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "SessionRevoked", Outcome = "success", SessionId = id, PrincipalType = context.PrincipalType, CredentialId = context.CredentialId, AuthScheme = context.AuthScheme, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, ResourceType = "session", ResourceId = id, Reason = owner == context.UserId ? "Signed out" : "Revoked for user " + owner, StatusCode = 200 }, token).ConfigureAwait(false);
+            }, token).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        public async Task<AuditPage> AuditAsync(RequestContext context, AuditQuery query, CancellationToken token = default)
+        {
+            RequireTenantAdmin(context); ArgumentNullException.ThrowIfNull(query);
+            if (query.PageNumber < 1) throw new DomainException(400, "invalid_page", "Use a page number of 1 or more.", "pageNumber");
+            if (query.PageSize < 1 || query.PageSize > 200) throw new DomainException(400, "invalid_page_size", "Use a page size from 1 through 200.", "pageSize");
+            string scope = context.IsAdmin ? (query.TenantId.Length > 0 ? "tenant_id=@tenant" : "1=1") : "tenant_id=@tenant";
+            string where = scope + " AND (@operation='' OR operation=@operation) AND (@outcome='' OR outcome=@outcome) AND (@user='' OR user_id=@user) AND (@from='' OR created_utc>=@from) AND (@to='' OR created_utc<=@to)";
+            Dictionary<string, object?> values = P("tenant", context.IsAdmin && query.TenantId.Length > 0 ? query.TenantId : context.TenantId, "operation", query.Operation, "outcome", query.Outcome, "user", query.UserId, "from", query.FromUtc.HasValue ? SessionStore.Stamp(query.FromUtc.Value) : "", "to", query.ToUtc.HasValue ? SessionStore.Stamp(query.ToUtc.Value) : "", "limit", query.PageSize, "offset", (query.PageNumber - 1) * query.PageSize);
+            AuditPage page = new AuditPage { PageNumber = query.PageNumber, PageSize = query.PageSize };
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            {
+                page.TotalCount = Convert.ToInt64(await ScalarAsync(connection, null, "SELECT COUNT(*) FROM audit_events WHERE " + where, token, values).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                using (DbCommand command = Command(connection, null, "SELECT * FROM audit_events WHERE " + where + " ORDER BY created_utc DESC,id DESC LIMIT @limit OFFSET @offset", values))
+                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(token).ConfigureAwait(false))
+                        page.Items.Add(new AuditEvent { Id = S(reader, "id"), TenantId = N(reader, "tenant_id") ?? "", UserId = N(reader, "user_id") ?? "", Operation = S(reader, "operation"), Outcome = S(reader, "outcome"), PrincipalType = S(reader, "principal_type"), SessionId = S(reader, "session_id"), CredentialId = S(reader, "credential_id"), AuthScheme = S(reader, "auth_scheme"), CorrelationId = S(reader, "correlation_id"), RequestType = S(reader, "request_type"), Method = S(reader, "method"), Path = S(reader, "path"), SourceIp = S(reader, "source_ip"), AuthenticationResult = S(reader, "authentication_result"), AuthorizationResult = S(reader, "authorization_result"), Reason = S(reader, "reason"), ResourceType = S(reader, "resource_type"), ResourceId = S(reader, "resource_id"), ErrorCode = S(reader, "error_code"), StatusCode = Convert.ToInt32(reader["status_code"], CultureInfo.InvariantCulture), CreatedUtc = Time(reader, "created_utc") });
+                }
+            }
+            return page;
+        }
+
+        /// <inheritdoc />
+        public async Task<int> DeleteAuditAsync(RequestContext context, DateTime beforeUtc, CancellationToken token = default)
+        {
+            RequireTenantAdmin(context);
+            int deleted = 0;
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                deleted = await ExecuteAsync(connection, transaction, "DELETE FROM audit_events WHERE created_utc<@before AND " + (context.IsAdmin ? "1=1" : "tenant_id=@tenant"), token, P("before", SessionStore.Stamp(beforeUtc), "tenant", context.TenantId)).ConfigureAwait(false);
+                await AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "AuditPruned", Outcome = "success", PrincipalType = context.PrincipalType, SessionId = context.SessionId, CredentialId = context.CredentialId, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, Reason = deleted + " records before " + SessionStore.Stamp(beforeUtc), StatusCode = 200 }, token).ConfigureAwait(false);
+            }, token).ConfigureAwait(false);
+            return deleted;
+        }
+
         internal static Task<int> RevokeSessionsAsync(DbConnection connection, DbTransaction transaction, string tenantId, string userId, string keepSessionId, string reason, CancellationToken token, string credentialId = "")
         {
             return ExecuteAsync(connection, transaction, "UPDATE auth_sessions SET active=0,revoked_utc=@now,revocation_reason=@reason,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND active=1 AND id<>@keep AND (@credential='' OR credential_id=@credential)", token, P("tenant", tenantId, "user", userId, "keep", keepSessionId, "reason", reason, "credential", credentialId));
@@ -291,18 +364,18 @@ namespace ArgueBot.Core.Database.Implementations
         private static DomainException Forbidden(string message) { return new DomainException(403, "forbidden", message); }
         private static DomainException Protected(string message) { return new DomainException(409, "protected_record", message); }
         private static DomainException Changed() { return new DomainException(409, "revision_conflict", "This record changed. Reload it before saving."); }
-        private static DateTime Time(DbDataReader reader, string column) { return DateTime.Parse(S(reader, column), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind); }
-        private static DateTime? OptionalTime(DbDataReader reader, string column) { string? value = N(reader, column); return string.IsNullOrEmpty(value) ? null : DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind); }
-        private static bool Flag(DbDataReader reader, string column) { return Convert.ToInt64(reader[column], CultureInfo.InvariantCulture) != 0; }
-        private static Tenant ReadTenant(DbDataReader reader)
+        internal static DateTime Time(DbDataReader reader, string column) { return DateTime.Parse(S(reader, column), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind); }
+        internal static DateTime? OptionalTime(DbDataReader reader, string column) { string? value = N(reader, column); return string.IsNullOrEmpty(value) ? null : DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind); }
+        internal static bool Flag(DbDataReader reader, string column) { return Convert.ToInt64(reader[column], CultureInfo.InvariantCulture) != 0; }
+        internal static Tenant ReadTenant(DbDataReader reader)
         {
             return new Tenant { Id = S(reader, "id"), Name = S(reader, "name"), Active = Flag(reader, "active"), Protected = Flag(reader, "protected"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = Time(reader, "created_utc"), UpdatedUtc = Time(reader, "updated_utc") };
         }
-        private static User ReadUser(DbDataReader reader)
+        internal static User ReadUser(DbDataReader reader)
         {
             return new User { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), FirstName = S(reader, "first_name"), LastName = S(reader, "last_name"), Email = S(reader, "email"), IsAdmin = Flag(reader, "is_admin"), IsTenantAdmin = Flag(reader, "is_tenant_admin"), Active = Flag(reader, "active"), Protected = Flag(reader, "protected"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = Time(reader, "created_utc"), UpdatedUtc = Time(reader, "updated_utc") };
         }
-        private static AuthCredential ReadCredential(DbDataReader reader)
+        internal static AuthCredential ReadCredential(DbDataReader reader)
         {
             return new AuthCredential { Id = S(reader, "id"), TenantId = S(reader, "tenant_id"), UserId = S(reader, "user_id"), Name = S(reader, "name"), TokenLast4 = S(reader, "token_last4"), AuthMode = S(reader, "auth_mode"), Active = Flag(reader, "active"), Protected = Flag(reader, "protected"), ExpiresUtc = OptionalTime(reader, "expires_utc"), LastUsedUtc = OptionalTime(reader, "last_used_utc"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), CreatedUtc = Time(reader, "created_utc"), UpdatedUtc = Time(reader, "updated_utc") };
         }

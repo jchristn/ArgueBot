@@ -26,7 +26,9 @@ namespace ArgueBot.Server.Services
                 RequestContext context = http.Metadata as RequestContext ?? new RequestContext();
                 if (!_Settings.RequestHistoryEnabled) return;
                 int limit = Math.Clamp(_Settings.RequestHistoryBodyBytes, 0, 1048576);
-                bool credentialBody = http.Request.Url.RawWithoutQuery.StartsWith("/v2.0/api/configuration/credentials", StringComparison.Ordinal);
+                string capturedPath = http.Request.Url.RawWithoutQuery;
+                // Secrets, sign-in, session tokens, bearer-token credentials and share links never reach request history, even redacted.
+                bool credentialBody = capturedPath.StartsWith("/v2.0/api/configuration/credentials", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/configuration/secrets", StringComparison.Ordinal) || capturedPath == "/v2.0/api/token" || capturedPath.StartsWith("/v2.0/api/token/", StringComparison.Ordinal) || capturedPath.Contains("/credentials", StringComparison.Ordinal) || capturedPath.Contains("/shares", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/users", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/me/password", StringComparison.Ordinal);
                 string request = credentialBody ? "[credential body excluded]" : CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");
                 string response = ""; long responseBytes = http.Response.ServerSentEvents ? -1 : http.Response.ContentLength;
                 if (!http.Response.ServerSentEvents && (http.Response.ContentType ?? "").Contains("json", StringComparison.OrdinalIgnoreCase))

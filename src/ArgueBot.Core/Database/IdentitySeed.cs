@@ -10,20 +10,20 @@ namespace ArgueBot.Core.Database
     /// Ensures the default tenant, the default administrator (admin@arguebot / password) and its bearer token
     /// (arguebotadmin). Each value is set only when missing, so later changes are never reset.
     /// </summary>
-    internal static class IdentitySeed
+    public static class IdentitySeed
     {
         /// <summary>The default tenant, which also holds every record created before schema 30.</summary>
-        internal const string TenantId = "ten_local";
+        public const string TenantId = "ten_local";
         /// <summary>The default administrator.</summary>
-        internal const string UserId = "usr_local";
+        public const string UserId = "usr_local";
         /// <summary>The default administrator's bearer-token credential.</summary>
-        internal const string CredentialId = "cred_default_admin";
+        public const string CredentialId = "cred_default_admin";
         /// <summary>Default sign-in email.</summary>
-        internal const string Email = "admin@arguebot";
+        public const string Email = "admin@arguebot";
         /// <summary>Default sign-in password.</summary>
-        internal const string Password = "password";
+        public const string Password = "password";
         /// <summary>Default bearer token.</summary>
-        internal const string Token = "arguebotadmin";
+        public const string Token = "arguebotadmin";
 
         internal static async Task EnsureAsync(DbConnection connection, DbTransaction transaction, CancellationToken token)
         {

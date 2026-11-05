@@ -56,10 +56,16 @@ const queryHelp = {
   sourcePageNumber:'Page of original summary sources to return, 100 per page, starting at 1.',
   status:'HTTP status code to match, for example 409.',
   tail:'true returns the newest page instead of the first.',
-  throughSequence:'Upper sequence bound that keeps paging stable while new messages arrive; use the value from the first page.'
+  throughSequence:'Upper sequence bound that keeps paging stable while new messages arrive; use the value from the first page.',
+  operation:'Exact audit event type, for example AuthFailure, AuthorizationDenied, SessionIssued or UserCreated.',
+  outcome:'success, failure or denied.',
+  userId:'User ID (usr_...).',
+  tenantId:'Tenant ID (ten_...). System administrators only; tenant administrators always see their own tenant.',
+  beforeUtc:'Delete records created before this UTC ISO 8601 time.',
+  confirmName:'The tenant\'s exact current name, to confirm deletion.'
 };
-const pathHelp = name => ({conversationId:'Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list.',runId:'Run ID (run_...). Copy it from the run bar in the workspace.',messageId:'Message ID (msg_...). Copy it from a message header.',profileId:'Participant profile ID. Copy it from the Participants page.',requestId:'Request ID from request history.',summaryId:'Summary ID (sum_...) from the memory panel.',attemptId:'Generation attempt ID from attempt history.',id:'Resource ID. Copy it from the matching list.'})[name] || 'Identifier in this workspace.';
-const required = { HealthResponse:['status','schema','protocol','homeId'],ConversationRequest:['title'],CreateRunRequest:['participantIds','idempotencyKey'],CommandRequest:['action'],RunnerProfile:[],SettingsUpdate:['revision','port','maxConcurrentRuns','allowCli','databaseType'] };
+const pathHelp = name => ({conversationId:'Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list.',runId:'Run ID (run_...). Copy it from the run bar in the workspace.',messageId:'Message ID (msg_...). Copy it from a message header.',profileId:'Participant profile ID. Copy it from the Participants page.',requestId:'Request ID from request history.',summaryId:'Summary ID (sum_...) from the memory panel.',attemptId:'Generation attempt ID from attempt history.',userId:'User ID (usr_...). Copy it from Administration > Users.',tenantId:'Tenant ID (ten_...). Copy it from Administration > Tenants.',credentialId:'Bearer-token credential ID (crd_...). Copy it from the credential list.',sessionId:'Session ID (ses_...). Copy it from the session list.',id:'Resource ID. Copy it from the matching list.'})[name] || 'Identifier in this workspace.';
+const required = { LoginRequest:['email','password'],UserRequest:['email'],TenantRequest:['name'],AuthCredentialRequest:['name'],PasswordChangeRequest:['newPassword'],HealthResponse:['status','schema','protocol','homeId'],ConversationRequest:['title'],CreateRunRequest:['participantIds','idempotencyKey'],CommandRequest:['action'],RunnerProfile:[],SettingsUpdate:['revision','port','maxConcurrentRuns','allowCli','databaseType'] };
 for (const [name,keys] of Object.entries(required)) if (schemas[name]) schemas[name].required=keys;
 Object.assign(schemas.CreateRunRequest.properties.maxRounds,{minimum:1,maximum:50,default:5});
 Object.assign(schemas.CreateRunRequest.properties.interventionSeconds,{minimum:0,maximum:600,default:10});
@@ -86,6 +92,13 @@ Object.assign(schemas.HttpAuthBinding.properties.kind, {enum:['bearer','api_key'
 Object.assign(schemas.PromptTemplate.properties.purpose, {enum:['question','response','synthesis','ratification','compaction']});
 Object.assign(schemas.PromptTemplate.properties.body, {maxLength:32000});
 schemas.PromptTemplate.required = ['name','purpose','body'];
+for (const [name, field] of [['LoginRequest','password'],['UserRequest','password'],['PasswordChangeRequest','currentPassword'],['PasswordChangeRequest','newPassword']]) Object.assign(schemas[name].properties[field], {writeOnly:true});
+for (const [name, field] of [['TokenResponse','token'],['AuthCredentialCreated','token']]) Object.assign(schemas[name].properties[field], {readOnly:true});
+Object.assign(schemas.UserRequest.properties.password, {minLength:8, maxLength:256});
+Object.assign(schemas.PasswordChangeRequest.properties.newPassword, {minLength:8, maxLength:256});
+Object.assign(schemas.AuthSession.properties.principalType, {enum:['User','Credential']});
+Object.assign(schemas.TokenDetails.properties.principalType, {enum:['User','Credential']});
+Object.assign(schemas.AuthorizationError.properties.requiredPermission, {enum:['Member','TenantAdmin','SystemAdmin']});
 // Publish only transport-reachable schemas; implementation/helper classes are not API contracts.
 const reachable = new Set();
 function visit(node) {
@@ -101,15 +114,28 @@ for (const operation of operations) {
   if (operation.request) visit(schema(operation.request));
   visit(schema(operation.response));
 }
-visit(schema('ApiError'));
+visit(schema('ApiError')); visit(schema('AuthorizationError')); visit(schema('TenantRequiredError'));
 for (const name of Object.keys(schemas)) if (!reachable.has(name)) delete schemas[name];
 
-Object.assign(schemas.HealthResponse.properties.authenticationRequired,{default:false,enum:[false]});
-const spec={'x-arguebot-transport':transport,openapi:'3.0.3',info:{title:'ArgueBot API',version:'2.1.0',description:'Single open workspace for conversations, agents and execution. No accounts, roles, sessions, pairing or authentication.'},servers:[{url:'http://127.0.0.1:4317'}],security:[],paths:{},components:{schemas}};
-const collection={info:{name:'ArgueBot local conversation service',description:'Runnable local contract coverage. The open workspace has no user accounts. Provider credentials are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.',schema:'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'},auth:{type:'noauth'},variable:[{key:'baseUrl',value:'http://127.0.0.1:4317'},{key:'conversationId',value:''},{key:'conversationRevision',value:'1'},{key:'messageId',value:''},{key:'profileId',value:''},{key:'runId',value:''},{key:'requestId',value:''},{key:'settingsRevision',value:''},{key:'allowExecution',value:'false'}, ...['resourceRevision','credentialValue','credentialId','endpointId','harnessId','modelProfileId','secondProfileId','thirdProfileId','fourthProfileId','orchestratorId','replacementProfileId','id','commandKey'].map(key=>({key,value:''})),{key:'simulationEndpoint',value:'http://127.0.0.1:4491/ollama'},{key:'bucketMinutes',value:'15'},{key:'fromUtc',value:'2026-01-01T00:00:00Z'},{key:'toUtc',value:'2026-01-02T00:00:00Z'}],item:[]};
-const document=['# REST API','', 'The ArgueBot service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).','', 'Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.',''];
+Object.assign(schemas.HealthResponse.properties.authenticationRequired,{default:true,enum:[true]});
+const accessHelp={Public:'Access: public; no bearer token.',Member:'Access: any signed-in user of an active tenant.',TenantAdmin:'Access: tenant administrators (and system administrators) of the caller\'s tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.',SystemAdmin:'Access: system administrators.'};
+const securitySchemes={bearerAuth:{type:'http',scheme:'bearer',description:'A session token from POST /v2.0/api/token (abs_..., 60 minutes, refresh with POST /v2.0/api/token/refresh) or a credential bearer token (abt_..., or the default arguebotadmin). Sent as Authorization: Bearer.'},xToken:{type:'apiKey',in:'header',name:'x-token',description:'The same token in the x-token header. If both carriers are sent they must match.'}};
+const spec={'x-arguebot-transport':transport,openapi:'3.0.3',info:{title:'ArgueBot API',version:'2.1.0',description:'Conversations, agents and execution for signed-in users. Data is shared within a tenant. Sign in with POST /v2.0/api/token or use a credential bearer token. The default administrator is admin@arguebot with password password and bearer token arguebotadmin; change them after the first sign-in.'},servers:[{url:'http://127.0.0.1:4317'}],security:[{bearerAuth:[]},{xToken:[]}],paths:{},components:{schemas,securitySchemes}};
+const collection={info:{name:'ArgueBot local conversation service',description:'Runnable local contract coverage. Requests send {{token}} as a bearer token; it defaults to the default administrator token arguebotadmin, and Authentication > Sign in replaces it with a session token. Provider secrets are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.',schema:'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'},auth:{type:'bearer',bearer:[{key:'token',value:'{{token}}',type:'string'}]},variable:[{key:'baseUrl',value:'http://127.0.0.1:4317'},{key:'token',value:'arguebotadmin'},...['userId','userRevision','tenantId','tenantName','authCredentialId','sessionId','currentPassword','newPassword'].map(key=>({key,value:''})),{key:'conversationId',value:''},{key:'conversationRevision',value:'1'},{key:'messageId',value:''},{key:'profileId',value:''},{key:'runId',value:''},{key:'requestId',value:''},{key:'settingsRevision',value:''},{key:'allowExecution',value:'false'}, ...['resourceRevision','credentialValue','credentialId','endpointId','harnessId','modelProfileId','secondProfileId','thirdProfileId','fourthProfileId','orchestratorId','replacementProfileId','id','commandKey'].map(key=>({key,value:''})),{key:'simulationEndpoint',value:'http://127.0.0.1:4491/ollama'},{key:'bucketMinutes',value:'15'},{key:'fromUtc',value:'2026-01-01T00:00:00Z'},{key:'toUtc',value:'2026-01-02T00:00:00Z'}],item:[]};
+const document=['# REST API','', 'The ArgueBot service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).','',
+'## Authentication','',
+'Every route except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, the OpenAPI document and the dashboard files needs a bearer token. Send it as `Authorization: Bearer <token>` or as `x-token: <token>`; if you send both, they must be the same token.','',
+'- **Session token**: `POST /v2.0/api/token` with `{ "email", "password", "tenantId" }`, or with the `x-email`, `x-password` and optional `x-tenant-id` headers. The response holds an opaque `abs_...` token that lasts 60 minutes. `POST /v2.0/api/token/refresh` replaces it with a new token and a fresh lifetime; the previous token stops working. `DELETE /v2.0/api/token` signs out.',
+'- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. It is shown once. Disable or delete the credential to revoke it.',
+'- **Default administrator**: `admin@arguebot` with password `password` and bearer token `arguebotadmin`. The sign-in page always shows these. Change the password and create your own credentials, then disable nothing you still need: the default user, tenant and token are protected and cannot be deleted.','',
+'If the email and password match accounts in several tenants, sign-in returns 409 `tenant_required` with the tenants to choose from; send `tenantId` and sign in again. `x-tenant-id` on other routes must match the token\'s tenant (403 `tenant_mismatch`), except that a system administrator may use it on user, session and audit routes to act in another tenant.','',
+'Failures: 401 `authentication_required`, `invalid_token`, `session_expired`, `session_revoked`, `credential_inactive`, `credential_expired`, `user_inactive`, `tenant_inactive`, `invalid_credentials`, `account_inactive`, `conflicting_credentials`, `unsupported_scheme` or `password_not_accepted`; 403 `forbidden` or `tenant_mismatch` with an `AuthorizationError` body; 429 `rate_limited` with `Retry-After` after 10 failed sign-ins from one address or for one email in 5 minutes. Every failure and every administrative change is recorded in the audit log (`GET /v2.0/api/audit`).','',
+'Access classes: **Member** routes are open to any signed-in user of an active tenant, and data is shared within the tenant. **TenantAdmin** routes need a tenant administrator. **SystemAdmin** routes need a system administrator. Each route below states its class.','',
+'Host names: `127.0.0.1` and `localhost` are always accepted. Add other names, such as a reverse proxy name, to `allowedHosts` in the service settings or to `ARGUEBOT_ALLOWED_HOSTS`. Use TLS, directly or through a TLS-terminating proxy, whenever the service is reachable from another machine.',''];
 for (const operation of operations) {
-  const {method,path:route,group,summary,response,request,status,public:anonymous,example,query,execute,save}=operation;
+  const {method,path:route,group,summary,response,request,status,public:anonymous,example,query,execute,save,access,deprecated}=operation;
+  if (!accessHelp[access]) throw new Error(`Operation ${method} ${route} has no access class.`);
+  if ((access === 'Public') !== !!anonymous) throw new Error(`Operation ${method} ${route} has inconsistent public and access fields.`);
   const params=[...route.matchAll(/{(\w+)}/g)].map(match=>({name:match[1],in:'path',required:true,schema:{type:'string'},description:pathHelp(match[1])}));
   for (const key of query) params.push({name:key,in:'query',required:route.endsWith('/summary') && ['fromUtc','toUtc'].includes(key),schema:['pageNumber','pageSize','sourcePageNumber'].includes(key)?{type:'integer',minimum:1,...(key==='pageSize'?{maximum:100,default:25}:{default:1})}:['status','bucketMinutes','after','throughSequence'].includes(key)?{type:'integer',minimum:['after','throughSequence'].includes(key)?0:1,...(['after','throughSequence'].includes(key)?{format:'int64'}:{})}:['archived','tail','active'].includes(key)?{type:'boolean',default:false}:{type:'string'},description:queryHelp[key]||'Backend filter.'});
   if (route.startsWith('/v2.0/api/configuration/')) for (const parameter of params) if (parameter.name === 'pageSize') parameter.schema.default = 100;
@@ -127,16 +153,19 @@ for (const operation of operations) {
     params.find(parameter=>parameter.name==='throughSequence').description='Optional captured membership boundary. Omission captures the latest sequence. Streaming content itself is not frozen. Future boundaries are rejected.';
     params.find(parameter=>parameter.name==='tail').description='Select the last page of the captured membership, overriding pageNumber. Preview text is bounded; use individual message reads for full content.';
   }
-  const responses={}; for (const code of [400,403,404,409,413,429,500]) responses[code]={description:({400:'Invalid input',403:'Host, origin or execution policy denied',404:'Resource not found in scope',409:'State, revision or command conflict',413:'Body too large',429:'Rate limited',500:'Internal failure'})[code],content:{'application/json':{schema:{$ref:'#/components/schemas/ApiError'}}}};
+  const responses={}; for (const code of [400,...(anonymous?[]:[401]),403,404,409,413,429,500]) responses[code]={description:({400:'Invalid input',401:'Missing, invalid, expired or revoked bearer token',403:access==='Member'||anonymous?'Host, origin, tenant or execution policy denied':'Host, origin or tenant denied, or the caller lacks the '+access+' access class',404:'Resource not found in scope',409:'State, revision or command conflict',413:'Body too large',429:'Rate limited',500:'Internal failure'})[code],content:{'application/json':{schema:{$ref:'#/components/schemas/'+(code===403&&!anonymous?'AuthorizationError':code===409&&route==='/v2.0/api/token'?'TenantRequiredError':'ApiError')}}}};
   responses[status]={description:'Successful '+summary.toLowerCase(),content:{'application/json':{schema:schema(response)}}};
   if (route.endsWith('/events')) { const size=params.find(parameter=>parameter.name==='pageSize'); if(size)size.schema={type:'integer',minimum:1,maximum:1000,default:1000}; params.push({name:'Accept',in:'header',schema:{type:'string',enum:['application/json','text/event-stream']}},{name:'Last-Event-ID',in:'header',schema:{type:'string'},description:'SSE cursor formatted conversationId:sequence; foreign conversation cursors fail.'}); responses[status].content['text/event-stream']={schema:{type:'string'},example:'id: cnv_example:1\nevent: change\ndata: {"sequence":1,"kind":"message"}\n\n'}; }
-  const op={operationId:method.toLowerCase()+route.replace(/[^A-Za-z0-9]+/g,'_'),tags:[group],summary,description:'Open workspace endpoint. '+(execute?'May execute work or change service state; do not blindly replay requests. ':'') ,parameters:params,responses};
+  const op={operationId:method.toLowerCase()+route.replace(/[^A-Za-z0-9]+/g,'_'),tags:[group],summary,description:accessHelp[access]+' '+(deprecated?'Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x. ':'')+(execute?'May execute work or change service state; do not blindly replay requests. ':''),parameters:params,responses,'x-arguebot-access':access};
+  if(deprecated)op.deprecated=true;
   if(anonymous)op.security=[];
   if(request)op.requestBody={required:true,content:{'application/json':{schema:schema(request),example}}};
   (spec.paths[route]??={})[method.toLowerCase()]=op;
   let folder=collection.item.find(item=>item.name===group); if(!folder){folder={name:group,description:'Lifecycle operations for '+group.toLowerCase()+'. Variables, ownership and validation requirements are described by each request.',item:[]};collection.item.push(folder);}
   let url='{{baseUrl}}'+route.replace(/{(\w+)}/g,'{{$1}}');
   if(query.includes('revision'))url+='?revision={{resourceRevision}}';
+  if(query.includes('confirmName'))url+='?confirmName={{tenantName}}';
+  if(query.includes('beforeUtc'))url+='?beforeUtc={{fromUtc}}';
   if(route.endsWith('/summary'))url+='?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}';
   const event=[]; let before=[];
   for (const match of JSON.stringify(example).matchAll(/{{(\w+)}}/g)) before.push(`if (!pm.variables.get('${match[1]}')) pm.execution.skipRequest();`);
@@ -144,7 +173,7 @@ for (const operation of operations) {
   for (const parameter of params.filter(item=>item.in==='path'))before.push(`if (!pm.variables.get('${parameter.name}')) pm.execution.skipRequest();`);
   if(before.length)event.push({listen:'prerequest',script:{type:'text/javascript',exec:before}});
   const after=[`pm.test('${status} expected', () => pm.response.to.have.status(${status}));`];
-  if(save==='token')after.push("if(pm.response.code===200) pm.collectionVariables.set('token',pm.response.json().token);");
+  if(save==='token')after.push(`if(pm.response.code===${status}) pm.collectionVariables.set('token',pm.response.json().token);`);
   else if(save)after.push(`if(pm.response.code===${status}) pm.collectionVariables.set('${save}',pm.response.json().id);`);
   if(response==='PermissionRecord')after.push("if(pm.response.code<300) pm.test('Custom permission is tenant-bound and validated',()=>{const value=pm.response.json();pm.expect(value.tenantId).to.be.a('string');pm.expect(value.protected).to.be.false;pm.expect(['Permit','Deny']).to.include(value.effect);pm.expect(value.resourceTypes.length).to.be.within(1,32);});");
   if(response==='MessagePage')after.push("if(pm.response.code===200) pm.test('History page is bounded with membership metadata',()=>{const page=pm.response.json();pm.expect(page.items.length).to.be.at.most(page.pageSize);pm.expect(page.throughSequence).to.be.at.most(page.latestSequence);});");
@@ -160,7 +189,7 @@ for (const operation of operations) {
   if(anonymous)req.auth={type:'noauth'};
   if(example!==null)req.body={mode:'raw',raw:JSON.stringify(example,null,2),options:{raw:{language:'json'}}};
   folder.item.push({name:summary,request:req,event});
-  document.push(`## ${method} ${route}`,'',summary+'. '+op.description,'',`Success: **${status}**, response: \`${response}\`.${request?' Request: `'+request+'`.':''}`,'');
+  document.push(`## ${method} ${route}`,'',summary+'. '+op.description.trim(),'',`Success: **${status}**, response: \`${response}\`.${request?' Request: `'+request+'`.':''}`,'');
   if(params.length)document.push('| Parameter | Location | Required | Meaning |','| --- | --- | --- | --- |',...params.map(value=>`| ${value.name} | ${value.in} | ${!!value.required} | ${value.description || 'Protocol control.'} |`),'');
   if(example!==null)document.push('Representative request:','','```json',JSON.stringify(example,null,2),'```','');
 }

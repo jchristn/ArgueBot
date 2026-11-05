@@ -36,7 +36,7 @@ namespace ArgueBot.Core.Database.Implementations
             List<RunnerProfile> profiles = new List<RunnerProfile>();
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
-                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND snapshot=0 ORDER BY name,id", P("tenant", context.TenantId, "user", context.UserId)))
+                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND snapshot=0 ORDER BY name,id", P("tenant", context.TenantId, "user", context.UserId)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { while (await reader.ReadAsync(token).ConfigureAwait(false)) profiles.Add(Read(reader)); }
                 foreach (RunnerProfile profile in profiles) await LoadArgumentsAsync(connection, null, profile, token).ConfigureAwait(false);
@@ -51,7 +51,7 @@ namespace ArgueBot.Core.Database.Implementations
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
             {
                 RunnerProfile profile;
-                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
+                using (DbCommand command = Command(connection, null, "SELECT * FROM profiles WHERE tenant_id=@tenant AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
                 { if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Participant profile not found."); profile = Read(reader); }
                 await LoadArgumentsAsync(connection, null, profile, token).ConfigureAwait(false); return profile;
@@ -66,7 +66,7 @@ namespace ArgueBot.Core.Database.Implementations
             profile.Id = id;
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                int changed = await ExecuteAsync(connection, transaction, "UPDATE profiles SET name=@name,kind=@kind,provider=@provider,endpoint=@endpoint,model=@model,executable=@exe,cwd=@cwd,secret_env=@secret,timeout_seconds=@timeout,max_output_bytes=@max,enabled=@enabled,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND snapshot=0", token, P("name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
+                int changed = await ExecuteAsync(connection, transaction, "UPDATE profiles SET name=@name,kind=@kind,provider=@provider,endpoint=@endpoint,model=@model,executable=@exe,cwd=@cwd,secret_env=@secret,timeout_seconds=@timeout,max_output_bytes=@max,enabled=@enabled,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND snapshot=0", token, P("name", profile.Name, "kind", profile.Kind, "provider", profile.Provider, "endpoint", profile.Endpoint, "model", profile.Model, "exe", profile.Executable, "cwd", profile.WorkingDirectory, "secret", profile.SecretEnvironmentVariable, "timeout", profile.TimeoutSeconds, "max", profile.MaxOutputBytes, "enabled", profile.Enabled ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "immutable_snapshot", "Historical participant snapshots cannot be edited.");
                 await ExecuteAsync(connection, transaction, "DELETE FROM profile_arguments WHERE tenant_id=@tenant AND profile_id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
                 await CatalogMethods.SaveProfileAsync(connection, transaction, context, profile, token).ConfigureAwait(false);
@@ -80,7 +80,7 @@ namespace ArgueBot.Core.Database.Implementations
             RequireWrite(context); await ReadAsync(context, id, token).ConfigureAwait(false);
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                int changed = await ExecuteAsync(connection, transaction, "DELETE FROM profiles WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND snapshot=0", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
+                int changed = await ExecuteAsync(connection, transaction, "DELETE FROM profiles WHERE tenant_id=@tenant AND id=@id AND snapshot=0", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "immutable_snapshot", "Historical participant snapshots cannot be deleted.");
             }, token).ConfigureAwait(false);
         }

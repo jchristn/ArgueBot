@@ -24,6 +24,7 @@ namespace Test.Shared
                 using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
+                    await AuthenticatorChecks.RunAsync(database, token).ConfigureAwait(false);
                     await RunAsync(database, token).ConfigureAwait(false);
                 }
                 // A restart must keep the changed default password and must not duplicate or reset seeded records.

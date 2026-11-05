@@ -49,6 +49,10 @@ namespace ArgueBot.Core.Models
         /// <summary>Service-only callback recording endpoint wait time, including cancellation while queued.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public Func<long, System.Threading.CancellationToken, System.Threading.Tasks.Task>? RuntimeEndpointWait { get; set; }
+        /// <summary>Tenant whose endpoints and secrets this invocation may use. Set by the service for each invocation; never persisted.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string RuntimeTenantId { get { return _RuntimeTenantId; } set { ArgumentNullException.ThrowIfNull(value); _RuntimeTenantId = value; } }
+        private string _RuntimeTenantId = "";
         /// <summary>Invocation-only MCP bridge process. Never persisted or accepted from a transport document.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public List<string> RuntimeMcpCommand { get; } = new List<string>();

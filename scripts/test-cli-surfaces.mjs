@@ -20,7 +20,7 @@ await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port,tlsEna
 let started = false;
 let checks = 0;
 function invoke(words, body) {
-  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`CLI ${words.slice(0,2).join(' ')} failed: ${result.stderr}`);
   return result.stdout;
@@ -40,12 +40,13 @@ try {
   const attached = JSON.parse(await fs.readFile(path.join(home,'runtime/service.json'),'utf8'));
   check(attach.includes(`http://127.0.0.1:${port}/dashboard`) && descriptor.ProcessId === attached.ProcessId, 'Web launch did not reuse the existing service and actual port.');
   check(!await fs.access(path.join(home,'runtime/pairing-code')).then(()=>true,()=>false), 'Open service generated a pairing code.');
+  check((await fetch(`http://127.0.0.1:${port}/v2.0/api/conversations`)).status===401, 'An unauthenticated request was accepted.');
   for (const removed of ['auth/me','auth/pair','auth/login','users','roles','permissions','audit','backups','backup-operations']) {
-    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${removed}`, {method: removed.startsWith('auth/') && removed!=='auth/me' ? 'POST' : 'GET'});
+    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${removed}`, {method: removed.startsWith('auth/') && removed!=='auth/me' ? 'POST' : 'GET', headers:{authorization:'Bearer arguebotadmin'}});
     check(response.status===404, `Removed product route ${removed} is still exposed.`);
   }
   for (const [method, suffix] of [['POST','backups'],['POST','backups/bak_fixture/restore'],['POST','backups/bak_fixture/verify'],['DELETE','backups/bak_fixture'],['GET','backups/bak_fixture/download']]) {
-    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${suffix}`, {method});
+    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${suffix}`, {method, headers:{authorization:'Bearer arguebotadmin'}});
     check(response.status===404, `Removed archive operation ${method} ${suffix} is still exposed.`);
   }
   check(!/backups|restore/i.test(invoke(['--help'])), 'CLI help still advertises archive workflows.');
@@ -133,7 +134,7 @@ try {
     const panel = ['Claude','Codex','Gemini','DeepSeek'].map(name=>command(['participants','add','-'], {name:`CLI ${name}`,modelProfileId:model.id}));
     const moderator = command(['participants','add','-'], {name:'CLI orchestrator',modelProfileId:model.id});
     const debate = command(['conversations','create','CLI four-agent consensus']);
-    const rejected = spawnSync('dotnet', [cli, '--home', home + path.sep, 'debate','start',debate.id,'-'], {cwd:root, input: JSON.stringify({protocolVersion:2,participantIds:[panel[0].id],orchestratorId:moderator.id,idempotencyKey:'cli-v2-one-seat'}), encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:''}});
+    const rejected = spawnSync('dotnet', [cli, '--home', home + path.sep, 'debate','start',debate.id,'-'], {cwd:root, input: JSON.stringify({protocolVersion:2,participantIds:[panel[0].id],orchestratorId:moderator.id,idempotencyKey:'cli-v2-one-seat'}), encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
     check(rejected.status===2 && rejected.stderr.includes('too_few_participants (participantIds)'), `CLI did not report a field-specific admission error: ${rejected.stderr}`);
     const live = command(['debate','start',debate.id,'-'], {protocolVersion:2,participantIds:panel.map(value=>value.id),orchestratorId:moderator.id,maxRounds:2,interventionSeconds:0,idempotencyKey:'cli-v2-start'});
     const receipt = command(['interject',debate.id,'-'], {text:'Require a reversible rollout.',deliveryMode:'next_turn',pinned:true,idempotencyKey:'cli-v2-context'});

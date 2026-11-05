@@ -257,7 +257,7 @@ namespace Test.Shared
                 string endpoint = await LocalServiceConnector.ConnectAsync(home, token: token).ConfigureAwait(false);
                 LocalServiceDescriptor descriptor = JsonSerializer.Deserialize<LocalServiceDescriptor>(await File.ReadAllTextAsync(Path.Combine(home, "runtime", "service.json"), token).ConfigureAwait(false)) ?? throw new InvalidDataException("No fixture service descriptor.");
                 service = Process.GetProcessById(descriptor.ProcessId);
-                using (ArgueBotClient client = LocalServiceConnector.CreateClient(endpoint, home))
+                using (ArgueBotClient client = LocalServiceConnector.CreateClient(endpoint, home, ArgueBot.Core.Database.IdentitySeed.Token))
                 {
                     string fixture = Path.GetFullPath(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE") ?? Path.Combine(AppContext.BaseDirectory, "../../../../Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll"));
                     RunnerProfile profile = await client.CreateParticipantAsync(new RunnerProfile { Name = "Terminal stop fixture", Executable = "dotnet", Arguments = new List<string> { fixture, "hang" } }, token).ConfigureAwait(false);

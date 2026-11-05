@@ -3,7 +3,7 @@ namespace ArgueBot.Core.Services
     using System;
 
     /// <summary>A safe domain failure mapped to a status and stable code.</summary>
-    public sealed class DomainException : InvalidOperationException
+    public class DomainException : InvalidOperationException
     {
         /// <summary>HTTP status.</summary>
         public int StatusCode { get; }

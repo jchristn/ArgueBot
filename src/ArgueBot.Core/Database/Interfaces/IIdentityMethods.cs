@@ -1,6 +1,7 @@
 namespace ArgueBot.Core.Database.Interfaces
 {
     using ArgueBot.Core.Models;
+    using System;
     using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
@@ -44,5 +45,15 @@ namespace ArgueBot.Core.Database.Interfaces
         Task<AuthCredential> UpdateCredentialAsync(RequestContext context, string userId, string id, AuthCredentialRequest request, CancellationToken token = default);
         /// <summary>Delete a credential and its sessions. Protected credentials cannot be deleted.</summary>
         Task DeleteCredentialAsync(RequestContext context, string userId, string id, CancellationToken token = default);
+
+        /// <summary>List a user's active sessions: your own, or anyone's in your tenant for a tenant administrator. The caller's session is marked Current.</summary>
+        Task<List<AuthSession>> SessionsAsync(RequestContext context, string userId, CancellationToken token = default);
+        /// <summary>Revoke one session: your own, or anyone's in your tenant for a tenant administrator.</summary>
+        Task RevokeSessionAsync(RequestContext context, string id, CancellationToken token = default);
+
+        /// <summary>Search audit records newest first. Tenant administrators see their tenant; system administrators see every tenant and unauthenticated events.</summary>
+        Task<AuditPage> AuditAsync(RequestContext context, AuditQuery query, CancellationToken token = default);
+        /// <summary>Delete audit records older than a UTC cutoff, for retention. Returns the number deleted.</summary>
+        Task<int> DeleteAuditAsync(RequestContext context, DateTime beforeUtc, CancellationToken token = default);
     }
 }

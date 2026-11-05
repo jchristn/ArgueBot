@@ -55,6 +55,8 @@ namespace ArgueBot.Runners
         {
             RunnerProfile prepared = JsonSerializer.Deserialize<RunnerProfile>(JsonSerializer.Serialize(profile))!;
             prepared.RuntimeMcpCommand.AddRange(_McpCommand);
+            // Resolve endpoints and secrets inside the invoking run's tenant, never the service's own context.
+            RequestContext scope = new RequestContext { TenantId = profile.RuntimeTenantId.Length > 0 ? profile.RuntimeTenantId : _Context.TenantId, UserId = _Context.UserId, IsAuthenticated = true, IsAdmin = _Context.IsAdmin, IsTenantAdmin = true, Role = _Context.Role, PrincipalType = "Service", CorrelationId = _Context.CorrelationId };
             List<string> secrets = new List<string>(); string? home = null; IDisposable? capacityLease = null;
             try
             {
@@ -75,7 +77,7 @@ namespace ArgueBot.Runners
                     string identity = prepared.TransportId.Length > 0 ? prepared.TransportId : prepared.Endpoint;
                     if (prepared.TransportId.Length > 0)
                     {
-                        EndpointProfile? endpoint = (await _Database.Catalog.EndpointsAsync(_Context, token, prepared.TransportId).ConfigureAwait(false)).FirstOrDefault();
+                        EndpointProfile? endpoint = (await _Database.Catalog.EndpointsAsync(scope, token, prepared.TransportId).ConfigureAwait(false)).FirstOrDefault();
                         if (endpoint == null || !endpoint.Enabled) throw new DomainException(409, "configuration_unavailable", "The endpoint is unavailable or disabled. Enable it before retrying.");
                         capacity = endpoint.MaxConcurrentInvocations; capacityRevision = endpoint.Revision;
                     }
@@ -89,7 +91,7 @@ namespace ArgueBot.Runners
                     string value;
                     if (binding.CredentialId.Length > 0)
                     {
-                        if (!prepared.RuntimeCredentials.TryGetValue(binding.CredentialId, out string? cached)) value = await _Vault.ResolveAsync(_Context, binding.CredentialId, token, metadata => used = metadata).ConfigureAwait(false);
+                        if (!prepared.RuntimeCredentials.TryGetValue(binding.CredentialId, out string? cached)) value = await _Vault.ResolveAsync(scope, binding.CredentialId, token, metadata => used = metadata).ConfigureAwait(false);
                         else value = cached;
                         if (used != null && profile.RuntimeCredentialResolved != null) await profile.RuntimeCredentialResolved(used, token).ConfigureAwait(false);
                     }
@@ -100,12 +102,12 @@ namespace ArgueBot.Runners
                 if (prepared.SecretEnvironmentVariable.Length > 0) secrets.Add(Environment.GetEnvironmentVariable(prepared.SecretEnvironmentVariable) ?? "");
                 if (prepared.CredentialId.Length > 0)
                 {
-                    CredentialMetadata metadata = (await _Database.Credentials.EnumerateAsync(_Context, token, prepared.CredentialId).ConfigureAwait(false)).FirstOrDefault(item => item.Id == prepared.CredentialId) ?? throw new DomainException(409, "credential_unavailable", "The configured CLI credential is unavailable.");
-                    string value = await _Vault.ResolveAsync(_Context, metadata.Id, token, current => metadata = current).ConfigureAwait(false); secrets.Add(value);
+                    CredentialMetadata metadata = (await _Database.Credentials.EnumerateAsync(scope, token, prepared.CredentialId).ConfigureAwait(false)).FirstOrDefault(item => item.Id == prepared.CredentialId) ?? throw new DomainException(409, "credential_unavailable", "The configured CLI credential is unavailable.");
+                    string value = await _Vault.ResolveAsync(scope, metadata.Id, token, current => metadata = current).ConfigureAwait(false); secrets.Add(value);
                     if (prepared.Provider == "claude" && metadata.Kind == "claude_oauth") prepared.RuntimeEnvironment["CLAUDE_CODE_OAUTH_TOKEN"] = value;
                     else if (prepared.Provider == "codex" && metadata.Kind == "codex_auth_json")
                     {
-                        value = await _Vault.PrepareCodexAsync(_Context, metadata.Id, token, current => metadata = current).ConfigureAwait(false);
+                        value = await _Vault.PrepareCodexAsync(scope, metadata.Id, token, current => metadata = current).ConfigureAwait(false);
                         using (JsonDocument document = JsonDocument.Parse(value)) AddSecrets(document.RootElement, secrets);
                         home = Path.Combine(_Directory, Guid.NewGuid().ToString("N")); Directory.CreateDirectory(home); HomePermissions.Directory(home);
                         string marker = Path.Combine(home, ".arguebot-credential-home"); await File.WriteAllTextAsync(marker, "arguebot invocation credential home", token).ConfigureAwait(false); HomePermissions.File(marker);

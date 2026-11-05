@@ -1,16 +1,59 @@
 {
   "info": {
     "name": "ArgueBot local conversation service",
-    "description": "Runnable local contract coverage. The open workspace has no user accounts. Provider credentials are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
+    "description": "Runnable local contract coverage. Requests send {{token}} as a bearer token; it defaults to the default administrator token arguebotadmin, and Authentication > Sign in replaces it with a session token. Provider secrets are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
-    "type": "noauth"
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://127.0.0.1:4317"
+    },
+    {
+      "key": "token",
+      "value": "arguebotadmin"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "userRevision",
+      "value": ""
+    },
+    {
+      "key": "tenantId",
+      "value": ""
+    },
+    {
+      "key": "tenantName",
+      "value": ""
+    },
+    {
+      "key": "authCredentialId",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "currentPassword",
+      "value": ""
+    },
+    {
+      "key": "newPassword",
+      "value": ""
     },
     {
       "key": "conversationId",
@@ -129,7 +172,7 @@
               }
             ],
             "url": "{{baseUrl}}/health",
-            "description": "Open workspace endpoint.  Check readiness without authentication",
+            "description": "Access: public; no bearer token.  Check readiness without authentication",
             "auth": {
               "type": "noauth"
             }
@@ -163,10 +206,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations",
-            "description": "Open workspace endpoint.  Create a persistent conversation without starting any model",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create a persistent conversation without starting any model",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Billing isolation\",\n  \"openingQuestion\": \"Should billing move to its own service this quarter?\"\n}",
@@ -202,10 +242,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations",
-            "description": "Open workspace endpoint.  Search owned titles and message content with exact totals",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Search owned titles and message content with exact totals"
           },
           "event": [
             {
@@ -230,10 +267,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  Read an owned conversation",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read an owned conversation"
           },
           "event": [
             {
@@ -268,10 +302,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  Change title, pin or archive using an expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Change title, pin or archive using an expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Updated example decision\",\n  \"pinned\": true,\n  \"archived\": false,\n  \"revision\": \"{{conversationRevision}}\"\n}",
@@ -322,10 +353,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
-            "description": "Open workspace endpoint.  Read bounded owned message previews with stable membership and exact totals",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read bounded owned message previews with stable membership and exact totals"
           },
           "event": [
             {
@@ -360,10 +388,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages",
-            "description": "Open workspace endpoint.  Append a public note with command deduplication",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Append a public note with command deduplication",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Consider reversibility and ownership.\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -407,10 +432,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/messages/{{messageId}}",
-            "description": "Open workspace endpoint.  Read one complete owned message without loading other history",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read one complete owned message without loading other history"
           },
           "event": [
             {
@@ -451,10 +473,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/events",
-            "description": "Open workspace endpoint.  Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read committed events after a cursor; Accept text/event-stream enables resumable SSE"
           },
           "event": [
             {
@@ -494,10 +513,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants",
-            "description": "Open workspace endpoint.  Create a reusable direct CLI or PolyPrompt completion profile",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create a reusable direct CLI or PolyPrompt completion profile",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example REST participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"timeoutSeconds\": 5\n}",
@@ -541,10 +557,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants",
-            "description": "Open workspace endpoint.  List current runner profiles; excludes historical snapshots",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  List current runner profiles; excludes historical snapshots"
           },
           "event": [
             {
@@ -569,10 +582,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
-            "description": "Open workspace endpoint.  Edit a reusable profile without changing historical run snapshots",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Edit a reusable profile without changing historical run snapshots",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Updated example participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"enabled\": true\n}",
@@ -622,10 +632,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
-            "description": "Open workspace endpoint.  Read execution history and immutable participants",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read execution history and immutable participants"
           },
           "event": [
             {
@@ -659,10 +666,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Start a debate or single-participant follow-up with a durable receipt",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Start a debate or single-participant follow-up with a durable receipt",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mode\": \"followup\",\n  \"question\": \"Summarize the options.\",\n  \"participantIds\": [\n    \"{{profileId}}\"\n  ],\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -708,10 +712,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}",
-            "description": "Open workspace endpoint.  Read a durable checkpoint and current revision",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read a durable checkpoint and current revision"
           },
           "event": [
             {
@@ -746,10 +747,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"stop\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -794,10 +792,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}/runs/{{runId}}/attempts",
-            "description": "Open workspace endpoint.  Page durable generation attempts with frozen participant, prompt and context provenance",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Page durable generation attempts with frozen participant, prompt and context provenance"
           },
           "event": [
             {
@@ -838,10 +833,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history",
-            "description": "Open workspace endpoint.  Inspect scoped request metadata with backend filtering and paging",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Inspect scoped request metadata with backend filtering and paging"
           },
           "event": [
             {
@@ -866,10 +858,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}",
-            "description": "Open workspace endpoint.  Return zero-filled UTC activity buckets for a bounded range",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Return zero-filled UTC activity buckets for a bounded range"
           },
           "event": [
             {
@@ -895,10 +884,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
-            "description": "Open workspace endpoint.  Read redacted request and response headers and body prefixes",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Read redacted request and response headers and body prefixes"
           },
           "event": [
             {
@@ -932,10 +918,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/request-history/{{requestId}}",
-            "description": "Open workspace endpoint.  Delete one authorized retained request capture",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Delete one authorized retained request capture"
           },
           "event": [
             {
@@ -975,10 +958,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings",
-            "description": "Open workspace endpoint.  Read redacted file settings, revision and restart metadata",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: system administrators.  Read redacted file settings, revision and restart metadata"
           },
           "event": [
             {
@@ -1004,10 +984,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Atomically update allowlisted nonsecret settings using its revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  Atomically update allowlisted nonsecret settings using its revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"revision\": \"{{settingsRevision}}\",\n  \"port\": 4317,\n  \"maxConcurrentRuns\": 4,\n  \"allowCli\": true,\n  \"databaseType\": \"Sqlite\",\n  \"connectionEnvironmentVariable\": \"\"\n}",
@@ -1052,10 +1029,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings/restart",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1098,10 +1072,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/settings/shutdown",
-            "description": "Open workspace endpoint.  Drain active work and stop the service; a supervisor may restart it",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: system administrators.  Drain active work and stop the service; a supervisor may restart it"
           },
           "event": [
             {
@@ -1132,10 +1103,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/participants/{{profileId}}",
-            "description": "Open workspace endpoint.  Delete a reusable participant, preserving historical snapshots",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Delete a reusable participant, preserving historical snapshots"
           },
           "event": [
             {
@@ -1169,10 +1137,7 @@
               }
             ],
             "url": "{{baseUrl}}/v1.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  Permanently delete a stopped conversation and its retained messages/events",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Permanently delete a stopped conversation and its retained messages/events"
           },
           "event": [
             {
@@ -1212,10 +1177,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations",
-            "description": "Open workspace endpoint.  v2: Create a persistent conversation without starting any model",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  v2: Create a persistent conversation without starting any model",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Example architecture decision\"\n}",
@@ -1251,10 +1213,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations",
-            "description": "Open workspace endpoint.  v2: Search owned titles and message content with exact totals",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Search owned titles and message content with exact totals"
           },
           "event": [
             {
@@ -1279,10 +1238,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  v2: Read an owned conversation",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read an owned conversation"
           },
           "event": [
             {
@@ -1317,10 +1273,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  v2: Change title, pin or archive using an expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  v2: Change title, pin or archive using an expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Updated example decision\",\n  \"pinned\": true,\n  \"archived\": false,\n  \"revision\": \"{{conversationRevision}}\"\n}",
@@ -1371,10 +1324,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
-            "description": "Open workspace endpoint.  v2: Read bounded owned message previews with stable membership and exact totals",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read bounded owned message previews with stable membership and exact totals"
           },
           "event": [
             {
@@ -1409,10 +1359,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages",
-            "description": "Open workspace endpoint.  v2: Append a public note with command deduplication",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  v2: Append a public note with command deduplication",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"note\",\n  \"text\": \"Consider reversibility and ownership.\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -1456,10 +1403,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/messages/{{messageId}}",
-            "description": "Open workspace endpoint.  v2: Read one complete owned message without loading other history",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read one complete owned message without loading other history"
           },
           "event": [
             {
@@ -1500,10 +1444,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/events",
-            "description": "Open workspace endpoint.  v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE"
           },
           "event": [
             {
@@ -1543,10 +1484,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/participants",
-            "description": "Open workspace endpoint.  v2: Create a reusable direct CLI or PolyPrompt completion profile",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  v2: Create a reusable direct CLI or PolyPrompt completion profile",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example REST participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"timeoutSeconds\": 5\n}",
@@ -1590,10 +1528,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/participants",
-            "description": "Open workspace endpoint.  v2: List current runner profiles; excludes historical snapshots",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: List current runner profiles; excludes historical snapshots"
           },
           "event": [
             {
@@ -1618,10 +1553,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}",
-            "description": "Open workspace endpoint.  v2: Edit a reusable profile without changing historical run snapshots",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  v2: Edit a reusable profile without changing historical run snapshots",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Updated example participant\",\n  \"kind\": \"rest\",\n  \"provider\": \"ollama\",\n  \"endpoint\": \"{{simulationEndpoint}}\",\n  \"model\": \"fixture\",\n  \"enabled\": true\n}",
@@ -1671,10 +1603,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
-            "description": "Open workspace endpoint.  v2: Read execution history and immutable participants",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read execution history and immutable participants"
           },
           "event": [
             {
@@ -1708,10 +1637,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Start a model-guided panel with an explicit orchestrator",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Start a model-guided panel with an explicit orchestrator",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"protocolVersion\": 2,\n  \"mode\": \"debate\",\n  \"participantIds\": [\n    \"{{profileId}}\",\n    \"{{secondProfileId}}\",\n    \"{{thirdProfileId}}\",\n    \"{{fourthProfileId}}\"\n  ],\n  \"orchestratorId\": \"{{orchestratorId}}\",\n  \"maxRounds\": 3,\n  \"interventionSeconds\": 5,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
@@ -1762,10 +1688,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}",
-            "description": "Open workspace endpoint.  v2: Read a durable checkpoint and current revision",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Read a durable checkpoint and current revision"
           },
           "event": [
             {
@@ -1800,10 +1723,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/actions",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"stop\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
@@ -1848,10 +1768,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/attempts",
-            "description": "Open workspace endpoint.  v2: Page durable generation attempts with frozen participant, prompt and context provenance",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Page durable generation attempts with frozen participant, prompt and context provenance"
           },
           "event": [
             {
@@ -1892,10 +1809,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/request-history",
-            "description": "Open workspace endpoint.  v2: Inspect scoped request metadata with backend filtering and paging",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  v2: Inspect scoped request metadata with backend filtering and paging"
           },
           "event": [
             {
@@ -1920,10 +1834,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/request-history/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}",
-            "description": "Open workspace endpoint.  v2: Return zero-filled UTC activity buckets for a bounded range",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  v2: Return zero-filled UTC activity buckets for a bounded range"
           },
           "event": [
             {
@@ -1949,10 +1860,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/request-history/{{requestId}}",
-            "description": "Open workspace endpoint.  v2: Read redacted request and response headers and body prefixes",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  v2: Read redacted request and response headers and body prefixes"
           },
           "event": [
             {
@@ -1986,10 +1894,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/request-history/{{requestId}}",
-            "description": "Open workspace endpoint.  v2: Delete one authorized retained request capture",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  v2: Delete one authorized retained request capture"
           },
           "event": [
             {
@@ -2029,10 +1934,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/settings",
-            "description": "Open workspace endpoint.  v2: Read redacted file settings, revision and restart metadata",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: system administrators.  v2: Read redacted file settings, revision and restart metadata"
           },
           "event": [
             {
@@ -2058,10 +1960,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/settings",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Atomically update allowlisted nonsecret settings using its revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  v2: Atomically update allowlisted nonsecret settings using its revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"revision\": \"{{settingsRevision}}\",\n  \"port\": 4317,\n  \"maxConcurrentRuns\": 4,\n  \"allowCli\": true,\n  \"databaseType\": \"Sqlite\",\n  \"connectionEnvironmentVariable\": \"\"\n}",
@@ -2106,10 +2005,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/settings/restart",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -2152,10 +2048,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/settings/shutdown",
-            "description": "Open workspace endpoint.  v2: Drain active work and stop the service; a supervisor may restart it",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: system administrators.  v2: Drain active work and stop the service; a supervisor may restart it"
           },
           "event": [
             {
@@ -2186,10 +2079,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}",
-            "description": "Open workspace endpoint.  v2: Delete a reusable participant, preserving historical snapshots",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Delete a reusable participant, preserving historical snapshots"
           },
           "event": [
             {
@@ -2223,10 +2113,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}",
-            "description": "Open workspace endpoint.  v2: Permanently delete a stopped conversation and its retained messages/events",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  v2: Permanently delete a stopped conversation and its retained messages/events"
           },
           "event": [
             {
@@ -2266,10 +2153,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/capabilities",
-            "description": "Open workspace endpoint.  Discover panel limits and unanimity policy",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Discover panel limits and unanimity policy"
           },
           "event": [
             {
@@ -2301,10 +2185,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
-            "description": "Open workspace endpoint.  Accept context with an explicit delivery mode",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Accept context with an explicit delivery mode",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"runId\": \"{{runId}}\",\n  \"text\": \"Preserve reversibility during rollout.\",\n  \"deliveryMode\": \"next_turn\",\n  \"pinned\": true,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
@@ -2350,10 +2231,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/interjections",
-            "description": "Open workspace endpoint.  Read context receipts and exact participant deliveries",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read context receipts and exact participant deliveries"
           },
           "event": [
             {
@@ -2393,10 +2271,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/roster",
-            "description": "Open workspace endpoint.  Queue a roster change with expected run revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Queue a roster change with expected run revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"add\",\n  \"profileId\": \"{{replacementProfileId}}\",\n  \"revision\": 1,\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
@@ -2442,10 +2317,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/roster",
-            "description": "Open workspace endpoint.  Read current and historical panel seats",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read current and historical panel seats"
           },
           "event": [
             {
@@ -2486,10 +2358,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/proposals",
-            "description": "Open workspace endpoint.  Inspect exact proposals and every recorded vote; paged newest first",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Inspect exact proposals and every recorded vote; paged newest first"
           },
           "event": [
             {
@@ -2531,10 +2400,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/summaries",
-            "description": "Open workspace endpoint.  Read shared and private summaries with paginated immutable source manifests",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read shared and private summaries with paginated immutable source manifests"
           },
           "event": [
             {
@@ -2569,10 +2435,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/clarifications",
-            "description": "Open workspace endpoint.  Read pending and answered moderator questions; paged newest first",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read pending and answered moderator questions; paged newest first"
           },
           "event": [
             {
@@ -2613,10 +2476,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/endpoints",
-            "description": "Open workspace endpoint.  List endpoints without secret values; bounded pages default to 100 items",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  List endpoints without secret values; bounded pages default to 100 items"
           },
           "event": [
             {
@@ -2641,10 +2501,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/endpoints",
-            "description": "Open workspace endpoint.  Create endpoints configuration",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create endpoints configuration",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example gateway\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{simulationEndpoint}}\",\n  \"timeoutSeconds\": 300,\n  \"enabled\": true,\n  \"authBindings\": [\n    {\n      \"kind\": \"bearer\",\n      \"credentialId\": \"{{credentialId}}\"\n    },\n    {\n      \"kind\": \"header\",\n      \"name\": \"X-Route\",\n      \"value\": \"example\"\n    }\n  ]\n}",
@@ -2689,10 +2546,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}",
-            "description": "Open workspace endpoint.  Replace endpoints configuration with expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Replace endpoints configuration with expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example gateway\",\n  \"protocol\": \"openai\",\n  \"baseUrl\": \"{{simulationEndpoint}}\",\n  \"timeoutSeconds\": 300,\n  \"enabled\": true,\n  \"authBindings\": [\n    {\n      \"kind\": \"bearer\",\n      \"credentialId\": \"{{credentialId}}\"\n    },\n    {\n      \"kind\": \"header\",\n      \"name\": \"X-Route\",\n      \"value\": \"example\"\n    }\n  ],\n  \"revision\": 1\n}",
@@ -2737,10 +2591,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
-            "description": "Open workspace endpoint.  List harnesses without secret values; bounded pages default to 100 items",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  List harnesses without secret values; bounded pages default to 100 items"
           },
           "event": [
             {
@@ -2765,10 +2616,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
-            "description": "Open workspace endpoint.  Create harnesses configuration",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create harnesses configuration",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true\n}",
@@ -2812,10 +2660,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/harnesses/{{id}}",
-            "description": "Open workspace endpoint.  Replace harnesses configuration with expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Replace harnesses configuration with expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true,\n  \"revision\": 1\n}",
@@ -2859,10 +2704,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/models",
-            "description": "Open workspace endpoint.  List models without secret values; bounded pages default to 100 items",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  List models without secret values; bounded pages default to 100 items"
           },
           "event": [
             {
@@ -2887,10 +2729,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/models",
-            "description": "Open workspace endpoint.  Create models configuration",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create models configuration",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent\",\n  \"contextMaxCharacters\": 262144,\n  \"supportsTools\": true,\n  \"enabled\": true\n}",
@@ -2934,10 +2773,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}",
-            "description": "Open workspace endpoint.  Replace models configuration with expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Replace models configuration with expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent\",\n  \"contextMaxCharacters\": 262144,\n  \"supportsTools\": true,\n  \"enabled\": true,\n  \"revision\": 1\n}",
@@ -2981,10 +2817,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}/discover",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials"
           },
           "event": [
             {
@@ -3019,10 +2852,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}/checks",
-            "description": "Open workspace endpoint.  Read observed completion/tool checks",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read observed completion/tool checks"
           },
           "event": [
             {
@@ -3056,10 +2886,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/models/{{id}}/checks",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Explicitly invoke a potentially billable model check",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Explicitly invoke a potentially billable model check",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{commandKey}}\",\n  \"checkTools\": false\n}",
@@ -3104,10 +2931,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/endpoints/{{id}}/preview",
-            "description": "Open workspace endpoint.  Preview normalized destinations and binding names without contacting the endpoint or resolving credentials",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Preview normalized destinations and binding names without contacting the endpoint or resolving credentials"
           },
           "event": [
             {
@@ -3133,11 +2957,11 @@
       ]
     },
     {
-      "name": "Credentials",
-      "description": "Lifecycle operations for credentials. Variables, ownership and validation requirements are described by each request.",
+      "name": "Secrets",
+      "description": "Lifecycle operations for secrets. Variables, ownership and validation requirements are described by each request.",
       "item": [
         {
-          "name": "List credentials without secret values; bounded pages default to 100 items",
+          "name": "List secrets without secret values; bounded pages default to 100 items",
           "request": {
             "method": "GET",
             "header": [
@@ -3146,11 +2970,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
-            "description": "Open workspace endpoint.  List credentials without secret values; bounded pages default to 100 items",
-            "auth": {
-              "type": "noauth"
-            }
+            "url": "{{baseUrl}}/v2.0/api/configuration/secrets",
+            "description": "Access: any signed-in user of an active tenant.  List secrets without secret values; bounded pages default to 100 items"
           },
           "event": [
             {
@@ -3165,7 +2986,7 @@
           ]
         },
         {
-          "name": "Create credentials configuration",
+          "name": "Create secrets configuration",
           "request": {
             "method": "POST",
             "header": [
@@ -3174,11 +2995,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
-            "description": "Open workspace endpoint.  Create credentials configuration",
-            "auth": {
-              "type": "noauth"
-            },
+            "url": "{{baseUrl}}/v2.0/api/configuration/secrets",
+            "description": "Access: any signed-in user of an active tenant.  Create secrets configuration",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"http_header\",\n  \"parameterName\": \"x-api-key\",\n  \"secretValue\": \"{{credentialValue}}\"\n}",
@@ -3213,7 +3031,7 @@
           ]
         },
         {
-          "name": "Replace credentials configuration with expected revision",
+          "name": "Replace secrets configuration with expected revision",
           "request": {
             "method": "PUT",
             "header": [
@@ -3222,11 +3040,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}",
-            "description": "Open workspace endpoint.  Replace credentials configuration with expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "url": "{{baseUrl}}/v2.0/api/configuration/secrets/{{id}}",
+            "description": "Access: any signed-in user of an active tenant.  Replace secrets configuration with expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"token\",\n  \"secretValue\": \"{{credentialValue}}\",\n  \"revision\": 1\n}",
@@ -3261,7 +3076,7 @@
           ]
         },
         {
-          "name": "Reveal a ready credential's decrypted value to the moderator",
+          "name": "Reveal a ready secret's decrypted value to the moderator",
           "request": {
             "method": "POST",
             "header": [
@@ -3270,11 +3085,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}/reveal",
-            "description": "Open workspace endpoint.  Reveal a ready credential's decrypted value to the moderator",
-            "auth": {
-              "type": "noauth"
-            }
+            "url": "{{baseUrl}}/v2.0/api/configuration/secrets/{{id}}/reveal",
+            "description": "Access: any signed-in user of an active tenant.  Reveal a ready secret's decrypted value to the moderator"
           },
           "event": [
             {
@@ -3298,7 +3110,7 @@
           ]
         },
         {
-          "name": "Disable a credential while keeping historical references",
+          "name": "Disable a secret while keeping historical references",
           "request": {
             "method": "DELETE",
             "header": [
@@ -3307,11 +3119,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}?revision={{resourceRevision}}",
-            "description": "Open workspace endpoint.  Disable a credential while keeping historical references",
-            "auth": {
-              "type": "noauth"
-            }
+            "url": "{{baseUrl}}/v2.0/api/configuration/secrets/{{id}}?revision={{resourceRevision}}",
+            "description": "Access: any signed-in user of an active tenant.  Disable a secret while keeping historical references"
           },
           "event": [
             {
@@ -3344,11 +3153,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys",
-            "description": "Open workspace endpoint.  Read safe master-key identities",
-            "auth": {
-              "type": "noauth"
-            }
+            "url": "{{baseUrl}}/v2.0/api/configuration/secret-keys",
+            "description": "Access: system administrators.  Read safe master-key identities"
           },
           "event": [
             {
@@ -3363,7 +3169,7 @@
           ]
         },
         {
-          "name": "Rotate the expected master key and reencrypt credentials",
+          "name": "Rotate the expected master key and reencrypt secrets",
           "request": {
             "method": "POST",
             "header": [
@@ -3372,11 +3178,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/rotate",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Rotate the expected master key and reencrypt credentials",
-            "auth": {
-              "type": "noauth"
-            },
+            "url": "{{baseUrl}}/v2.0/api/configuration/secret-keys/rotate",
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  Rotate the expected master key and reencrypt secrets",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
@@ -3410,7 +3213,309 @@
           ]
         },
         {
-          "name": "Retire earlier master keys once no credential uses them",
+          "name": "Retire earlier master keys once no secret uses them",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/secret-keys/retire",
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  Retire earlier master keys once no secret uses them",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('activeKeyId')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deprecated aliases",
+      "description": "Lifecycle operations for deprecated aliases. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Deprecated alias of GET /v2.0/api/configuration/secrets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+            "description": "Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of GET /v2.0/api/configuration/secrets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of POST /v2.0/api/configuration/secrets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+            "description": "Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of POST /v2.0/api/configuration/secrets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"http_header\",\n  \"parameterName\": \"x-api-key\",\n  \"secretValue\": \"{{credentialValue}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialValue')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('credentialId',pm.response.json().id);",
+                  "if(pm.response.code<300) pm.test('Credential response contains metadata only',()=>{const value=pm.response.json();pm.expect(value).not.to.have.property('secretValue');pm.expect(value).not.to.have.property('ciphertext');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of PUT /v2.0/api/configuration/secrets/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}",
+            "description": "Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of PUT /v2.0/api/configuration/secrets/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Example gateway credential\",\n  \"kind\": \"token\",\n  \"secretValue\": \"{{credentialValue}}\",\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialValue')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code<300) pm.test('Credential response contains metadata only',()=>{const value=pm.response.json();pm.expect(value).not.to.have.property('secretValue');pm.expect(value).not.to.have.property('ciphertext');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of POST /v2.0/api/configuration/secrets/{id}/reveal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}/reveal",
+            "description": "Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of POST /v2.0/api/configuration/secrets/{id}/reveal"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of DELETE /v2.0/api/configuration/secrets/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{id}}?revision={{resourceRevision}}",
+            "description": "Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of DELETE /v2.0/api/configuration/secrets/{id}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of GET /v2.0/api/configuration/secret-keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys",
+            "description": "Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.  Deprecated alias of GET /v2.0/api/configuration/secret-keys"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of POST /v2.0/api/configuration/secret-keys/rotate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/rotate",
+            "description": "Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x. May execute work or change service state; do not blindly replay requests.  Deprecated alias of POST /v2.0/api/configuration/secret-keys/rotate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('activeKeyId')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deprecated alias of POST /v2.0/api/configuration/secret-keys/retire",
           "request": {
             "method": "POST",
             "header": [
@@ -3420,10 +3525,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/configuration/credential-keys/retire",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  Retire earlier master keys once no credential uses them",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x. May execute work or change service state; do not blindly replay requests.  Deprecated alias of POST /v2.0/api/configuration/secret-keys/retire",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"expectedKeyId\": \"{{activeKeyId}}\"\n}",
@@ -3473,10 +3575,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompt-parameters",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  List prompt placeholders and the debate steps where each has a value",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  List prompt placeholders and the debate steps where each has a value"
           },
           "event": [
             {
@@ -3510,10 +3609,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts",
-            "description": "Open workspace endpoint. May execute work or change service state; do not blindly replay requests.  List factory and workspace prompts",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  List factory and workspace prompts"
           },
           "event": [
             {
@@ -3547,10 +3643,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts",
-            "description": "Open workspace endpoint.  Create a workspace prompt",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Create a workspace prompt",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Skeptical question\",\n  \"purpose\": \"question\",\n  \"description\": \"Pushes on the weakest assumption.\",\n  \"body\": \"You are {agent_name}, the orchestrator. Debate question: {question}\\nPanel: {panel}. Round {round} of {max_rounds}.\\n{guidance}\\nAsk the single question most likely to expose a weak assumption. Return only a JSON object with question and rationale.\"\n}",
@@ -3585,10 +3678,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}",
-            "description": "Open workspace endpoint.  Read a prompt",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Read a prompt"
           },
           "event": [
             {
@@ -3622,10 +3712,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}",
-            "description": "Open workspace endpoint.  Update a workspace prompt with its expected revision",
-            "auth": {
-              "type": "noauth"
-            },
+            "description": "Access: any signed-in user of an active tenant.  Update a workspace prompt with its expected revision",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Skeptical question\",\n  \"description\": \"Pushes on the weakest assumption.\",\n  \"body\": \"You are {agent_name}. Question: {question}\\n{guidance}\\nReturn only a JSON object with question and rationale.\",\n  \"revision\": 1\n}",
@@ -3668,10 +3755,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}/duplicate",
-            "description": "Open workspace endpoint.  Copy a prompt, including a factory default, into an editable workspace prompt",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Copy a prompt, including a factory default, into an editable workspace prompt"
           },
           "event": [
             {
@@ -3705,10 +3789,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/prompts/{{id}}?revision={{resourceRevision}}",
-            "description": "Open workspace endpoint.  Delete a workspace prompt; factory prompts cannot be deleted",
-            "auth": {
-              "type": "noauth"
-            }
+            "description": "Access: any signed-in user of an active tenant.  Delete a workspace prompt; factory prompts cannot be deleted"
           },
           "event": [
             {
@@ -3717,6 +3798,1206 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "Lifecycle operations for authentication. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Sign in with an email and password and receive a session token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/token",
+            "description": "Access: public; no bearer token.  Sign in with an email and password and receive a session token",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@arguebot\",\n  \"password\": \"password\",\n  \"tenantId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('token',pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read sign-in page information, including the default credentials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/login-info",
+            "description": "Access: public; no bearer token.  Read sign-in page information, including the default credentials",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check that the bearer token is valid",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/token",
+            "description": "Access: any signed-in user of an active tenant.  Check that the bearer token is valid"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Describe the bearer token: user, tenant, principal and expiry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/token/details",
+            "description": "Access: any signed-in user of an active tenant.  Describe the bearer token: user, tenant, principal and expiry"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace the session token with one that has a fresh lifetime",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/token/refresh",
+            "description": "Access: any signed-in user of an active tenant.  Replace the session token with one that has a fresh lifetime"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));",
+                  "if(pm.response.code===200) pm.collectionVariables.set('token',pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign out by revoking the current session token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/token",
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Sign out by revoking the current session token"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "description": "Lifecycle operations for account. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Read the signed-in user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me",
+            "description": "Access: any signed-in user of an active tenant.  Read the signed-in user"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change your name or email with the expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me",
+            "description": "Access: any signed-in user of an active tenant.  Change your name or email with the expected revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Default\",\n  \"lastName\": \"Admin\",\n  \"email\": \"admin@arguebot\",\n  \"revision\": \"{{userRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userRevision')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change your password and sign out your other sessions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/password",
+            "description": "Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.  Change your password and sign out your other sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{currentPassword}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('currentPassword')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('newPassword')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List your bearer-token credentials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/credentials",
+            "description": "Access: any signed-in user of an active tenant.  List your bearer-token credentials"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a bearer-token credential; the token is returned only once",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/credentials",
+            "description": "Access: any signed-in user of an active tenant.  Create a bearer-token credential; the token is returned only once",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional automation\",\n  \"expiresUtc\": null,\n  \"active\": true,\n  \"revision\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('authCredentialId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rename, enable or disable one of your credentials",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/credentials/{{credentialId}}",
+            "description": "Access: any signed-in user of an active tenant.  Rename, enable or disable one of your credentials",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional automation\",\n  \"active\": false,\n  \"revision\": \"{{resourceRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceRevision')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete one of your credentials",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/credentials/{{credentialId}}",
+            "description": "Access: any signed-in user of an active tenant.  Delete one of your credentials"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List your active sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/sessions",
+            "description": "Access: any signed-in user of an active tenant.  List your active sessions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign out one of your sessions",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/sessions/{{sessionId}}",
+            "description": "Access: any signed-in user of an active tenant.  Sign out one of your sessions"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('sessionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Lifecycle operations for users. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List users in your tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  List users in your tenant"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a user in your tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Create a user in your tenant",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Fictional\",\n  \"lastName\": \"Member\",\n  \"email\": \"member@example.test\",\n  \"password\": \"{{newPassword}}\",\n  \"isTenantAdmin\": false,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('newPassword')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('userId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Read a user"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update a user with the expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Update a user with the expected revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Fictional\",\n  \"lastName\": \"Member\",\n  \"email\": \"member@example.test\",\n  \"isTenantAdmin\": false,\n  \"active\": true,\n  \"revision\": \"{{resourceRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceRevision')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete a user; their conversations and agents stay in the tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.  Delete a user; their conversations and agents stay in the tenant"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset a user's password and sign out their sessions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/password",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.  Reset a user's password and sign out their sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('newPassword')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List a user's credentials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  List a user's credentials"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a credential for a user; the token is returned only once",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Create a credential for a user; the token is returned only once",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional integration\",\n  \"active\": true,\n  \"revision\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rename, enable or disable a user's credential",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials/{{credentialId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Rename, enable or disable a user's credential",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional integration\",\n  \"active\": false,\n  \"revision\": \"{{resourceRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceRevision')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete a user's credential",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials/{{credentialId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Delete a user's credential"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List a user's active sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/sessions",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  List a user's active sessions"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke any session in your tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/sessions/{{sessionId}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Revoke any session in your tenant"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('sessionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Audit",
+      "description": "Lifecycle operations for audit. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "Search the security audit log, newest first",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/audit",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Search the security audit log, newest first"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete audit records older than beforeUtc",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/audit?beforeUtc={{fromUtc}}",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.  Delete audit records older than beforeUtc"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "description": "Lifecycle operations for tenants. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/tenants",
+            "description": "Access: system administrators.  List tenants"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/tenants",
+            "description": "Access: system administrators.  Create a tenant",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional tenant\",\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('tenantId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/tenants/{{tenantId}}",
+            "description": "Access: system administrators.  Read a tenant"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('tenantId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rename, enable or disable a tenant with the expected revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/tenants/{{tenantId}}",
+            "description": "Access: system administrators.  Rename, enable or disable a tenant with the expected revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fictional tenant\",\n  \"active\": true,\n  \"revision\": \"{{resourceRevision}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceRevision')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('tenantId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete a tenant and everything in it; confirmName must be its exact name",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/tenants/{{tenantId}}?confirmName={{tenantName}}",
+            "description": "Access: system administrators. May execute work or change service state; do not blindly replay requests.  Delete a tenant and everything in it; confirmName must be its exact name"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('tenantId')) pm.execution.skipRequest();"
                 ]
               }
             },

@@ -2,24 +2,54 @@ namespace ArgueBot.Server
 {
     using ArgueBot.Core.Services;
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
+    using System.Linq;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using WatsonWebserver.Core;
 
-    internal static class LocalHttpPolicy
+    /// <summary>
+    /// Host and origin allowlist. 127.0.0.1 and localhost are always allowed; other names come from the AllowedHosts setting
+    /// and the comma-separated ARGUEBOT_ALLOWED_HOSTS environment variable. Browser origins must match the requested host.
+    /// </summary>
+    internal sealed class LocalHttpPolicy
     {
-        internal static Task ValidateAsync(HttpContextBase http, int port, bool tls, bool mappedPort = false)
+        private static readonly Regex Authority = new Regex(@"\A(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::([0-9]{1,5}))?\z", RegexOptions.CultureInvariant);
+        private readonly HashSet<string> _Hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "127.0.0.1", "localhost" };
+        private readonly int _Port;
+        private readonly bool _Tls;
+        private readonly bool _MappedPort;
+
+        internal LocalHttpPolicy(int port, bool tls, bool mappedPort, IEnumerable<string> allowedHosts)
+        {
+            _Port = port; _Tls = tls; _MappedPort = mappedPort;
+            foreach (string host in allowedHosts.Concat((Environment.GetEnvironmentVariable("ARGUEBOT_ALLOWED_HOSTS") ?? "").Split(',')).Select(item => item.Trim()).Where(item => item.Length > 0)) _Hosts.Add(host);
+        }
+
+        /// <summary>Allowed host names, for diagnostics.</summary>
+        internal IReadOnlyCollection<string> Hosts { get { return _Hosts; } }
+
+        internal Task ValidateAsync(HttpContextBase http)
         {
             // Watson composes Url.Host from the listener binding. Inspect the actual request authority.
             string host = http.Request.Headers["Host"] ?? "";
-            Match authority = Regex.Match(host, @"\A127\.0\.0\.1(?::([0-9]{1,5}))?\z", RegexOptions.CultureInvariant);
-            int requestedPort = authority.Groups[1].Success ? int.Parse(authority.Groups[1].Value, CultureInfo.InvariantCulture) : tls ? 443 : 80;
-            if (!authority.Success || requestedPort < 1 || requestedPort > 65535 || (!mappedPort && requestedPort != port)) throw new DomainException(403, "invalid_host", "Use the configured loopback host.");
+            Match authority = Authority.Match(host);
+            string name = authority.Success ? authority.Groups[1].Value : "";
+            bool loopback = name == "127.0.0.1" || name.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+            int requestedPort = authority.Success && authority.Groups[2].Success ? int.Parse(authority.Groups[2].Value, CultureInfo.InvariantCulture) : _Tls ? 443 : 80;
+            if (!authority.Success || !_Hosts.Contains(name) || requestedPort < 1 || requestedPort > 65535 || (loopback && !_MappedPort && requestedPort != _Port))
+                throw new DomainException(403, "invalid_host", "This host name is not allowed. Add it to AllowedHosts in the service settings or to ARGUEBOT_ALLOWED_HOSTS, then restart the service.");
             string origin = http.Request.Headers["Origin"] ?? "";
-            string expectedOrigin = new Uri((tls ? "https" : "http") + "://" + host).GetLeftPart(UriPartial.Authority);
-            if (origin.Length > 0 && origin != expectedOrigin && (tls || origin != "http://127.0.0.1:5173")) throw new DomainException(403, "invalid_origin", "Origin is not in the local allowlist.");
-            if (origin.Length > 0) http.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            if (origin.Length > 0)
+            {
+                bool parsed = Uri.TryCreate(origin, UriKind.Absolute, out Uri? source) && (source.Scheme == "http" || source.Scheme == "https");
+                bool sameHost = parsed && string.Equals(source!.Authority, host, StringComparison.OrdinalIgnoreCase);
+                bool developer = !_Tls && (origin == "http://127.0.0.1:5173" || origin == "http://localhost:5173");
+                if (!sameHost && !developer) throw new DomainException(403, "invalid_origin", "This browser origin is not allowed.");
+                http.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                http.Response.Headers["Vary"] = "Origin";
+            }
             return Task.CompletedTask;
         }
     }

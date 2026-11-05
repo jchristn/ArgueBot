@@ -20,9 +20,13 @@ namespace ArgueBot.Client
         public static HttpClientHandler CreateHttpHandler(string home)
         { return LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)); }
 
-        /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled.</summary>
-        public static ArgueBotClient CreateClient(string endpoint, string home)
-        { return new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home))); }
+        /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled. The bearer token comes from <paramref name="bearerToken"/> or, when that is null, from ARGUEBOT_TOKEN.</summary>
+        public static ArgueBotClient CreateClient(string endpoint, string home, string? bearerToken = null)
+        {
+            ArgueBotClient client = new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)));
+            client.Token = bearerToken ?? Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN") ?? "";
+            return client;
+        }
 
         /// <summary>Resolve an explicit remote/local address, or attach/start the selected local home. An existing verified service keeps its actual port.</summary>
         /// <param name="home">Application home to attach or start.</param>
