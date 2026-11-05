@@ -4,7 +4,7 @@ Protocol 2 exposes evidence tools to the model serving the current participant o
 
 The tool server is invocation-scoped and needs no bearer token. Claude Code and Codex reach it through a per-invocation stdio MCP bridge that talks to the service over a local pipe, not over HTTP, so it never sees a session or credential token and cannot be reached with one. It reads only the run's own conversation, inside the run's tenant.
 
-No identity, credential, secret, share or other management operation is exposed. In particular, the member-only secret reveal operation (`POST /v2.0/api/configuration/secrets/{id}/reveal`) is deliberately absent from this tool surface, so a model can never read a stored secret, create a share link or learn about users, tenants or tokens.
+No identity, credential, secret, share or other management operation is exposed. In particular, every reveal operation (`POST /v2.0/api/configuration/secrets/{id}/reveal`, `.../credentials/{id}/reveal` and `.../shares/{shareId}/reveal`) is deliberately absent from this tool surface, so a model can never read a stored secret or bearer token, create or reveal a share link, or learn about users, tenants or tokens.
 
 REST models receive native function definitions. Claude Code and Codex receive an invocation-specific stdio MCP server named `arguebot`. Generic CLI, Gemini CLI and Mux currently use the bounded JSON request-envelope adapter described below. Tool capability is declared on the model; disable it for a completion-only model.
 

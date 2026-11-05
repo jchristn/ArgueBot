@@ -13,6 +13,11 @@ test("a conversation shares a read-only, time-bound link that works signed out u
   expect(url).toMatch(/^https:\/\/127\.0\.0\.1:4420\/share\/[A-Za-z0-9_-]{40,}$/);
   await expect(dialog.getByRole("row").filter({ hasText: "…" + url.slice(-4) })).toContainText("Active");
 
+  await dialog.getByRole("button", { name: "Create another link" }).click();
+  const linkRow = dialog.getByRole("row").filter({ hasText: "…" + url.slice(-4) });
+  await linkRow.getByRole("button", { name: /^Actions for / }).click();
+  await page.getByRole("menuitem", { name: "Show link", exact: true }).click();
+  await expect(dialog.locator(".share-created code")).toHaveText(url);
   const reader = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: {} });
   const outside = await reader.newPage();
   await outside.goto(url);

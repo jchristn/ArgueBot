@@ -177,6 +177,7 @@ try {
   const created = JSON.parse(bare(['credentials','create','CLI automation','--days','30']).stdout);
   check(created.token.startsWith('abt_') && created.credential.expiresUtc, 'credentials create did not print a new token once.');
   check(JSON.parse(bare(['--token', created.token, 'whoami']).stdout).principalType === 'Credential', '--token did not authenticate as the credential.');
+  check(JSON.parse(bare(['credentials','reveal', created.credential.id]).stdout).token === created.token, 'credentials reveal did not return the token.');
   check(!bare(['credentials','list']).stdout.includes(created.token), 'Credential lists must not include tokens.');
   bare(['credentials','disable', created.credential.id]);
   check(bare(['--token', created.token, 'whoami']).stderr.includes('credential_inactive'), 'A disabled credential still worked.');
@@ -191,6 +192,7 @@ try {
   const link = JSON.parse(bare(['shares','create', shared.id, '--hours','2']).stdout);
   check(link.path === '/share/' + link.token, 'shares create did not print the link.');
   check(await publicStatus(`/v2.0/api/shares/${link.token}`) === 200, 'A CLI share link did not open without sign-in.');
+  check(JSON.parse(bare(['shares','reveal', shared.id, link.share.id]).stdout).url === link.url, 'shares reveal did not return the link.');
   bare(['shares','revoke', shared.id, link.share.id]);
   check(await publicStatus(`/v2.0/api/shares/${link.token}`) === 404, 'A revoked CLI share link still opened.');
   check(Array.isArray(JSON.parse(bare(['secrets','list']).stdout)), 'secrets list did not work.');

@@ -13249,12 +13249,12 @@
         "tags": [
           "Account"
         ],
-        "summary": "Create a bearer-token credential; the token is returned only once",
+        "summary": "Create a bearer-token credential; reveal the token again later if needed",
         "description": "Access: any signed-in user of an active tenant. ",
         "parameters": [],
         "responses": {
           "201": {
-            "description": "Successful create a bearer-token credential; the token is returned only once",
+            "description": "Successful create a bearer-token credential; reveal the token again later if needed",
             "content": {
               "application/json": {
                 "schema": {
@@ -14656,7 +14656,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Create a credential for a user; the token is returned only once",
+        "summary": "Create a credential for a user; reveal the token again later if needed",
         "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. ",
         "parameters": [
           {
@@ -14671,7 +14671,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Successful create a credential for a user; the token is returned only once",
+            "description": "Successful create a credential for a user; reveal the token again later if needed",
             "content": {
               "application/json": {
                 "schema": {
@@ -16269,7 +16269,7 @@
         "tags": [
           "Sharing"
         ],
-        "summary": "Create a time-bound public link; the URL is returned only once",
+        "summary": "Create a time-bound public link",
         "description": "Access: any signed-in user of an active tenant. ",
         "parameters": [
           {
@@ -16284,7 +16284,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Successful create a time-bound public link; the url is returned only once",
+            "description": "Successful create a time-bound public link",
             "content": {
               "application/json": {
                 "schema": {
@@ -16617,6 +16617,366 @@
         },
         "x-arguebot-access": "Public",
         "security": []
+      }
+    },
+    "/v2.0/api/me/credentials/{credentialId}/reveal": {
+      "post": {
+        "operationId": "post_v2_0_api_me_credentials_credentialId_reveal",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Reveal one of your bearer tokens; audited",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer-token credential ID (crd_...). Copy it from the credential list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful reveal one of your bearer tokens; audited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealedToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/users/{userId}/credentials/{credentialId}/reveal": {
+      "post": {
+        "operationId": "post_v2_0_api_users_userId_credentials_credentialId_reveal",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reveal a user's bearer token; audited",
+        "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. ",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "User ID (usr_...). Copy it from Administration > Users."
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer-token credential ID (crd_...). Copy it from the credential list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful reveal a user's bearer token; audited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealedToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin or tenant denied, or the caller lacks the TenantAdmin access class",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "TenantAdmin"
+      }
+    },
+    "/v2.0/api/conversations/{conversationId}/shares/{shareId}/reveal": {
+      "post": {
+        "operationId": "post_v2_0_api_conversations_conversationId_shares_shareId_reveal",
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Show an active public link again; audited",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list."
+          },
+          {
+            "name": "shareId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Public link ID (shr_...). Copy it from the Share dialog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful show an active public link again; audited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationShareCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
       }
     }
   },
@@ -19003,6 +19363,24 @@
           "secretValue": {
             "type": "string",
             "description": "The decrypted value. A Codex login includes the refresh token the service manages."
+          }
+        }
+      },
+      "RevealedToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Credential ID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Credential name."
+          },
+          "token": {
+            "type": "string",
+            "description": "The bearer token.",
+            "readOnly": true
           }
         }
       },

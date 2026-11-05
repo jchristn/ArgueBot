@@ -46,6 +46,7 @@ namespace ArgueBot.Server
                 // Runs and model checks carry their own tenant into the runner; see RunnerProfile.RuntimeTenantId.
                 RequestContext systemContext = new RequestContext { TenantId = IdentitySeed.TenantId, UserId = IdentitySeed.UserId, IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, Role = "admin", PrincipalType = "Service" };
                 SessionProtector sessions = SessionProtector.Open(Path.Combine(paths.Home, "secrets"));
+                database.Sealer = TokenSealer.Open(Path.Combine(paths.Home, "secrets"));
                 RequestAuthenticator authenticator = new RequestAuthenticator(database, sessions);
                 LocalHttpPolicy hostPolicy = new LocalHttpPolicy(settings.Port, settings.TlsEnabled, settings.ListenAddress == "0.0.0.0", settings.AllowedHosts);
                 using (CredentialVault vault = await CredentialVault.OpenAsync(database, Path.Combine(paths.Home, "secrets"), systemContext, token).ConfigureAwait(false))

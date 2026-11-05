@@ -3,7 +3,7 @@ namespace ArgueBot.Core.Models
     using System;
     using System.Collections.Generic;
 
-    /// <summary>A bearer-token credential owned by one user. The token itself is shown only when created.</summary>
+    /// <summary>A bearer-token credential owned by one user. The token itself appears only when created or explicitly revealed.</summary>
     public sealed class AuthCredential
     {
         private string _Id = "";

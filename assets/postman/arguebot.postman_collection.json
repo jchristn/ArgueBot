@@ -4147,7 +4147,7 @@
           ]
         },
         {
-          "name": "Create a bearer-token credential; the token is returned only once",
+          "name": "Create a bearer-token credential; reveal the token again later if needed",
           "request": {
             "method": "POST",
             "header": [
@@ -4157,7 +4157,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/me/credentials",
-            "description": "Access: any signed-in user of an active tenant.  Create a bearer-token credential; the token is returned only once",
+            "description": "Access: any signed-in user of an active tenant.  Create a bearer-token credential; reveal the token again later if needed",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Fictional automation\",\n  \"expiresUtc\": null,\n  \"active\": true,\n  \"revision\": 0\n}",
@@ -4304,6 +4304,40 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('sessionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reveal one of your bearer tokens; audited",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/me/credentials/{{credentialId}}/reveal",
+            "description": "Access: any signed-in user of an active tenant.  Reveal one of your bearer tokens; audited"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -4586,7 +4620,7 @@
           ]
         },
         {
-          "name": "Create a credential for a user; the token is returned only once",
+          "name": "Create a credential for a user; reveal the token again later if needed",
           "request": {
             "method": "POST",
             "header": [
@@ -4596,7 +4630,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials",
-            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Create a credential for a user; the token is returned only once",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Create a credential for a user; reveal the token again later if needed",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Fictional integration\",\n  \"active\": true,\n  \"revision\": 0\n}",
@@ -4762,6 +4796,41 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('sessionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reveal a user's bearer token; audited",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/users/{{userId}}/credentials/{{credentialId}}/reveal",
+            "description": "Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.  Reveal a user's bearer token; audited"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('userId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -5061,7 +5130,7 @@
           ]
         },
         {
-          "name": "Create a time-bound public link; the URL is returned only once",
+          "name": "Create a time-bound public link",
           "request": {
             "method": "POST",
             "header": [
@@ -5071,7 +5140,7 @@
               }
             ],
             "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/shares",
-            "description": "Access: any signed-in user of an active tenant.  Create a time-bound public link; the URL is returned only once",
+            "description": "Access: any signed-in user of an active tenant.  Create a time-bound public link",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"expiresInHours\": 168,\n  \"includeToolCalls\": false\n}",
@@ -5162,6 +5231,41 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('shareToken')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Show an active public link again; audited",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/shares/{{shareId}}/reveal",
+            "description": "Access: any signed-in user of an active tenant.  Show an active public link again; audited"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('shareId')) pm.execution.skipRequest();"
                 ]
               }
             },

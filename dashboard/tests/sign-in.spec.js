@@ -51,7 +51,7 @@ test("a bearer token signs in, and members see no administration", async ({ page
   await expect(page).toHaveURL(/\/dashboard\/home$/);
 });
 
-test("account page creates a bearer token that is shown once, and administrators add users", async ({ page, request, context }) => {
+test("account page creates, reveals and disables a bearer token, and administrators add users", async ({ page, request, context }) => {
   await context.addInitScript((token) => sessionStorage.setItem("arguebot.session", JSON.stringify({ token })), defaultToken);
   await page.goto("/dashboard/account");
   await expect(page.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
@@ -66,6 +66,12 @@ test("account page creates a bearer token that is shown once, and administrators
   const row = page.getByRole("row").filter({ hasText: name });
   await expect(row).toContainText("••••" + token.slice(-4));
   await expect(page.getByText(token, { exact: true })).toHaveCount(0);
+  await row.getByRole("button", { name: /^Actions for / }).click();
+  await page.getByRole("menuitem", { name: "Reveal", exact: true }).click();
+  await page.getByRole("dialog", { name: "Reveal token" }).getByRole("button", { name: "Reveal", exact: true }).click();
+  const revealed = page.getByRole("dialog", { name: "Bearer token" });
+  await expect(revealed.locator("code")).toHaveText(token);
+  await revealed.getByRole("button", { name: "Close", exact: true }).last().click();
   const details = await request.get("/v2.0/api/token/details", { headers: { Authorization: "Bearer " + token } });
   expect((await details.json()).principalType).toBe("Credential");
   await row.getByRole("button", { name: /^Actions for / }).click();

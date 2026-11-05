@@ -18,7 +18,7 @@ These decisions come from the product owner and override any conflicting default
 | Default identity | On every startup, ensure a default tenant, a default user `admin@arguebot` with password `password`, and a credential whose bearer token is `arguebotadmin`. Never overwrite them once a user has changed them. |
 | Login screen | Always shows the default credentials (email, password and token), with a note to change them. |
 | Public sharing | Each conversation can have time-limited, revocable, read-only public links that open the transcript reader without signing in. |
-| Images | `docker/compose.yaml` uses the published image `jchristn77/arguebot:v2.1.0` instead of a build context. `build-arguebot.sh` and `build-arguebot.bat` build and push it. |
+| Images | `docker/compose.yaml` uses the published image `jchristn77/arguebot:v2.1.0` instead of a build context. `build-all.sh` and `build-all.bat` build and push it (they replaced `build-arguebot.*` on November 4, 2026). |
 | Version | 2.1.0, with CHANGELOG entries under Unreleased. |
 
 ## Requirements compliance
@@ -185,6 +185,17 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 
 Evidence (2026-11-04): `generate-api.mjs` (135 operations) and `generate-v2-workflow.mjs` (68 requests, signing in first) leave no drift. The Postman acceptance workflow passed 144 assertions on 119 requests against a disposable service and the mock provider. README, CHANGELOG, MCP_API, ROADMAP, IDENTITY (rewritten), REQUIREMENTS (2.1 scope and deviations; manifest re-reviewed with unchanged hashes), OPERATIONS, TUI, MULTIPLE_AGENTS, PROMPTS, DEVELOPMENT, EXECUTION, docker/README, docker/.env.example and DOCKERHUB_README are updated; a scan finds no "open workspace" claims outside the historical notes in REQUIREMENTS and no em dashes. The container acceptance script now signs in and checks 401, sign-in and the session key location.
 
+## Addendum: reveal (November 4, 2026)
+
+Requested by the owner: a reveal API for credential objects and other sensitive data, with docs and tests.
+
+- [x] Schema 31 adds `token_sealed` to `auth_credentials` and `conversation_shares`; `TokenSealer` (AES-256-GCM, `secrets/token.key`) seals new tokens. Authentication still compares SHA-256 hashes only.
+- [x] `POST /v2.0/api/me/credentials/{id}/reveal` (owner), `POST /v2.0/api/users/{userId}/credentials/{id}/reveal` (tenant admin), `POST /v2.0/api/conversations/{id}/shares/{shareId}/reveal` (members, active links). Provider secrets keep their existing reveal. Every reveal is audited; request history keeps no bodies for these routes. Pre-31 tokens return 409 `not_revealable`, except the public default token. Passwords and session tokens remain unrevealable by design.
+- [x] Contract, OpenAPI, Postman and REST_API regenerated (138 operations); client `RevealTokenAsync` and `RevealShareAsync`; CLI `credentials reveal` and `shares reveal`; dashboard Actions > Reveal and Show link; TUI token and share menus.
+- [x] Docs: IDENTITY (reveal table, storage, security review), OPERATIONS (`token.key` backup), MCP_API (reveal absent from model tools), README, CHANGELOG, REQUIREMENTS, TUI, docker/README.
+
+Evidence: `RevealChecks` on SQLite and PostgreSQL (default token, unsealed and foreign-key tokens refused, owner and tenant-admin reveal, member and cross-tenant refusal, share reveal and inactive refusal, audit records); real-service test (owner, admin, member 403, default token, share URL, cross-tenant 404, audit); CLI script 83 assertions; browser specs for token reveal and Show link; console suite 71 of 71 runnable.
+
 ## Phase 8: Verification and release preparation
 
 - [ ] Full console suite, xUnit and NUnit on .NET 8 and 10, PostgreSQL, CLI script, Postman, browser, component and Terminal suites, container acceptance with the bearer token, and hosted CI on the branch.
@@ -192,7 +203,7 @@ Evidence (2026-11-04): `generate-api.mjs` (135 operations) and `generate-v2-work
 - [ ] The browser suite shares one address, so its deliberate wrong-password steps count toward the sign-in rate limit (10 per 5 minutes). Keep the count of such steps low or give the e2e service a test-only limit.
 - [x] Upgrade test: start 2.1.0 on a schema 29 home with existing conversations, sign in as the default admin, and confirm everything is present in the default tenant.
 - [x] Security review against "Security Best Practices" 1 to 19 (excluding RBAC items), recorded in `docs/IDENTITY.md`.
-- [ ] Build and push `jchristn77/arguebot:v2.1.0` with `build-arguebot.sh v2.1.0` only when the owner asks.
+- [ ] Build and push `jchristn77/arguebot:v2.1.0` with `build-all.sh v2.1.0` (requested by the owner on November 4, 2026).
 
 Evidence so far (2026-11-04): console suite 71 of 71 runnable (15 skipped for missing external services); xUnit and NUnit pass on .NET 8 and .NET 10; PostgreSQL 4 of 4; CLI surface 81 assertions; Postman acceptance 144 assertions; component tests 55 of 55; browser suite 43 passed, 1 skipped (apart from the intermittent navigation error below); Terminal 21 of 21; container acceptance 33 assertions with sign-in. Upgrade: v2.0.0 built from `main` in a temporary worktree created a schema 29 home with two conversations and a secret; 2.1.0 then backed it up (`before-schema-29-*.db`), migrated it to schema 30, refused an unauthenticated request with 401, signed in as `admin@arguebot` into the Default tenant, and listed both conversations and the secret. The security review is recorded in `docs/IDENTITY.md`.
 

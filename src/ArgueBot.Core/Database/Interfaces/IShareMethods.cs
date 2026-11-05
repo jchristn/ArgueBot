@@ -12,6 +12,8 @@ namespace ArgueBot.Core.Database.Interfaces
         Task<List<ConversationShare>> ListAsync(RequestContext context, string conversationId, CancellationToken token = default);
         /// <summary>Create a link. The returned token is shown only this once; <paramref name="baseUrl"/> builds the absolute URL.</summary>
         Task<ConversationShareCreated> CreateAsync(RequestContext context, string conversationId, ConversationShareRequest request, string baseUrl, CancellationToken token = default);
+        /// <summary>Show an active link again (its token and URL). Audited. 409 when the link is inactive or cannot be decrypted.</summary>
+        Task<ConversationShareCreated> RevealAsync(RequestContext context, string conversationId, string shareId, string baseUrl, CancellationToken token = default);
         /// <summary>Revoke a link so it stops working immediately.</summary>
         Task RevokeAsync(RequestContext context, string conversationId, string shareId, CancellationToken token = default);
         /// <summary>Read the transcript behind a link token, without a signed-in user. Unknown, expired, revoked and disabled-tenant links all throw 404 share_not_found.</summary>

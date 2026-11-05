@@ -7,7 +7,7 @@ The ArgueBot service owns persistent conversations, execution and configuration.
 Every route except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, the OpenAPI document and the dashboard files needs a bearer token. Send it as `Authorization: Bearer <token>` or as `x-token: <token>`; if you send both, they must be the same token.
 
 - **Session token**: `POST /v2.0/api/token` with `{ "email", "password", "tenantId" }`, or with the `x-email`, `x-password` and optional `x-tenant-id` headers. The response holds an opaque `abs_...` token that lasts 60 minutes. `POST /v2.0/api/token/refresh` replaces it with a new token and a fresh lifetime; the previous token stops working. `DELETE /v2.0/api/token` signs out.
-- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. It is shown once. Disable or delete the credential to revoke it.
+- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. Reveal it again with `POST .../credentials/{id}/reveal` (audited). Disable or delete the credential to revoke it.
 - **Default administrator**: `admin@arguebot` with password `password` and bearer token `arguebotadmin`. The sign-in page always shows these. Change the password and create your own credentials, then disable nothing you still need: the default user, tenant and token are protected and cannot be deleted.
 
 If the email and password match accounts in several tenants, sign-in returns 409 `tenant_required` with the tenants to choose from; send `tenantId` and sign in again. `x-tenant-id` on other routes must match the token's tenant (403 `tenant_mismatch`), except that a system administrator may use it on user, session and audit routes to act in another tenant.
@@ -1480,7 +1480,7 @@ Success: **200**, response: `List<AuthCredential>`.
 
 ## POST /v2.0/api/me/credentials
 
-Create a bearer-token credential; the token is returned only once. Access: any signed-in user of an active tenant.
+Create a bearer-token credential; reveal the token again later if needed. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `AuthCredentialCreated`. Request: `AuthCredentialRequest`.
 
@@ -1639,7 +1639,7 @@ Success: **200**, response: `List<AuthCredential>`.
 
 ## POST /v2.0/api/users/{userId}/credentials
 
-Create a credential for a user; the token is returned only once. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+Create a credential for a user; reveal the token again later if needed. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **201**, response: `AuthCredentialCreated`. Request: `AuthCredentialRequest`.
 
@@ -1810,7 +1810,7 @@ Success: **200**, response: `List<ConversationShare>`.
 
 ## POST /v2.0/api/conversations/{conversationId}/shares
 
-Create a time-bound public link; the URL is returned only once. Access: any signed-in user of an active tenant.
+Create a time-bound public link. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `ConversationShareCreated`. Request: `ConversationShareRequest`.
 
@@ -1847,6 +1847,38 @@ Success: **200**, response: `SharedTranscript`.
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
 | shareToken | path | true | The token at the end of a /share/ link. It is shown only when the link is created. |
+
+## POST /v2.0/api/me/credentials/{credentialId}/reveal
+
+Reveal one of your bearer tokens; audited. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `RevealedToken`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## POST /v2.0/api/users/{userId}/credentials/{credentialId}/reveal
+
+Reveal a user's bearer token; audited. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `RevealedToken`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## POST /v2.0/api/conversations/{conversationId}/shares/{shareId}/reveal
+
+Show an active public link again; audited. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ConversationShareCreated`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+| shareId | path | true | Public link ID (shr_...). Copy it from the Share dialog. |
 
 ## DTO schemas
 
@@ -2690,6 +2722,16 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | parameterName | string | Header or query parameter name for header and query credentials; empty otherwise. |
 | revision | integer | Revision of the revealed value. |
 | secretValue | string | The decrypted value. A Codex login includes the refresh token the service manages. |
+
+### RevealedToken
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Credential ID. |
+| name | string | Credential name. |
+| token | string | The bearer token. |
 
 ### RosterChangeRequest
 

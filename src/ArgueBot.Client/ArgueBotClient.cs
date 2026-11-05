@@ -305,6 +305,12 @@ namespace ArgueBot.Client
             await SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/token", token: token).ConfigureAwait(false);
             Token = "";
         }
+        /// <summary>Reveal a bearer-token credential: your own, or another user's when <paramref name="userId"/> is set and you are a tenant administrator. Audited.</summary>
+        public Task<RevealedToken> RevealTokenAsync(string credentialId, string userId = "", CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(credentialId); ArgumentNullException.ThrowIfNull(userId); return SendAsync<RevealedToken>(HttpMethod.Post, (userId.Length == 0 ? "v2.0/api/me" : "v2.0/api/users/" + Uri.EscapeDataString(userId)) + "/credentials/" + Uri.EscapeDataString(credentialId) + "/reveal", token: token); }
+        /// <summary>Show an active public share link again. Audited.</summary>
+        public Task<ConversationShareCreated> RevealShareAsync(string conversationId, string shareId, CancellationToken token = default)
+        { return SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + Uri.EscapeDataString(conversationId) + "/shares/" + Uri.EscapeDataString(shareId) + "/reveal", token: token); }
         /// <summary>Describe the current token: user, tenant, principal and expiry.</summary>
         public Task<TokenDetails> TokenDetailsAsync(CancellationToken token = default)
         { return SendAsync<TokenDetails>(HttpMethod.Get, "v2.0/api/token/details", token: token); }

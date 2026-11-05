@@ -67,7 +67,7 @@ ArgueBot 2.1 requires a signed-in user for everything except the sign-in page, h
 - **Signing in.** The dashboard opens at `/dashboard/login`, the TUI opens a sign-in page that also asks for the server URL, and the CLI uses `login`. You can sign in with an email and password, or with a bearer token. Sessions last 60 minutes and the interfaces refresh them while you work.
 - **Tenants.** A tenant is a separate workspace: its own users, conversations, agents, secrets and prompts. Everyone in a tenant shares its data. Tenants never see each other's data. The **Default tenant** holds everything created before 2.1. If your email and password work in more than one tenant, the sign-in page asks which one.
 - **User types.** A **system administrator** manages everything, including tenants, service settings and encryption keys, and can manage the users of any tenant. A **tenant administrator** manages the users, tokens, sessions, request history and audit log of their own tenant. A **user** works with the tenant's conversations and configuration and manages only their own account. The default administrator, default tenant and default token are protected: they cannot be deleted or disabled.
-- **Bearer tokens.** Create credentials for scripts and tools on the dashboard's Account page, in the TUI Menu or with `credentials create`. A token is shown once. Send it as `Authorization: Bearer <token>`, as `x-token`, with the CLI's `--token` or as `ARGUEBOT_TOKEN`.
+- **Bearer tokens.** Create credentials for scripts and tools on the dashboard's Account page, in the TUI Menu or with `credentials create`. Reveal shows a token again later (audited). Send it as `Authorization: Bearer <token>`, as `x-token`, with the CLI's `--token` or as `ARGUEBOT_TOKEN`.
 - **Secrets.** Provider keys and logins for agents, which earlier versions called credentials, are now **secrets** (Participants > Secrets, `secrets` in the CLI, `/v2.0/api/configuration/secrets`). The old names still work in 2.1.x.
 - **Audit log.** Sign-ins, sessions, token changes, user and tenant changes and every denied request are recorded. Administrators review it on the Audit log page, in the TUI Menu or with `audit`.
 - **Sharing.** **Share** in a conversation creates a read-only public link that expires after 1 hour to 90 days. Anyone with the link can read the transcript and nothing else. Revoke links from the same dialog.
@@ -84,7 +84,7 @@ The published image `jchristn77/arguebot` runs the service and dashboard with pi
 docker compose -f docker/compose.yaml up -d
 ```
 
-Add `-f docker/compose.build.yaml` to build from this checkout instead. Maintainers publish images with `build-arguebot.sh <tag>` or `build-arguebot.bat <tag>` (`build-all` runs every image build). See the [Docker guide](docker/README.md) for volumes, environment settings and the trust model.
+Add `-f docker/compose.build.yaml` to build from this checkout instead. Maintainers publish the image with `build-all.sh <tag>` or `build-all.bat <tag>`, which build both architectures on the same cloud builder as Armada and push them. See the [Docker guide](docker/README.md) for volumes, environment settings and the trust model.
 
 ## Configure participants
 

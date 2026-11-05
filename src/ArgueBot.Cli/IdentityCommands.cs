@@ -64,7 +64,7 @@ namespace ArgueBot.Cli
                                     DateTime? expires = days == null ? null : DateTime.UtcNow.AddDays(int.Parse(days, CultureInfo.InvariantCulture));
                                     AuthCredentialCreated created = await client.SendAsync<AuthCredentialCreated>(HttpMethod.Post, root, new AuthCredentialRequest { Name = words[2], ExpiresUtc = expires }, token).ConfigureAwait(false);
                                     Program.Print(created);
-                                    Console.Error.WriteLine("Store this token now. It is not shown again.");
+                                    Console.Error.WriteLine("Store this token like a password. 'credentials reveal ID' shows it again (audited).");
                                     return 0;
                                 }
                             case "disable":
@@ -75,8 +75,9 @@ namespace ArgueBot.Cli
                                     Program.Print(await client.SendAsync<AuthCredential>(HttpMethod.Put, root + "/" + Uri.EscapeDataString(current.Id), new AuthCredentialRequest { Name = current.Name, ExpiresUtc = current.ExpiresUtc, Active = operation == "enable", Revision = current.Revision }, token).ConfigureAwait(false));
                                     return 0;
                                 }
+                            case "reveal": Program.Require(words, 3); Program.Print(await client.RevealTokenAsync(words[2], user, token).ConfigureAwait(false)); return 0;
                             case "delete": Program.Require(words, 3); Program.Print(await client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(words[2]), token: token).ConfigureAwait(false)); return 0;
-                            default: throw new ArgumentException("Use credentials list|create NAME [--days N]|disable ID|enable ID|delete ID, with --user ID for another user.");
+                            default: throw new ArgumentException("Use credentials list|create NAME [--days N]|reveal ID|disable ID|enable ID|delete ID, with --user ID for another user.");
                         }
                     }
                 case "sessions":
@@ -154,11 +155,12 @@ namespace ArgueBot.Cli
                                     string? hours = Option(words, "--hours");
                                     ConversationShareCreated created = await client.SendAsync<ConversationShareCreated>(HttpMethod.Post, root, new ConversationShareRequest { ExpiresInHours = hours == null ? 168 : int.Parse(hours, CultureInfo.InvariantCulture), IncludeToolCalls = words.Contains("--tools") }, token).ConfigureAwait(false);
                                     Program.Print(created);
-                                    Console.Error.WriteLine("Anyone with this link can read the transcript until " + created.Share.ExpiresUtc.ToString("u", CultureInfo.InvariantCulture) + ". It is not shown again.");
+                                    Console.Error.WriteLine("Anyone with this link can read the transcript until " + created.Share.ExpiresUtc.ToString("u", CultureInfo.InvariantCulture) + ". 'shares reveal' shows it again while it is active.");
                                     return 0;
                                 }
+                            case "reveal": Program.Require(words, 4); Program.Print(await client.RevealShareAsync(words[2], words[3], token).ConfigureAwait(false)); return 0;
                             case "revoke": Program.Require(words, 4); Program.Print(await client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(words[3]), token: token).ConfigureAwait(false)); return 0;
-                            default: throw new ArgumentException("Use shares list CONVERSATION|create CONVERSATION [--hours N] [--tools]|revoke CONVERSATION SHARE_ID.");
+                            default: throw new ArgumentException("Use shares list CONVERSATION|create CONVERSATION [--hours N] [--tools]|reveal CONVERSATION SHARE_ID|revoke CONVERSATION SHARE_ID.");
                         }
                     }
                 default: throw new ArgumentException("Unknown command.");

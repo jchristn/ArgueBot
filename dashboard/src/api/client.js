@@ -63,6 +63,7 @@ export class ApiClient {
   credentials(userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials", { headers: this.tenantScope(tenantId) }); }
   createCredential(body, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials", { method: "POST", body, headers: this.tenantScope(tenantId) }); }
   updateCredential(id, body, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id), { method: "PUT", body, headers: this.tenantScope(tenantId) }); }
+  revealToken(id, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id) + "/reveal", { method: "POST", headers: this.tenantScope(tenantId) }); }
   deleteCredential(id, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id), { method: "DELETE", headers: this.tenantScope(tenantId) }); }
   sessions(userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/sessions", { headers: this.tenantScope(tenantId) }); }
   revokeSession(id, own = true, tenantId = "") { return this.request((own ? "/v2.0/api/me/sessions/" : "/v2.0/api/sessions/") + encodeURIComponent(id), { method: "DELETE", headers: this.tenantScope(tenantId) }); }
@@ -207,6 +208,7 @@ export class ApiClient {
   capabilities() { return this.request("/v2.0/api/capabilities"); }
   shares(conversationId) { return this.request(this.v2root(conversationId) + "/shares"); }
   createShare(conversationId, body) { return this.request(this.v2root(conversationId) + "/shares", { method: "POST", body }); }
+  revealShare(conversationId, shareId) { return this.request(this.v2root(conversationId) + "/shares/" + encodeURIComponent(shareId) + "/reveal", { method: "POST" }); }
   revokeShare(conversationId, shareId) { return this.request(this.v2root(conversationId) + "/shares/" + encodeURIComponent(shareId), { method: "DELETE" }); }
   sharedTranscript(shareToken) { return this.request("/v2.0/api/shares/" + encodeURIComponent(shareToken)); }
   v2root(id) { return "/v2.0/api/conversations/" + encodeURIComponent(id); }

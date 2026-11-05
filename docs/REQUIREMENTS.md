@@ -24,7 +24,7 @@ AUTHENTICATION.md was re-read for this scope on November 4, 2026; its hash is un
 
 - **No RBAC.** The role, permission, role-map, assignment and credential-scope tables and the effective-permission resolver are not used. The bypass rules (`isadmin`, `istenantadmin`) are the whole model, with an ordinary user getting full data access inside the tenant and no administration. Each route has a fixed access class (Public, Member, TenantAdmin, SystemAdmin) instead of a permission tuple; 403 bodies carry `requiredPermission` set to that class.
 - **No accounts or administrators tables.** System administrators are users with `isadmin`.
-- **Credentials are bearer tokens only** (`DirectHeader`): no access-key and secret-key pairs or request signing. Tokens are stored as SHA-256 verifiers and shown once; credential grants equal the owning user's access rather than a narrower scope.
+- **Credentials are bearer tokens only** (`DirectHeader`): no access-key and secret-key pairs or request signing. Tokens are verified by SHA-256 and also kept encrypted under a separate key so their owner or a tenant administrator can reveal them (audited), which the requirement allows as "encrypted secret material"; credential grants equal the owning user's access rather than a narrower scope.
 - **Session tokens use AES-256-GCM** with a random nonce per token instead of AES-CBC plus a separate MAC; GCM authenticates the ciphertext.
 - **Routes live under `/v2.0/api/token`** rather than `/v1.0/token`, matching the product's API version.
 - **Tenant header** is `x-tenant-id` (with `x-tenant-guid` accepted at sign-in), matching the product's string IDs.

@@ -26,6 +26,7 @@ namespace ArgueBot.Core.Backups
             if (table == "debate_attempts" && version < 26) columns.Remove("repair");
             if (table == "connection_credentials" && version < 27) columns.Remove("parameter_name");
             if (table == "conversations" && version < 28) columns.Remove("opening_question");
+            if ((table == "auth_credentials" || table == "conversation_shares") && version < 31) columns.Remove("token_sealed");
             if (table == "tenants" && version < 30) { columns.Remove("protected"); columns.Remove("revision"); }
             if (table == "users" && version < 30) { columns.Remove("first_name"); columns.Remove("last_name"); columns.Remove("password_sha256"); }
             if (table == "auth_sessions" && version < 30) { columns.Remove("credential_id"); columns.Remove("principal_type"); columns.Remove("auth_scheme"); columns.Remove("token_id"); columns.Remove("source_ip"); columns.Remove("user_agent"); columns.Remove("last_used_utc"); columns.Remove("revoked_utc"); columns.Remove("revocation_reason"); columns.Remove("protected"); }

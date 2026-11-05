@@ -45,6 +45,8 @@ namespace ArgueBot.Core.Database.Interfaces
         Task<AuthCredential> UpdateCredentialAsync(RequestContext context, string userId, string id, AuthCredentialRequest request, CancellationToken token = default);
         /// <summary>Delete a credential and its sessions. Protected credentials cannot be deleted.</summary>
         Task DeleteCredentialAsync(RequestContext context, string userId, string id, CancellationToken token = default);
+        /// <summary>Reveal a credential's bearer token to its owner or a tenant administrator. Audited. 409 not_revealable for tokens created before 2.1 sealing (except the default token) or sealed with a lost key.</summary>
+        Task<RevealedToken> RevealCredentialAsync(RequestContext context, string userId, string id, CancellationToken token = default);
 
         /// <summary>List a user's active sessions: your own, or anyone's in your tenant for a tenant administrator. The caller's session is marked Current.</summary>
         Task<List<AuthSession>> SessionsAsync(RequestContext context, string userId, CancellationToken token = default);

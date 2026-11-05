@@ -93,7 +93,7 @@ Object.assign(schemas.PromptTemplate.properties.purpose, {enum:['question','resp
 Object.assign(schemas.PromptTemplate.properties.body, {maxLength:32000});
 schemas.PromptTemplate.required = ['name','purpose','body'];
 for (const [name, field] of [['LoginRequest','password'],['UserRequest','password'],['PasswordChangeRequest','currentPassword'],['PasswordChangeRequest','newPassword']]) Object.assign(schemas[name].properties[field], {writeOnly:true});
-for (const [name, field] of [['TokenResponse','token'],['AuthCredentialCreated','token']]) Object.assign(schemas[name].properties[field], {readOnly:true});
+for (const [name, field] of [['TokenResponse','token'],['AuthCredentialCreated','token'],['RevealedToken','token']]) Object.assign(schemas[name].properties[field], {readOnly:true});
 Object.assign(schemas.UserRequest.properties.password, {minLength:8, maxLength:256});
 Object.assign(schemas.PasswordChangeRequest.properties.newPassword, {minLength:8, maxLength:256});
 Object.assign(schemas.AuthSession.properties.principalType, {enum:['User','Credential']});
@@ -128,7 +128,7 @@ const document=['# REST API','', 'The ArgueBot service owns persistent conversat
 '## Authentication','',
 'Every route except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, the OpenAPI document and the dashboard files needs a bearer token. Send it as `Authorization: Bearer <token>` or as `x-token: <token>`; if you send both, they must be the same token.','',
 '- **Session token**: `POST /v2.0/api/token` with `{ "email", "password", "tenantId" }`, or with the `x-email`, `x-password` and optional `x-tenant-id` headers. The response holds an opaque `abs_...` token that lasts 60 minutes. `POST /v2.0/api/token/refresh` replaces it with a new token and a fresh lifetime; the previous token stops working. `DELETE /v2.0/api/token` signs out.',
-'- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. It is shown once. Disable or delete the credential to revoke it.',
+'- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. Reveal it again with `POST .../credentials/{id}/reveal` (audited). Disable or delete the credential to revoke it.',
 '- **Default administrator**: `admin@arguebot` with password `password` and bearer token `arguebotadmin`. The sign-in page always shows these. Change the password and create your own credentials, then disable nothing you still need: the default user, tenant and token are protected and cannot be deleted.','',
 'If the email and password match accounts in several tenants, sign-in returns 409 `tenant_required` with the tenants to choose from; send `tenantId` and sign in again. `x-tenant-id` on other routes must match the token\'s tenant (403 `tenant_mismatch`), except that a system administrator may use it on user, session and audit routes to act in another tenant.','',
 'Failures: 401 `authentication_required`, `invalid_token`, `session_expired`, `session_revoked`, `credential_inactive`, `credential_expired`, `user_inactive`, `tenant_inactive`, `invalid_credentials`, `account_inactive`, `conflicting_credentials`, `unsupported_scheme` or `password_not_accepted`; 403 `forbidden` or `tenant_mismatch` with an `AuthorizationError` body; 429 `rate_limited` with `Retry-After` after 10 failed sign-ins from one address or for one email in 5 minutes. Every failure and every administrative change is recorded in the audit log (`GET /v2.0/api/audit`).','',

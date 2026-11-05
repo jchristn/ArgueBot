@@ -38,8 +38,9 @@ namespace ArgueBot.Server.Routes
                 await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
             });
             Static(server, HttpMethod.GET, "/me/credentials", "List your bearer-token credentials", "Account", async http => await Api.SendAsync(http, await _Database.Identity.CredentialsAsync(Api.Context(http), Api.Context(http).UserId, http.Token).ConfigureAwait(false)).ConfigureAwait(false));
-            Static(server, HttpMethod.POST, "/me/credentials", "Create a bearer-token credential; the token is returned only once", "Account", http => CreateCredentialAsync(http, Api.Context(http).UserId));
+            Static(server, HttpMethod.POST, "/me/credentials", "Create a bearer-token credential; reveal the token again later if needed", "Account", http => CreateCredentialAsync(http, Api.Context(http).UserId));
             Parameter(server, HttpMethod.PUT, "/me/credentials/{credentialId}", "Rename, enable or disable one of your credentials", "Account", http => UpdateCredentialAsync(http, Api.Context(http).UserId));
+            Parameter(server, HttpMethod.POST, "/me/credentials/{credentialId}/reveal", "Reveal one of your bearer tokens", "Account", http => RevealCredentialAsync(http, Api.Context(http).UserId));
             Parameter(server, HttpMethod.DELETE, "/me/credentials/{credentialId}", "Delete one of your credentials", "Account", http => DeleteCredentialAsync(http, Api.Context(http).UserId));
             Static(server, HttpMethod.GET, "/me/sessions", "List your active sessions", "Account", async http => await Api.SendAsync(http, await _Database.Identity.SessionsAsync(Api.Context(http), Api.Context(http).UserId, http.Token).ConfigureAwait(false)).ConfigureAwait(false));
             Parameter(server, HttpMethod.DELETE, "/me/sessions/{sessionId}", "Sign out one of your sessions", "Account", http => RevokeSessionAsync(http));
@@ -74,8 +75,9 @@ namespace ArgueBot.Server.Routes
                 await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
             });
             Parameter(server, HttpMethod.GET, "/users/{userId}/credentials", "List a user's credentials", "Users", async http => await Api.SendAsync(http, await _Database.Identity.CredentialsAsync(Api.Context(http), Api.Parameter(http, "userId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false));
-            Parameter(server, HttpMethod.POST, "/users/{userId}/credentials", "Create a credential for a user; the token is returned only once", "Users", http => CreateCredentialAsync(http, Api.Parameter(http, "userId")));
+            Parameter(server, HttpMethod.POST, "/users/{userId}/credentials", "Create a credential for a user; reveal the token again later if needed", "Users", http => CreateCredentialAsync(http, Api.Parameter(http, "userId")));
             Parameter(server, HttpMethod.PUT, "/users/{userId}/credentials/{credentialId}", "Rename, enable or disable a user's credential", "Users", http => UpdateCredentialAsync(http, Api.Parameter(http, "userId")));
+            Parameter(server, HttpMethod.POST, "/users/{userId}/credentials/{credentialId}/reveal", "Reveal a user's bearer token", "Users", http => RevealCredentialAsync(http, Api.Parameter(http, "userId")));
             Parameter(server, HttpMethod.DELETE, "/users/{userId}/credentials/{credentialId}", "Delete a user's credential", "Users", http => DeleteCredentialAsync(http, Api.Parameter(http, "userId")));
             Parameter(server, HttpMethod.GET, "/users/{userId}/sessions", "List a user's active sessions", "Users", async http => await Api.SendAsync(http, await _Database.Identity.SessionsAsync(Api.Context(http), Api.Parameter(http, "userId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false));
             Parameter(server, HttpMethod.DELETE, "/sessions/{sessionId}", "Revoke any session in your tenant", "Users", http => RevokeSessionAsync(http));
@@ -134,6 +136,8 @@ namespace ArgueBot.Server.Routes
             await AuditAsync(http, updated.Active ? "CredentialUpdated" : "CredentialDisabled", "credential", updated.Id, updated.Name).ConfigureAwait(false);
             await Api.SendAsync(http, updated).ConfigureAwait(false);
         }
+        private async Task RevealCredentialAsync(HttpContextBase http, string userId)
+        { await Api.SendAsync(http, await _Database.Identity.RevealCredentialAsync(Api.Context(http), userId, Api.Parameter(http, "credentialId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }
         private async Task DeleteCredentialAsync(HttpContextBase http, string userId)
         {
             string id = Api.Parameter(http, "credentialId");

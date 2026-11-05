@@ -44,10 +44,26 @@ namespace ArgueBot.Core.Database.Implementations
             DateTime expires = DateTime.UtcNow.AddHours(request.ExpiresInHours);
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                await ExecuteAsync(connection, transaction, "INSERT INTO conversation_shares(id,tenant_id,conversation_id,created_by_user_id,token_sha256,token_last4,include_tools,expires_utc,view_count,active,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@user,@hash,@last4,@tools,@expires,0,1,@now,@now)", token, P("id", id, "tenant", context.TenantId, "conversation", conversationId, "user", context.UserId, "hash", SecretTokens.Hash(secret), "last4", SecretTokens.Last4(secret), "tools", request.IncludeToolCalls ? 1 : 0, "expires", SessionStore.Stamp(expires))).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "INSERT INTO conversation_shares(id,tenant_id,conversation_id,created_by_user_id,token_sha256,token_last4,token_sealed,include_tools,expires_utc,view_count,active,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@user,@hash,@last4,@sealed,@tools,@expires,0,1,@now,@now)", token, P("id", id, "tenant", context.TenantId, "conversation", conversationId, "user", context.UserId, "hash", SecretTokens.Hash(secret), "last4", SecretTokens.Last4(secret), "sealed", _Database.Sealer?.Seal(secret) ?? "", "tools", request.IncludeToolCalls ? 1 : 0, "expires", SessionStore.Stamp(expires))).ConfigureAwait(false);
                 await AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "ShareCreated", Outcome = "success", ResourceType = "conversation", ResourceId = conversationId, Reason = "Public link " + id + " until " + SessionStore.Stamp(expires), PrincipalType = context.PrincipalType, SessionId = context.SessionId, CredentialId = context.CredentialId, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, StatusCode = 201 }, token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             ConversationShare share = (await ListAsync(context, conversationId, token).ConfigureAwait(false)).First(item => item.Id == id);
+            string path = "/share/" + secret;
+            return new ConversationShareCreated { Share = share, Token = secret, Path = path, Url = baseUrl.TrimEnd('/') + path };
+        }
+
+        /// <inheritdoc />
+        public async Task<ConversationShareCreated> RevealAsync(RequestContext context, string conversationId, string shareId, string baseUrl, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(baseUrl);
+            ConversationShare share = (await ListAsync(context, conversationId, token).ConfigureAwait(false)).FirstOrDefault(item => item.Id == shareId) ?? throw new DomainException(404, "share_not_found", "This link does not exist.");
+            if (!share.Active) throw new DomainException(409, "share_inactive", "This link has expired or was revoked. Create a new one.");
+            string stored;
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+                stored = Convert.ToString(await ScalarAsync(connection, null, "SELECT token_sealed FROM conversation_shares WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "id", shareId)).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? "";
+            string? secret = stored.Length > 0 ? _Database.Sealer?.Unseal(stored) : null;
+            if (secret == null) throw new DomainException(409, "not_revealable", "This link cannot be shown again. Create a new link and revoke this one.");
+            await _Database.WriteAsync((connection, transaction) => AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "ShareRevealed", Outcome = "success", ResourceType = "conversation", ResourceId = conversationId, Reason = "Public link " + shareId, PrincipalType = context.PrincipalType, SessionId = context.SessionId, CredentialId = context.CredentialId, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, StatusCode = 200 }, token), token).ConfigureAwait(false);
             string path = "/share/" + secret;
             return new ConversationShareCreated { Share = share, Token = secret, Path = path, Url = baseUrl.TrimEnd('/') + path };
         }

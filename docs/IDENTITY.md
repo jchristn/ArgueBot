@@ -38,7 +38,19 @@ The response holds a **session token** (`abs_...`): an AES-256-GCM encryption, w
 
 Sessions last 60 minutes. `POST /v2.0/api/token/refresh` issues a new token for the same session with a fresh lifetime, and the old token stops working. The dashboard and TUI refresh automatically while they run. `DELETE /v2.0/api/token` signs out. Changing your password signs out your other sessions; disabling a user or tenant ends all of its sessions at once.
 
-**Credential tokens** (`abt_...`, 30 random bytes) are long-lived bearer tokens for scripts and tools, created under `/v2.0/api/me/credentials` (or by an administrator for another user). The token is returned once and stored as SHA-256. A credential can have an expiry and can be disabled or deleted. Its last use is recorded at most once a minute.
+**Credential tokens** (`abt_...`, 30 random bytes) are long-lived bearer tokens for scripts and tools, created under `/v2.0/api/me/credentials` (or by an administrator for another user). Authentication compares only its SHA-256 hash. The service also keeps a copy encrypted with `secrets/token.key` (AES-256-GCM), so the owner or a tenant administrator can reveal it later; every reveal is audited as `CredentialRevealed`. A credential can have an expiry and can be disabled or deleted. Its last use is recorded at most once a minute.
+
+## Revealing sensitive values
+
+Some stored values can be shown again, always to someone entitled to them and always with an audit record:
+
+| Value | How to reveal | Who | Audit event |
+| --- | --- | --- | --- |
+| Bearer-token credential | `POST /v2.0/api/me/credentials/{id}/reveal`, or `POST /v2.0/api/users/{userId}/credentials/{id}/reveal`; dashboard Account (or Users > Tokens and sessions) > Actions > Reveal; TUI Menu > Your bearer tokens; CLI `credentials reveal ID [--user ID]` | The owner; tenant administrators for users in their tenant | `CredentialRevealed` |
+| Public share link | `POST /v2.0/api/conversations/{id}/shares/{shareId}/reveal`; Share dialog > Actions > Show link; TUI share menu; CLI `shares reveal` | Members of the tenant, while the link is active | `ShareRevealed` |
+| Provider secret | `POST /v2.0/api/configuration/secrets/{id}/reveal`; Participants > Secrets > Actions > Reveal; TUI Secrets > Reveal value; CLI `secrets reveal ID` | Members of the tenant | Request history (body never stored) |
+
+Tokens created before reveal support (before schema 31) cannot be revealed and return 409 `not_revealable`, except the default token, whose value is public. Deleting `secrets/token.key` makes existing tokens unrevealable but leaves them working. Passwords and session tokens are never stored in a recoverable form and cannot be revealed. Request history never stores reveal responses.
 
 ## Sending a token
 
@@ -90,9 +102,9 @@ Reviewed against "Security Best Practices" in AUTHENTICATION.md.
 
 | # | Practice | Status |
 | --- | --- | --- |
-| 1 | Password and secret handling | Met. Passwords are PBKDF2-SHA256 (600,000 iterations, per-user salt); session and credential tokens and share tokens are stored only as SHA-256; comparisons use `CryptographicOperations.FixedTimeEquals`. Request history keeps no bodies for sign-in, token, credential, secret, share, user or password routes, and redacts password and token fields and headers elsewhere. |
+| 1 | Password and secret handling | Met. Passwords are PBKDF2-SHA256 (600,000 iterations, per-user salt); session tokens are stored only as SHA-256; credential and share tokens are verified by SHA-256 and kept encrypted (AES-256-GCM, separate key) only for audited reveal; comparisons use `CryptographicOperations.FixedTimeEquals`. Request history keeps no bodies for sign-in, token, credential, secret, share, user or password routes, and redacts password and token fields and headers elsewhere. |
 | 2 | Token encryption | Met with AES-256-GCM and a random 96-bit nonce per token (authenticated encryption). |
-| 3 | Key redaction | Met. Credential and share lists show only the last four characters; new tokens appear once. |
+| 3 | Key redaction | Met. Credential and share lists show only the last four characters. Full tokens appear only in the create response and in explicit, audited reveal requests. |
 | 4 | Tenant isolation | Met. Every query filters by the tenant from the token; requests without a resolvable tenant are 401. Cross-tenant reads and writes of conversations, runs, messages, secrets, endpoints, prompts and shares return 404 (real-service test). |
 | 5 | Active flags | Met for users, tenants, credentials and sessions on every request. Roles and permissions are not used. |
 | 6 | Protected flags | Met. The default tenant, administrator and token cannot be deleted or disabled, and the administrator cannot lose administrator access. |

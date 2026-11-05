@@ -290,8 +290,8 @@ Sign-in
   logout                                     End the session and forget it.
   whoami                                     User, tenant and token details.
   me show|password                           Your profile; change your password.
-  credentials list|create NAME [--days N]|disable ID|enable ID|delete ID [--user ID]
-                                             Bearer tokens; a new token is printed once.
+  credentials list|create NAME [--days N]|reveal ID|disable ID|enable ID|delete ID [--user ID]
+                                             Bearer tokens. reveal prints one again (audited).
   sessions list|revoke ID [--user ID]
 
 Administration (tenant administrators; --tenant ID lets system administrators work in another tenant)
@@ -301,7 +301,8 @@ Administration (tenant administrators; --tenant ID lets system administrators wo
 
 Sharing
   shares list CONVERSATION
-  shares create CONVERSATION [--hours N] [--tools]   A read-only public link, printed once.
+  shares create CONVERSATION [--hours N] [--tools]   A read-only public link.
+  shares reveal CONVERSATION SHARE_ID       Print an active link again (audited).
   shares revoke CONVERSATION SHARE_ID
 
 Service

@@ -60,6 +60,8 @@ namespace ArgueBot.Core.Database
         public IIdentityMethods Identity { get; }
         /// <summary>Public conversation links.</summary>
         public IShareMethods Shares { get; }
+        /// <summary>Encrypts new credential and share-link tokens so they can be revealed. Without it, new tokens are shown only once.</summary>
+        public TokenSealer? Sealer { get; set; }
         /// <summary>Moderator information requests.</summary>
         public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>

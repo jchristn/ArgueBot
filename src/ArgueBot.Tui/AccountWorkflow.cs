@@ -80,14 +80,20 @@ namespace ArgueBot.Tui
                     if (expiry < 0) continue;
                     DateTime? expires = expiry == 0 ? null : DateTime.UtcNow.AddDays(new[] { 0, 30, 90, 365 }[expiry]);
                     AuthCredentialCreated created = await client.SendAsync<AuthCredentialCreated>(HttpMethod.Post, root, new AuthCredentialRequest { Name = name.Trim(), ExpiresUtc = expires }, _Token).ConfigureAwait(false);
-                    await PanelAsync("Copy your new token", "This is the only time the token is shown. Copy it now and store it like a password.\n\n" + created.Token + "\n\nUse it as Authorization: Bearer, with x-token, with the CLI's --token, or as ARGUEBOT_TOKEN.").ConfigureAwait(false);
+                    await PanelAsync("Copy your new token", "Copy it now and store it like a password. You can reveal it again later from this list; each reveal is audited.\n\n" + created.Token + "\n\nUse it as Authorization: Bearer, with x-token, with the CLI's --token, or as ARGUEBOT_TOKEN.").ConfigureAwait(false);
                     continue;
                 }
                 AuthCredential chosen = tokens[selected - 1];
-                if (chosen.Protected) { await PanelAsync(chosen.Name, "The default administrator token cannot be disabled or deleted. Create your own tokens and stop using it.").ConfigureAwait(false); continue; }
-                int action = await SelectAsync(chosen.Name, new[] { chosen.Active ? "Disable" : "Enable", "Delete" }).ConfigureAwait(false);
-                if (action == 0) await client.SendAsync<AuthCredential>(HttpMethod.Put, root + "/" + Uri.EscapeDataString(chosen.Id), new AuthCredentialRequest { Name = chosen.Name, ExpiresUtc = chosen.ExpiresUtc, Active = !chosen.Active, Revision = chosen.Revision }, _Token).ConfigureAwait(false);
-                else if (action == 1 && await ConfirmAsync("Delete " + chosen.Name + "? Anything using it stops working now.", "Delete").ConfigureAwait(false)) await client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(chosen.Id), token: _Token).ConfigureAwait(false);
+                string[] actions = chosen.Protected ? new[] { "Reveal token" } : new[] { "Reveal token", chosen.Active ? "Disable" : "Enable", "Delete" };
+                int action = await SelectAsync(chosen.Name + (chosen.Protected ? " (default; cannot be disabled or deleted)" : ""), actions).ConfigureAwait(false);
+                if (action == 0)
+                {
+                    if (!await ConfirmAsync("Show the token for " + chosen.Name + "? The reveal is recorded in the audit log.", "Reveal").ConfigureAwait(false)) continue;
+                    RevealedToken revealed = await client.SendAsync<RevealedToken>(HttpMethod.Post, root + "/" + Uri.EscapeDataString(chosen.Id) + "/reveal", token: _Token).ConfigureAwait(false);
+                    await PanelAsync(chosen.Name, "Handle this token like a password.\n\n" + revealed.Token).ConfigureAwait(false);
+                }
+                else if (action == 1) await client.SendAsync<AuthCredential>(HttpMethod.Put, root + "/" + Uri.EscapeDataString(chosen.Id), new AuthCredentialRequest { Name = chosen.Name, ExpiresUtc = chosen.ExpiresUtc, Active = !chosen.Active, Revision = chosen.Revision }, _Token).ConfigureAwait(false);
+                else if (action == 2 && await ConfirmAsync("Delete " + chosen.Name + "? Anything using it stops working now.", "Delete").ConfigureAwait(false)) await client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(chosen.Id), token: _Token).ConfigureAwait(false);
             }
         }
 
@@ -253,12 +259,19 @@ namespace ArgueBot.Tui
                     int lifetime = await SelectAsync("The link stops working after", Lifetimes).ConfigureAwait(false); if (lifetime < 0) continue;
                     int tools = await SelectAsync("Include agents' tool calls and results?", new[] { "No: only the debate turns", "Yes: also tool calls, such as files read" }).ConfigureAwait(false); if (tools < 0) continue;
                     ConversationShareCreated created = await _Client.SendAsync<ConversationShareCreated>(HttpMethod.Post, root, new ConversationShareRequest { ExpiresInHours = LifetimeHours[lifetime], IncludeToolCalls = tools == 1 }, _Token).ConfigureAwait(false);
-                    await PanelAsync("Your read-only link", "Anyone with this link can read the transcript until " + Date(created.Share.ExpiresUtc) + ". It is shown only now.\n\n" + created.Url + "\n\nRevoke it here at any time.").ConfigureAwait(false);
+                    await PanelAsync("Your read-only link", "Anyone with this link can read the transcript until " + Date(created.Share.ExpiresUtc) + ". You can show it again from this list.\n\n" + created.Url + "\n\nRevoke it here at any time.").ConfigureAwait(false);
                     continue;
                 }
                 ConversationShare share = shares[selected - 1];
                 if (!share.Active) continue;
-                if (await ConfirmAsync("Revoke link ..." + share.TokenLast4 + "? It stops working now.", "Revoke").ConfigureAwait(false)) await _Client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(share.Id), token: _Token).ConfigureAwait(false);
+                int action = await SelectAsync("Link ..." + share.TokenLast4, new[] { "Show the link", "Revoke" }).ConfigureAwait(false);
+                if (action == 0)
+                {
+                    ConversationShareCreated shown = await _Client.RevealShareAsync(conversationId, share.Id, _Token).ConfigureAwait(false);
+                    await PanelAsync("Read-only link", "Anyone with this link can read the transcript until " + Date(share.ExpiresUtc) + ".\n\n" + shown.Url).ConfigureAwait(false);
+                    continue;
+                }
+                if (action == 1 && await ConfirmAsync("Revoke link ..." + share.TokenLast4 + "? It stops working now.", "Revoke").ConfigureAwait(false)) await _Client.SendAsync<Acknowledgement>(HttpMethod.Delete, root + "/" + Uri.EscapeDataString(share.Id), token: _Token).ConfigureAwait(false);
             }
         }
     }

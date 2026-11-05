@@ -101,6 +101,11 @@ namespace Test.Shared
                 // Own credentials: shown once, usable as a bearer token, revocable.
                 AuthCredentialCreated credential = await member.SendAsync<AuthCredentialCreated>(HttpMethod.Post, "v2.0/api/me/credentials", new AuthCredentialRequest { Name = "Fixture automation" }, token).ConfigureAwait(false);
                 Require(credential.Token.StartsWith("abt_", StringComparison.Ordinal) && credential.Credential.TokenLast4 == credential.Token.Substring(credential.Token.Length - 4), "A new credential must return its token once.");
+                RevealedToken revealedOwn = await member.RevealTokenAsync(credential.Credential.Id, "", token).ConfigureAwait(false);
+                Require(revealedOwn.Token == credential.Token, "A member must reveal their own token exactly.");
+                Require((await admin.RevealTokenAsync(credential.Credential.Id, created.Id, token).ConfigureAwait(false)).Token == credential.Token, "A tenant administrator must reveal a member's token.");
+                await Reject(() => member.RevealTokenAsync(IdentitySeed.CredentialId, IdentitySeed.UserId, token), 403, "forbidden").ConfigureAwait(false);
+                Require((await admin.RevealTokenAsync(IdentitySeed.CredentialId, "", token).ConfigureAwait(false)).Token == IdentitySeed.Token, "The default token must be revealable.");
                 using (ArgueBotClient automation = LocalServiceConnector.CreateClient(endpoint, home, credential.Token))
                 {
                     TokenDetails automated = await automation.TokenDetailsAsync(token).ConfigureAwait(false);
@@ -175,8 +180,12 @@ namespace Test.Shared
                 using (HttpResponseMessage page = await http.GetAsync("share/" + link.Token, token).ConfigureAwait(false))
                     // 503 means this test build has no dashboard; the page is still public and still sends no referrer.
                     Require((page.IsSuccessStatusCode || page.StatusCode == HttpStatusCode.ServiceUnavailable) && page.Headers.TryGetValues("Referrer-Policy", out IEnumerable<string>? policy) && policy.Contains("no-referrer"), "The share page must load without sign-in and never send its token as a referrer.");
+                ConversationShareCreated shownAgain = await admin.RevealShareAsync(shared.Id, link.Share.Id, token).ConfigureAwait(false);
+                Require(shownAgain.Url == link.Url, "Revealing a share link must return the same URL.");
+                await Reject(() => other.RevealShareAsync(shared.Id, link.Share.Id, token), 404, "").ConfigureAwait(false);
                 List<ConversationShare> links = await admin.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token).ConfigureAwait(false);
                 Require(links.Count == 1 && links[0].ViewCount == 1 && !JsonSerializer.Serialize(links).Contains(link.Token, StringComparison.Ordinal), "Link lists must count views and never include the token.");
+                Require((await admin.SendAsync<AuditPage>(HttpMethod.Get, "v2.0/api/audit?operation=ShareRevealed", token: token).ConfigureAwait(false)).TotalCount >= 1, "Share reveals must be audited.");
                 await Reject(() => other.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token), 404, "").ConfigureAwait(false);
                 await Reject(() => other.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id + "/shares/" + link.Share.Id, token: token), 404, "").ConfigureAwait(false);
                 HistoryPage captured = await admin.SendAsync<HistoryPage>(HttpMethod.Get, "v2.0/api/request-history?search=" + Uri.EscapeDataString("/v2.0/api/shares/"), token: token).ConfigureAwait(false);

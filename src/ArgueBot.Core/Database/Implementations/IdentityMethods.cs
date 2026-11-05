@@ -217,7 +217,7 @@ namespace ArgueBot.Core.Database.Implementations
             if (request.ExpiresUtc != null && request.ExpiresUtc.Value.ToUniversalTime() <= DateTime.UtcNow) throw new DomainException(400, "invalid_expiry", "Choose an expiry in the future, or none.", "expiresUtc");
             string raw = SecretTokens.Create("abt_");
             string id = Ids.New("cred_");
-            await _Database.WriteAsync((connection, transaction) => ExecuteAsync(connection, transaction, "INSERT INTO auth_credentials(id,tenant_id,user_id,name,token_sha256,token_last4,auth_mode,active,protected,expires_utc,revision,created_utc,updated_utc) VALUES(@id,@tenant,@user,@name,@hash,@last4,'DirectHeader',1,0,@expires,1,@now,@now)", token, P("id", id, "tenant", context.TenantId, "user", userId, "name", name, "hash", SecretTokens.Hash(raw), "last4", SecretTokens.Last4(raw), "expires", request.ExpiresUtc?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture))), token).ConfigureAwait(false);
+            await _Database.WriteAsync((connection, transaction) => ExecuteAsync(connection, transaction, "INSERT INTO auth_credentials(id,tenant_id,user_id,name,token_sha256,token_last4,token_sealed,auth_mode,active,protected,expires_utc,revision,created_utc,updated_utc) VALUES(@id,@tenant,@user,@name,@hash,@last4,@sealed,'DirectHeader',1,0,@expires,1,@now,@now)", token, P("id", id, "tenant", context.TenantId, "user", userId, "name", name, "hash", SecretTokens.Hash(raw), "last4", SecretTokens.Last4(raw), "sealed", _Database.Sealer?.Seal(raw) ?? "", "expires", request.ExpiresUtc?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture))), token).ConfigureAwait(false);
             AuthCredential created = (await CredentialsAsync(context, userId, token).ConfigureAwait(false)).Single(item => item.Id == id);
             return new AuthCredentialCreated { Credential = created, Token = raw };
         }
@@ -317,6 +317,25 @@ namespace ArgueBot.Core.Database.Implementations
                 await AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "AuditPruned", Outcome = "success", PrincipalType = context.PrincipalType, SessionId = context.SessionId, CredentialId = context.CredentialId, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, Reason = deleted + " records before " + SessionStore.Stamp(beforeUtc), StatusCode = 200 }, token).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
             return deleted;
+        }
+
+        /// <inheritdoc />
+        public async Task<RevealedToken> RevealCredentialAsync(RequestContext context, string userId, string id, CancellationToken token = default)
+        {
+            await RequireCredentialOwnerAsync(context, userId, token).ConfigureAwait(false);
+            string name = ""; string stored = ""; string hash = "";
+            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
+            using (DbCommand command = Command(connection, null, "SELECT name,token_sealed,token_sha256 FROM auth_credentials WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", userId, "id", id)))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw NotFound("credential_not_found", "Credential not found.");
+                name = S(reader, "name"); stored = S(reader, "token_sealed"); hash = S(reader, "token_sha256");
+            }
+            // The default token's value is public; it predates sealing, so it is recognized by its hash.
+            string? value = stored.Length > 0 ? _Database.Sealer?.Unseal(stored) : hash == SecretTokens.Hash(IdentitySeed.Token) ? IdentitySeed.Token : null;
+            if (value == null) throw new DomainException(409, "not_revealable", stored.Length > 0 ? "This token was encrypted with a key the service no longer has. Create a new token." : "This token was created before tokens could be revealed. Create a new token to replace it.");
+            await _Database.WriteAsync((connection, transaction) => AuditLog.WriteAsync(connection, transaction, new AuditEvent { TenantId = context.TenantId, UserId = context.UserId, Operation = "CredentialRevealed", Outcome = "success", ResourceType = "credential", ResourceId = id, Reason = userId == context.UserId ? "Revealed own token" : "Revealed the token of user " + userId, PrincipalType = context.PrincipalType, SessionId = context.SessionId, CredentialId = context.CredentialId, AuthScheme = context.AuthScheme, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, StatusCode = 200 }, token), token).ConfigureAwait(false);
+            return new RevealedToken { Id = id, Name = name, Token = value };
         }
 
         internal static Task<int> RevokeSessionsAsync(DbConnection connection, DbTransaction transaction, string tenantId, string userId, string keepSessionId, string reason, CancellationToken token, string credentialId = "")

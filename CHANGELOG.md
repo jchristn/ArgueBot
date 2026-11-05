@@ -23,6 +23,10 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 - Provider credentials are now **secrets**: `/v2.0/api/configuration/secrets` and `/configuration/secret-keys`, the Secrets tab, `secrets` and `secret-keys` in the CLI and "secrets" throughout the TUI. The `/configuration/credentials` routes and `configuration credentials` CLI spelling remain as deprecated aliases for 2.1.x.
 - Revealing an unknown, disabled or other-tenant secret returns 404 `credential_not_found`.
 
+### Reveal
+
+- Bearer-token credentials and share-link tokens are kept encrypted (AES-256-GCM, `secrets/token.key`) alongside their SHA-256 verifiers (schema 31), so `POST /v2.0/api/me/credentials/{id}/reveal`, `POST /v2.0/api/users/{userId}/credentials/{id}/reveal` and `POST /v2.0/api/conversations/{id}/shares/{shareId}/reveal` can show them again. Owners and tenant administrators reveal tokens; tenant members reveal active links. Every reveal is audited (`CredentialRevealed`, `ShareRevealed`). Tokens created before schema 31 return 409 `not_revealable`, except the public default token. Provider secrets keep their existing reveal. Dashboard (Actions > Reveal, Show link), TUI and CLI (`credentials reveal`, `shares reveal`) support it.
+
 ### Public share links
 
 - `GET|POST /v2.0/api/conversations/{id}/shares` and `DELETE .../shares/{shareId}` create, list and revoke read-only links that expire after 1 hour to 90 days. `GET /v2.0/api/shares/{token}` returns the transcript without sign-in: title, debates, turns, proposals and votes, with tool calls only when chosen and private directives never. Tokens are 32 random bytes stored as SHA-256. Links stop at expiry, revocation, conversation deletion or tenant disablement. Public reads are limited to 120 per minute per address.
@@ -31,7 +35,7 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 ### Dashboard
 
 - Sign-in page at `/dashboard/login` (email and password, tenant choice, or a bearer token) that always shows the default credentials. Sessions live in `sessionStorage` only, refresh five minutes before expiry, and any 401 returns to sign-in with the page you were on.
-- Account menu in the top bar; Account page with profile, password, bearer tokens (shown once) and sessions.
+- Account menu in the top bar; Account page with profile, password, bearer tokens (with an audited Reveal) and sessions.
 - Administration: Users (including other tenants for system administrators), Tenants and Audit log. Settings, request history and encryption keys are hidden from members.
 - Share dialog in the workspace header and the conversation Actions menu; Participants > Credentials is now Secrets.
 
@@ -48,7 +52,7 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 ### Housekeeping
 
 - Set the product version to 2.1.0. Schema 30 adds the identity, credential, session, audit and share columns and tables; backups include columns whose names contain digits (`password_sha256`, `token_sha256`), which earlier snapshots silently omitted.
-- Docker: `docker/compose.yaml` runs the published multi-architecture image `jchristn77/arguebot:v2.1.0`; `docker/compose.build.yaml` builds this checkout instead, and the container test and CI use it. `build-arguebot.sh`/`.bat` build and push the image, `build-all.sh`/`.bat` run every image build, and `docker/update.*` pull the published image.
+- Docker: `docker/compose.yaml` runs the published multi-architecture image `jchristn77/arguebot:v2.1.0`; `docker/compose.build.yaml` builds this checkout instead, and the container test and CI use it. `build-all.sh`/`.bat` build the image for amd64 and arm64 on the same cloud builder as Armada (`cloud-jchristn77-jchristn77`) and push it, and `docker/update.*` pull the published image.
 - Refresh `DOCKERHUB_README.md` for the published image and move the completed multi-agent plan to `archive/`.
 
 ## v2.0.0 (on main, not yet published)

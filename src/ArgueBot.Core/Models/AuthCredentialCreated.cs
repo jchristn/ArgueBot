@@ -2,7 +2,7 @@ namespace ArgueBot.Core.Models
 {
     using System;
 
-    /// <summary>A newly created credential together with its bearer token. The token is returned only this once.</summary>
+    /// <summary>A newly created credential together with its bearer token. Later it can be revealed again by its owner or a tenant administrator, with an audit record.</summary>
     public sealed class AuthCredentialCreated
     {
         private AuthCredential _Credential = new AuthCredential();

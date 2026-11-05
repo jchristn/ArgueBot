@@ -22,7 +22,7 @@ The TUI starts on a sign-in page whenever it has no valid session. It shows the 
 
 After signing in, the session (never the password) is remembered for this home in `client-session.json`, readable only by you, and refreshed while the TUI runs, so the next start skips the page. `ARGUEBOT_TOKEN` signs in with a token without saving it. The connection line at the bottom shows who you are and which tenant you are in.
 
-**Menu > Account** shows who you are signed in as, changes your password, manages your bearer tokens (a new one is shown once) and sessions, signs out and switches server. Signing out or a revoked session returns to the sign-in page. Tenant administrators also get **Menu > Users** and **Audit log**; system administrators get **Tenants**, where they can open any tenant's users. With a conversation open, **Menu > Share a read-only link** creates a public link that expires after the time you choose, and lists and revokes earlier links.
+**Menu > Account** shows who you are signed in as, changes your password, manages your bearer tokens (create, reveal again, disable or delete) and sessions, signs out and switches server. Signing out or a revoked session returns to the sign-in page. Tenant administrators also get **Menu > Users** and **Audit log**; system administrators get **Tenants**, where they can open any tenant's users. With a conversation open, **Menu > Share a read-only link** creates a public link that expires after the time you choose, and lists and revokes earlier links.
 
 ## Appearance
 

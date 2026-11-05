@@ -172,7 +172,7 @@ namespace ArgueBot.Tui
 
             Staying signed in. A successful sign-in is remembered for this home (the session token only, never the password) in client-session.json, readable only by you. The TUI refreshes it while it runs. Menu > Sign out ends the session and forgets it. To sign in with a token without saving it, set ARGUEBOT_TOKEN before starting.
 
-            Account. Menu > Your bearer tokens creates tokens for scripts and the CLI; a new token is shown once. Menu > Your sessions signs out other devices.
+            Account. Menu > Your bearer tokens creates tokens for scripts and the CLI and reveals one again (each reveal is audited). Menu > Your sessions signs out other devices.
 
             Administration. Tenant administrators see Menu > Users and Audit log: add people, reset passwords, disable sign-in and review sign-ins and denied requests. System administrators also see Tenants, and can open any tenant's users.
 

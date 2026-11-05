@@ -28,6 +28,11 @@ export default function ShareDialog({ api, conversation, onClose }) {
     catch (problem) { setFailure(problem); }
     finally { setBusy(false); }
   };
+  const show = async share => {
+    setFailure(null);
+    try { setCreated(await api.revealShare(conversation.id, share.id)); }
+    catch (problem) { setFailure(problem); }
+  };
   const revoke = async share => {
     try { await api.revokeShare(conversation.id, share.id); await reload(); }
     catch (problem) { setFailure(problem); }
@@ -57,7 +62,7 @@ export default function ShareDialog({ api, conversation, onClose }) {
         <td><span className={share.active ? "badge success" : "badge"}>{t(share.revokedUtc ? "share.revoked" : share.active ? "share.active" : "share.expired")}</span></td>
         <td><time>{formatDate(share.expiresUtc)}</time></td>
         <td>{share.viewCount}{share.lastViewedUtc && <div className="muted">{t("share.lastViewed", { date: formatDate(share.lastViewedUtc) })}</div>}</td>
-        <td className="actions-cell"><ActionMenu context={"…" + share.tokenLast4} items={[{ label: "share.revoke", danger: true, disabled: !share.active, onClick: () => revoke(share) }]} /></td>
+        <td className="actions-cell"><ActionMenu context={"…" + share.tokenLast4} items={[{ label: "share.show", help: "share.show.help", disabled: !share.active, onClick: () => show(share) }, { label: "share.revoke", danger: true, disabled: !share.active, onClick: () => revoke(share) }]} /></td>
       </tr>)}</tbody>
     </table></div>}
   </Modal>;

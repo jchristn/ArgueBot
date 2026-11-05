@@ -16,7 +16,7 @@ docker compose -f docker/compose.yaml -f docker/compose.build.yaml build
 docker compose -f docker/compose.yaml -f docker/compose.build.yaml up -d
 ```
 
-Maintainers publish a new image with `./build-arguebot.sh v2.1.0` (or `build-arguebot.bat v2.1.0` on Windows). It builds both architectures on the `cloud-jchristn77-jchristn77` buildx builder, pushes `jchristn77/arguebot:<tag>` and `:latest`, then pulls them back. `docker/update.sh` and `docker/update.bat` pull the published image and recreate the stack without deleting volumes.
+Maintainers publish a new image with `./build-all.sh v2.1.0` (or `build-all.bat v2.1.0` on Windows). It builds both architectures on the `cloud-jchristn77-jchristn77` buildx builder, pushes `jchristn77/arguebot:<tag>` and `:latest`, then pulls them back. `docker/update.sh` and `docker/update.bat` pull the published image and recreate the stack without deleting volumes.
 
 Open `http://127.0.0.1:4317/dashboard` and sign in. A new data volume starts with the default administrator **`admin@arguebot`** / **`password`** and the bearer token **`arguebotadmin`**, shown on the sign-in page. Anyone who can reach the port can sign in with them, so change the password before exposing the service. The service listens on the container network and Compose publishes it only on host loopback.
 
@@ -31,7 +31,7 @@ To change the published port or pass provider settings, copy `docker/.env.exampl
 
 **Trust model.** When local execution is enabled in Settings, agents and their tools run as the service user inside the container. They can read and write everything that user can, including `/data`, `/work` and the protected `/data/secrets` directory. Secret encryption protects stored values at rest and in backups, not from agents you allow to execute locally. Enable local execution only for agents you trust with the whole workspace, or keep it off so agents can use only the conversation tools.
 
-`arguebot-data` holds the application home, database, metadata and logs; `arguebot-keys` holds the secret encryption keys and the session key (deleting `session.key` signs everyone out); `arguebot-work` holds files used by agents. Keep these volumes together across updates. The process runs as an unprivileged user. Bind mounts, if substituted, must be writable by UID 10001. Do not mount a host login directory as a writable shared home for multiple agent processes.
+`arguebot-data` holds the application home, database, metadata and logs; `arguebot-keys` holds the secret encryption keys, the session key (deleting `session.key` signs everyone out) and the token key that lets tokens be revealed; `arguebot-work` holds files used by agents. Keep these volumes together across updates. The process runs as an unprivileged user. Bind mounts, if substituted, must be writable by UID 10001. Do not mount a host login directory as a writable shared home for multiple agent processes.
 
 ## Configure models and imported login secrets
 

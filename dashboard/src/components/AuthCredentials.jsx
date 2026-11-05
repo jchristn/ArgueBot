@@ -21,6 +21,8 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
   const [created, setCreated] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [revealing, setRevealing] = useState(null);
+  const [revealed, setRevealed] = useState(null);
   const [failure, setFailure] = useState(null);
   const save = async (credential, changes) => {
     try { await api.updateCredential(credential.id, { name: credential.name, expiresUtc: credential.expiresUtc, active: credential.active, revision: credential.revision, ...changes }, userId, tenantId); await reload(); }
@@ -40,6 +42,7 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
         <td>{credential.expiresUtc ? <time>{formatDate(credential.expiresUtc)}</time> : t("authCredentials.never")}</td>
         <td>{credential.lastUsedUtc ? <time>{formatDate(credential.lastUsedUtc)}</time> : t("authCredentials.unused")}</td>
         <td className="actions-cell"><ActionMenu context={credential.name} items={[
+          { label: "authCredentials.reveal", help: "authCredentials.reveal.help", onClick: () => { setFailure(null); setRevealing(credential); } },
           { label: "authCredentials.rename", onClick: () => setRenaming({ ...credential }) },
           { label: credential.active ? "authCredentials.disable" : "authCredentials.enable", hidden: credential.protected, onClick: () => save(credential, { active: !credential.active }) },
           { label: "common.delete", danger: true, hidden: credential.protected, onClick: () => { setFailure(null); setDeleting(credential); } },
@@ -63,6 +66,16 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
       <div className="token-reveal"><code>{created.token}</code><CopyButton value={created.token} label="authCredentials.copy" /></div>
       <p className="muted">{t("authCredentials.created.usage")}</p>
       <footer className="dialog-actions"><Button label="authCredentials.created.done" className="primary" onClick={() => setCreated(null)} /></footer>
+    </Modal>}
+    {revealing && <Modal title="authCredentials.reveal.title" onClose={() => setRevealing(null)}>
+      <p>{t("authCredentials.reveal.confirm", { name: revealing.name })}</p>
+      {failure && <ErrorPanel error={failure} />}
+      <footer className="dialog-actions"><Button label="common.cancel" onClick={() => setRevealing(null)} /><Button label="authCredentials.reveal" className="primary" onClick={async () => { try { setRevealed(await api.revealToken(revealing.id, userId, tenantId)); setRevealing(null); } catch (problem) { setFailure(problem); } }} /></footer>
+    </Modal>}
+    {revealed && <Modal title="authCredentials.revealed.title" onClose={() => setRevealed(null)}>
+      <p>{t("authCredentials.revealed.help", { name: revealed.name })}</p>
+      <div className="token-reveal"><code>{revealed.token}</code><CopyButton value={revealed.token} label="authCredentials.copy" /></div>
+      <footer className="dialog-actions"><Button label="common.close" className="primary" onClick={() => setRevealed(null)} /></footer>
     </Modal>}
     {renaming && <Modal title="authCredentials.rename" onClose={() => setRenaming(null)}>
       <form onSubmit={async event => { event.preventDefault(); await save(renaming, { name: renaming.name.trim() }); setRenaming(null); }}>
