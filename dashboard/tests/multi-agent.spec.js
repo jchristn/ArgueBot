@@ -349,7 +349,7 @@ test("post-implementation review covers every web route and new configuration fo
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       if (kind === "agents") {
-        await expect(dialog).toContainText("Select a stored secret when running in Docker or to override the credentials used by default by the agent.");
+        await expect(dialog.getByText("Select a stored secret when running in Docker or to override the credentials used by default by the agent.", { exact: true })).toHaveCount(1);
         await expect(dialog.getByRole("combobox", { name: "Secret (optional)", exact: true }).locator("option").first()).toHaveText("None: use the login on the service machine");
         await dialog.getByRole("combobox", { name: "Runner type", exact: true }).selectOption("mux");
         await expect(dialog.getByRole("combobox", { name: "Secret (optional)", exact: true })).toHaveCount(0);

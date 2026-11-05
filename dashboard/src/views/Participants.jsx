@@ -175,7 +175,6 @@ function ProfileForm({ onSave, onClose, initial, api }) {
               <Field label={["claude", "codex", "gemini"].includes(profile.provider) ? "profile.cliModel" : "profile.cliModel.placeholder"}>{props => <input {...props} value={profile.model || ""} maxLength={1000} placeholder={profile.provider === "claude" ? "sonnet" : profile.provider === "codex" ? "gpt-5.5" : ""} onChange={event => setProfile(value => ({ ...value, model: event.target.value }))} />}</Field>
               {secretKind ? <div>
                 <Field label="profile.credential">{props => <select {...props} value={profile.credentialId || ""} onChange={event => setProfile(value => ({ ...value, credentialId: event.target.value }))}><option value="">{t("profile.credential.none")}</option>{usableSecrets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</Field>
-                <p className="muted field-note">{t("profile.credential.help")}</p>
                 {usableSecrets.length === 0 && <p className="muted field-note">{t("profile.credential.addFirst", { kind: t(`credential.kind.${secretKind}`) })}</p>}
               </div> : <p className="muted field-note">{t("profile.credential.unsupported")}</p>}
               <Field label="catalog.environmentVariables">{props => <input {...props} value={(profile.environmentVariables || []).join(", ")} onChange={event => setProfile(value => ({ ...value, environmentVariables: event.target.value.split(",").map(name => name.trimStart()) }))} />}</Field>
