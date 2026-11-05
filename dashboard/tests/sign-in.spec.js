@@ -13,11 +13,22 @@ test("sign-in page always shows the default credentials, returns to the requeste
   await page.getByLabel("Password", { exact: true }).fill("not-the-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("The email or password is not correct.");
-  await defaults.getByRole("button", { name: "Fill in the default sign-in" }).click();
+  await expect(defaults.getByRole("button")).toHaveCount(0);
+  await page.getByLabel("Email", { exact: true }).fill("admin@arguebot");
+  await page.getByLabel("Password", { exact: true }).fill("password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/conversations$/);
   const account = page.getByRole("button", { name: "Account and sign out" });
   await expect(account).toContainText("Default tenant");
+  // The account button sizes to its name and tenant instead of clipping them at the icon-button width.
+  for (const width of [1280, 768]) {
+    await page.setViewportSize({ width, height: 800 });
+    const box = await account.evaluate(element => ({ clipped: element.scrollWidth > element.clientWidth + 1, right: element.getBoundingClientRect().right, viewport: window.innerWidth, width: element.getBoundingClientRect().width }));
+    expect(box.clipped, `account button clipped at ${width}`).toBe(false);
+    expect(box.width).toBeGreaterThan(60);
+    expect(box.right).toBeLessThanOrEqual(box.viewport);
+    await page.locator(".topbar").screenshot({ path: `../.run/screenshots/topbar-account-${width}.png` });
+  }
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("arguebot.session")).token.startsWith("abs_"))).toBe(true);
   expect(await page.evaluate(() => localStorage.getItem("arguebot.session"))).toBeNull();
   await page.reload();

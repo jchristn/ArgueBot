@@ -637,6 +637,7 @@ td time {
   width: 100%;
 }
 .login-card .wordmark {
+  justify-content: center;
   margin-bottom: 45px;
 }
 .login-card h1 {
@@ -1547,18 +1548,16 @@ dialog.message-reader { width: min(1100px, calc(100vw - 32px)); }
 .reader-chip.moderator { --speaker-color: var(--muted); border-inline-start-style: dashed; }
 
 /* Sign-in, account and administration */
-.account-trigger { gap: 8px; padding: 4px 10px; max-width: 320px; min-width: 0; }
+/* The account menu reuses the row Actions trigger; undo its fixed 28 x 24 icon size so the name and tenant fit. */
+.account-trigger { gap: 8px; padding: 4px 10px; width: auto; height: auto; min-height: 32px; max-width: 320px; min-width: 0; }
 .account-trigger .account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .account-trigger .tenant-badge { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .login-card form .link-button { display: block; margin: 14px auto 0; font-family: inherit; font-size: 13px; }
 .login-card form .field { margin-bottom: 12px; }
-.default-credentials { margin-top: 28px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.default-credentials h2 { margin: 0 0 8px; font-size: 14px; }
-.default-credentials dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; align-items: center; }
-.default-credentials dt { color: var(--muted); font-size: 13px; }
-.default-credentials dd { margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; }
-.default-credentials dd code { color: var(--text); overflow-wrap: anywhere; }
-.default-credentials p { margin: 10px 0; font-size: 13px; color: var(--muted); }
+/* Two quiet lines under the form: the default sign-in every new service starts with. */
+.login-card .default-credentials p { margin: 2px 0; font-size: 12px; color: var(--faint); text-align: center; }
+.login-card .default-credentials { margin-top: 20px; }
+.login-card .default-credentials code { color: inherit; font-size: inherit; }
 .login-version { text-align: center; margin: 18px 0 0; }
 .token-reveal { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--raised); }
 .token-reveal code { overflow-wrap: anywhere; flex: 1 1 260px; color: var(--text); }

@@ -42,8 +42,8 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 
 ### Dashboard
 
-- Sign-in page at `/dashboard/login` (email and password, tenant choice, or a bearer token) that always shows the default credentials. Sessions live in `sessionStorage` only, refresh five minutes before expiry, and any 401 returns to sign-in with the page you were on.
-- Account menu in the top bar; Account page with profile, password, bearer tokens (with an audited Reveal) and sessions.
+- Sign-in page at `/dashboard/login` (email and password, tenant choice, or a bearer token) that always shows the default credentials as two small lines under the form, below a centered logo. Sessions live in `sessionStorage` only, refresh five minutes before expiry, and any 401 returns to sign-in with the page you were on.
+- Account menu in the top bar, sized to show the name and tenant in full; Account page with profile, password, bearer tokens (with an audited Reveal) and sessions.
 - Administration: Users (including other tenants for system administrators), Tenants and Audit log. Settings, request history and encryption keys are hidden from members.
 - Share dialog in the workspace header and the conversation Actions menu; Participants > Credentials is now Secrets.
 - Clicking a row in any table opens that item's edit dialog, or a read-only details dialog for sessions, audit events and share links (which have nothing to edit). Clicking a tenant now edits it; its users are under Actions > Users. API tokens open their rename dialog.

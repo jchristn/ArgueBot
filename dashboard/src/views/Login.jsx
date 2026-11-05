@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client.js";
 import { signIn, signInWithToken } from "../api/session.js";
-import CopyButton from "../components/CopyButton.jsx";
 import { Language, ThemeControl } from "../components/Chrome.jsx";
 import { Button, ErrorPanel, Field } from "../components/ui.jsx";
 
@@ -46,11 +45,6 @@ export default function Login({ theme, toggleTheme, onSignedIn }) {
       } else setError(failure);
     } finally { setBusy(false); }
   };
-  const useDefaults = () => {
-    setError(null); setTenants([]); setTenantId("");
-    if (mode === "token") setToken(defaults.token);
-    else { setEmail(defaults.email); setPassword(defaults.password); }
-  };
   return (
     <main className="login">
       <div className="login-utilities"><ThemeControl theme={theme} toggle={toggleTheme} /><Language /></div>
@@ -71,15 +65,9 @@ export default function Login({ theme, toggleTheme, onSignedIn }) {
           <Button label="login.submit" type="submit" className="primary" disabled={busy || (mode === "token" ? !token.trim() : !email.trim() || !password || (tenants.length > 0 && !tenantId))} />
           <Button label={mode === "token" ? "login.usePassword" : "login.useToken"} type="button" className="link-button" onClick={() => { setMode(mode === "token" ? "password" : "token"); setError(null); setTenants([]); }} />
         </form>
-        <aside className="default-credentials" aria-labelledby="default-credentials-title">
-          <h2 id="default-credentials-title">{t("login.defaults.title")}</h2>
-          <dl>
-            <dt>{t("login.email")}</dt><dd><code>{defaults.email}</code><CopyButton value={defaults.email} iconOnly label="login.defaults.copyEmail" /></dd>
-            <dt>{t("login.password")}</dt><dd><code>{defaults.password}</code><CopyButton value={defaults.password} iconOnly label="login.defaults.copyPassword" /></dd>
-            <dt>{t("login.defaults.token")}</dt><dd><code>{defaults.token}</code><CopyButton value={defaults.token} iconOnly label="login.defaults.copyToken" /></dd>
-          </dl>
-          <p>{t("login.defaults.help")}</p>
-          <Button label="login.defaults.fill" type="button" onClick={useDefaults} />
+        <aside className="default-credentials" aria-label={t("login.defaults.title")}>
+          <p>{t("login.defaults.title")}: <code>{defaults.email}</code> / <code>{defaults.password}</code></p>
+          <p>{t("login.defaults.token")}: <code>{defaults.token}</code></p>
         </aside>
         {info?.version && <p className="login-version"><code>{info.version}</code></p>}
       </section>
