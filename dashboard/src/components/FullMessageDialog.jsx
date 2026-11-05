@@ -13,17 +13,20 @@ export default function FullMessageDialog({ conversationId, messageId, onClose }
   const { api } = useOutletContext();
   const { t } = useTranslation();
   const { data, error, loading, reload } = useData(messageId, () => api.message(conversationId, messageId));
-  return <Modal title="messages.full" onClose={onClose} wide>
+  return <Modal title="messages.full" onClose={onClose} wide className="message-reader">
     {error && <ErrorPanel error={error} retry={reload} />}
     {loading && <p role="status">{t("common.loading")}</p>}
     {data && <>
-      <p><strong>{speakerLabel(t, data.speaker)}</strong> · <time>{formatDate(data.createdUtc)}</time></p>
-      <CopyableId value={data.id} />
-      <CopyButton label="messages.copy" value={data.content} />
-      <p className="muted">{t("messages.snapshot")}</p>
-      <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
-      <div className="markdown"><Markdown remarkPlugins={[remarkGfm]}>{messageContent(data)}</Markdown></div>
+      <div className="reader-meta">
+        <strong>{speakerLabel(t, data.speaker)}</strong>
+        <span className="badge">{t("state." + data.kind, { defaultValue: data.kind })}</span>
+        <time>{formatDate(data.createdUtc)}</time>
+        <CopyableId value={data.id} />
+        <span className="reader-actions"><CopyButton label="messages.copy" value={data.content} /><Button label="common.refresh" icon="refresh" iconOnly onClick={reload} /></span>
+      </div>
+      <p className="muted reader-note">{t("messages.snapshot")}</p>
+      <article className="markdown reader-body"><Markdown remarkPlugins={[remarkGfm]}>{messageContent(data)}</Markdown></article>
     </>}
-    <footer><Button label="common.close" help="common.close" onClick={onClose} /></footer>
+    <footer className="dialog-actions"><Button label="common.close" help="common.close" onClick={onClose} /></footer>
   </Modal>;
 }

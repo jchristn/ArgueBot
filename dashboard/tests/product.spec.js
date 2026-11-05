@@ -502,14 +502,11 @@ test("page long history, read complete text and export beyond the visible page",
     page.getByText("Paged browser message 34", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Previous", exact: true }).click();
-  const read = page.getByRole("button", {
-    name: "Read full message",
-    exact: true,
-  });
-  await expect(read).toBeVisible();
-  await expect(
-    page.getByText("COMPLETE BROWSER TRANSCRIPT TAIL", { exact: true }),
-  ).toHaveCount(0);
+  // A long turn arrives as a bounded preview; the transcript then loads and shows its full text inline.
+  const longTurn = page.locator("article.message").filter({ hasText: "COMPLETE BROWSER TRANSCRIPT TAIL" });
+  await expect(longTurn).toHaveCount(1);
+  await expect(longTurn.locator(".markdown")).toContainText("COMPLETE BROWSER TRANSCRIPT TAIL");
+  const read = longTurn.getByRole("button", { name: "Open in window", exact: true });
   await read.click();
   await expect(page.getByRole("dialog")).toContainText(
     "COMPLETE BROWSER TRANSCRIPT TAIL",
@@ -534,7 +531,7 @@ test("page long history, read complete text and export beyond the visible page",
     page.getByRole("button", { name: "Newer messages available", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Read full message", exact: true }),
+    page.getByRole("button", { name: "Open in window", exact: true }).first(),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Newer messages available", exact: true })
@@ -554,7 +551,7 @@ test("page long history, read complete text and export beyond the visible page",
     .getByRole("combobox", { name: "Records per page", exact: true })
     .selectOption("10");
   await expect(
-    page.getByRole("button", { name: "Read full message", exact: true }),
+    page.getByRole("button", { name: "Open in window", exact: true }).first(),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({

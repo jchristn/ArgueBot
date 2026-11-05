@@ -34,3 +34,10 @@ describe("votePosition", () => {
     expect(votePosition({ kind: "ratification", state: "completed", content: "not json" })).toBe(null);
   });
 });
+
+import { plainText } from "./TranscriptTimeline.jsx";
+describe("plainText", () => {
+  it("removes markdown markup but keeps identifiers and link text", () => {
+    expect(plainText("## Findings\n\n**Bold** use `get_debate_state` and see [docs](https://example.invalid/x_y).\n\n| A | B |\n|---|---|\n| one | two |\n> quoted_value")).toBe("Findings Bold use get_debate_state and see docs. A B one two quoted_value");
+  });
+});

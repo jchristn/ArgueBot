@@ -922,5 +922,13 @@
   "timeline.view.cards": "Cards",
   "timeline.view.cards.help": "Every turn shown in full as a card.",
   "timeline.round": "Round {round}",
-  "timeline.tools": "{count, plural, one {# tool call} other {# tool calls}}"
+  "timeline.tools": "{count, plural, one {# tool call} other {# tool calls}}",
+  "messages.window": "Open in window",
+  "messages.window.help": "Read this turn in a wide window with its full text and formatting.",
+  "messages.loadingFull": "Loading the full message ({bytes, number} UTF-8 bytes)…",
+  "messages.fullFailed": "Only a preview is shown; the full message could not be loaded. Use Open in window to try again.",
+  "timeline.live.noOutput": "Working. Nothing is visible yet; the agent may be reading, searching or thinking.",
+  "timeline.live.tool": "{count, plural, =0 {Using {tool}} one {Using {tool} (# tool call so far)} other {Using {tool} (# tool calls so far)}}",
+  "timeline.live.writing": "Writing: {text}",
+  "timeline.live.elapsed": "{minutes}:{seconds}"
 }

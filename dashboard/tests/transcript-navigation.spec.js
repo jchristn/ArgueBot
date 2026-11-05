@@ -92,3 +92,64 @@ test("timeline view shows one compact row per turn, groups tool calls and expand
     await request.delete(`/v1.0/api/conversations/${conversation.id}`);
   }
 });
+
+test("a turn longer than the transcript preview reads in full inline and in its own window, with markdown", async ({ page, request }) => {
+  const conversation = await (await request.post("/v1.0/api/conversations", { data: { title: "Long turn " + Date.now() } })).json();
+  const body = "## Findings\n\n" + Array.from({ length: 120 }, (_, line) => `Paragraph ${line + 1} explains one finding in enough words to be long.`).join("\n\n") + "\n\n| Configuration | Establishes |\n|---|---|\n| Prompt-only | An instruction |\n\nLONG_TURN_FINAL_SENTENCE.";
+  await request.post(`/v1.0/api/conversations/${conversation.id}/messages`, { data: { action: "note", text: body, idempotencyKey: "long-" + conversation.id } });
+  try {
+    const listed = (await (await request.get(`/v1.0/api/conversations/${conversation.id}/messages?pageSize=25`)).json()).items[0];
+    expect(listed.contentTruncated).toBe(true);
+    await page.goto(`/dashboard/conversations/${conversation.id}`);
+    const row = page.locator(".timeline-row").first();
+    await row.getByRole("button").first().click();
+    await expect(row.locator(".markdown")).toContainText("LONG_TURN_FINAL_SENTENCE.");
+    await expect(row.locator(".markdown table td").first()).toHaveText("Prompt-only");
+    await expect(row.locator(".markdown h2")).toHaveText("Findings");
+    await row.getByRole("button", { name: "Open in window", exact: true }).click();
+    const reader = page.getByRole("dialog", { name: "Read full message" });
+    await expect(reader.locator(".reader-body")).toContainText("LONG_TURN_FINAL_SENTENCE.");
+    await expect(reader.locator(".reader-body table")).toBeVisible();
+    await page.screenshot({ path: "../.run/screenshots/message-reader.png" });
+    await page.keyboard.press("Escape");
+    await page.getByRole("toolbar", { name: "Transcript navigation" }).getByRole("radio", { name: "Cards" }).click();
+    await expect(page.locator("article.message .markdown")).toContainText("LONG_TURN_FINAL_SENTENCE.");
+    await page.getByRole("toolbar", { name: "Transcript navigation" }).getByRole("radio", { name: "Timeline" }).click();
+  } finally {
+    await request.delete(`/v1.0/api/conversations/${conversation.id}`);
+  }
+});
+
+test("a working agent with no visible output shows a live row, and new turns appear even after scrolling up", async ({ page, request }) => {
+  test.setTimeout(90000);
+  const { default: path } = await import("node:path");
+  const profile = await (await request.post("/v1.0/api/participants", { data: { name: "Silent worker " + Date.now(), kind: "cli", provider: "claude", executable: "dotnet", arguments: [path.resolve("../src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll"), "diagnostic-timeout"], timeoutSeconds: 120 } })).json();
+  const conversation = await (await request.post("/v1.0/api/conversations", { data: { title: "Live row " + Date.now() } })).json();
+  const root = `/v1.0/api/conversations/${conversation.id}`;
+  for (let index = 1; index <= 20; index++) await request.post(`${root}/messages`, { data: { action: "note", text: `Earlier note ${index}\n\n` + "Context line.\n\n".repeat(6), idempotencyKey: `live-${conversation.id}-${index}` } });
+  const run = await (await request.post(`${root}/runs`, { data: { mode: "followup", question: "Fictional long silent turn", participantIds: [profile.id], idempotencyKey: "live-" + conversation.id } })).json();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`/dashboard/conversations/${conversation.id}`);
+    const live = page.locator(".live-turn");
+    await expect(live).toContainText(profile.name);
+    await expect(live).toContainText("Nothing is visible yet");
+    await expect(live.locator("time")).toHaveText(/^\d+:\d\d$/);
+    const first = await live.locator("time").textContent();
+    await expect(live.locator("time")).not.toHaveText(first, { timeout: 5000 });
+    await page.screenshot({ path: "../.run/screenshots/timeline-live.png" });
+    await request.post(`${root}/runs/${run.id}/actions`, { data: { action: "stop", idempotencyKey: "live-stop-early-" + conversation.id } });
+    await expect(live).toHaveCount(0, { timeout: 30000 });
+    // Scroll away from the newest turn, then add one: it must still appear without paging.
+    await page.locator(".message-feed").evaluate(feed => { feed.scrollTop = 0; feed.dispatchEvent(new Event("scroll")); });
+    const late = await request.post(`${root}/messages`, { data: { action: "note", text: "ARRIVED_WHILE_SCROLLED", idempotencyKey: "live-late-" + conversation.id } });
+    expect(late.status(), await late.text()).toBeLessThan(300);
+    await expect(page.locator(".timeline-row").filter({ hasText: "ARRIVED_WHILE_SCROLLED" })).toHaveCount(1, { timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Newer messages available" })).toHaveCount(0);
+  } finally {
+    await request.post(`${root}/runs/${run.id}/actions`, { data: { action: "stop", idempotencyKey: "live-stop-" + conversation.id } });
+    for (let attempt = 0; attempt < 40; attempt++) { const latest = (await (await request.get(`${root}/runs`)).json()).at(-1); if (["cancelled", "completed", "failed"].includes(latest.state)) break; await new Promise(resolve => setTimeout(resolve, 500)); }
+    await request.delete(root);
+    await request.delete(`/v1.0/api/participants/${profile.id}`);
+  }
+});

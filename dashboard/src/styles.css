@@ -1454,3 +1454,21 @@ dialog.start-debate { width: min(810px, calc(100vw - 32px)); }
 .badge.vote-agree { color: var(--success); border-color: currentColor; }
 .badge.vote-disagree { color: var(--danger); border-color: currentColor; }
 .badge.vote-needs_information, .badge.vote-abstain { color: var(--accent); border-color: currentColor; }
+
+/* Full-message reader. */
+dialog.message-reader { width: min(1100px, calc(100vw - 32px)); }
+.reader-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.reader-meta time { color: var(--faint); font-size: 11px; }
+.reader-actions { margin-inline-start: auto; display: inline-flex; gap: 6px; }
+.reader-note { font-size: 11px; margin: 4px 0 10px; }
+.reader-body { font-size: 14px; line-height: 1.65; max-width: 90ch; }
+.reader-body p, .reader-body ul, .reader-body ol { margin: 0 0 .8em; }
+.reader-body h1, .reader-body h2, .reader-body h3 { margin: 1.1em 0 .4em; }
+.markdown table { border-collapse: collapse; margin: .5em 0 .9em; font-size: .95em; }
+.markdown th, .markdown td { border: 1px solid var(--border); padding: 5px 9px; text-align: start; vertical-align: top; }
+.markdown th { background: var(--sunken); }
+.markdown a { overflow-wrap: anywhere; }
+.live-turn { border-bottom: 0; background: color-mix(in srgb, var(--speaker-color) 7%, var(--surface)); }
+.live-turn .timeline-summary { cursor: default; }
+.live-turn .timeline-summary:hover { background: transparent; }
+.live-turn .timeline-preview { color: var(--text); }

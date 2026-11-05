@@ -1,9 +1,9 @@
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import CopyButton from "./CopyButton.jsx";
 import CopyableId from "./CopyableId.jsx";
 import FailedTurn from "./FailedTurn.jsx";
+import MessageBody from "./MessageBody.jsx";
 import { Button, Icon, speakerLabel } from "./ui.jsx";
 import { messageContent } from "../utils/message-content.js";
 import { formatDate } from "../i18n/index.js";
@@ -21,9 +21,22 @@ export function votePosition(message) {
   catch { return null; }
 }
 
+/** Markdown reduced to readable text: code fences, heading and quote markers, emphasis, links and table pipes removed; words and identifiers kept. */
+export function plainText(markdown) {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^\s{0,3}(#{1,6}|>)\s*/gm, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|\*|`)(?=\S)([\s\S]*?\S)\1/g, "$2")
+    .replace(/^\s*\|?\s*:?-{3,}.*$/gm, " ")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** One line of plain text for a timeline row. Streaming turns show their newest text. */
 export function rowPreview(message) {
-  const text = (messageContent(message) || "").replace(/```[\s\S]*?```/g, " ").replace(/[#*_>`|[\]()]+/g, " ").replace(/\s+/g, " ").trim();
+  const text = plainText(messageContent(message) || "");
   if (message.state === "streaming" && text.length > 240) return "…" + text.slice(-240);
   return text.slice(0, 400);
 }
@@ -78,14 +91,60 @@ export default function TranscriptTimeline({ api, conversationId, messages, hues
                 <span className="muted">{formatDate(message.createdUtc)}</span>
                 <CopyableId value={message.id} />
                 <CopyButton label="messages.copy" iconOnly loadText={async () => (await api.message(conversationId, message.id)).content} />
-                {message.contentTruncated && <Button label="messages.full" onClick={() => onFull(message.id)} />}
+                <Button label="messages.window" icon="external" onClick={() => onFull(message.id)} />
               </div>
-              {message.contentTruncated && <p className="muted">{t("messages.preview", { bytes: message.contentBytes })}</p>}
-              <div className="markdown"><Markdown remarkPlugins={[remarkGfm]}>{messageContent(message)}</Markdown></div>
+              <MessageBody api={api} conversationId={conversationId} message={message} />
               {failed && <FailedTurn api={api} conversationId={conversationId} message={message} onInspect={() => onInspect(message.runId)} />}
             </>}
         </div>}
       </li>;
     })}
   </ol>;
+}
+
+/** The agent the debate is waiting on, using the same speaker rule as the service. */
+export function currentSpeaker(run) {
+  if (!run) return null;
+  if (run.protocolVersion !== 2) return run.participants?.[run.speakerIndex] || null;
+  if (["question", "synthesis", "compaction"].includes(run.phase)) return run.orchestrator || null;
+  return run.participants?.length ? run.participants[(run.speakerIndex + run.round - 1) % run.participants.length] : null;
+}
+
+/** What the current turn has produced so far: when it started and its newest visible activity. */
+export function liveActivity(run, messages) {
+  const speaker = currentSpeaker(run)?.name;
+  const own = messages.filter(message => message.runId === run.id);
+  let start = own.length;
+  while (start > 0 && (own[start - 1].kind === "tool" || own[start - 1].state === "streaming") && own[start - 1].speaker === speaker) start--;
+  const current = own.slice(start);
+  return { speaker, started: current[0]?.createdUtc || null, latest: current.at(-1) || null, toolCalls: current.filter(message => message.kind === "tool" && message.content.includes("Status: completed")).length };
+}
+
+/** A live row at the end of the transcript while an agent is working, so progress is visible without scrolling up. */
+export function LiveTurn({ run, messages, hues }) {
+  const { t } = useTranslation();
+  const [now, setNow] = useState(() => Date.now());
+  const working = run && ["queued", "agent_turn", "pausing"].includes(run.state);
+  useEffect(() => {
+    if (!working) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [working]);
+  if (!working) return null;
+  const activity = liveActivity(run, messages);
+  const elapsed = activity.started ? Math.max(0, Math.floor((now - Date.parse(activity.started)) / 1000)) : null;
+  const latest = activity.latest;
+  const detail = !latest || (latest.kind !== "tool" && !rowPreview(latest)) ? t("timeline.live.noOutput")
+    : latest.kind === "tool" ? t("timeline.live.tool", { tool: latest.content.split("\n")[0].replace(/^Conversation tool: |^Local tool: /, ""), count: activity.toolCalls })
+    : t("timeline.live.writing", { text: rowPreview(latest).slice(-160) });
+  const hue = hues.get(activity.speaker);
+  return <div className="timeline-row live-turn" role="status" aria-live="polite" style={hue !== undefined ? { "--speaker-hue": hue } : undefined}>
+    <div className="timeline-summary">
+      <span className="activity-spinner" aria-hidden="true" />
+      <strong className="timeline-speaker">{run.state === "queued" ? t("activity.queued") : activity.speaker || t("activity.agent")}</strong>
+      {run.state !== "queued" && <span className="badge">{t(`prompts.purpose.${run.protocolVersion === 2 ? run.phase : "response"}`, { defaultValue: run.phase })}</span>}
+      <span className="timeline-preview">{run.state === "pausing" ? t("activity.pausing") : detail}</span>
+      {elapsed !== null && <time>{t("timeline.live.elapsed", { minutes: Math.floor(elapsed / 60), seconds: String(elapsed % 60).padStart(2, "0") })}</time>}
+    </div>
+  </div>;
 }

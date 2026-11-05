@@ -2,7 +2,7 @@ import { mergeToolActivity, messageContent } from "../utils/message-content.js";
 import { speakerHues } from "../utils/speaker-colors.js";
 import DebatePolicyEditor from "../components/DebatePolicyEditor.jsx";
 import DebatePanel from "../components/DebatePanel.jsx";
-import TranscriptTimeline, { timelineRows } from "../components/TranscriptTimeline.jsx";
+import TranscriptTimeline, { LiveTurn, plainText, timelineRows } from "../components/TranscriptTimeline.jsx";
 import PromptPicker, { chosenPrompts } from "../components/PromptPicker.jsx";
 import { randomId } from "../utils/random-id.js";
 import RunActivity from "../components/RunActivity.jsx";
@@ -17,6 +17,7 @@ import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
+import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
 function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
@@ -485,8 +486,8 @@ function WorkspaceContent({ id }) {
         ref={feed}
         onScroll={() => {
           if (feed.current) {
+            // Scrolling up only stops following the newest turn; the latest page keeps updating. Paging back pins a page.
             tail.current = feed.current.scrollHeight - feed.current.scrollTop - feed.current.clientHeight < 80;
-            if (!tail.current && historyView.tail) setHistoryView((current) => ({ ...current, tail: false, pageNumber: data.messagePage.pageNumber, throughSequence: data.messagePage.throughSequence }));
           }
         }}
         aria-label={t("debate.history")}
@@ -525,17 +526,15 @@ function WorkspaceContent({ id }) {
               )}
               <CopyableId value={message.id} />
               <CopyButton label="messages.copy" iconOnly loadText={async () => (await api.message(id, message.id)).content} />
-              {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
+              <Button label="messages.window" icon="external" iconOnly onClick={() => setFullMessage(message.id)} />
             </header>
             {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
-            {message.contentTruncated && <p className="muted" title={t("messages.preview.help")}>{t("messages.preview", { bytes: message.contentBytes })}</p>}
-            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{message.content}</pre></details> : <div className="markdown">
-              <Markdown remarkPlugins={[remarkGfm]}>{messageContent(message)}</Markdown>
-            </div>}
+            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
             {["failed", "interrupted"].includes(message.state) && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsRunId(message.runId)} />}
             </div>}
           </article>;
         })}
+        <LiveTurn run={run} messages={data.messages} hues={hues} />
       </div>
       {run?.protocolVersion === 2 && panelOpen && <aside className="debate-sidebar" aria-label={t("panel.title")}><DebatePanel api={api} id={id} run={run} profiles={data.profiles} notify={notify} onChange={reload} /></aside>}
       </div>
@@ -644,7 +643,7 @@ function WorkspaceContent({ id }) {
 }
 /** One line of plain text from a message, for its collapsed preview. */
 function previewText(content) {
-  return (content || "").replace(/```[\s\S]*?```/g, " ").replace(/[#*_>`|[\]()-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
+  return plainText(content || "").slice(0, 220);
 }
 export default function Workspace() {
   const { id } = useParams();
