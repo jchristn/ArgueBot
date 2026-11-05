@@ -33,6 +33,7 @@ namespace Test.Shared
             else if (path == "/v2.0/api/configuration/credential-keys/rotate") { KeyRotated = true; result = new CredentialKeyStatus { ActiveKeyId = "rotated-fixture-key", RetainedKeyCount = 2, ReencryptedCredentials = 3 }; }
             else if (path == "/v2.0/api/configuration/models") result = Models;
             else if (path == "/v2.0/api/configuration/endpoints") result = Endpoints;
+            else if (path == "/v2.0/api/configuration/harnesses") result = new List<HarnessProfile>();
             else if (path == "/v2.0/api/configuration/endpoints/endpoint_fixture/preview") result = EndpointRequests.Preview(Endpoints[0]);
             else if (path == "/v2.0/api/configuration/credentials") result = new List<CredentialMetadata>();
             else if (path == "/v2.0/api/configuration/models/model_fixture/checks" && request.Method == HttpMethod.Get) result = Checks;

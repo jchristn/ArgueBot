@@ -175,15 +175,8 @@ namespace ArgueBot.Core.Database.Implementations
             if (string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200) throw new DomainException(400, "invalid_key", "Use an idempotency key between 1 and 200 characters.");
         }
         /// <summary>Read and resolve a selected profile, naming the request field when it is missing or its configuration is unavailable.</summary>
-        private async Task<RunnerProfile> ReadSelectionAsync(RequestContext context, string id, string field, CancellationToken token)
-        {
-            RunnerProfile profile;
-            try { profile = await _Database.Profiles.ReadAsync(context, id, token).ConfigureAwait(false); }
-            catch (DomainException error) when (error.Code == "not_found") { throw new DomainException(404, "profile_not_found", "A selected profile was deleted. Choose another agent.", field); }
-            try { await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); }
-            catch (DomainException error) when (error.Field.Length == 0) { throw new DomainException(error.StatusCode, error.Code, profile.Name + ": " + error.Message, field); }
-            return profile;
-        }
+        private Task<RunnerProfile> ReadSelectionAsync(RequestContext context, string id, string field, CancellationToken token)
+        { return SeatSelection.ReadAsync(_Database, context, id, field, token); }
         private static string CommandDigest(string runId, CommandRequest request)
         { return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("run-action:" + runId + ":" + JsonSerializer.Serialize(request)))); }
         private static async Task<bool> ReceiptAsync(DbConnection connection, DbTransaction? transaction, RequestContext context, string conversationId, string runId, CommandRequest request, CancellationToken token)

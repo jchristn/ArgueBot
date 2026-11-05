@@ -27,6 +27,11 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 
 - Bearer-token credentials and share-link tokens are kept encrypted (AES-256-GCM, `secrets/token.key`) alongside their SHA-256 verifiers (schema 31), so `POST /v2.0/api/me/credentials/{id}/reveal`, `POST /v2.0/api/users/{userId}/credentials/{id}/reveal` and `POST /v2.0/api/conversations/{id}/shares/{shareId}/reveal` can show them again. Owners and tenant administrators reveal tokens; tenant members reveal active links. Every reveal is audited (`CredentialRevealed`, `ShareRevealed`). Tokens created before schema 31 return 409 `not_revealable`, except the public default token. Provider secrets keep their existing reveal. Dashboard (Actions > Reveal, Show link), TUI and CLI (`credentials reveal`, `shares reveal`) support it.
 
+### Debate seats
+
+- Debates choose models and CLI harnesses directly: `participantIds`, `orchestratorId` and roster `profileId` accept `mod_...` and `har_...` IDs as well as agent IDs. Each seat takes its harness's secret or its endpoint's authentication, so container debates no longer fail with "Not logged in" because a directly configured CLI agent had no stored secret.
+- The dashboard and TUI debate setup list models and CLI harnesses first, show what each runs and how it signs in, and flag directly configured CLI agents that rely on the service machine's own login. Agents are optional.
+
 ### Public share links
 
 - `GET|POST /v2.0/api/conversations/{id}/shares` and `DELETE .../shares/{shareId}` create, list and revoke read-only links that expire after 1 hour to 90 days. `GET /v2.0/api/shares/{token}` returns the transcript without sign-in: title, debates, turns, proposals and votes, with tool calls only when chosen and private directives never. Tokens are 32 random bytes stored as SHA-256. Links stop at expiry, revocation, conversation deletion or tenant disablement. Public reads are limited to 120 per minute per address.

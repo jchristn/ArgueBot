@@ -18,6 +18,7 @@ import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
 import ShareDialog from "../components/ShareDialog.jsx";
+import { seatOptions } from "../utils/seats.js";
 import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -106,7 +107,7 @@ function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "
                   }
                 />
                 <span>{profile.name}</span>
-                <small>
+                <small className={profile.warning ? "seat-warning" : undefined}>
                   {profile.kind} · {profile.model || profile.provider}
                 </small>
                 {selected.includes(profile.id) && (
@@ -211,13 +212,19 @@ function WorkspaceContent({ id }) {
   const tail = useRef(true);
   const scrollPageTop = useRef(false);
   const { data, error, reload } = useData(id + JSON.stringify(historyView), async () => {
-    const [conversation, messagePage, runs, profiles, capabilities] = await Promise.all([
+    const [conversation, messagePage, runs, agents, capabilities, models, harnesses, endpoints, secrets] = await Promise.all([
       api.conversation(id),
       api.messages(id, historyView),
       api.runs(id),
       api.participants(),
       api.capabilities(),
+      api.configuration("models"),
+      api.configuration("harnesses"),
+      api.configuration("endpoints"),
+      api.configuration("credentials"),
     ]);
+    // Debate seats are models and CLI harnesses, which carry their secrets; see utils/seats.js.
+    const profiles = seatOptions({ models, harnesses, endpoints, secrets, agents }, t);
     return { conversation, messages: messagePage.items, messagePage, runs, profiles, capabilities };
   });
   const run = data?.runs.at(-1);

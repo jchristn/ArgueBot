@@ -629,8 +629,8 @@ namespace Test.Shared
                 ClickText(app, backend, "Start a debate: guided setup");
                 for (int agent = 0; agent < 2; agent++)
                 {
-                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Set up agents", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
-                    ClickText(app, backend, "Add or enable an agent");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Set up seats", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                    ClickText(app, backend, "Add an agent preset");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Agents:", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
                     ClickText(app, backend, "Add agent: CLI harness or REST model");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Add agent: choose how it runs", token).ConfigureAwait(false);

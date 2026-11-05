@@ -9,7 +9,7 @@ The dashboard's Participants page has a tab for each resource: **Agents**, **Mod
 1. Import a secret if needed. HTTP tokens, Claude OAuth tokens and complete Codex `auth.json` documents have separate kinds, and the add dialog shows how to obtain each: `claude setup-token` for Claude Code, `mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login` for a dedicated Codex login (Codex requires the folder to exist; the dialog also shows Linux and Windows PowerShell versions), or an API key from the provider console. Values are encrypted and never appear in lists, request history, logs or model context. The moderator can deliberately show one with **Reveal value** in the secret's Actions menu (after a confirmation), `configuration credentials reveal ID` in the CLI, **Reveal value** in the TUI, or `POST /v2.0/api/configuration/credentials/{id}/reveal`. Only ready secrets can be revealed. Use a safe display name; it appears in configuration lists. A harness without a stored secret uses the login of the user running the service, which does not exist in Docker. Gemini CLI, Mux and generic harnesses take keys through inherited environment names instead.
 2. Define an HTTP endpoint or a CLI harness. Ollama uses its native chat protocol; OpenAI-compatible endpoints use chat completions. Harnesses specify a direct executable and one literal argument per row.
 3. Define a model bound to exactly one endpoint or harness. Enter its provider model ID, context character budget and tool support. These are declarations, not automatic provider capability detection.
-4. Create participant profiles that select the reusable model and optionally supply role instructions. Create a separate profile for the orchestrator, or deliberately select an existing profile to serve that role.
+4. Start the debate. Each seat, and the orchestrator, can be a **model** or a **CLI harness** directly; both carry their sign-in (the harness's secret, or the endpoint's authentication bindings), so they work in Docker where there is no local login. **Agents** are optional named seats with role instructions; point them at a model. An agent configured directly as a CLI program has no stored secret and uses the service machine's own login, so it fails with "Not logged in" in a container. The debate setup lists models and harnesses first and flags such agents.
 
 For the requested panel, configure Claude Code, Codex and Gemini CLI harnesses, then a DeepSeek model served by Ollama or an OpenAI-compatible endpoint. The model names and executable paths must exist on the service machine. The service owns every model call; browsers and terminals never call providers directly.
 
@@ -78,13 +78,13 @@ debate change-roster CONVERSATION RUN -
 debate resume|rebuild_summary|exclude_summary CONVERSATION RUN
 ```
 
-Protocol 2 start document:
+Protocol 2 start document. `participantIds` and `orchestratorId` accept model IDs (`mod_...`), CLI harness IDs (`har_...`) or agent IDs (`par_...`); roster changes accept the same in `profileId`:
 
 ```json
 {
   "protocolVersion": 2,
-  "orchestratorId": "par_orchestrator",
-  "participantIds": ["par_claude", "par_codex", "par_gemini", "par_deepseek"],
+  "orchestratorId": "mod_sonnet",
+  "participantIds": ["har_claude", "har_codex", "har_gemini", "mod_deepseek"],
   "question": "Which rollout design should we adopt?",
   "maxRounds": 5,
   "interventionSeconds": 10,

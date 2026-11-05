@@ -23,7 +23,7 @@ test("table rows use an Actions menu that stays in the viewport and renames conv
       await trigger.click();
       const menu = page.getByRole("menu");
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole("menuitem")).toHaveText(["Open conversation", "Read transcript", "Rename", "Pin", "Archive", "View JSON", "Delete"]);
+      await expect(menu.getByRole("menuitem")).toHaveText(["Open conversation", "Read transcript", "Share", "Rename", "Pin", "Archive", "View JSON", "Delete"]);
       const box = await menu.boundingBox();
       const viewport = page.viewportSize();
       expect(box.x).toBeGreaterThanOrEqual(0);

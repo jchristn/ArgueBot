@@ -548,13 +548,15 @@ namespace ArgueBot.Tui
         private async Task ConfigureDebateAsync(string? conversationId)
         {
             if (_App == null) return;
-            List<RunnerProfile> profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
+            // Seats are models and CLI harnesses, which carry their secrets; see SeatCatalog.
+            List<RunnerProfile> profiles = await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false);
             while (profiles.Count(profile => profile.Enabled) < 2)
             {
-                int action = await UiAsync(() => _App.SelectStyledAsync("Set up agents: " + profiles.Count(profile => profile.Enabled) + " of 2 enabled", "Add or enable an agent (CLI harness or REST model)", "Cancel debate setup")).ConfigureAwait(false);
-                if (action != 0) return;
-                await ParticipantsAsync().ConfigureAwait(false);
-                profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
+                int action = await UiAsync(() => _App.SelectStyledAsync("Set up seats: " + profiles.Count(profile => profile.Enabled) + " of 2", "Add a CLI harness, HTTP endpoint or model (carries its secret; works in Docker)", "Add an agent preset (uses this machine's own login)", "Cancel debate setup")).ConfigureAwait(false);
+                if (action == 0) await CatalogAsync().ConfigureAwait(false);
+                else if (action == 1) await ParticipantsAsync().ConfigureAwait(false);
+                else return;
+                profiles = await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false);
             }
             string question = "";
             if (conversationId != null)
@@ -639,9 +641,9 @@ namespace ArgueBot.Tui
         {
             if (_App == null || _Selected == null) return;
             string conversationId = _Selected;
-            List<RunnerProfile> profiles = (await _Client.ParticipantsAsync(_Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
-            if (profiles.Count == 0) throw new InvalidOperationException("Configure an enabled participant first.");
-            int index = await UiAsync(() => _App.SelectStyledAsync("Choose follow-up respondent", profiles.Select(profile => profile.Name).ToArray())).ConfigureAwait(false);
+            List<RunnerProfile> profiles = (await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
+            if (profiles.Count == 0) throw new InvalidOperationException("Add an enabled model or CLI harness first (Menu > Models, connections and secrets).");
+            int index = await UiAsync(() => _App.SelectStyledAsync("Choose follow-up respondent", profiles.Select(profile => profile.Name + " (" + profile.Kind + ")").ToArray())).ConfigureAwait(false);
             if (index < 0) return;
             string? question = await UiAsync(() => _App.PromptStyledAsync("Follow-up question")).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(question)) return;
@@ -830,8 +832,8 @@ namespace ArgueBot.Tui
             string profileId = "";
             if (action != 1)
             {
-                List<RunnerProfile> profiles = (await _Client.ParticipantsAsync(_Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
-                int index = await UiAsync(() => _App!.SelectStyledAsync("Choose the new agent profile", profiles.Select(profile => profile.Name).ToArray())).ConfigureAwait(false);
+                List<RunnerProfile> profiles = (await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
+                int index = await UiAsync(() => _App!.SelectStyledAsync("Choose the new seat", profiles.Select(profile => profile.Name + " (" + profile.Kind + ")").ToArray())).ConfigureAwait(false);
                 if (index < 0) return;
                 profileId = profiles[index].Id;
             }

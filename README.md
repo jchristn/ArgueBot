@@ -88,7 +88,9 @@ Add `-f docker/compose.build.yaml` to build from this checkout instead. Maintain
 
 ## Configure participants
 
-In the TUI, use **Agents** or **Ctrl+E**. In the dashboard, open **Participants** and select **Add agent** on the Agents tab.
+Debates choose **models** and **CLI harnesses** directly, and each carries its sign-in: a CLI harness picks a stored secret, and an HTTP endpoint authenticates with its bindings. Set them up on the dashboard's **Participants** page (Secrets, CLI harnesses, HTTP endpoints and Models tabs) or in the TUI under Menu > Models, connections and secrets. **Agents** are optional named seats with role instructions; point them at a model. An agent configured directly as a CLI program has no stored secret and uses the service machine's own login, so it fails with "Not logged in" in Docker; the debate setup flags it.
+
+To add an agent, use **Agents** or **Ctrl+E** in the TUI, or **Add agent** on the dashboard's Agents tab.
 
 Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex includes `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
 

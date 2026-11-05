@@ -2165,7 +2165,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### CreateRunRequest
 
-Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
+Seat IDs (participantIds and orchestratorId) may be reusable model IDs (mod_...), CLI harness IDs (har_...) or agent profile IDs; models and harnesses bring their stored secret or endpoint authentication. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
