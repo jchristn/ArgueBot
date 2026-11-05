@@ -2,7 +2,7 @@
 
 The current runtime is C# with a React/Vite dashboard. It provides signed-in users in separate tenants (see [IDENTITY.md](IDENTITY.md)), service-owned execution, CLI and REST participants, and local tools for REST models. Roles and permissions (RBAC), pairing, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-`go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. See [ROADMAP.md](../ROADMAP.md) for remaining acceptance work; passing fixture tests does not close all release gates.
+`go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
 
 ## Build and test
 
@@ -60,7 +60,7 @@ The CI fixture can also run directly using `PORT=4491 node --input-type=commonjs
 
 `node scripts/generate-api.mjs` produces the OpenAPI document, Postman collection, REST_API.md and transport metadata from the active contract and typed DTOs. `node scripts/generate-dependencies.mjs` records exact dependency versions, integrity hashes and declared licenses after a locked solution restore. Commit generated artifacts alongside their source changes.
 
-The verification workflow builds and tests on Windows, macOS and Linux, checks dashboard/browser behavior and generated artifact drift, and exercises PostgreSQL and the local runner fixture. Runtime data, private credentials and test evidence must stay outside tracked fixtures. Remaining packaging, parity, live-provider and release gates are documented in [ROADMAP.md](../ROADMAP.md).
+The verification workflow builds and tests on Windows, macOS and Linux, checks dashboard/browser behavior and generated artifact drift, and exercises PostgreSQL and the local runner fixture. Runtime data, private credentials and test evidence must stay outside tracked fixtures.
 
 ## CLI failure diagnostics regression coverage
 
