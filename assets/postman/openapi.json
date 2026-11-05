@@ -16147,6 +16147,477 @@
         },
         "x-arguebot-access": "SystemAdmin"
       }
+    },
+    "/v2.0/api/conversations/{conversationId}/shares": {
+      "get": {
+        "operationId": "get_v2_0_api_conversations_conversationId_shares",
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "List a conversation's public links",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list a conversation's public links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationShare"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      },
+      "post": {
+        "operationId": "post_v2_0_api_conversations_conversationId_shares",
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Create a time-bound public link; the URL is returned only once",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful create a time-bound public link; the url is returned only once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationShareCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationShareRequest"
+              },
+              "example": {
+                "expiresInHours": 168,
+                "includeToolCalls": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/conversations/{conversationId}/shares/{shareId}": {
+      "delete": {
+        "operationId": "delete_v2_0_api_conversations_conversationId_shares_shareId_",
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Revoke a public link",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list."
+          },
+          {
+            "name": "shareId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Public link ID (shr_...). Copy it from the Share dialog."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful revoke a public link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/shares/{shareToken}": {
+      "get": {
+        "operationId": "get_v2_0_api_shares_shareToken_",
+        "tags": [
+          "Sharing"
+        ],
+        "summary": "Read the transcript behind a public link without signing in",
+        "description": "Access: public; no bearer token. ",
+        "parameters": [
+          {
+            "name": "shareToken",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The token at the end of a /share/ link. It is shown only when the link is created."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read the transcript behind a public link without signing in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedTranscript"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Public",
+        "security": []
+      }
     }
   },
   "components": {
@@ -16802,6 +17273,103 @@
         "required": [
           "title"
         ]
+      },
+      "ConversationShare": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Share ID."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Shared conversation."
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User who created the link."
+          },
+          "tokenLast4": {
+            "type": "string",
+            "description": "Last four characters of the link token, to tell links apart."
+          },
+          "includeToolCalls": {
+            "type": "boolean",
+            "description": "Whether readers see tool calls and results."
+          },
+          "expiresUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the link stops working."
+          },
+          "revokedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the link was revoked."
+          },
+          "lastViewedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Last time someone opened the link."
+          },
+          "viewCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many times the link was opened."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "False once revoked or expired."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the link was created."
+          }
+        }
+      },
+      "ConversationShareCreated": {
+        "type": "object",
+        "properties": {
+          "share": {
+            "$ref": "#/components/schemas/ConversationShare",
+            "description": "The stored link."
+          },
+          "token": {
+            "type": "string",
+            "description": "Link token. Anyone with it can read the transcript until it expires or is revoked.",
+            "readOnly": true
+          },
+          "path": {
+            "type": "string",
+            "description": "Dashboard path for the link, /share/{token}.",
+            "readOnly": true
+          },
+          "url": {
+            "type": "string",
+            "description": "Absolute link built from the host this request used.",
+            "readOnly": true
+          }
+        }
+      },
+      "ConversationShareRequest": {
+        "type": "object",
+        "properties": {
+          "expiresInHours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Hours until the link stops working, 1 through 2160 (90 days).",
+            "minimum": 1,
+            "maximum": 2160,
+            "default": 168
+          },
+          "includeToolCalls": {
+            "type": "boolean",
+            "description": "Show tool calls and results to readers."
+          }
+        }
       },
       "CreateRunRequest": {
         "type": "object",
@@ -18675,6 +19243,202 @@
           "rosterChanges": {
             "type": "boolean",
             "description": "Roster changes are applied at safe boundaries."
+          }
+        }
+      },
+      "SharedMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Message ID."
+          },
+          "runId": {
+            "type": "string",
+            "description": "Debate the turn belongs to, or empty for a moderator note."
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker name, or user for the moderator."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Turn kind, for example question, answer, proposal, ratification or tool."
+          },
+          "state": {
+            "type": "string",
+            "description": "completed, failed or interrupted."
+          },
+          "content": {
+            "type": "string",
+            "description": "Complete text."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the turn was written."
+          }
+        }
+      },
+      "SharedProposal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Proposal ID."
+          },
+          "runId": {
+            "type": "string",
+            "description": "Debate."
+          },
+          "content": {
+            "type": "string",
+            "description": "Proposed answer."
+          },
+          "superseded": {
+            "type": "boolean",
+            "description": "True when a later proposal replaced it."
+          },
+          "agreements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedVote"
+            },
+            "description": "Votes."
+          }
+        }
+      },
+      "SharedRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Run ID."
+          },
+          "state": {
+            "type": "string",
+            "description": "Run state."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "Outcome, when finished."
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current or final round."
+          },
+          "maxRounds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Round limit."
+          },
+          "question": {
+            "type": "string",
+            "description": "The question the debate answered."
+          },
+          "protocolVersion": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 for a fixed panel, 2 for an orchestrated debate."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the debate started."
+          },
+          "orchestrator": {
+            "$ref": "#/components/schemas/SharedSeat",
+            "nullable": true,
+            "description": "Orchestrator, for protocol 2."
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedSeat"
+            },
+            "description": "Debating agents."
+          }
+        }
+      },
+      "SharedSeat": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Seat ID."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          }
+        }
+      },
+      "SharedTranscript": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Conversation title."
+          },
+          "openingQuestion": {
+            "type": "string",
+            "description": "Opening question."
+          },
+          "expiresUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the link stops working."
+          },
+          "includeToolCalls": {
+            "type": "boolean",
+            "description": "Whether tool turns are included."
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedRun"
+            },
+            "description": "Debates, oldest first."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedMessage"
+            },
+            "description": "Turns in order. Private directives are never included."
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedProposal"
+            },
+            "description": "Proposals for protocol 2 debates."
+          }
+        }
+      },
+      "SharedVote": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "description": "Seat ID of the voter."
+          },
+          "messageId": {
+            "type": "string",
+            "description": "Turn that holds the vote."
+          },
+          "position": {
+            "type": "string",
+            "description": "agree, disagree, abstain or needs_information."
+          },
+          "rationale": {
+            "type": "string",
+            "description": "The agent's reason."
+          },
+          "superseded": {
+            "type": "boolean",
+            "description": "True when a later vote replaced it."
           }
         }
       },

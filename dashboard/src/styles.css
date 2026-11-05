@@ -1561,3 +1561,8 @@ dialog.message-reader { width: min(1100px, calc(100vw - 32px)); }
 .audit-table td { vertical-align: top; }
 .audit-reason { max-width: 320px; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .account-trigger .account-name { display: none; } }
+
+/* Public share links */
+.share-form, .share-created { display: grid; gap: 10px; justify-items: start; margin-bottom: 16px; }
+.share-created h3 { margin: 0; }
+.reader-shared { color: var(--muted); font-size: 13px; }

@@ -24,6 +24,14 @@
       "value": "arguebotadmin"
     },
     {
+      "key": "shareId",
+      "value": ""
+    },
+    {
+      "key": "shareToken",
+      "value": ""
+    },
+    {
       "key": "userId",
       "value": ""
     },
@@ -4998,6 +5006,162 @@
                 "exec": [
                   "if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('tenantId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sharing",
+      "description": "Lifecycle operations for sharing. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List a conversation's public links",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/shares",
+            "description": "Access: any signed-in user of an active tenant.  List a conversation's public links"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a time-bound public link; the URL is returned only once",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/shares",
+            "description": "Access: any signed-in user of an active tenant.  Create a time-bound public link; the URL is returned only once",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiresInHours\": 168,\n  \"includeToolCalls\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('shareId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke a public link",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/shares/{{shareId}}",
+            "description": "Access: any signed-in user of an active tenant.  Revoke a public link"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('shareId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read the transcript behind a public link without signing in",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/shares/{{shareToken}}",
+            "description": "Access: public; no bearer token.  Read the transcript behind a public link without signing in",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('shareToken')) pm.execution.skipRequest();"
                 ]
               }
             },

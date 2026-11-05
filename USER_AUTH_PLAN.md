@@ -145,16 +145,18 @@ Evidence (2026-11-04): `tests/sign-in.spec.js` (default credentials always visib
 
 ## Phase 5: Public share links
 
-- [ ] API (member access unless stated): `GET /conversations/{id}/shares`, `POST /conversations/{id}/shares` (`expiresInHours` from 1 to 2160, default 168; `includeToolCalls`, default false; returns the URL and raw token once), `DELETE /conversations/{id}/shares/{shareId}` (revoke).
-- [ ] Public read: `GET /v2.0/api/shares/{token}` returns the transcript bundle the reader needs (conversation title and opening question, runs with participants and outcome, messages with complete text, proposals and votes). It never returns provider secrets, prompt bodies, attempts, runner diagnostics or request history, and omits tool messages unless `includeToolCalls` was chosen. Expired, revoked, unknown or disabled-tenant links all return the same 404 `share_not_found`. Requests are rate limited per IP, and each view updates `last_viewed_utc` and `view_count`.
-- [ ] `ConversationShare` and `ConversationShareCreated` models and share methods (list, create, revoke, resolve by token hash), using the schema 30 `conversation_shares` table.
-- [ ] Share tokens are 32 random bytes, base64url, stored as SHA-256. Deleting a conversation deletes its shares; disabling the tenant disables them.
-- [ ] Public page `/share/{token}`: the transcript reader in a read-only public layout (no app shell, no edit controls, a banner with the expiry time and "Shared from ArgueBot"), with Copy as Markdown and Print.
-- [ ] Workspace: a **Share** button in the conversation header opens a dialog to create a link (expiry choices: 1 hour, 1 day, 7 days, 30 days, 90 days; include tool calls), copy it, and list or revoke existing links with their expiry and view counts. The conversation's Actions menu gets "Share" too.
+- [x] API (member access unless stated): `GET /conversations/{id}/shares`, `POST /conversations/{id}/shares` (`expiresInHours` from 1 to 2160, default 168; `includeToolCalls`, default false; returns the URL and raw token once), `DELETE /conversations/{id}/shares/{shareId}` (revoke).
+- [x] Public read: `GET /v2.0/api/shares/{token}` returns the transcript bundle the reader needs (conversation title and opening question, runs with participants and outcome, messages with complete text, proposals and votes). It never returns provider secrets, prompt bodies, attempts, runner diagnostics or request history, and omits tool messages unless `includeToolCalls` was chosen. Expired, revoked, unknown or disabled-tenant links all return the same 404 `share_not_found`. Requests are rate limited per IP, and each view updates `last_viewed_utc` and `view_count`.
+- [x] `ConversationShare` and `ConversationShareCreated` models and share methods (list, create, revoke, resolve by token hash), using the schema 30 `conversation_shares` table.
+- [x] Share tokens are 32 random bytes, base64url, stored as SHA-256. Deleting a conversation deletes its shares; disabling the tenant disables them.
+- [x] Public page `/share/{token}`: the transcript reader in a read-only public layout (no app shell, no edit controls, a banner with the expiry time and "Shared from ArgueBot"), with Copy as Markdown and Print.
+- [x] Workspace: a **Share** button in the conversation header opens a dialog to create a link (expiry choices: 1 hour, 1 day, 7 days, 30 days, 90 days; include tool calls), copy it, and list or revoke existing links with their expiry and view counts. The conversation's Actions menu gets "Share" too.
 - [ ] TUI: run controls or the conversation menu offers Share (create, list, revoke, copy the URL into a panel). CLI: `shares list|create|revoke`.
-- [ ] Share URLs use the request's allowed host, so links created through `view.example.com` point there.
+- [x] Share URLs use the request's allowed host, so links created through `view.example.com` point there.
 
 Acceptance: console tests for expiry, revocation, cross-tenant isolation and redaction (no tool output when excluded; never secrets or attempts); browser tests that create a link, open it in a fresh browser context without signing in, see the reader, then see "not found" after revocation and after expiry (using a clock override).
+
+Evidence (2026-11-04): `ShareChecks` on SQLite and PostgreSQL (tool turns only when chosen, private directives never, view counts, revocation, unknown tokens, other tenants, deletion with the conversation); the real-service test (shown once, read without sign-in, `Referrer-Policy: no-referrer` and `noindex` on the page, no token in lists or request history, which stores `/v2.0/api/shares/[token]`, cross-tenant 404s, revocation); `tests/share.spec.js` (Share dialog in the workspace, link opened in a signed-out browser with the read-only banner and no account controls, revocation). Public reads are limited to 120 per minute per address. The TUI and CLI share commands are delivered with Phase 6.
 
 ## Phase 6: CLI and TUI
 

@@ -58,6 +58,8 @@ namespace ArgueBot.Core.Database
         public IPromptMethods Prompts { get; }
         /// <summary>Tenants, users and bearer-token credentials.</summary>
         public IIdentityMethods Identity { get; }
+        /// <summary>Public conversation links.</summary>
+        public IShareMethods Shares { get; }
         /// <summary>Moderator information requests.</summary>
         public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -83,7 +85,7 @@ namespace ArgueBot.Core.Database
             Rosters = new RosterMethods(this);
             Memory = new MemoryMethods(this);
             Prompts = new PromptMethods(this);
-            Identity = new IdentityMethods(this);
+            Identity = new IdentityMethods(this); Shares = new ShareMethods(this);
             Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
@@ -249,6 +251,7 @@ namespace ArgueBot.Core.Database
             {
                 long busy = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM runs WHERE tenant_id=@tenant AND conversation_id=@id AND state NOT IN ('completed','cancelled','failed')", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 if (busy > 0) throw new DomainException(409, "active_run", "Stop the active or paused run before deleting this conversation.");
+                await ExecuteAsync(connection, transaction, "DELETE FROM conversation_shares WHERE tenant_id=@tenant AND conversation_id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "DELETE FROM conversations WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
         }

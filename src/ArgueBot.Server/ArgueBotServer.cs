@@ -106,6 +106,7 @@ namespace ArgueBot.Server
                                 new DashboardRoutes().Register(server);
                                 new TokenRoutes(database, authenticator).Register(server);
                                 new IdentityRoutes(database, authenticator).Register(server);
+                                new ShareRoutes(database, settings.TlsEnabled).Register(server);
                                 new HistoryRoutes(database, settings).Register(server);
                                 new ConfigurationRoutes(database, settingsManager, restart => { restartRequested = restart; wake.Cancel(); }).Register(server);
                                 new ConversationRoutes(database, engine, settings).Register(server);

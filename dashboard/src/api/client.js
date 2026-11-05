@@ -205,6 +205,10 @@ export class ApiClient {
   revealCredential(id) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
   disableCredential(id, revision) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   capabilities() { return this.request("/v2.0/api/capabilities"); }
+  shares(conversationId) { return this.request(this.v2root(conversationId) + "/shares"); }
+  createShare(conversationId, body) { return this.request(this.v2root(conversationId) + "/shares", { method: "POST", body }); }
+  revokeShare(conversationId, shareId) { return this.request(this.v2root(conversationId) + "/shares/" + encodeURIComponent(shareId), { method: "DELETE" }); }
+  sharedTranscript(shareToken) { return this.request("/v2.0/api/shares/" + encodeURIComponent(shareToken)); }
   v2root(id) { return "/v2.0/api/conversations/" + encodeURIComponent(id); }
   interject(id, body) { return this.request(this.v2root(id) + "/interjections", { method: "POST", body }); }
   interjections(id, pageNumber = 1) { return this.request(this.v2root(id) + "/interjections?pageNumber=" + pageNumber); }

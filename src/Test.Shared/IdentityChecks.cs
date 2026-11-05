@@ -25,6 +25,7 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await AuthenticatorChecks.RunAsync(database, token).ConfigureAwait(false);
+                    await ShareChecks.RunAsync(database, token).ConfigureAwait(false);
                     await RunAsync(database, token).ConfigureAwait(false);
                 }
                 // A restart must keep the changed default password and must not duplicate or reset seeded records.

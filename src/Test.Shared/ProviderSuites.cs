@@ -60,6 +60,7 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await AuthenticatorChecks.RunAsync(database, token).ConfigureAwait(false);
+                    await ShareChecks.RunAsync(database, token).ConfigureAwait(false);
                     await IdentityChecks.RunAsync(database, token).ConfigureAwait(false);
                 }
             }

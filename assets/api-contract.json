@@ -2350,6 +2350,69 @@
       "execute": true,
       "save": null,
       "access": "SystemAdmin"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/shares",
+      "group": "Sharing",
+      "summary": "List a conversation's public links",
+      "response": "List<ConversationShare>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/conversations/{conversationId}/shares",
+      "group": "Sharing",
+      "summary": "Create a time-bound public link; the URL is returned only once",
+      "response": "ConversationShareCreated",
+      "request": "ConversationShareRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "expiresInHours": 168,
+        "includeToolCalls": false
+      },
+      "query": [],
+      "execute": false,
+      "save": "shareId",
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/conversations/{conversationId}/shares/{shareId}",
+      "group": "Sharing",
+      "summary": "Revoke a public link",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/shares/{shareToken}",
+      "group": "Sharing",
+      "summary": "Read the transcript behind a public link without signing in",
+      "response": "SharedTranscript",
+      "request": null,
+      "status": 200,
+      "public": true,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Public"
     }
   ]
 }

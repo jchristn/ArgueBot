@@ -191,6 +191,7 @@ export default function App() {
       >
         {connected ? (
           <Routes>
+            <Route path="/share/:token" element={<TranscriptReader />} />
             <Route path="/dashboard/login" element={session ? <SignedIn /> : <Login theme={theme} toggleTheme={toggleTheme} onSignedIn={(value) => { setExpired(false); setSession(value); }} />} />
             <Route element={<RequireSession session={session} expired={expired} />}>
               <Route path="/dashboard/conversations/:id/read" element={<TranscriptReader />} />

@@ -13,3 +13,14 @@ describe("transcript reader grouping", () => {
     expect(blocks.map(block => [block.type, (block.messages || [block.message]).map(item => item.id)])).toEqual([["tools", ["1", "2"]], ["tools", ["3"]], ["turn", ["4"]], ["votes", ["5", "6", "7"]]]);
   });
 });
+
+import { sharedReaderData } from "./TranscriptReader.jsx";
+import { shareUrl } from "../components/ShareDialog.jsx";
+import { it as share, expect as expectShare } from "vitest";
+share("shapes a public share bundle like the signed-in reader's data", () => {
+  const data = sharedReaderData({ title: "T", openingQuestion: "Q", expiresUtc: "2026-01-01T00:00:00Z", includeToolCalls: false, runs: [{ id: "run_1" }], messages: [{ id: "m1", runId: "run_1" }], proposals: [{ id: "p1", runId: "run_1", agreements: [] }, { id: "p2", runId: "run_1", agreements: [] }] });
+  expectShare(data.conversation).toEqual({ title: "T", openingQuestion: "Q" });
+  expectShare(data.proposals.run_1.map(item => item.id)).toEqual(["p1", "p2"]);
+  expectShare(data.shared.includeToolCalls).toBe(false);
+  expectShare(shareUrl("/share/abc", "https://view.example.test")).toBe("https://view.example.test/share/abc");
+});

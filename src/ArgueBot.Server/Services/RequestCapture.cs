@@ -42,7 +42,8 @@ namespace ArgueBot.Server.Services
                     UserId = context.IsAuthenticated ? context.UserId : null,
                     PrincipalName = context.IsAuthenticated ? context.UserId : "anonymous",
                     Method = http.Request.Method.ToString(),
-                    Path = http.Request.Url.RawWithoutQuery,
+                    // A public share token is in the path; keep only a placeholder so request history cannot reopen the link.
+                    Path = System.Text.RegularExpressions.Regex.Replace(capturedPath, @"^(/v2\.0/api/shares/|/share/)[^/]+", "$1[token]"),
                     Status = http.Response.StatusCode,
                     DurationMs = context.StartedTimestamp > 0 ? (long)Stopwatch.GetElapsedTime(context.StartedTimestamp).TotalMilliseconds : 0,
                     RequestBytes = http.Request.ContentLength,

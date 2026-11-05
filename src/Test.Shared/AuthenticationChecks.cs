@@ -164,6 +164,25 @@ namespace Test.Shared
                 await Reject(() => other.SendAsync<object>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/messages", token: token), 404, "").ConfigureAwait(false);
                 await Reject(() => other.UpdateConversationAsync(new Conversation { Id = shared.Id, Title = "Hijacked", Revision = renamed.Revision }, token), 404, "").ConfigureAwait(false);
                 await Reject(() => other.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id, token: token), 404, "").ConfigureAwait(false);
+
+                // Public links: shown once, readable without a token, limited to the transcript, scoped to the tenant and revocable.
+                await admin.NoteAsync(shared.Id, "A moderator note that a reader may see.", null, token).ConfigureAwait(false);
+                await Reject(() => admin.SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + shared.Id + "/shares", new ConversationShareRequest { ExpiresInHours = 5000 }, token), 400, "invalid_expiry").ConfigureAwait(false);
+                ConversationShareCreated link = await admin.SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + shared.Id + "/shares", new ConversationShareRequest { ExpiresInHours = 1 }, token).ConfigureAwait(false);
+                Require(link.Path == "/share/" + link.Token && link.Url.EndsWith(link.Path, StringComparison.Ordinal) && link.Url.StartsWith("https://", StringComparison.Ordinal) && link.Share.ExpiresUtc <= DateTime.UtcNow.AddHours(1).AddMinutes(1), "A new link must return its token, path and URL once.");
+                SharedTranscript transcript = await anonymous.SendAsync<SharedTranscript>(HttpMethod.Get, "v2.0/api/shares/" + link.Token, token: token).ConfigureAwait(false);
+                Require(transcript.Title == "Renamed by a member" && transcript.Messages.Any(item => item.Content.Contains("moderator note", StringComparison.Ordinal)) && !transcript.IncludeToolCalls, "A public link must return the transcript without sign-in.");
+                using (HttpResponseMessage page = await http.GetAsync("share/" + link.Token, token).ConfigureAwait(false))
+                    Require(page.IsSuccessStatusCode && page.Headers.TryGetValues("Referrer-Policy", out IEnumerable<string>? policy) && policy.Contains("no-referrer"), "The share page must load without sign-in and never send its token as a referrer.");
+                List<ConversationShare> links = await admin.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token).ConfigureAwait(false);
+                Require(links.Count == 1 && links[0].ViewCount == 1 && !JsonSerializer.Serialize(links).Contains(link.Token, StringComparison.Ordinal), "Link lists must count views and never include the token.");
+                await Reject(() => other.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token), 404, "").ConfigureAwait(false);
+                await Reject(() => other.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id + "/shares/" + link.Share.Id, token: token), 404, "").ConfigureAwait(false);
+                HistoryPage captured = await admin.SendAsync<HistoryPage>(HttpMethod.Get, "v2.0/api/request-history?search=" + Uri.EscapeDataString("/v2.0/api/shares/"), token: token).ConfigureAwait(false);
+                Require(captured.Items.Count > 0 && captured.Items.All(item => !item.Path.Contains(link.Token, StringComparison.Ordinal)), "Request history must not store share tokens.");
+                await admin.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id + "/shares/" + link.Share.Id, token: token).ConfigureAwait(false);
+                await Reject(() => anonymous.SendAsync<SharedTranscript>(HttpMethod.Get, "v2.0/api/shares/" + link.Token, token: token), 404, "share_not_found").ConfigureAwait(false);
+                await Reject(() => anonymous.SendAsync<SharedTranscript>(HttpMethod.Get, "v2.0/api/shares/" + new string('A', 43), token: token), 404, "share_not_found").ConfigureAwait(false);
                 Require((await admin.ConversationAsync(shared.Id, token).ConfigureAwait(false)).Title == "Renamed by a member", "A cross-tenant write must not change the conversation.");
 
                 // Disabling a tenant ends its sessions; deleting it needs its exact name and removes its data.

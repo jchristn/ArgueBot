@@ -1798,6 +1798,56 @@ Success: **200**, response: `Acknowledgement`.
 | tenantId | path | true | Tenant ID (ten_...). Copy it from Administration > Tenants. |
 | confirmName | query | false | The tenant's exact current name, to confirm deletion. |
 
+## GET /v2.0/api/conversations/{conversationId}/shares
+
+List a conversation's public links. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<ConversationShare>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+
+## POST /v2.0/api/conversations/{conversationId}/shares
+
+Create a time-bound public link; the URL is returned only once. Access: any signed-in user of an active tenant.
+
+Success: **201**, response: `ConversationShareCreated`. Request: `ConversationShareRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+
+Representative request:
+
+```json
+{
+  "expiresInHours": 168,
+  "includeToolCalls": false
+}
+```
+
+## DELETE /v2.0/api/conversations/{conversationId}/shares/{shareId}
+
+Revoke a public link. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+| shareId | path | true | Public link ID (shr_...). Copy it from the Share dialog. |
+
+## GET /v2.0/api/shares/{shareToken}
+
+Read the transcript behind a public link without signing in. Access: public; no bearer token.
+
+Success: **200**, response: `SharedTranscript`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| shareToken | path | true | The token at the end of a /share/ link. It is shown only when the link is created. |
+
 ## DTO schemas
 
 Exact field types, defaults and validation bounds are in the checked-in OpenAPI schemas. The tables below describe known contracts; server state and validation remain authoritative. Diagnostic request/response bodies are explicitly unmanaged retained text, always subject to redaction/truncation and retention.
@@ -2042,6 +2092,44 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pinned | boolean | Pinned state. |
 | archived | boolean | Archived state. |
 | revision | integer (nullable) | Expected revision. |
+
+### ConversationShare
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Share ID. |
+| conversationId | string | Shared conversation. |
+| createdByUserId | string | User who created the link. |
+| tokenLast4 | string | Last four characters of the link token, to tell links apart. |
+| includeToolCalls | boolean | Whether readers see tool calls and results. |
+| expiresUtc | string | When the link stops working. |
+| revokedUtc | string (nullable) | When the link was revoked. |
+| lastViewedUtc | string (nullable) | Last time someone opened the link. |
+| viewCount | integer | How many times the link was opened. |
+| active | boolean | False once revoked or expired. |
+| createdUtc | string | When the link was created. |
+
+### ConversationShareCreated
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| share | ConversationShare | The stored link. |
+| token | string | Link token. Anyone with it can read the transcript until it expires or is revoked. |
+| path | string | Dashboard path for the link, /share/{token}. |
+| url | string | Absolute link built from the host this request used. |
+
+### ConversationShareRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| expiresInHours | integer | Hours until the link stops working, 1 through 2160 (90 days). |
+| includeToolCalls | boolean | Show tool calls and results to readers. |
 
 ### CreateRunRequest
 
@@ -2680,6 +2768,84 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | deliveryModes | array | Supported per-interjection delivery modes. |
 | consensusPolicy | string | Every active participant must explicitly agree. |
 | rosterChanges | boolean | Roster changes are applied at safe boundaries. |
+
+### SharedMessage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Message ID. |
+| runId | string | Debate the turn belongs to, or empty for a moderator note. |
+| speaker | string | Speaker name, or user for the moderator. |
+| kind | string | Turn kind, for example question, answer, proposal, ratification or tool. |
+| state | string | completed, failed or interrupted. |
+| content | string | Complete text. |
+| createdUtc | string | When the turn was written. |
+
+### SharedProposal
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Proposal ID. |
+| runId | string | Debate. |
+| content | string | Proposed answer. |
+| superseded | boolean | True when a later proposal replaced it. |
+| agreements | array | Votes. |
+
+### SharedRun
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Run ID. |
+| state | string | Run state. |
+| outcome | string | Outcome, when finished. |
+| round | integer | Current or final round. |
+| maxRounds | integer | Round limit. |
+| question | string | The question the debate answered. |
+| protocolVersion | integer | 1 for a fixed panel, 2 for an orchestrated debate. |
+| createdUtc | string | When the debate started. |
+| orchestrator | SharedSeat (nullable) | Orchestrator, for protocol 2. |
+| participants | array | Debating agents. |
+
+### SharedSeat
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Seat ID. |
+| name | string | Display name. |
+
+### SharedTranscript
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| title | string | Conversation title. |
+| openingQuestion | string | Opening question. |
+| expiresUtc | string | When the link stops working. |
+| includeToolCalls | boolean | Whether tool turns are included. |
+| runs | array | Debates, oldest first. |
+| messages | array | Turns in order. Private directives are never included. |
+| proposals | array | Proposals for protocol 2 debates. |
+
+### SharedVote
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| participantId | string | Seat ID of the voter. |
+| messageId | string | Turn that holds the vote. |
+| position | string | agree, disagree, abstain or needs_information. |
+| rationale | string | The agent's reason. |
+| superseded | boolean | True when a later vote replaced it. |
 
 ### SummarySection
 

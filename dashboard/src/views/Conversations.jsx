@@ -1,3 +1,4 @@
+import ShareDialog from "../components/ShareDialog.jsx";
 import { randomId } from "../utils/random-id.js";
 import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
@@ -185,6 +186,7 @@ export default function Conversations() {
                       <ActionMenu context={record.title} items={[
                         { label: "conversations.open", help: "conversations.open.help", onClick: () => navigate("/dashboard/conversations/" + record.id) },
                         { label: "reader.open", help: "reader.open.help", onClick: () => navigate("/dashboard/conversations/" + record.id + "/read") },
+                        { label: "share.action", help: "share.action.help", onClick: () => setModal({ kind: "share", record }) },
                         { label: "conversations.renameAction", help: "conversations.rename.help", onClick: () => setModal({ kind: "rename", record }) },
                         { label: record.pinned ? "conversations.unpin" : "conversations.pin", help: "conversations.pin.help", onClick: () => update(record, { pinned: !record.pinned }) },
                         { label: record.archived ? "conversations.unarchive" : "conversations.archive", help: "conversations.archive.help", onClick: () => update(record, { archived: !record.archived }) },
@@ -233,6 +235,7 @@ export default function Conversations() {
           <pre>{JSON.stringify(modal.record, null, 2)}</pre>
         </Modal>
       )}{" "}
+      {modal?.kind === "share" && <ShareDialog api={api} conversation={modal.record} onClose={() => setModal(null)} />}
       {modal?.kind === "delete" && <DeleteDialog api={api} record={modal.record} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
       {modal?.kind === "stop" && <StopDialog api={api} record={modal.record} run={modal.run} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
     </>

@@ -63,14 +63,22 @@ function Votes({ proposal, names, hues, t }) {
   </table>;
 }
 
-/** A full-page, document-style transcript of a conversation and its debates, for reading after the fact. */
+/** Shape a public share bundle like the signed-in reader's data. */
+export function sharedReaderData(shared) {
+  const proposals = {};
+  for (const proposal of shared.proposals || []) (proposals[proposal.runId] ??= []).push(proposal);
+  return { conversation: { title: shared.title, openingQuestion: shared.openingQuestion }, messages: shared.messages || [], runs: shared.runs || [], proposals, shared: { expiresUtc: shared.expiresUtc, includeToolCalls: shared.includeToolCalls } };
+}
+
+/** A full-page, document-style transcript of a conversation and its debates, for reading after the fact. With a share token it is the public, read-only view. */
 export default function TranscriptReader() {
-  const { id } = useParams();
+  const { id, token } = useParams();
   const { t } = useTranslation();
   const [showTools, setShowTools] = useState(false);
   const [hidden, setHidden] = useState(() => new Set());
   const toggleSpeaker = name => setHidden(current => { const next = new Set(current); if (next.has(name)) next.delete(name); else next.add(name); return next; });
-  const { data, error, reload } = useData("reader:" + id, async () => {
+  const { data, error, reload } = useData("reader:" + (token ? "share" : id), async () => {
+    if (token) return sharedReaderData(await api.sharedTranscript(token));
     const [conversation, messages, runs] = await Promise.all([api.conversation(id), completeMessages(id), api.runs(id)]);
     const proposals = Object.fromEntries(await Promise.all(runs.filter(run => run.protocolVersion === 2).map(async run => [run.id, await api.proposals(id, run.id).catch(() => [])])));
     return { conversation, messages, runs, proposals };
@@ -117,9 +125,9 @@ export default function TranscriptReader() {
   };
   return <div className="reader-page">
     <header className="reader-bar">
-      <Link className="button" to={`/dashboard/conversations/${id}`}><Icon name="arrow" />{t("reader.back")}</Link>
+      {token ? <span className="reader-shared" role="note">{t("share.banner")}{data?.shared && <> · {t("share.banner.expires", { date: formatDate(data.shared.expiresUtc) })}</>}</span> : <Link className="button" to={`/dashboard/conversations/${id}`}><Icon name="arrow" />{t("reader.back")}</Link>}
       <strong className="reader-title">{data?.conversation.title}</strong>
-      <label className="checkbox-label"><input type="checkbox" checked={showTools} onChange={event => setShowTools(event.target.checked)} />{t("reader.showTools")}</label>
+      {(!token || data?.shared?.includeToolCalls) && <label className="checkbox-label"><input type="checkbox" checked={showTools} onChange={event => setShowTools(event.target.checked)} />{t("reader.showTools")}</label>}
       {data && <CopyButton label="reader.copy" loadText={async () => markdown()} />}
       <Button label="reader.print" icon="download" onClick={() => window.print()} />
     </header>

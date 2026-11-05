@@ -17,6 +17,7 @@ import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
 import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -173,6 +174,7 @@ function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "
 function WorkspaceContent({ id }) {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
+  const [sharing, setSharing] = useState(false);
   const draftKey = `arguebot.draft:${location.origin}:${id}`;
   const [text, setText] = useState(() => localStorage.getItem(draftKey) || "");
   const [modeChoice, setModeChoice] = useState(null);
@@ -366,6 +368,7 @@ function WorkspaceContent({ id }) {
   return (
     <div className="workspace">
       {fullMessage && <FullMessageDialog conversationId={id} messageId={fullMessage} onClose={() => setFullMessage(null)} />}
+      {sharing && data && <ShareDialog api={api} conversation={data.conversation} onClose={() => setSharing(false)} />}
       {attemptsRunId && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} initialRunId={attemptsRunId} onClose={() => setAttemptsRunId(null)} />}
       <header className="workspace-heading">
         <div>
@@ -380,6 +383,7 @@ function WorkspaceContent({ id }) {
         </div>
         <div className="utilities">
           <Link className="button primary" to={`/dashboard/conversations/${id}/read`} title={t("reader.open.help")}><Icon name="prompt" />{t("reader.open")}</Link>
+          <Button label="share.action" icon="external" onClick={() => setSharing(true)} />
           <CopyButton label="conversations.copy" iconOnly disabled={!data.messagePage.totalCount} loadText={async () => {
             const messages = await api.allMessages(id);
             return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${messageContent(message)}`).join("\n\n");
