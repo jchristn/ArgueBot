@@ -82,9 +82,9 @@ A system administrator may send `x-tenant-id` on TenantAdmin routes to act in an
 
 ## Hosts and transport
 
-The service accepts the host names `127.0.0.1` and `localhost`, plus any in `allowedHosts` in `arguebot.json` and the comma-separated `ARGUEBOT_ALLOWED_HOSTS`. Other `Host` headers get 403 `invalid_host`. A browser `Origin` must match the requested host (or be the Vite development server on port 5173).
+The service accepts the host names `127.0.0.1` and `localhost`, plus any in `allowedHosts` in `arguebot.json` and the comma-separated `ARGUEBOT_ALLOWED_HOSTS`. Other `Host` headers get 403 `invalid_host`. The entry `*` accepts any host name, for services reached by names you can't list in advance; the service logs a warning at startup. The host check mainly defends against DNS rebinding, where a hostile web page makes a visitor's browser talk to your service. With `*`, sign-in is the remaining defense, and the default administrator password is public, so change it before using `*`. The listen address is separate: `listenAddress` stays `127.0.0.1` unless you set `0.0.0.0`. A browser `Origin` must match the requested host (or be the Vite development server on port 5173).
 
-Every request carries a password or token, so reach the service over HTTPS whenever it leaves the machine: enable TLS in the service settings or put it behind a TLS-terminating proxy that forwards the original `Host` (and `X-Forwarded-Proto: https`, which share links use to build `https://` URLs). The C# client, CLI and TUI refuse plain HTTP to a non-loopback server unless you pass `--allow-http` or tick the TUI's matching box.
+Every request carries a password or token, so reach the service over HTTPS whenever it leaves the machine: enable TLS in the service settings or put it behind a TLS-terminating proxy that forwards the original `Host` (and `X-Forwarded-Proto: https`, which share links use to build `https://` URLs). A proxy that rewrites `Host` can send the public name in `X-Forwarded-Host`; share links use it when present. The C# client, CLI and TUI refuse plain HTTP to a non-loopback server unless you pass `--allow-http` or tick the TUI's matching box.
 
 ## Clients
 

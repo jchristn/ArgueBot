@@ -100,7 +100,7 @@ namespace Test.Shared
                 listener.Start(); port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
                 ArgueBotPaths paths = new ArgueBotPaths(home);
                 CertificateFixture.Create(paths);
-                await new ServiceSettings { RequireAuthentication = true, Port = port, TlsEnabled = true, EventMaxPerConversation = 10, EventMaintenanceSeconds = 5 }.SaveAsync(paths, token).ConfigureAwait(false);
+                await new ServiceSettings { RequireAuthentication = true, Port = port, TlsEnabled = true, EventMaxPerConversation = 10, EventMaintenanceSeconds = 5, AllowedHosts = new List<string> { "*" } }.SaveAsync(paths, token).ConfigureAwait(false);
                 Task<string> first = LocalServiceConnector.ConnectAsync(home, token: token);
                 Task<string> second = LocalServiceConnector.ConnectAsync(home, token: token);
                 string[] endpoints = await Task.WhenAll(first, second).ConfigureAwait(false);
@@ -116,6 +116,25 @@ namespace Test.Shared
                 try { await LocalServiceConnector.ConnectAsync(otherHome, autoStart: false, token: token).ConfigureAwait(false); }
                 catch (InvalidOperationException) { wrongHome = true; }
                 if (!wrongHome) throw new InvalidDataException("A second home attached to another home's healthy listener.");
+                // AllowedHosts "*" accepts any host name; sign-in still guards the API.
+                using (HttpClient anyHost = new HttpClient(LocalServiceConnector.CreateHttpHandler(home), true) { BaseAddress = new Uri(endpoints[0].TrimEnd('/') + "/") })
+                {
+                    foreach (string name in new[] { "unknown-name.example.test", "192.0.2.44", "my-laptop.local" })
+                    {
+                        using (HttpRequestMessage probe = new HttpRequestMessage(HttpMethod.Get, "health"))
+                        {
+                            probe.Headers.Host = name + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            using (HttpResponseMessage response = await anyHost.SendAsync(probe, token).ConfigureAwait(false))
+                                if (response.StatusCode != HttpStatusCode.OK) throw new InvalidDataException("AllowedHosts * refused host " + name + ".");
+                        }
+                        using (HttpRequestMessage guarded = new HttpRequestMessage(HttpMethod.Get, "v2.0/api/conversations"))
+                        {
+                            guarded.Headers.Host = name;
+                            using (HttpResponseMessage response = await anyHost.SendAsync(guarded, token).ConfigureAwait(false))
+                                if (response.StatusCode != HttpStatusCode.Unauthorized) throw new InvalidDataException("AllowedHosts * must still require sign-in.");
+                        }
+                    }
+                }
                 using (ArgueBotClient one = LocalServiceConnector.CreateClient(endpoints[0], home, IdentitySeed.Token))
                 using (ArgueBotClient two = LocalServiceConnector.CreateClient(endpoints[1], home, IdentitySeed.Token))
                 {

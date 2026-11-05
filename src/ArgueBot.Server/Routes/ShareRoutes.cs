@@ -45,7 +45,10 @@ namespace ArgueBot.Server.Routes
         {
             string forwarded = (http.Request.Headers["X-Forwarded-Proto"] ?? "").Split(',')[0].Trim();
             string scheme = _Tls || forwarded == "https" ? "https" : "http";
-            return scheme + "://" + (http.Request.Headers["Host"] ?? "127.0.0.1");
+            // A proxy that rewrites Host reports the public name in X-Forwarded-Host; use it only when it is a plain host[:port].
+            string forwardedHost = (http.Request.Headers["X-Forwarded-Host"] ?? "").Split(',')[0].Trim();
+            string host = forwardedHost.Length > 0 && System.Text.RegularExpressions.Regex.IsMatch(forwardedHost, @"\A(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]{1,253})(:[0-9]{1,5})?\z", System.Text.RegularExpressions.RegexOptions.CultureInvariant) ? forwardedHost : http.Request.Headers["Host"] ?? "127.0.0.1";
+            return scheme + "://" + host;
         }
     }
 }

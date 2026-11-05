@@ -14,7 +14,7 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 - Management API: `/me`, `/me/password`, `/me/credentials`, `/me/sessions`, `/users`, `/sessions`, `/tenants` and `/audit` (search and retention). System administrators can act in another tenant on user, session and audit routes with `x-tenant-id`; the bypass is audited.
 - Access classes (Member, TenantAdmin, SystemAdmin) are enforced before any handler. Denials return an `AuthorizationError` body and are audited, as are sign-ins, failures, sessions, token changes and identity changes.
 - Sign-in rate limit: 10 failures per address or email in 5 minutes, then 429 with `Retry-After`.
-- Host allowlist: `allowedHosts` in the settings and `ARGUEBOT_ALLOWED_HOSTS` add names beyond `127.0.0.1` and `localhost`. Browser origins must match the host.
+- Host allowlist: `allowedHosts` in the settings and `ARGUEBOT_ALLOWED_HOSTS` add names beyond `127.0.0.1` and `localhost`; `*` accepts any host name (logged as a warning at startup). Browser origins must match the host. The listen address is unchanged (`127.0.0.1` unless `listenAddress` is `0.0.0.0`). Share links honor `X-Forwarded-Host` from a proxy.
 - Data is shared within a tenant: conversations and legacy participant profiles are no longer filtered per user. Runs and model checks resolve endpoints and secrets in their own tenant.
 - Request history keeps no bodies for sign-in, token, credential, secret, share, user and password routes, and stores share links as `/v2.0/api/shares/[token]`.
 

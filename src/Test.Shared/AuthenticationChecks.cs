@@ -42,6 +42,15 @@ namespace Test.Shared
                 await Status(http, HttpMethod.Get, "health", new Dictionary<string, string> { ["Origin"] = "https://evil.example.test" }, 403, "invalid_origin", token).ConfigureAwait(false);
                 await Status(http, HttpMethod.Get, "health", new Dictionary<string, string> { ["Origin"] = root.GetLeftPart(UriPartial.Authority) }, 200, "", token).ConfigureAwait(false);
 
+                // The allowlist type: loopback always, configured names, and * for any name; settings accept * and reject URLs.
+                HostAllowlist named = new HostAllowlist(new[] { "arguebot.example.test", " " });
+                Require(named.Allows("127.0.0.1") && named.Allows("LOCALHOST") && named.Allows("ArgueBot.Example.Test") && !named.Allows("other.example.test") && !named.Allows("") && !named.AllowsAny, "A listed allowlist must accept only loopback and its names.");
+                HostAllowlist any = new HostAllowlist(new[] { HostAllowlist.Any });
+                Require(any.AllowsAny && any.Allows("anything.example.test") && any.Allows("203.0.113.5") && !any.Allows(""), "* must accept any host name.");
+                new ArgueBot.Core.Configuration.ServiceSettings { AllowedHosts = new List<string> { "*", "view.example.test" } }.Validate();
+                try { new ArgueBot.Core.Configuration.ServiceSettings { AllowedHosts = new List<string> { "https://view.example.test/" } }.Validate(); throw new InvalidOperationException("A URL was accepted as a host name."); }
+                catch (InvalidDataException) { }
+
                 // Unauthenticated, malformed and conflicting carriers.
                 await Status(http, HttpMethod.Get, "v2.0/api/conversations", null, 401, "authentication_required", token).ConfigureAwait(false);
                 await Status(http, HttpMethod.Get, "v1.0/api/conversations", null, 401, "authentication_required", token).ConfigureAwait(false);
@@ -175,6 +184,18 @@ namespace Test.Shared
                 await Reject(() => admin.SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + shared.Id + "/shares", new ConversationShareRequest { ExpiresInHours = 5000 }, token), 400, "invalid_expiry").ConfigureAwait(false);
                 ConversationShareCreated link = await admin.SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + shared.Id + "/shares", new ConversationShareRequest { ExpiresInHours = 1 }, token).ConfigureAwait(false);
                 Require(link.Path == "/share/" + link.Token && link.Url.EndsWith(link.Path, StringComparison.Ordinal) && link.Url.StartsWith("https://", StringComparison.Ordinal) && link.Share.ExpiresUtc <= DateTime.UtcNow.AddHours(1).AddMinutes(1), "A new link must return its token, path and URL once.");
+                using (HttpRequestMessage proxied = new HttpRequestMessage(HttpMethod.Post, "v2.0/api/conversations/" + shared.Id + "/shares") { Content = JsonContent.Create(new ConversationShareRequest { ExpiresInHours = 1 }, options: Json) })
+                {
+                    proxied.Headers.Authorization = new AuthenticationHeaderValue("Bearer", admin.Token);
+                    proxied.Headers.Add("X-Forwarded-Host", "public.example.test");
+                    proxied.Headers.Add("X-Forwarded-Proto", "https");
+                    using (HttpResponseMessage response = await http.SendAsync(proxied, token).ConfigureAwait(false))
+                    {
+                        ConversationShareCreated forwarded = (await response.Content.ReadFromJsonAsync<ConversationShareCreated>(Json, token).ConfigureAwait(false))!;
+                        Require(forwarded.Url.StartsWith("https://public.example.test/share/", StringComparison.Ordinal), "Share links behind a proxy must use X-Forwarded-Host: " + forwarded.Url);
+                        await admin.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id + "/shares/" + forwarded.Share.Id, token: token).ConfigureAwait(false);
+                    }
+                }
                 SharedTranscript transcript = await anonymous.SendAsync<SharedTranscript>(HttpMethod.Get, "v2.0/api/shares/" + link.Token, token: token).ConfigureAwait(false);
                 Require(transcript.Title == "Renamed by a member" && transcript.Messages.Any(item => item.Content.Contains("moderator note", StringComparison.Ordinal)) && !transcript.IncludeToolCalls, "A public link must return the transcript without sign-in.");
                 using (HttpResponseMessage page = await http.GetAsync("share/" + link.Token, token).ConfigureAwait(false))
@@ -184,7 +205,7 @@ namespace Test.Shared
                 Require(shownAgain.Url == link.Url, "Revealing a share link must return the same URL.");
                 await Reject(() => other.RevealShareAsync(shared.Id, link.Share.Id, token), 404, "").ConfigureAwait(false);
                 List<ConversationShare> links = await admin.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token).ConfigureAwait(false);
-                Require(links.Count == 1 && links[0].ViewCount == 1 && !JsonSerializer.Serialize(links).Contains(link.Token, StringComparison.Ordinal), "Link lists must count views and never include the token.");
+                Require(links.Count == 2 && links.Single(item => item.Id == link.Share.Id).ViewCount == 1 && links.Count(item => item.Active) == 1 && !JsonSerializer.Serialize(links).Contains(link.Token, StringComparison.Ordinal), "Link lists must count views and never include the token.");
                 Require((await admin.SendAsync<AuditPage>(HttpMethod.Get, "v2.0/api/audit?operation=ShareRevealed", token: token).ConfigureAwait(false)).TotalCount >= 1, "Share reveals must be audited.");
                 await Reject(() => other.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token), 404, "").ConfigureAwait(false);
                 await Reject(() => other.SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/conversations/" + shared.Id + "/shares/" + link.Share.Id, token: token), 404, "").ConfigureAwait(false);

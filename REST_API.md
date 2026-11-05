@@ -3036,7 +3036,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
 | maxParticipants | integer | Maximum active participants per debate, 2 through 64. Requires restart. |
-| allowedHosts | array | Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. |
+| allowedHosts | array | Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name. |
 | listenAddress | string | Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port. |
 | allowCli | boolean | Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only. |
 

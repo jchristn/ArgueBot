@@ -11,12 +11,12 @@ namespace ArgueBot.Server
 
     /// <summary>
     /// Host and origin allowlist. 127.0.0.1 and localhost are always allowed; other names come from the AllowedHosts setting
-    /// and the comma-separated ARGUEBOT_ALLOWED_HOSTS environment variable. Browser origins must match the requested host.
+    /// and the comma-separated ARGUEBOT_ALLOWED_HOSTS environment variable, where * allows any name. Browser origins must match the requested host.
     /// </summary>
     internal sealed class LocalHttpPolicy
     {
         private static readonly Regex Authority = new Regex(@"\A(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::([0-9]{1,5}))?\z", RegexOptions.CultureInvariant);
-        private readonly HashSet<string> _Hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "127.0.0.1", "localhost" };
+        private readonly HostAllowlist _Hosts;
         private readonly int _Port;
         private readonly bool _Tls;
         private readonly bool _MappedPort;
@@ -24,11 +24,11 @@ namespace ArgueBot.Server
         internal LocalHttpPolicy(int port, bool tls, bool mappedPort, IEnumerable<string> allowedHosts)
         {
             _Port = port; _Tls = tls; _MappedPort = mappedPort;
-            foreach (string host in allowedHosts.Concat((Environment.GetEnvironmentVariable("ARGUEBOT_ALLOWED_HOSTS") ?? "").Split(',')).Select(item => item.Trim()).Where(item => item.Length > 0)) _Hosts.Add(host);
+            _Hosts = new HostAllowlist(allowedHosts.Concat((Environment.GetEnvironmentVariable("ARGUEBOT_ALLOWED_HOSTS") ?? "").Split(',')));
         }
 
         /// <summary>Allowed host names, for diagnostics.</summary>
-        internal IReadOnlyCollection<string> Hosts { get { return _Hosts; } }
+        internal HostAllowlist Hosts { get { return _Hosts; } }
 
         internal Task ValidateAsync(HttpContextBase http)
         {
@@ -36,9 +36,9 @@ namespace ArgueBot.Server
             string host = http.Request.Headers["Host"] ?? "";
             Match authority = Authority.Match(host);
             string name = authority.Success ? authority.Groups[1].Value : "";
-            bool loopback = name == "127.0.0.1" || name.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+            bool loopback = HostAllowlist.IsLoopback(name);
             int requestedPort = authority.Success && authority.Groups[2].Success ? int.Parse(authority.Groups[2].Value, CultureInfo.InvariantCulture) : _Tls ? 443 : 80;
-            if (!authority.Success || !_Hosts.Contains(name) || requestedPort < 1 || requestedPort > 65535 || (loopback && !_MappedPort && requestedPort != _Port))
+            if (!authority.Success || !_Hosts.Allows(name) || requestedPort < 1 || requestedPort > 65535 || (loopback && !_MappedPort && requestedPort != _Port))
                 throw new DomainException(403, "invalid_host", "This host name is not allowed. Add it to AllowedHosts in the service settings or to ARGUEBOT_ALLOWED_HOSTS, then restart the service.");
             string origin = http.Request.Headers["Origin"] ?? "";
             if (origin.Length > 0)

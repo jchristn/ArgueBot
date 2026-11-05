@@ -74,7 +74,7 @@ ArgueBot 2.1 requires a signed-in user for everything except the sign-in page, h
 
 ### Reaching the service from another machine
 
-The service accepts the host names `127.0.0.1` and `localhost`. To use another name, such as a reverse proxy or LAN name, add it to `allowedHosts` in `arguebot.json` or set `ARGUEBOT_ALLOWED_HOSTS` (comma-separated), then restart. Passwords and tokens travel with every request, so put the service behind HTTPS (enable TLS in the settings or use a TLS-terminating proxy) before you reach it over a network. The CLI and TUI refuse plain HTTP to a remote server unless you pass `--allow-http` or tick the matching box on the TUI sign-in page. See [docs/IDENTITY.md](docs/IDENTITY.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
+The service accepts the host names `127.0.0.1` and `localhost`. To use another name, such as a reverse proxy or LAN name, add it to `allowedHosts` in `arguebot.json` or set `ARGUEBOT_ALLOWED_HOSTS` (comma-separated), then restart. If you don't know the names in advance, `*` accepts any host name; sign-in still protects everything, so change the default administrator password first. The service itself still listens on `127.0.0.1` unless `listenAddress` is `0.0.0.0`. Passwords and tokens travel with every request, so put the service behind HTTPS (enable TLS in the settings or use a TLS-terminating proxy) before you reach it over a network. The CLI and TUI refuse plain HTTP to a remote server unless you pass `--allow-http` or tick the matching box on the TUI sign-in page. See [docs/IDENTITY.md](docs/IDENTITY.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Docker
 

@@ -20238,7 +20238,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup."
+            "description": "Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name."
           },
           "listenAddress": {
             "type": "string",

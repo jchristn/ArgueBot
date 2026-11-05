@@ -55,7 +55,7 @@ Keep the three volumes together across updates. The encryption key on `arguebot-
 | Variable | Purpose |
 | --- | --- |
 | `ARGUEBOT_PORT` | Host port that Compose publishes on `127.0.0.1` (default `4317`). |
-| `ARGUEBOT_ALLOWED_HOSTS` | Extra host names, comma-separated, that browsers and clients may use, such as a reverse proxy name. |
+| `ARGUEBOT_ALLOWED_HOSTS` | Extra host names, comma-separated, that browsers and clients may use, such as a reverse proxy name. `*` accepts any name; change the default password first. |
 | Provider variables such as `GEMINI_API_KEY` or `OPENAI_BASE_URL` | Passed to an agent only when its harness lists the name under Inherited environment names. |
 
 ## Signing in

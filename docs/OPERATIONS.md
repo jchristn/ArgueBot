@@ -36,7 +36,7 @@ See [IDENTITY.md](IDENTITY.md) for the model. Operational notes:
 - **Back up** the `secrets` directory with the database: it holds the secret encryption keys, the session key (`session.key`) and the token key (`token.key`). Without `token.key`, bearer tokens and share links keep working but can no longer be revealed.
 - **Audit retention.** Audit records are kept until an administrator deletes older ones (dashboard Audit log > Delete old records, or `DELETE /v2.0/api/audit?beforeUtc=...`). Deleting a tenant keeps its audit records.
 - **Rate limits** are kept in memory: 10 failed sign-ins per address or email in 5 minutes, and 120 public share reads per address per minute. A restart clears them.
-- **Remote access.** Add host names to `allowedHosts` in `arguebot.json` or `ARGUEBOT_ALLOWED_HOSTS`, restart, and serve over HTTPS. A request with any other `Host` gets 403 `invalid_host`.
+- **Remote access.** Set `listenAddress` to `0.0.0.0` (native installs listen on `127.0.0.1` by default), add host names to `allowedHosts` in `arguebot.json` or `ARGUEBOT_ALLOWED_HOSTS` (or `*` for any name, after changing the default password), restart, and serve over HTTPS. A request with an unlisted `Host` gets 403 `invalid_host`.
 
 
 Schema-13 initialization accounts for repaired default assignments as `authorization.default_assignment_seed` with the System migration actor and no fabricated user identity. Identity changes use `user.default_assignment_sync` with the authenticated actor. Unchanged defaults produce no extra migration events. Protected assignments cannot be edited through assignment administration.

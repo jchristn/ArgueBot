@@ -23,7 +23,7 @@ Open `http://127.0.0.1:4317/dashboard` and sign in. A new data volume starts wit
 ### Reaching the container from another machine
 
 1. Publish the port beyond loopback: create an untracked `docker/compose.remote.yaml` that sets `services.arguebot.ports` to `["4317:4317"]` (or a LAN address) and add `-f docker/compose.remote.yaml` to your `docker compose` commands, or put a reverse proxy on the host in front of the loopback port.
-2. Allow the host name people will use: set `ARGUEBOT_ALLOWED_HOSTS=arguebot.example.com` (comma-separated for several) in `docker/.env`. Without it, requests for that name get 403 `invalid_host`.
+2. Allow the host name people will use: set `ARGUEBOT_ALLOWED_HOSTS=arguebot.example.com` (comma-separated for several) in `docker/.env`. Without it, requests for that name get 403 `invalid_host`. If the names aren't known in advance, `ARGUEBOT_ALLOWED_HOSTS=*` accepts any name; change the default administrator password first, because sign-in is then the only guard. If your proxy rewrites `Host`, have it send `X-Forwarded-Host` so share links use the public name.
 3. Use HTTPS. Every request carries a password or token. A TLS-terminating proxy works; forward the original `Host` header and `X-Forwarded-Proto: https`. For example, with Caddy: `arguebot.example.com { reverse_proxy 127.0.0.1:4317 }`.
 4. Sign in from the TUI or CLI with `--server https://arguebot.example.com`. They refuse plain HTTP to a remote server unless you pass `--allow-http`.
 

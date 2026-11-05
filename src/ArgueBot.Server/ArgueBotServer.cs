@@ -123,6 +123,7 @@ namespace ArgueBot.Server
                                 using (LocalServiceRegistration registration = new LocalServiceRegistration(paths, settings.Port, settings.TlsEnabled, certificate?.GetCertHashString(HashAlgorithmName.SHA256) ?? ""))
                                 {
                                     logger.CreateLogger("ArgueBot.Service").LogInformation("Listener started {Port}", settings.Port);
+                                    if (hostPolicy.Hosts.AllowsAny) logger.CreateLogger("ArgueBot.Service").LogWarning("AllowedHosts includes *: requests for any host name are accepted. Sign-in still protects the API; change the default administrator password.");
                                     Console.WriteLine("ArgueBot service: " + (settings.TlsEnabled ? "https" : "http") + "://127.0.0.1:" + settings.Port + " | home " + paths.Home);
                                     Console.WriteLine("Open the dashboard in your browser: " + (settings.TlsEnabled ? "https" : "http") + "://127.0.0.1:" + settings.Port + "/dashboard");
                                     try { await Task.Delay(Timeout.Infinite, wake.Token).ConfigureAwait(false); }
