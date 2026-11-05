@@ -22,7 +22,7 @@ goto collect
 :run
 where dotnet >nul 2>nul
 if errorlevel 1 (
-  echo The .NET SDK for %FRAMEWORK% is required to build ArgueBot.
+  echo A .NET SDK 8 or newer, able to target %FRAMEWORK%, is required to build ArgueBot.
   exit /b 1
 )
 where npm >nul 2>nul
@@ -36,9 +36,25 @@ if not exist dashboard\node_modules (
 )
 call npm --prefix dashboard run build
 if errorlevel 1 exit /b 1
-dotnet build src/ArgueBot.Server/ArgueBot.Server.csproj -c Release -f %FRAMEWORK%
-if errorlevel 1 exit /b 1
-dotnet build src/ArgueBot.Cli/ArgueBot.Cli.csproj -c Release -f %FRAMEWORK%
-if errorlevel 1 exit /b 1
-dotnet src/ArgueBot.Cli/bin/Release/%FRAMEWORK%/ArgueBot.Cli.dll service web!ARGS!
+rem Build only the selected framework with any installed SDK that can target it. The repository's
+rem pinned SDK applies to verification and packaging, so build from a directory with its own global.json.
+set "ROOT=%~dp0"
+set "LAUNCHER=%ROOT%.run\launcher"
+if not exist "%LAUNCHER%" mkdir "%LAUNCHER%"
+> "%LAUNCHER%\global.json" echo {"sdk":{"version":"8.0.100","rollForward":"latestMajor"}}
+pushd "%LAUNCHER%"
+dotnet build "%ROOT%src\ArgueBot.Server\ArgueBot.Server.csproj" -c Release -p:TargetFrameworks=%FRAMEWORK% -p:NuGetLockFilePath=obj\launcher.%FRAMEWORK%.lock.json
+if errorlevel 1 (
+  popd
+  exit /b 1
+)
+dotnet build "%ROOT%src\ArgueBot.Cli\ArgueBot.Cli.csproj" -c Release -p:TargetFrameworks=%FRAMEWORK% -p:NuGetLockFilePath=obj\launcher.%FRAMEWORK%.lock.json
+if errorlevel 1 (
+  popd
+  exit /b 1
+)
+popd
+rem Run on a newer runtime when the selected one is not installed.
+set "DOTNET_ROLL_FORWARD=Major"
+dotnet src\ArgueBot.Cli\bin\Release\%FRAMEWORK%\ArgueBot.Cli.dll service web!ARGS!
 exit /b %errorlevel%

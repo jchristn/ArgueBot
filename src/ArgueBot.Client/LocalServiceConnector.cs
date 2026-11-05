@@ -106,6 +106,13 @@ namespace ArgueBot.Client
             catch (OperationCanceledException) when (!token.IsCancellationRequested) { return false; }
             catch (JsonException) { return false; }
         }
+        private static string BuildFramework()
+        {
+            // A client may roll forward to a newer runtime, so prefer the framework folder it was built into.
+            string folder = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).Name;
+            if (folder.StartsWith("net", StringComparison.Ordinal) && folder.Contains('.', StringComparison.Ordinal)) return folder;
+            return "net" + Environment.Version.Major.ToString(CultureInfo.InvariantCulture) + ".0";
+        }
         private static ProcessStartInfo LocateServer()
         {
             string executable = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "ArgueBot.Server.exe" : "ArgueBot.Server");
@@ -119,7 +126,7 @@ namespace ArgueBot.Client
                     string project = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "ArgueBot.Server.csproj");
                     if (File.Exists(project))
                     {
-                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", "net" + Environment.Version.Major.ToString(CultureInfo.InvariantCulture) + ".0", "ArgueBot.Server.dll");
+                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", BuildFramework(), "ArgueBot.Server.dll");
                         break;
                     }
                     directory = directory.Parent;

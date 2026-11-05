@@ -32,7 +32,7 @@ If the operating system blocks a downloaded build, review the source and checksu
 
 ## Getting started
 
-Source builds require the .NET 10 SDK. The repository pins its SDK in [global.json](global.json). Building the web dashboard also requires Node.js 24 and npm; the terminal interface does not require npm. The .NET 8 SDK is also needed for the shared library/test matrix and for the launchers' `net8.0` option.
+The launchers build with any installed .NET SDK, version 8 or newer, that can target the selected framework. Verification and packaging use the SDK pinned in [global.json](global.json). Building the web dashboard also requires Node.js 24 and npm; the terminal interface does not require npm. The shared library/test matrix also uses .NET 8.
 
 Clone the repository and choose an interface:
 
@@ -46,7 +46,7 @@ Clone the repository and choose an interface:
 
 Both launchers build before running. The web launcher installs dashboard dependencies when needed, starts or attaches to the selected service, and prints the URL to open in your browser. The default URL is <http://127.0.0.1:4317/dashboard>. Re-running it reuses the service for that application home.
 
-Each launcher accepts an optional target framework as its first argument, `net8.0` or `net10.0` (the default). For example, `./go-tui.sh net8.0` or `go-web.bat net8.0 --port 4417` builds and runs the .NET 8 build. Building for .NET 8 requires the .NET 8 SDK.
+Each launcher accepts an optional target framework as its first argument, `net8.0` or `net10.0` (the default). For example, `./go-tui.sh net8.0` or `go-web.bat net8.0 --port 4417` builds and runs the .NET 8 build. A `net8.0` build needs SDK 8 or newer and runs on the newest installed runtime when .NET 8 itself is absent, so a machine with only .NET 9 can use `net8.0`. `net10.0` needs SDK 10.
 
 Every interface asks you to sign in. A new service starts with a default administrator, **`admin@arguebot`** with password **`password`**, and a default bearer token **`arguebotadmin`**. The sign-in pages always show them. Change the password after you first sign in. Docker and external telemetry services are not required.
 

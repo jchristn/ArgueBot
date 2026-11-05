@@ -2,7 +2,7 @@
 
 The current runtime is C# with a React/Vite dashboard. It provides signed-in users in separate tenants (see [IDENTITY.md](IDENTITY.md)), service-owned execution, CLI and REST participants, and local tools for REST models. Roles and permissions (RBAC), pairing, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-`go-tui` and `go-web` build and launch the supported interfaces. Pass `net8.0` or `net10.0` (the default) as the first argument to choose the target framework. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
+`go-tui` and `go-web` build and launch the supported interfaces. Pass `net8.0` or `net10.0` (the default) as the first argument to choose the target framework. Launchers build from `.run/launcher` with any installed SDK 8 or newer and write their lock files under `obj/`, so the `global.json` pin and tracked lock files apply only to verification and packaging. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
 
 ## Build and test
 
