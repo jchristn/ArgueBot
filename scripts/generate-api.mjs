@@ -3,7 +3,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname,'..');
 const { operations } = JSON.parse(fs.readFileSync(path.join(root,'assets/api-contract.json'),'utf8'));
 const schemas = {};
-const primitive = { string: { type:'string' }, int: { type:'integer', format:'int32' }, long: { type:'integer',format:'int64' }, bool: { type:'boolean' }, DateTime: { type:'string',format:'date-time' }, object: { type:'object' } };
+const primitive = { double: {type:'number',format:'double'}, string: { type:'string' }, int: { type:'integer', format:'int32' }, long: { type:'integer',format:'int64' }, bool: { type:'boolean' }, DateTime: { type:'string',format:'date-time' }, object: { type:'object' } };
 function schema(type) {
   if (type.endsWith('?')) return { ...schema(type.slice(0,-1)),nullable:true };
   const list = type.match(/^(?:List|IReadOnlyList)<(.+)>$/);
@@ -32,10 +32,34 @@ for (const [field,minimum,maximum,value] of [['historyPreviewCodePoints',128,163
   Object.assign(schemas.ServiceSettings.properties[field],{minimum,maximum,default:value});
   Object.assign(schemas.SettingsUpdate.properties[field],{minimum,maximum});
 }
+Object.assign(schemas.ModelProfile.properties.maxOutputBytes, {minimum:1024,maximum:67108864,default:67108864});
+Object.assign(schemas.ModelGenerationSettings.properties.maxOutputTokens, {minimum:1,maximum:1048576});
+Object.assign(schemas.ModelGenerationSettings.properties.temperature, {minimum:0,maximum:2});
+Object.assign(schemas.ModelGenerationSettings.properties.topP, {minimum:0,maximum:1});
+Object.assign(schemas.EndpointProfile.properties.maxConcurrentInvocations, {minimum:1,maximum:64,default:1});
 schemas.MessagePage.required=['items','pageNumber','pageSize','totalCount','throughSequence','latestSequence'];
 schemas.Message.properties.contentBytes.readOnly=true;
 schemas.Message.properties.contentTruncated.readOnly=true;
-const required = { HealthResponse:['status','schema','protocol','homeId'],ConversationRequest:['title'],CreateRunRequest:['participantIds','idempotencyKey'],CommandRequest:['action'],RunnerProfile:['kind','provider'],SettingsUpdate:['revision','port','maxConcurrentRuns','allowCli','databaseType'] };
+const queryHelp = {
+  after:'Exclusive sequence cursor: return items after this sequence number. Use the last sequence you received.',
+  archived:'true lists archived conversations instead of active ones.',
+  bucketMinutes:'Chart interval in minutes; the range is divided into equal buckets.',
+  challenge:'One-time value from the pairing prompt.',
+  fromUtc:'Start of the range, UTC ISO 8601, for example 2026-01-01T00:00:00Z.',
+  toUtc:'End of the range, UTC ISO 8601, for example 2026-01-02T00:00:00Z.',
+  id:'Restrict the result to this identifier.',
+  method:'HTTP method to match, for example GET or POST.',
+  pageNumber:'Page to return, starting at 1.',
+  pageSize:'Items per page, 1 through 100 unless noted.',
+  revision:'Expected current revision; the request is refused if the resource changed.',
+  search:'Case-insensitive text to find in paths or titles.',
+  sourcePageNumber:'Page of original summary sources to return, 100 per page, starting at 1.',
+  status:'HTTP status code to match, for example 409.',
+  tail:'true returns the newest page instead of the first.',
+  throughSequence:'Upper sequence bound that keeps paging stable while new messages arrive; use the value from the first page.'
+};
+const pathHelp = name => ({conversationId:'Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list.',runId:'Run ID (run_...). Copy it from the run bar in the workspace.',messageId:'Message ID (msg_...). Copy it from a message header.',profileId:'Participant profile ID. Copy it from the Participants page.',requestId:'Request ID from request history.',summaryId:'Summary ID (sum_...) from the memory panel.',attemptId:'Generation attempt ID from attempt history.',id:'Resource ID. Copy it from the matching list.'})[name] || 'Identifier in this workspace.';
+const required = { HealthResponse:['status','schema','protocol','homeId'],ConversationRequest:['title'],CreateRunRequest:['participantIds','idempotencyKey'],CommandRequest:['action'],RunnerProfile:[],SettingsUpdate:['revision','port','maxConcurrentRuns','allowCli','databaseType'] };
 for (const [name,keys] of Object.entries(required)) if (schemas[name]) schemas[name].required=keys;
 Object.assign(schemas.CreateRunRequest.properties.maxRounds,{minimum:1,maximum:50,default:5});
 Object.assign(schemas.CreateRunRequest.properties.interventionSeconds,{minimum:0,maximum:600,default:10});
@@ -43,8 +67,25 @@ Object.assign(schemas.CreateRunRequest.properties.mode,{enum:['debate','followup
 Object.assign(schemas.RunnerProfile.properties.kind,{enum:['cli','rest']});
 Object.assign(schemas.RunnerProfile.properties.timeoutSeconds,{minimum:1,maximum:3600,default:300});
 Object.assign(schemas.RunnerProfile.properties.maxOutputBytes,{minimum:1024,maximum:67108864,default:67108864});
-schemas.CreateRunRequest.description='Debate requires two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.';
+schemas.CreateRunRequest.description='Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.';
 schemas.RunnerProfile.description='CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.';
+Object.assign(schemas.CreateRunRequest.properties.protocolVersion, { enum: [1,2], default: 1 });
+Object.assign(schemas.ServiceSettings.properties.maxParticipants, {minimum:2, maximum:64, default:16});
+Object.assign(schemas.SettingsUpdate.properties.maxParticipants, {minimum:2, maximum:64});
+Object.assign(schemas.InterjectionRequest.properties.deliveryMode, {enum:['interrupt_now','next_turn']});
+schemas.InterjectionRequest.required = ['text','deliveryMode','idempotencyKey'];
+schemas.RosterChangeRequest.required = ['action','revision','idempotencyKey'];
+Object.assign(schemas.RosterChangeRequest.properties.action, {enum:['add','remove','replace']});
+for (const [key, minimum, maximum] of [['maxParticipantTurns',1,100000],['maxOrchestrationCalls',1,10000],['maxCompactionCalls',1,10000],['maxToolCalls',1,100000],['maxWallClockSeconds',1,604800],['maxContextCharacters',8192,16777216],['maxEstimatedInputTokens',0,2147483647]]) Object.assign(schemas.DebatePolicy.properties[key], {minimum,maximum});
+for (const key of ['questionInstructions','synthesisInstructions','summaryInstructions']) Object.assign(schemas.DebatePolicy.properties[key], {maxLength:4000});
+Object.assign(schemas.CredentialRequest.properties.secretValue, {writeOnly:true, maxLength:65536});
+schemas.CredentialRequest.required = ['name','kind','secretValue'];
+Object.assign(schemas.CredentialRequest.properties.kind, {enum:['http_bearer','http_header','http_query','token','claude_oauth','codex_auth_json']});
+Object.assign(schemas.CredentialRequest.properties.parameterName, {maxLength:128, pattern:'^[A-Za-z0-9_-]{0,128}$'});
+Object.assign(schemas.HttpAuthBinding.properties.kind, {enum:['bearer','api_key','header','query']});
+Object.assign(schemas.PromptTemplate.properties.purpose, {enum:['question','response','synthesis','ratification','compaction']});
+Object.assign(schemas.PromptTemplate.properties.body, {maxLength:32000});
+schemas.PromptTemplate.required = ['name','purpose','body'];
 // Publish only transport-reachable schemas; implementation/helper classes are not API contracts.
 const reachable = new Set();
 function visit(node) {
@@ -64,13 +105,14 @@ visit(schema('ApiError'));
 for (const name of Object.keys(schemas)) if (!reachable.has(name)) delete schemas[name];
 
 Object.assign(schemas.HealthResponse.properties.authenticationRequired,{default:false,enum:[false]});
-const spec={'x-arguebot-transport':transport,openapi:'3.0.3',info:{title:'ArgueBot API',version:'0.1.0',description:'Single open workspace for conversations, agents and execution. No accounts, roles, sessions, pairing or authentication.'},servers:[{url:'http://127.0.0.1:4317'}],security:[],paths:{},components:{schemas}};
-const collection={info:{name:'ArgueBot local conversation service',description:'Runnable local contract coverage. The open workspace has no accounts or credentials. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.',schema:'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'},auth:{type:'noauth'},variable:[{key:'baseUrl',value:'http://127.0.0.1:4317'},{key:'conversationId',value:''},{key:'conversationRevision',value:'1'},{key:'messageId',value:''},{key:'profileId',value:''},{key:'runId',value:''},{key:'requestId',value:''},{key:'settingsRevision',value:''},{key:'allowExecution',value:'false'},{key:'simulationEndpoint',value:'http://127.0.0.1:4491/ollama'},{key:'bucketMinutes',value:'15'},{key:'fromUtc',value:'2026-01-01T00:00:00Z'},{key:'toUtc',value:'2026-01-02T00:00:00Z'}],item:[]};
-const document=['# REST API','', 'The replacement service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).','', 'Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.',''];
+const spec={'x-arguebot-transport':transport,openapi:'3.0.3',info:{title:'ArgueBot API',version:'2.0.0',description:'Single open workspace for conversations, agents and execution. No accounts, roles, sessions, pairing or authentication.'},servers:[{url:'http://127.0.0.1:4317'}],security:[],paths:{},components:{schemas}};
+const collection={info:{name:'ArgueBot local conversation service',description:'Runnable local contract coverage. The open workspace has no user accounts. Provider credentials are write-only configuration. State-creating requests use fictional records. Model execution, settings changes and restart require allowExecution=true; use the committed local simulation before enabling it. Generated from assets/api-contract.json and the typed C# DTOs.',schema:'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'},auth:{type:'noauth'},variable:[{key:'baseUrl',value:'http://127.0.0.1:4317'},{key:'conversationId',value:''},{key:'conversationRevision',value:'1'},{key:'messageId',value:''},{key:'profileId',value:''},{key:'runId',value:''},{key:'requestId',value:''},{key:'settingsRevision',value:''},{key:'allowExecution',value:'false'}, ...['resourceRevision','credentialValue','credentialId','endpointId','harnessId','modelProfileId','secondProfileId','thirdProfileId','fourthProfileId','orchestratorId','replacementProfileId','id','commandKey'].map(key=>({key,value:''})),{key:'simulationEndpoint',value:'http://127.0.0.1:4491/ollama'},{key:'bucketMinutes',value:'15'},{key:'fromUtc',value:'2026-01-01T00:00:00Z'},{key:'toUtc',value:'2026-01-02T00:00:00Z'}],item:[]};
+const document=['# REST API','', 'The ArgueBot service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).','', 'Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.',''];
 for (const operation of operations) {
   const {method,path:route,group,summary,response,request,status,public:anonymous,example,query,execute,save}=operation;
-  const params=[...route.matchAll(/{(\w+)}/g)].map(match=>({name:match[1],in:'path',required:true,schema:{type:'string'},description:'Identifier in this workspace.'}));
-  for (const key of query) params.push({name:key,in:'query',required:route.endsWith('/summary') && ['fromUtc','toUtc'].includes(key),schema:['pageNumber','pageSize'].includes(key)?{type:'integer',minimum:1,...(key==='pageSize'?{maximum:100,default:25}:{default:1})}:['status','bucketMinutes','after','throughSequence'].includes(key)?{type:'integer',minimum:['after','throughSequence'].includes(key)?0:1,...(['after','throughSequence'].includes(key)?{format:'int64'}:{})}:['archived','tail','active'].includes(key)?{type:'boolean',default:false}:{type:'string'},description:'Backend filter; date/time values use UTC ISO 8601.'});
+  const params=[...route.matchAll(/{(\w+)}/g)].map(match=>({name:match[1],in:'path',required:true,schema:{type:'string'},description:pathHelp(match[1])}));
+  for (const key of query) params.push({name:key,in:'query',required:route.endsWith('/summary') && ['fromUtc','toUtc'].includes(key),schema:['pageNumber','pageSize','sourcePageNumber'].includes(key)?{type:'integer',minimum:1,...(key==='pageSize'?{maximum:100,default:25}:{default:1})}:['status','bucketMinutes','after','throughSequence'].includes(key)?{type:'integer',minimum:['after','throughSequence'].includes(key)?0:1,...(['after','throughSequence'].includes(key)?{format:'int64'}:{})}:['archived','tail','active'].includes(key)?{type:'boolean',default:false}:{type:'string'},description:queryHelp[key]||'Backend filter.'});
+  if (route.startsWith('/v2.0/api/configuration/')) for (const parameter of params) if (parameter.name === 'pageSize') parameter.schema.default = 100;
   if (route.endsWith('/request-history/summary')) {
     const bucket = params.find(parameter => parameter.name === 'bucketMinutes');
     bucket.schema = {type:'integer',minimum:1,maximum:1440,default:60};
@@ -94,8 +136,10 @@ for (const operation of operations) {
   (spec.paths[route]??={})[method.toLowerCase()]=op;
   let folder=collection.item.find(item=>item.name===group); if(!folder){folder={name:group,description:'Lifecycle operations for '+group.toLowerCase()+'. Variables, ownership and validation requirements are described by each request.',item:[]};collection.item.push(folder);}
   let url='{{baseUrl}}'+route.replace(/{(\w+)}/g,'{{$1}}');
+  if(query.includes('revision'))url+='?revision={{resourceRevision}}';
   if(route.endsWith('/summary'))url+='?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}';
   const event=[]; let before=[];
+  for (const match of JSON.stringify(example).matchAll(/{{(\w+)}}/g)) before.push(`if (!pm.variables.get('${match[1]}')) pm.execution.skipRequest();`);
   if(execute)before.push("if (pm.variables.get('allowExecution') !== 'true') pm.execution.skipRequest();");
   for (const parameter of params.filter(item=>item.in==='path'))before.push(`if (!pm.variables.get('${parameter.name}')) pm.execution.skipRequest();`);
   if(before.length)event.push({listen:'prerequest',script:{type:'text/javascript',exec:before}});
@@ -107,6 +151,10 @@ for (const operation of operations) {
   if(response==='Conversation')after.push(`if(pm.response.code<300) pm.collectionVariables.set('conversationRevision',String(pm.response.json().revision));`);
   if(route.endsWith('/request-history/summary'))after.push("if(pm.response.code===200) pm.test('Activity has fixed intervals and nonnegative counts',()=>{const rows=pm.response.json();const minutes=Number(pm.variables.get('bucketMinutes'));const from=Date.parse(pm.variables.get('fromUtc')),to=Date.parse(pm.variables.get('toUtc'));pm.expect(rows).to.be.an('array');if(rows.length){pm.expect(rows.length).to.equal(Math.ceil((to-from)/(minutes*60000)));rows.forEach((row,index)=>{pm.expect(Date.parse(row.startUtc)).to.equal(from+index*minutes*60000);pm.expect(row.success).to.be.at.least(0);pm.expect(row.failure).to.be.at.least(0);});}});");
   if(response==='SettingsView')after.push("if(pm.response.code===200) pm.collectionVariables.set('settingsRevision',pm.response.json().revision);");
+  if(response==='CredentialMetadata') after.push("if(pm.response.code<300) pm.test('Credential response contains metadata only',()=>{const value=pm.response.json();pm.expect(value).not.to.have.property('secretValue');pm.expect(value).not.to.have.property('ciphertext');});");
+  if(response==='ServiceCapabilities') after.push("pm.test('Explicit unanimous panel protocol is available',()=>{const value=pm.response.json();pm.expect(value.debateProtocol).to.equal(2);pm.expect(value.maxParticipants).to.be.at.least(2);pm.expect(value.consensusPolicy).to.equal('unanimous');pm.expect(value.deliveryModes).to.include.members(['interrupt_now','next_turn']);});");
+  if(response==='List<DebateProposal>') after.push("if(pm.response.code===200) pm.test('Every proposal has explicit positions',()=>{pm.response.json().forEach(value=>{pm.expect(value.id).to.be.a('string');value.agreements.forEach(vote=>pm.expect(['agree','disagree','abstain','needs_information']).to.include(vote.position));});});");
+  if(response==='InterjectionReceipt') after.push("if(pm.response.code<300) pm.test('Context has a durable delivery receipt',()=>{const value=pm.response.json();pm.expect(value.id).to.be.a('string');pm.expect(['interrupt_now','next_turn']).to.include(value.deliveryMode);pm.expect(value.contextEpoch).to.be.at.least(0);});");
   event.push({listen:'test',script:{type:'text/javascript',exec:after}});
   const req={method,header:[{key:'Content-Type',value:'application/json'}],url,description:op.description+' '+summary};
   if(anonymous)req.auth={type:'noauth'};

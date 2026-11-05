@@ -8,6 +8,8 @@ async function openDashboard(page) {
   await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
 }
 test("REST participant executes local tools and preserves visible tool history", async ({ page }) => {
+  // This journey checks the card view's per-call tool cards.
+  await page.addInitScript(() => localStorage.setItem("arguebot.transcriptView", "cards"));
   test.skip(!process.env.ARGUEBOT_SIMULATION_URL, "Start the committed provider simulation and set ARGUEBOT_SIMULATION_URL.");
   const home = await fs.mkdtemp(path.resolve("../.run/rest tool browser "));
   const workspace = path.join(home, "workspace"); await fs.mkdir(workspace);
@@ -20,7 +22,7 @@ test("REST participant executes local tools and preserves visible tool history",
   try {
     expect(invoke("service", "web", "--port", String(port)).status).toBe(0);
     await page.goto(origin + "/dashboard/participants");
-    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    await page.getByRole("button", { name: "Add agent", exact: true }).click();
     await page.getByLabel("Runner type", { exact: true }).selectOption("rest");
     await page.getByLabel("Display name", { exact: true }).fill("REST tool fixture");
     await page.getByLabel("Endpoint URL", { exact: true }).fill(process.env.ARGUEBOT_SIMULATION_URL);
@@ -37,11 +39,13 @@ test("REST participant executes local tools and preserves visible tool history",
     expect(run.status()).toBe(202);
     await page.goto(origin + `/dashboard/conversations/${conversation.id}`);
     await expect(page.getByText("Local tools verified.", { exact: true })).toBeVisible();
-    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(4);
+    await expect(page.locator(".tool-evidence summary", { hasText: "Status: started" })).toHaveCount(0);
     await expect(page.locator("article.message").filter({ hasText: "Status: completed" })).toHaveCount(4);
     expect(await fs.readFile(path.join(workspace, "tool fixture.txt"), "utf8")).toBe("Local tool evidence 議論");
     await page.reload();
-    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(8);
+    await expect(page.getByText("Local tool", { exact: true })).toHaveCount(4);
+    await expect(page.locator(".tool-evidence summary", { hasText: "Status: started" })).toHaveCount(0);
     await page.screenshot({ path: "../.run/screenshots/rest-local-tools.png", fullPage: true });
   } finally { invoke("service", "stop"); await fs.rm(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
 });
@@ -86,7 +90,7 @@ test("plain local dashboard opens and writes without authentication or pairing",
     expect(cliProfile.status).toBe(0);
     expect(JSON.parse(cliProfile.stdout).arguments).toContain("--yolo");
     await page.goto(url + "/participants");
-    await page.getByRole("button", { name: "Add participant", exact: true }).click();
+    await page.getByRole("button", { name: "Add agent", exact: true }).click();
     const runner = page.getByLabel("Runner type", { exact: true });
     await expect(runner).toHaveValue("claude");
     await expect(page.getByRole("textbox", { name: "Argument 3", exact: true })).toHaveValue("--dangerously-skip-permissions");
@@ -141,8 +145,8 @@ test("open, create, save note, export and restore theme", async ({ page }) => {
     .first()
     .click();
   const title = "Should we isolate billing? " + Date.now();
-  await page.getByRole("textbox", { name: "Question or title" }).fill(title);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   await page
     .getByRole("textbox", { name: "Your message" })
@@ -220,7 +224,7 @@ for (const width of [1280, 768, 390]) {
       expect(controls).toEqual([]);
       await page.goto("/dashboard/participants");
       await page
-        .getByRole("button", { name: "Add participant", exact: true })
+        .getByRole("button", { name: "Add agent", exact: true })
         .click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await page.screenshot({
@@ -241,12 +245,13 @@ test("inspect redacted request history and execute a read-only API request", asy
   await openDashboard(page);
   await page.goto("/dashboard/history");
   await expect(
-    page.getByRole("heading", { name: "Request history", exact: true }),
+    page.getByRole("heading", { name: "Request History", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Inspect request" }).first(),
+    page.getByRole("button", { name: /^Actions for / }).first(),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Inspect request" }).first().click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Inspect request" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
     page.getByRole("dialog").getByText("Request ID", { exact: true }),
@@ -267,6 +272,28 @@ test("inspect redacted request history and execute a read-only API request", asy
   await expect(page.locator(".explorer-response pre")).toContainText(
     '"status":"ready"',
   );
+  const operation = page.getByRole("combobox", { name: "Operation", exact: true });
+  await operation.selectOption("post /v2.0/api/conversations/{conversationId}/runs");
+  const execute = page.getByRole("button", { name: "Execute request", exact: true });
+  await expect(page.getByRole("status").filter({ hasText: "required parameters" })).toContainText("conversationId");
+  await expect(execute).toBeDisabled();
+  await expect(page.locator("#parameter-conversationId")).toContainText("Conversation ID (cnv_...)");
+  await page.getByRole("textbox", { name: "conversationId", exact: true }).fill("cnv_fictional");
+  await expect(page.getByRole("alert")).toContainText("{{profileId}}");
+  await expect(execute).toBeDisabled();
+  await page.locator(".explorer-fields summary").click();
+  await expect(page.locator(".explorer-fields")).toContainText("orchestratorId");
+  await expect(page.locator(".explorer-fields")).toContainText("1 to 50");
+  await page.getByRole("textbox", { name: "JSON request body" }).fill('{"participantIds": [');
+  await expect(page.getByRole("alert")).toContainText("not valid JSON");
+  await page.getByRole("button", { name: "Reset to example", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("placeholder");
+  for (const width of [390, 1280]) for (const theme of ["light", "dark"]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+    await page.screenshot({ path: `../.run/screenshots/explorer-guidance-${width}-${theme}.png`, fullPage: true });
+  }
 });
 test("participant argument editor preserves blank literal arguments", async ({
   page,
@@ -274,7 +301,7 @@ test("participant argument editor preserves blank literal arguments", async ({
   await openDashboard(page);
   await page.goto("/dashboard/participants");
   await page
-    .getByRole("button", { name: "Add participant", exact: true })
+    .getByRole("button", { name: "Add agent", exact: true })
     .click();
   const executable = page.getByRole("textbox", { name: "Executable (program only)", exact: true });
   await executable.fill("claude --dangerously-skip-permissions");
@@ -328,7 +355,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
             kind: "rest",
             provider: "ollama",
             endpoint,
-            model: "fixture",
+            model: "multi-agent",
             timeoutSeconds: 5,
           }),
         });
@@ -343,9 +370,9 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .first()
       .click();
     await page
-      .getByRole("textbox", { name: "Question or title" })
+      .getByRole("textbox", { name: "Title", exact: true })
       .fill("Attempt browser immutable question");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Create conversation", exact: true }).click();
     await page
       .getByRole("textbox", { name: "Your message" })
       .fill("Use this exact source note for the fixture debate.");
@@ -361,6 +388,7 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     const start = page.getByRole("dialog");
     for (const profile of profiles)
       await start.getByLabel(profile.name, { exact: false }).check();
+    await start.getByRole("combobox", { name: "Orchestrator model" }).selectOption(profiles[0].id);
     await start.getByRole("spinbutton", { name: "Maximum rounds" }).fill("1");
     await start
       .getByRole("spinbutton", { name: "Pause between turns (seconds)" })
@@ -369,20 +397,23 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .getByRole("button", { name: "Start debate", exact: true })
       .click();
     await expect(
-      page.getByText("Fixture answer.", { exact: true }),
+      page.getByText("Use a measured rollout with a clear rollback threshold. WE HAVE CONSENSUS is only prose here.", { exact: true }),
     ).toHaveCount(2);
+    // Open the inspector only after synthesis and every vote have committed.
+    await expect(page.getByText("Unanimous: every active seat agreed to the same proposal.", { exact: true })).toBeVisible({ timeout: 15000 });
     await page
       .getByRole("button", { name: "Generation attempts", exact: true })
       .click();
     const inspector = page.getByRole("dialog");
     await expect(
-      inspector.getByRole("button", { name: "Inspect attempt", exact: true }),
-    ).toHaveCount(2);
+      inspector.getByRole("button", { name: /^Actions for Attempt/ }),
+    ).toHaveCount(6);
     await inspector
-      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .getByRole("button", { name: /^Actions for Attempt/ })
       .first()
       .click();
-    await expect(inspector).toContainText("debate-v1");
+    await page.getByRole("menuitem", { name: "Inspect attempt", exact: true }).click();
+    await expect(inspector).toContainText("debate-v2");
     await expect(inspector).toContainText(
       "Use this exact source note for the fixture debate.",
     );
@@ -402,9 +433,10 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
       .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Inspect attempt", exact: true })
+      .getByRole("button", { name: /^Actions for Attempt/ })
       .first()
       .click();
+    await page.getByRole("menuitem", { name: "Inspect attempt", exact: true }).click();
     await page
       .getByRole("dialog")
       .locator(".inspector-section")
@@ -421,8 +453,8 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     await expect(
       page
         .getByRole("dialog")
-        .getByRole("button", { name: "Inspect attempt", exact: true }),
-    ).toHaveCount(2);
+        .getByRole("button", { name: /^Actions for Attempt/ }),
+    ).toHaveCount(6);
   } finally {
     await fixture.stop();
   }
@@ -431,15 +463,16 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
 test("page long history, read complete text and export beyond the visible page", async ({
   page,
 }) => {
+  await page.addInitScript(() => localStorage.setItem("arguebot.transcriptView", "cards"));
   await openDashboard(page);
   await page
     .getByRole("button", { name: "New conversation", exact: true })
     .first()
     .click();
   await page
-    .getByRole("textbox", { name: "Question or title" })
+    .getByRole("textbox", { name: "Title", exact: true })
     .fill("Paged browser history fixture");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Paged browser history fixture" }),
   ).toBeVisible();
@@ -471,14 +504,11 @@ test("page long history, read complete text and export beyond the visible page",
     page.getByText("Paged browser message 34", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Previous", exact: true }).click();
-  const read = page.getByRole("button", {
-    name: "Read full message",
-    exact: true,
-  });
-  await expect(read).toBeVisible();
-  await expect(
-    page.getByText("COMPLETE BROWSER TRANSCRIPT TAIL", { exact: true }),
-  ).toHaveCount(0);
+  // A long turn arrives as a bounded preview; the transcript then loads and shows its full text inline.
+  const longTurn = page.locator("article.message").filter({ hasText: "COMPLETE BROWSER TRANSCRIPT TAIL" });
+  await expect(longTurn).toHaveCount(1);
+  await expect(longTurn.locator(".markdown")).toContainText("COMPLETE BROWSER TRANSCRIPT TAIL");
+  const read = longTurn.getByRole("button", { name: "Open in window", exact: true });
   await read.click();
   await expect(page.getByRole("dialog")).toContainText(
     "COMPLETE BROWSER TRANSCRIPT TAIL",
@@ -503,7 +533,7 @@ test("page long history, read complete text and export beyond the visible page",
     page.getByRole("button", { name: "Newer messages available", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Read full message", exact: true }),
+    page.getByRole("button", { name: "Open in window", exact: true }).first(),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Newer messages available", exact: true })
@@ -523,7 +553,7 @@ test("page long history, read complete text and export beyond the visible page",
     .getByRole("combobox", { name: "Records per page", exact: true })
     .selectOption("10");
   await expect(
-    page.getByRole("button", { name: "Read full message", exact: true }),
+    page.getByRole("button", { name: "Open in window", exact: true }).first(),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
@@ -574,9 +604,9 @@ test("reload snapshots after an expired event cursor before resuming live update
     .first()
     .click();
   await page
-    .getByRole("textbox", { name: "Question or title" })
+    .getByRole("textbox", { name: "Title", exact: true })
     .fill("Replay snapshot recovery fixture");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Create conversation", exact: true }).click();
   await expect.poll(() => resumed).toBe(true);
   const first = calls.indexOf("events");
   const second = calls.indexOf("events", first + 1);

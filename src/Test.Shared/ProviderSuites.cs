@@ -1,11 +1,5 @@
 namespace Test.Shared
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Threading;
-    using System.Threading.Tasks;
     using ArgueBot.Core.Backups;
     using ArgueBot.Core.Configuration;
     using ArgueBot.Core.Database;
@@ -13,6 +7,12 @@ namespace Test.Shared
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using Npgsql;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
     using Touchstone.Core;
 
     /// <summary>Real database provider contract tests against explicitly configured disposable databases.</summary>
@@ -29,10 +29,25 @@ namespace Test.Shared
                     string variable = "ARGUEBOT_TEST_" + provider.ToString().ToUpperInvariant();
                     bool missing = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variable));
                     cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => RunAsync(provider, variable, token), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlEvidenceTools", "PostgreSQL evidence tools match SQLite paging, filters, literal case-insensitive search and gaps", cancellation => EvidenceAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => OwnershipAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
             }
+        }
+        private static async Task EvidenceAsync(string variable, CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-provider-tools-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(home); HomePermissions.Directory(home);
+            try
+            {
+                using (DatabaseDriverBase database = DatabaseDriverFactory.Create(new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = variable }, home))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    await EvidenceToolChecks.RunAsync(database, home, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static async Task OwnershipAsync(string variable, CancellationToken token)
         {
@@ -80,6 +95,10 @@ namespace Test.Shared
                 using (DatabaseDriverBase database = DatabaseDriverFactory.Create(settings, migrationHome))
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
+                    await HarnessEnvironmentChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
+                    await ContextChecks.RunInDatabaseAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, migrationHome, token).ConfigureAwait(false);
+                    await PanelProviderChecks.RunAsync(database, migrationHome, token).ConfigureAwait(false);
+                    await BudgetChecks.RunInDatabaseAsync(database, token).ConfigureAwait(false);
                     await AttemptStorageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     await MessagePageChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);
                     await ReplayChecks.RunAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", Role = "admin", IsAuthenticated = true, IsAdmin = true }, token).ConfigureAwait(false);

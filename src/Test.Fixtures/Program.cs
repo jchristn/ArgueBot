@@ -17,6 +17,16 @@ namespace ArgueBot.Tests.Fixtures
             string mode = args.Length > 0 ? args[0] : "plain";
             if (mode == "certificate" && args.Length == 2) { CertificateFixture.Write(args[1]); return 0; }
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);
+            if (mode == "environment" || mode == "environment-echo")
+            {
+                if (Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") != "fictional-allowed" || Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET") != null || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PATH"))) return 3;
+                Console.WriteLine(mode == "environment-echo" ? "allowed=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") + ";token=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN") : "Allowed environment verified."); return 0;
+            }
+            if (mode == "model-check")
+            {
+                Console.WriteLine(input.Contains("connection_probe", StringComparison.Ordinal) && !input.Contains("ArgueBot tool", StringComparison.Ordinal) ? "{\"contextTool\":{\"name\":\"connection_probe\",\"argumentsJson\":\"{\\\"value\\\":4}\"}}" : "ARGUEBOT_CONNECTION_OK"); return 0;
+            }
+            if (mode == "mcp-claude" || mode == "mcp-codex") return await McpClientFixture.RunAsync(args).ConfigureAwait(false);
             if (mode == "claude-tool-replay")
             {
                 byte[] replay = await File.ReadAllBytesAsync(args[1]).ConfigureAwait(false);
@@ -64,6 +74,12 @@ namespace ArgueBot.Tests.Fixtures
             if (mode == "codex-messages" || mode == "codex-conflict")
             {
                 Console.WriteLine("{\"type\":\"thread.started\",\"thread_id\":\"fixture-thread\"}");
+                // Codex reports configuration warnings as error items whose message is plain text, not an object.
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_w\",\"type\":\"error\",\"message\":\"Codex is ignoring 1 unrecognized configuration setting.\\n  user (/home/fixture/.codex/config.toml): `hooks.fixture` is ignored.\"}}");
+                // Tool and search items reuse field names with object values; ArgueBot must skip what it does not use.
+                Console.WriteLine("{\"type\":\"item.started\",\"item\":{\"id\":\"item_t\",\"type\":\"mcp_tool_call\",\"server\":\"arguebot\",\"tool\":\"get_debate_state\",\"arguments\":{},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}");
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_t\",\"type\":\"mcp_tool_call\",\"server\":\"arguebot\",\"tool\":\"get_debate_state\",\"arguments\":{},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true}\"}],\"structured_content\":null},\"error\":null,\"status\":\"completed\"}}");
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_s\",\"type\":\"web_search\",\"query\":\"fixture\",\"action\":{\"type\":\"search\",\"queries\":[\"fixture\"]},\"results\":[{\"type\":\"text_result\",\"title\":\"Fixture\",\"url\":\"https://example.invalid/\"}]}}");
                 Console.WriteLine("{\"type\":\"item.updated\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking\"}}");
                 Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking the explanation.\"}}");
                 Console.WriteLine(mode == "codex-conflict"

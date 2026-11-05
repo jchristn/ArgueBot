@@ -28,7 +28,7 @@ namespace ArgueBot.Tui
                 for (int line = 4; line < surface.Size.Height - 5; line++) surface.DrawStyledText(divider, line, Text.From("│", _App.Theme.Border));
                 if (_App.CurrentFocusPath.Region == "threads") surface.DrawStyledText(1, 4, Text.From("› Conversations", _App.Theme.Accent));
                 if (_App.CurrentFocusPath.Region == "transcript") new SurfaceView(surface, new Rect(divider + 2, 4, Math.Max(0, surface.Size.Width - divider - 3), 1)).DrawStyledText(0, 0, Text.From("› " + _HistoryTitle(), _App.Theme.Accent));
-                if (_App.CurrentFocusPath.Region == "composer") surface.DrawStyledText(1, surface.Size.Height - 5, Text.From("› Note: Enter sends", _App.Theme.Accent));
+                if (_App.CurrentFocusPath.Region == "composer") surface.DrawStyledText(1, surface.Size.Height - 5, Text.From("› Add context: Enter sends", _App.Theme.Accent));
                 return;
             }
             surface.Fill(new Rect(0, 0, surface.Size.Width, surface.Size.Height), Cell.Blank(_App.Theme.Text));

@@ -11,7 +11,7 @@ test.beforeAll(async () => {
  const server=net.createServer(); await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); const port=server.address().port; await new Promise(resolve=>server.close(resolve));
  origin=`http://127.0.0.1:${port}`; expect(invoke('service','web','--port',String(port)).status).toBe(0);
 });
-test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'wait' }); });
+test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'ignoreErrors' }); });
 test.afterAll(async()=>{if(home){invoke('service','stop');await fs.rm(home,{recursive:true,force:true,maxRetries:20,retryDelay:100});}});
 async function seed(request,count=1){
  const conversation=await(await request.post(origin+'/v1.0/api/conversations',{data:{title:'Clipboard evidence'}})).json(); const messages=[];
@@ -22,6 +22,8 @@ async function readClipboard(context,page){
  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});const reader=await context.newPage();
  try{await reader.goto(origin+'/dashboard');await reader.bringToFront();return await reader.evaluate(()=>navigator.clipboard.readText());}finally{await reader.close();await page.bringToFront();}
 }
+// These journeys exercise the card view's per-turn copy controls.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('arguebot.transcriptView','cards'));});
 test('HTTP loopback copies full paged conversations, full turns and monospace IDs',async({page,context,request})=>{
  const {conversation,messages}=await seed(request,103); await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});
  await page.goto(origin+`/dashboard/conversations/${conversation.id}`);await page.getByRole('button',{name:'Copy conversation',exact:true}).click();await expect(page.getByRole('button',{name:'Copied',exact:true})).toBeVisible();
@@ -43,7 +45,7 @@ test('insecure non-localhost HTTP starts, saves and copies without the clipboard
 });
 test('HTTPS inspector copies records and IDs, survives clipboard denial and offers manual copying',async({page,context})=>{
  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:'https://127.0.0.1:4420'});await page.goto('/');await expect(page.getByText('Your thinking, in progress',{exact:true})).toBeVisible();
- await page.goto('/dashboard/history');await page.getByRole('button',{name:'Inspect request',exact:true}).first().click();const inspector=page.getByRole('dialog');await expect(inspector.getByRole('heading',{name:'Request details',exact:true})).toBeVisible();
+ await page.goto('/dashboard/history');await page.getByRole('button',{name:/^Actions for /}).first().click();await page.getByRole('menuitem',{name:'Inspect request',exact:true}).click();const inspector=page.getByRole('dialog');await expect(inspector.getByRole('heading',{name:'Request details',exact:true})).toBeVisible();
  await inspector.getByRole('button',{name:'Copy record',exact:true}).click();await expect(inspector.getByRole('button',{name:'Copied',exact:true})).toBeVisible();const record=JSON.parse(await page.evaluate(()=>navigator.clipboard.readText()));expect(record.id).toBeTruthy();
  await page.evaluate(()=>Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:()=>Promise.reject(new Error('denied'))}));const id=inspector.locator('.copyable-id').filter({hasText:record.id}).first();await id.getByRole('button',{name:'Copy ID',exact:true}).click();await expect(id.getByRole('button',{name:'Copied',exact:true})).toBeVisible();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(record.id);
  for(const width of [1280,390]){await page.setViewportSize({width,height:900});expect(await inspector.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);await page.screenshot({path:`../.run/screenshots/request-inspector-${width}.png`});}
@@ -57,8 +59,13 @@ test("HTTPS non-localhost uses the native clipboard", async ({ page, context, re
     const incoming = new URL(route.request().url());
     if (incoming.pathname.endsWith("/events")) return route.fulfill({ status: 200, contentType: "text/event-stream", body: ": heartbeat\n\n" });
     const headers = { ...route.request().headers(), origin }; delete headers.host;
-    const response = await route.fetch({ url: origin + incoming.pathname + incoming.search, headers });
-    await route.fulfill({ response });
+    // The page may abandon a proxied request during navigation; that is not a clipboard failure.
+    try {
+      const response = await route.fetch({ url: origin + incoming.pathname + incoming.search, headers });
+      await route.fulfill({ response });
+    } catch (failure) {
+      if (!/already handled|Target page, context or browser has been closed/.test(String(failure?.message))) throw failure;
+    }
   });
   await page.goto(`https://arguebot.test/dashboard/conversations/${conversation.id}`);
   expect(await page.evaluate(() => isSecureContext && !!navigator.clipboard)).toBe(true);

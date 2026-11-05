@@ -22,6 +22,9 @@ export function Icon({ name }) {
     users:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M17 4a4 4 0 0 1 0 8m5 9v-2a4 4 0 0 0-3-4",
     search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
+    chevron: "m6 9 6 6 6-6",
+    prompt: "M5 4h14v16H5zM9 9h6M9 13h6M9 17h3",
+    more: "M6 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0M13 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0M20 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0",
   };
   return (
     <svg
@@ -62,20 +65,21 @@ export function Button({
   );
 }
 export function Field({ label, children }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const id = useId();
+  const hint = i18n.exists(`${label}.help`) ? t(`${label}.help`) : "";
   return (
-    <label className="field" title={t(`${label}.help`)}>
+    <label className="field" title={hint || undefined}>
       <span>{t(label)}</span>
       {typeof children === "function"
         ? children({
             id,
-            title: t(`${label}.help`),
+            title: hint || undefined,
             "aria-label": t(label),
-            "aria-describedby": id + "-hint",
+            "aria-describedby": hint ? id + "-hint" : undefined,
           })
         : children}
-      <small id={id + "-hint"}>{t(`${label}.help`)}</small>
+      {hint && <small id={id + "-hint"}>{hint}</small>}
     </label>
   );
 }
@@ -92,6 +96,8 @@ export function Modal({ title, onClose, children, wide = false, className = "" }
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
+    // React's autoFocus runs before showModal, which then moves focus; honor an explicit marker instead.
+    dialog.querySelector("[data-autofocus]")?.focus();
     return () => dialog.close();
   }, []);
   return (
@@ -209,4 +215,9 @@ export function Pagination({ page, onChange }) {
       </div>
     </div>
   );
+}
+
+/** Display name for a message speaker; the service records moderator-written turns as "user". */
+export function speakerLabel(t, speaker) {
+  return speaker === "user" ? t("speaker.moderator") : speaker;
 }

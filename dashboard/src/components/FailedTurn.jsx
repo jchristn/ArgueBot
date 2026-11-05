@@ -14,8 +14,8 @@ export default function FailedTurn({ api, conversationId, message, onInspect }) 
     }
   });
   return <div className="turn-failure" role="alert">
-    <strong>{t("messages.failed")}</strong>
-    <p>{data?.errorMessage || t("messages.failedHelp")}</p>
+    <strong>{t(message.state === "interrupted" ? "state.interrupted" : "messages.failed")}</strong>
+    <p>{data?.errorMessage || t(message.state === "interrupted" ? "debate.partial" : "messages.failedHelp")}</p>
     {data?.errorCode && <p>{t("common.error")}: <code>{data.errorCode}</code></p>}
     <Button label="attempts.title" onClick={onInspect} />
   </div>;

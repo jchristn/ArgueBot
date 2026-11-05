@@ -30,19 +30,33 @@ namespace Test.Shared
                 bool fixtureMissing = !File.Exists(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE"));
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Runners", "PolyPrompt transport", new List<TestCaseDescriptor>
                 {
+                    new TestCaseDescriptor("Runners", "ModelChecks", "Explicit Ollama, OpenAI and CLI checks distinguish completion from tools, preserve revisions and never replay uncertain work", ModelVerificationChecks.RunAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null), new TestCaseDescriptor("Runners", "Budgets", "Independent budgets survive retries, cancel elapsed work and retain immutable policy", BudgetChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "CatalogMigration", "Legacy profiles gain stable reusable resources while snapshots, literal arguments and command receipts survive", CatalogMigrationChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "NativeMcp", "Claude and Codex child processes negotiate scoped tools, retrieve evidence and reject duplicate or unavailable calls", McpChecks.RunAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Build the CLI fixture and server." : null),
+                    new TestCaseDescriptor("Runners", "AuthenticatedPanel", "Ollama and OpenAI panels use combined auth bindings and native scoped conversation tools", AuthenticatedPanelChecks.RunAsync, skip: missing, skipReason: missing ? "Set the local Postman simulation URL." : null),
+                    new TestCaseDescriptor("Runners", "Catalog", "Reusable snapshots, encrypted credentials, CAS rotation and serialized Codex refresh", CatalogChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "Prompts", "Prompt library factory defaults, placeholders, conversation choices and frozen debate prompts", PromptChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "OpeningQuestion", "Conversation titles stay separate from the opening question debates default to", OpeningQuestionChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "TypedCredentials", "Bearer, header and query credentials carry their placement and endpoints follow it", TypedCredentialChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "CompactionInterruption", "Interrupt-now and next-turn context prevent old-epoch summaries from activating", ContextChecks.InterruptCompactionAsync),
+                    new TestCaseDescriptor("Runners", "ContextMemory", "Compaction preserves original sources, retrieval respects privacy and clarification gates resume", ContextChecks.RunAsync), new TestCaseDescriptor("Runners", "MultiAgent", "Generalized panels, explicit unanimity, interjection epochs and boundary roster changes", MultiAgentChecks.RunAsync), new TestCaseDescriptor("Runners", "EvidenceTools", "Evidence tools page with seat and phase filters, search literally around matches, report gaps and expose constraints", EvidenceToolChecks.SqliteAsync), new TestCaseDescriptor("Runners", "ToolCards", "Transcript presentation shows one card per finished tool call without merging across attempts", MessagePresentationChecks.RunAsync), new TestCaseDescriptor("Runners", "DebateProtocol", "Field-specific admission errors, one structured-output repair and moderator proposal edits", ProtocolChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "FailureExplanation", "I/O failures explain exact capture causes and safe recovery, including historical diagnostics", FailureExplanationChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "CodexMessages", "Codex progress and final messages stream independently by item ID without duplicates", CodexMessagesAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "MuxCapture", "Mux streams UTF-8 answers, excludes stderr and passes literal stdin/arguments", MuxCaptureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "ClaudeToolReplay", "Claude tool-result events and multi-message streams produce a complete durable answer without leaking tool payloads", ClaudeToolReplayAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
+                    new TestCaseDescriptor("Runners", "ClaudeIndexedResults", "Indexed Claude results can repeat earlier assistant messages without invalidating a successful completed turn", ClaudeIndexedResultsAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
+                    new TestCaseDescriptor("Runners", "GenerationTimeout", "Deadlines persist actionable failures while explicit interruption retains cancellation semantics", GenerationTimeoutChecks.RunAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "CliDiagnostics", "Runner failures preserve bounded raw records, stderr, parser detail and durable attempt correlation", DiagnosticsAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "CliCaptureFailure", "Malformed output and capture overflow terminate a live process promptly", CaptureFailureAsync, skip: fixtureMissing, skipReason: fixtureMissing ? "Set ARGUEBOT_CLI_FIXTURE to the built Test.Fixtures.dll." : null),
                     new TestCaseDescriptor("Runners", "RestTools", "Four REST providers execute real local file/process tools and continue with results", LocalToolsAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
                     new TestCaseDescriptor("Runners", "RestToolBoundaries", "Tool errors recover, incomplete streams execute nothing, execution policy and loop limits hold", ToolBoundariesAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
                     new TestCaseDescriptor("Runners", "RestToolCancellation", "Cancellation stops the actual local process tree and reports interruption", ToolCancellationAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
                     new TestCaseDescriptor("Runners", "RestToolHistory", "Service engine persists tool checkpoints and results separately from final answers", ToolHistoryAsync, skip: missing || fixtureMissing, skipReason: missing || fixtureMissing ? "Set simulation URL and CLI fixture." : null),
+                    new TestCaseDescriptor("Runners", "RestDeadline", "Real HTTP stream deadlines are distinct from external cancellation", RestDeadlineAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null),
                     new TestCaseDescriptor("Runners", "OllamaStream", "Real PolyPrompt receives NDJSON answer", StreamAsync, skip: missing, skipReason: missing ? "Set ARGUEBOT_SIMULATION_URL to the local Postman runner simulation." : null),
                     new TestCaseDescriptor("Runners", "OllamaRateLimit", "Rate limit becomes safe failure without replay", RateLimitAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null),
-                    new TestCaseDescriptor("Runners", "OllamaBroken", "Truncated upstream stream does not report success", BrokenAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null)
+                    new TestCaseDescriptor("Runners", "OllamaBroken", "Truncated upstream stream does not report success", BrokenAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null),
+                    new TestCaseDescriptor("Runners", "ProviderFailures", "403, 429 with retry guidance, 5xx and a midstream disconnect each fail with a specific cause and recovery", ProviderFailuresAsync, skip: missing, skipReason: missing ? "Local Postman simulation is not configured." : null)
                 }) };
             }
         }
@@ -166,6 +180,31 @@ namespace Test.Shared
             finally { Directory.Delete(home, true); }
         }
 
+        private static async Task RestDeadlineAsync(CancellationToken token)
+        {
+            RunnerProfile profile = Profile("deadline-stream");
+            profile.TimeoutSeconds = 1;
+            StringBuilder output = new StringBuilder();
+            try
+            {
+                await new PolyPromptRunner(false).GenerateAsync(profile, "Fictional deadline input", new List<Message>(), (text, _) => { output.Append(text); return Task.CompletedTask; }, token).ConfigureAwait(false);
+                throw new InvalidDataException("A stalled HTTP stream reported success.");
+            }
+            catch (DomainException exception) when (exception.Code == "generation_timeout") { }
+            if (!output.ToString().Contains("Partial deadline fixture.", StringComparison.Ordinal)) throw new InvalidDataException("Deadline check did not exercise the real streaming transport.");
+            profile.TimeoutSeconds = 30;
+            using (CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                cancellation.CancelAfter(TimeSpan.FromMilliseconds(500));
+                try
+                {
+                    await new PolyPromptRunner(false).GenerateAsync(profile, "Fictional cancellation input", new List<Message>(), (_, _) => Task.CompletedTask, cancellation.Token).ConfigureAwait(false);
+                    throw new InvalidDataException("External HTTP cancellation reported success.");
+                }
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            }
+        }
+
         private static async Task CodexMessagesAsync(CancellationToken token)
         {
             RunnerProfile profile = new RunnerProfile { Name = "Codex fixture", Kind = "cli", Provider = "codex", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "codex-messages" }, TimeoutSeconds = 10 };
@@ -190,6 +229,42 @@ namespace Test.Shared
             catch (DomainException ex) when (ex.Code == "agent_exit") { failed = true; }
             if (!failed) throw new InvalidDataException("Mux nonzero exit was reported as success.");
         }
+        private static async Task ClaudeIndexedResultsAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-indexed-results-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string expected = "Earlier audit progress.\n\nReport written. Final audit answer.\n\nIndexed final text without an assistant snapshot.";
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(new ArgueBotPaths(home)))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    RequestContext owner = new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, Role = "admin" };
+                    RunnerProfile profile = await database.Profiles.CreateAsync(owner, new RunnerProfile { Name = "Indexed result replay", Provider = "claude", Executable = "dotnet", WorkingDirectory = home, Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "claude-tool-replay", Path.Combine(AppContext.BaseDirectory, "fixtures", "claude-indexed-results.jsonl") } }, token).ConfigureAwait(false);
+                    Conversation conversation = await database.CreateConversationAsync(owner, "Indexed result replay", token).ConfigureAwait(false);
+                    await using (ConversationEngine engine = new ConversationEngine(database, new CliRunner()))
+                    {
+                        DebateRun run = await engine.StartAsync(owner, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Fictional indexed result replay", ParticipantIds = new List<string> { profile.Id }, IdempotencyKey = "indexed-replay" }, token).ConfigureAwait(false);
+                        using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+                        {
+                            deadline.CancelAfter(TimeSpan.FromSeconds(10));
+                            do { await Task.Delay(20, deadline.Token).ConfigureAwait(false); run = await database.Runs.ReadAsync(owner, conversation.Id, run.Id, deadline.Token).ConfigureAwait(false); } while (run.State != "completed" && run.State != "paused");
+                        }
+                        GenerationAttempt attempt = (await database.Attempts.EnumerateAsync(owner, conversation.Id, run.Id, token: token).ConfigureAwait(false)).Items.Single();
+                        Message answer = await database.ReadMessageAsync(owner, conversation.Id, attempt.MessageId, token).ConfigureAwait(false);
+                        if (run.State != "completed" || attempt.State != "completed" || answer.Content != expected) throw new InvalidDataException("Indexed results repeated older output, lost final text or invalidated a successful turn.");
+                    }
+                    profile.Arguments[2] = Path.Combine(AppContext.BaseDirectory, "fixtures", "claude-indexed-conflict.jsonl");
+                    try
+                    {
+                        await new CliRunner().GenerateAsync(profile, "Fictional indexed conflict", new List<Message>(), (_, _) => Task.CompletedTask, token).ConfigureAwait(false);
+                        throw new InvalidOperationException("Conflicting indexed results were accepted.");
+                    }
+                    catch (InvalidDataException exception) when (exception.Message.Contains("same Claude result index", StringComparison.Ordinal)) { }
+                }
+            }
+            finally { Directory.Delete(home, true); }
+        }
+
         private static async Task ClaudeToolReplayAsync(CancellationToken token)
         {
             string fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "claude-tool-stream.jsonl");
@@ -265,7 +340,7 @@ namespace Test.Shared
                 if (mode == "diagnostic-exit" && (capture.ExitCode != 17 || failure is not DomainException domain || domain.Code != "agent_exit")) throw new InvalidDataException("Nonzero process exit diagnostics were lost.");
                 if (mode == "diagnostic-large" && (!capture.Truncated || !capture.TriggeringRecord.EndsWith("TRIGGER-END", StringComparison.Ordinal))) throw new InvalidDataException("Oversized triggering record did not retain a bounded tail.");
                 if (mode == "stdout-hang" && (capture.StandardOutput.Length == 0 || !capture.Detail.Contains("stdout exceeded", StringComparison.Ordinal))) throw new InvalidDataException("Stdout overflow discarded its evidence.");
-                if (mode == "diagnostic-timeout" && failure is not OperationCanceledException) throw new InvalidDataException("Timeout lost cancellation semantics.");
+                if (mode == "diagnostic-timeout" && (failure is not DomainException deadline || deadline.Code != "generation_timeout")) throw new InvalidDataException("Timeout did not retain its distinct deadline failure code.");
             }
             string home = Path.Combine(Path.GetTempPath(), "arguebot-diagnostics-" + Guid.NewGuid().ToString("N"));
             try
@@ -344,8 +419,23 @@ namespace Test.Shared
         {
             bool failed = false;
             try { await new PolyPromptRunner().GenerateAsync(Profile("rate-limit"), "Debate.", new List<Message>(), (_, _) => Task.CompletedTask, token).ConfigureAwait(false); }
-            catch (DomainException ex) when (ex.Code == "provider_error") { failed = true; }
+            catch (DomainException ex) when (ex.Code == "provider_rate_limited") { failed = true; }
             if (!failed) throw new InvalidDataException("Rate limit was not surfaced.");
+        }
+        private static async Task ProviderFailuresAsync(CancellationToken token)
+        {
+            foreach (string[] expected in new[] { new[] { "forbidden", "provider_unauthorized", "403" }, new[] { "rate-limit", "provider_rate_limited", "wait 1 second" }, new[] { "server-error", "provider_unavailable", "503" }, new[] { "disconnect", "provider_disconnected", "" } })
+            {
+                Exception? failure = null; StringBuilder partial = new StringBuilder();
+                try { await new PolyPromptRunner().GenerateAsync(Profile(expected[0]), "Debate.", new List<Message>(), (text, _) => { partial.Append(text); return Task.CompletedTask; }, token).ConfigureAwait(false); }
+                catch (Exception exception) when (exception is not OperationCanceledException) { failure = exception; }
+                if (failure == null) throw new InvalidDataException("A provider failure was treated as success: " + expected[0]);
+                string code = GenerationFailure.Code(failure);
+                if (code != expected[1]) throw new InvalidDataException("Provider failure " + expected[0] + " was classified as " + code + " (" + failure.GetType().Name + "): " + failure.Message);
+                if (expected[2].Length > 0 && !failure.Message.Contains(expected[2], StringComparison.Ordinal)) throw new InvalidDataException("Provider failure " + expected[0] + " lost its guidance: " + failure.Message);
+                if (GenerationFailure.Explain(code).Length == 0) throw new InvalidDataException("Provider failure " + code + " has no recovery explanation.");
+                if (expected[0] == "disconnect" && !partial.ToString().Contains("Partial answer", StringComparison.Ordinal)) throw new InvalidDataException("A midstream disconnect lost the text received before it.");
+            }
         }
         private static async Task BrokenAsync(CancellationToken token)
         {

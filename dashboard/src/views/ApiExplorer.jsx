@@ -32,6 +32,26 @@ export default function ApiExplorer() {
   );
   const selection =
     operations.find((item) => item.key === chosen) || operations[0];
+  const groups = useMemo(() => operations.reduce((result, item) => { const tag = item.operation.tags?.[0] || t("explorer.other"); (result[tag] ||= []).push(item); return result; }, {}), [operations, t]);
+  const resolve = (schema) => { let value = schema; for (let depth = 0; value?.$ref && depth < 8; depth++) value = spec?.components?.schemas?.[value.$ref.split("/").pop()]; return value || {}; };
+  const describe = (schema) => {
+    const value = resolve(schema);
+    const parts = [schema?.$ref ? schema.$ref.split("/").pop() : value.type === "array" ? `${t("explorer.type.array")} ${resolve(value.items).type || value.items?.$ref?.split("/").pop() || ""}`.trim() : value.type || ""];
+    if (value.enum) parts.push(t("explorer.constraint.enum", { values: value.enum.join(", ") }));
+    if (value.minimum !== undefined || value.maximum !== undefined) parts.push(t("explorer.constraint.range", { minimum: value.minimum ?? "-", maximum: value.maximum ?? "-" }));
+    if (value.maxLength !== undefined) parts.push(t("explorer.constraint.length", { maximum: value.maxLength }));
+    if (value.default !== undefined) parts.push(t("explorer.constraint.default", { value: String(value.default) }));
+    return parts.filter(Boolean).join(" · ");
+  };
+  const bodySchema = selection ? resolve(selection.operation.requestBody?.content?.["application/json"]?.schema) : {};
+  const example = selection?.operation.requestBody?.content?.["application/json"]?.example;
+  const missing = (selection?.operation.parameters || []).filter(parameter => parameter.required && !String(parameters[parameter.name] || "").trim()).map(parameter => parameter.name);
+  let bodyProblem = "";
+  if (selection?.operation.requestBody && selection.method !== "GET" && body.trim()) {
+    try { JSON.parse(body); } catch (failure) { bodyProblem = t("explorer.invalidJson", { message: failure.message }); }
+    const placeholders = [...new Set(body.match(/{{\s*[\w$]+\s*}}/g) || [])];
+    if (!bodyProblem && placeholders.length) bodyProblem = t("explorer.placeholders", { names: placeholders.join(", ") });
+  }
   const select = (key) => {
     setChosen(key);
     setParameters({});
@@ -81,7 +101,7 @@ export default function ApiExplorer() {
         <Field label="explorer.operation">
           {(props) => <select {...props} className="monospace" value={selection?.key || ""} disabled={!operations.length || busy} onChange={(event) => select(event.target.value)}>
             {!operations.length && <option value="">{t("common.loading")}</option>}
-            {operations.map(item => <option key={item.key} value={item.key}>{item.method} {item.path} · {item.operation.summary}</option>)}
+            {Object.entries(groups).map(([tag, items]) => <optgroup key={tag} label={tag}>{items.map(item => <option key={item.key} value={item.key}>{item.method} {item.path} · {item.operation.summary}</option>)}</optgroup>)}
           </select>}
         </Field>
         <div className="explorer-workspace">
@@ -92,6 +112,7 @@ export default function ApiExplorer() {
                   {selection.method} {selection.path}
                 </code>
                 <p>{selection.operation.summary}</p>
+                {selection.operation.description && <p className="muted">{selection.operation.description}</p>}
               </header>
               <div className="form-grid">
                 {selection.operation.parameters
@@ -103,50 +124,74 @@ export default function ApiExplorer() {
                     <label
                       className="field"
                       key={parameter.name}
-                      title={
-                        parameter.description || t("explorer.parameter.help")
-                      }
                     >
                       <span>
                         {parameter.name}
-                        {parameter.required && " *"}
+                        {parameter.required && <span className="required-mark" aria-hidden="true"> *</span>}
                       </span>
-                      <input
-                        value={parameters[parameter.name] || ""}
-                        title={
-                          parameter.description || t("explorer.parameter.help")
-                        }
-                        aria-label={parameter.name}
-                        required={parameter.required}
-                        onChange={(event) =>
-                          setParameters((current) => ({
-                            ...current,
-                            [parameter.name]: event.target.value,
-                          }))
-                        }
-                      />
+                      {parameter.schema?.type === "boolean" ? (
+                        <select aria-label={parameter.name} aria-describedby={`parameter-${parameter.name}`} value={parameters[parameter.name] || ""} onChange={(event) => setParameters((current) => ({ ...current, [parameter.name]: event.target.value }))}>
+                          <option value="">{t("explorer.unset")}</option>
+                          <option value="true">true</option>
+                          <option value="false">false</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={parameter.schema?.type === "integer" ? "number" : "text"}
+                          min={parameter.schema?.minimum}
+                          max={parameter.schema?.maximum}
+                          placeholder={parameter.schema?.default !== undefined ? String(parameter.schema.default) : parameter.in === "path" ? parameter.name : ""}
+                          value={parameters[parameter.name] || ""}
+                          aria-label={parameter.name}
+                          aria-describedby={`parameter-${parameter.name}`}
+                          aria-invalid={missing.includes(parameter.name) && Object.keys(parameters).length > 0 ? "true" : undefined}
+                          required={parameter.required}
+                          onChange={(event) =>
+                            setParameters((current) => ({
+                              ...current,
+                              [parameter.name]: event.target.value,
+                            }))
+                          }
+                        />
+                      )}
+                      <small id={`parameter-${parameter.name}`}>{parameter.description || t("explorer.parameter.help")}{describe(parameter.schema) && ` (${describe(parameter.schema)})`}</small>
                     </label>
                   ))}
               </div>
               {selection.operation.requestBody && (
-                <Field label="explorer.body">
-                  {(props) => (
-                    <textarea
-                      {...props}
-                      rows="10"
-                      spellCheck={false}
-                      value={body}
-                      onChange={(event) => setBody(event.target.value)}
-                    />
-                  )}
-                </Field>
+                <>
+                  <Field label="explorer.body">
+                    {(props) => (
+                      <textarea
+                        {...props}
+                        rows="10"
+                        spellCheck={false}
+                        className="monospace"
+                        aria-invalid={bodyProblem ? "true" : undefined}
+                        value={body}
+                        onChange={(event) => setBody(event.target.value)}
+                      />
+                    )}
+                  </Field>
+                  {bodyProblem && <p className="field-error" role="alert">{bodyProblem}</p>}
+                  <div className="button-group">
+                    {example && <Button label="explorer.resetExample" onClick={() => setBody(JSON.stringify(example, null, 2))} />}
+                  </div>
+                  {bodySchema.properties && <details className="explorer-fields"><summary>{t("explorer.bodyFields", { name: selection.operation.requestBody.content["application/json"].schema?.$ref?.split("/").pop() || "" })}</summary>
+                    <table>
+                      <thead><tr><th scope="col">{t("explorer.field")}</th><th scope="col">{t("explorer.fieldType")}</th><th scope="col">{t("explorer.fieldDescription")}</th></tr></thead>
+                      <tbody>{Object.entries(bodySchema.properties).map(([name, property]) => <tr key={name}><th scope="row"><code>{name}</code>{bodySchema.required?.includes(name) && <span className="required-mark" title={t("explorer.requiredField")}> *</span>}</th><td>{describe(property)}</td><td>{property.description || resolve(property).description || ""}</td></tr>)}</tbody>
+                    </table>
+                  </details>}
+                </>
               )}
+              {missing.length > 0 && <p className="muted" role="status">{t("explorer.missing", { names: missing.join(", ") })}</p>}
               <p className="muted">{t("explorer.auth")}</p>
               <Button
                 label="explorer.execute"
                 className="primary"
                 disabled={
-                  busy
+                  busy || missing.length > 0 || Boolean(bodyProblem)
                 }
                 onClick={() =>
                   selection.method === "GET" ? execute() : setConfirm(true)

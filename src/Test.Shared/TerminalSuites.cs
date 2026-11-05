@@ -1,6 +1,11 @@
 #if NET10_0_OR_GREATER
 namespace Test.Shared
 {
+    using ArgueBot.Client;
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
+    using ArgueBot.Tui;
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
@@ -13,17 +18,12 @@ namespace Test.Shared
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Client;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Services;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Tui;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
     using TUIKit.Input;
-    using TUIKit.Modals;
     using TUIKit.Layout;
+    using TUIKit.Modals;
     using TUIKit.Terminal;
     using TUIKit.Testing;
     using TUIKit.Theming;
@@ -36,7 +36,185 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript renders Markdown and separates speakers while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "EndpointPreview", "Saved endpoint request preview keeps destinations readable and all binding values redacted", EndpointPreviewAsync), new TestCaseDescriptor("Terminal", "ModelVerification", "Explicit model checks explain provider cost and display observed capabilities at supported terminal sizes", ModelVerificationAsync), new TestCaseDescriptor("Terminal", "KeyRotation", "Credential key rotation is reviewable and reachable in narrow and wide terminals", KeyRotationAsync), new TestCaseDescriptor("Terminal", "PanelScaleReview", "Large panels preserve selection, orchestrator and opening order with reachable controls at narrow widths", PanelScaleReviewAsync), new TestCaseDescriptor("Terminal", "CatalogReview", "Every connection form fits narrow and wide terminals, supports keyboard recovery and masks credentials in both themes", CatalogReviewAsync), new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript renders Markdown and separates speakers while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+        }
+        private static async Task EndpointPreviewAsync(CancellationToken token)
+        {
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(width, 30) { ClaimsTerminal = false };
+                TerminalJourneyHandler handler = new TerminalJourneyHandler();
+                handler.Endpoints.Add(new EndpointProfile { Id = "endpoint_fixture", Name = "Preview endpoint", BaseUrl = "http://127.0.0.1:11434", AuthBindings = new List<HttpAuthBinding> { new HttpAuthBinding { Kind = "header", Name = "X-Route", Value = "fictional-preview-routing" }, new HttpAuthBinding { Kind = "query", Name = "api_key", CredentialId = "credential_unresolved" } } });
+                using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4317", handler: handler))
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    ConversationApp workspace = new ConversationApp(client); workspace.Configure(app); app.Theme = theme; app.Start();
+                    backend.FeedKey("ctrl+e"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Connections and models", token).ConfigureAwait(false);
+                    ClickText(app, backend, "HTTP endpoints");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Add or edit configuration", token).ConfigureAwait(false);
+                    ClickText(app, backend, "Preview endpoint");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Preview endpoint", token).ConfigureAwait(false);
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+                    string frame = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!frame.Contains("/api/chat", StringComparison.Ordinal) || frame.Contains("fictional-preview-routing", StringComparison.Ordinal)) throw new InvalidDataException("Request preview lost its destination or disclosed a binding value.");
+                    await SaveEvidenceAsync("v2-endpoint-preview-" + width + "-" + theme.Name, frame, token).ConfigureAwait(false);
+                    backend.FeedKey("end"); app.PumpInputOnce(); app.RenderOnce();
+                    await SaveEvidenceAsync("v2-endpoint-preview-bottom-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false); app.Stop();
+                }
+            }
+        }
+        private static async Task ModelVerificationAsync(CancellationToken token)
+        {
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(width, 24) { ClaimsTerminal = false };
+                TerminalJourneyHandler handler = new TerminalJourneyHandler(); handler.Models.Add(new ModelProfile { Id = "model_fixture", Name = "Review model", Revision = 1 });
+                using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4317", handler: handler))
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    ConversationApp workspace = new ConversationApp(client); workspace.Configure(app); app.Theme = theme; app.Start();
+                    backend.FeedKey("ctrl+e"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Connections and models", token).ConfigureAwait(false);
+                    ClickText(app, backend, "Models");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Add or edit configuration", token).ConfigureAwait(false);
+                    ClickText(app, backend, "Review model");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Review model", token).ConfigureAwait(false);
+                    ClickText(app, backend, "Observed completion and tool checks");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog && Snapshot.ToText(app.CaptureFrame()!).Contains("observed checks", StringComparison.Ordinal), token).ConfigureAwait(false);
+                    await SaveEvidenceAsync("v2-model-check-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog && Snapshot.ToText(app.CaptureFrame()!).Contains("Invoke this model?", StringComparison.Ordinal), token).ConfigureAwait(false);
+                    await SaveEvidenceAsync("v2-model-check-confirm-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    ClickText(app, backend, "Yes"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+                    if (!handler.Checks.Single().ToolsVerified) throw new InvalidDataException("The terminal lost the explicit tool-check selection.");
+                    await SaveEvidenceAsync("v2-model-check-result-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false); app.Stop();
+                }
+            }
+        }
+        private static async Task KeyRotationAsync(CancellationToken token)
+        {
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(width, 24) { ClaimsTerminal = false };
+                TerminalJourneyHandler handler = new TerminalJourneyHandler();
+                using (ArgueBotClient client = new ArgueBotClient("http://127.0.0.1:4317", handler: handler))
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    ConversationApp workspace = new ConversationApp(client); workspace.Configure(app); app.Theme = theme; app.Start();
+                    backend.FeedKey("ctrl+e");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Connections and models", token).ConfigureAwait(false);
+                    for (int index = 0; index < 4; index++) { backend.FeedKey("down"); app.PumpInputOnce(); }
+                    backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog && Snapshot.ToText(app.CaptureFrame()!).Contains("Credential encryption:", StringComparison.Ordinal), token).ConfigureAwait(false);
+                    await SaveEvidenceAsync("v2-keys-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog && Snapshot.ToText(app.CaptureFrame()!).Contains("Rotate the master key?", StringComparison.Ordinal), token).ConfigureAwait(false);
+                    await SaveEvidenceAsync("v2-keys-confirm-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    ClickText(app, backend, "Yes");
+                    await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+                    if (!handler.KeyRotated || !Snapshot.ToText(app.CaptureFrame()!).Contains("rotated-fixture-key", StringComparison.Ordinal)) throw new InvalidDataException("Key rotation did not show the recorded result.");
+                    backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
+                    app.Stop();
+                }
+            }
+        }
+        private static async Task PanelScaleReviewAsync(CancellationToken token)
+        {
+            foreach (int count in new[] { 4, 16, 64 })
+            foreach (int width in new[] { 60, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                HeadlessBackend backend = new HeadlessBackend(width, 24) { ClaimsTerminal = false };
+                using (TuiApplication app = new TuiApplication(backend))
+                {
+                    app.Theme = theme; app.ApplyThemeToWidgets = true; app.Start();
+                    List<RunnerProfile> profiles = Enumerable.Range(1, count).Select(index => new RunnerProfile { Id = "seat_" + index, Name = "Agent " + index + " Unicode 議論" }).ToList();
+                    DebateSetupEditor editor = new DebateSetupEditor(profiles, "Which design meets every constraint?", false, count);
+                    DebateWizardDialog dialog = new DebateWizardDialog(editor);
+                    Task<CreateRunRequest?> outcome = app.ShowAsync<CreateRunRequest>(dialog);
+                    dialog.Wizard.Next();
+                    for (int index = 0; index < count; index++) ((Checkbox)editor.SpeakersForm.GetField(index)).Checked = true;
+                    ((Dropdown<string>)editor.SpeakersForm.GetField(count)).SelectedIndex = count;
+                    editor.SpeakersForm.SetFocusedField(count); app.RenderOnce();
+                    string panel = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!panel.Contains("Orchestrator model", StringComparison.Ordinal) || !panel.Contains("Next", StringComparison.Ordinal) || !panel.Contains("Cancel", StringComparison.Ordinal)) throw new InvalidDataException("Large-panel setup hid its orchestrator or navigation.");
+                    await SaveEvidenceAsync("v2-panel-" + count + "-" + width + "-" + theme.Name, panel, token).ConfigureAwait(false);
+                    dialog.Wizard.Next();
+                    ((TextField)editor.SettingsForm.GetField(2)).Value = string.Join(",", Enumerable.Range(1, count).Reverse());
+                    ((TextField)editor.SettingsForm.GetField(3)).Value = "500";
+                    ((TextField)editor.SettingsForm.GetField(12)).Value = "Keep dissent and original source IDs.";
+                    editor.SettingsForm.SetFocusedField(12); app.RenderOnce();
+                    string policyFrame = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!policyFrame.Contains("Next", StringComparison.Ordinal) || !policyFrame.Contains("Cancel", StringComparison.Ordinal)) throw new InvalidDataException("Policy fields hid wizard navigation.");
+                    await SaveEvidenceAsync("v2-policy-" + count + "-" + width + "-" + theme.Name, policyFrame, token).ConfigureAwait(false);
+                    if (!dialog.Wizard.Next()) throw new InvalidDataException("Valid large-panel order was refused.");
+                    app.RenderOnce();
+                    if (!Snapshot.ToText(app.CaptureFrame()!).Contains("Start debate", StringComparison.Ordinal)) throw new InvalidDataException("Large-panel review hid Start debate.");
+                    await SaveEvidenceAsync("v2-panel-review-" + count + "-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    dialog.Wizard.Next(); CreateRunRequest? request = await outcome.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                    if (request == null || request.Policy.MaxParticipantTurns != 500 || request.Policy.SummaryInstructions != "Keep dissent and original source IDs." || request.OrchestratorId != profiles.Last().Id || !request.ParticipantIds.SequenceEqual(profiles.AsEnumerable().Reverse().Select(profile => profile.Id))) throw new InvalidDataException("Large-panel setup lost its selected order or orchestrator.");
+                    app.Stop();
+                }
+            }
+        }
+        private static async Task CatalogReviewAsync(CancellationToken token)
+        {
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                List<CredentialMetadata> credentials = new List<CredentialMetadata> { new CredentialMetadata { Id = "credential_fixture", Name = "Local fixture token", Kind = "token" } };
+                await ReviewCatalogAsync("Endpoint", CatalogForms.Endpoint(new EndpointProfile { Name = "Local Ollama", BaseUrl = "http://127.0.0.1:11434", AuthBindings = new List<HttpAuthBinding> { new HttpAuthBinding { Kind = "bearer", CredentialId = "credential_fixture" } } }, credentials), width, theme, token).ConfigureAwait(false);
+                CatalogEditor<HarnessProfile> harness = CatalogForms.Harness(new HarnessProfile { Name = "CLI fixture", Executable = "fixture", EnvironmentVariables = new List<string> { "FIXTURE_API_KEY", "FIXTURE_ROUTE" }, Arguments = new List<string> { "", "--fixture", "Unicode 議論" } }, credentials);
+                if (!harness.Extract().Arguments.SequenceEqual(new[] { "", "--fixture", "Unicode 議論" })) throw new InvalidDataException("Harness form lost literal arguments.");
+                if (!harness.Extract().EnvironmentVariables.SequenceEqual(new[] { "FIXTURE_API_KEY", "FIXTURE_ROUTE" })) throw new InvalidDataException("Harness form lost environment names.");
+                ((Checkbox)harness.Form.GetField(7)).Checked = false;
+                if (harness.Extract().Arguments.Count != 2) throw new InvalidDataException("Harness form could not remove an argument.");
+                await ReviewCatalogAsync("Harness", harness, width, theme, token).ConfigureAwait(false);
+                await ReviewCatalogAsync("Model", CatalogForms.Model(new ModelProfile { Name = "Local model", Model = "fixture", EndpointId = "endpoint_fixture", MaxOutputBytes = 1048576, Generation = new ModelGenerationSettings { MaxOutputTokens = 2048, Temperature = 0.25, TopP = 0.9 } }, new List<EndpointProfile> { new EndpointProfile { Id = "endpoint_fixture", Name = "Local Ollama" } }, new List<HarnessProfile>()), width, theme, token).ConfigureAwait(false);
+                CatalogEditor<CredentialRequest> credential = CatalogForms.Credential(null);
+                ((TextField)credential.Form.GetField(0)).Value = "Fictional credential";
+                ((TextField)credential.Form.GetField(3)).Value = "fictional-mask-check";
+                await ReviewCatalogAsync("Credential", credential, width, theme, token).ConfigureAwait(false);
+            }
+        }
+        private static async Task ReviewCatalogAsync<T>(string name, CatalogEditor<T> editor, int width, Theme theme, CancellationToken token) where T : class
+        {
+            HeadlessBackend backend = new HeadlessBackend(width, 24) { ClaimsTerminal = false };
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                app.Theme = theme; app.Start();
+                FormDialog<T> dialog = new FormDialog<T>(name + " configuration", editor.Form, editor.Extract); dialog.ApplyTheme(theme);
+                Task<T?> outcome = app.ShowAsync<T>(dialog); app.RenderOnce();
+                string first = Snapshot.ToText(app.CaptureFrame()!);
+                if (!first.Contains(name + " configuration", StringComparison.Ordinal) || first.Contains("fictional-mask-check", StringComparison.Ordinal)) throw new InvalidDataException("Catalog title or credential masking failed.");
+                await SaveEvidenceAsync("v2-" + name + "-" + width + "-" + theme.Name, first, token).ConfigureAwait(false);
+                if (name == "Harness")
+                {
+                    editor.Form.SetFocusedField(6); app.RenderOnce();
+                    string environment = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!environment.Contains("Inherited environment names", StringComparison.Ordinal) || !environment.Contains("FIXTURE_API_KEY", StringComparison.Ordinal)) throw new InvalidDataException("Harness environment selection is not readable.");
+                    await SaveEvidenceAsync("v2-Harness-environment-" + width + "-" + theme.Name, environment, token).ConfigureAwait(false);
+                }
+                editor.Form.SetFocusedField(editor.Form.FieldCount - 1); backend.FeedKey("tab"); app.PumpInputOnce(); app.RenderOnce();
+                string bottom = Snapshot.ToText(app.CaptureFrame()!);
+                if (!bottom.Contains("Save", StringComparison.Ordinal) || !bottom.Contains("Cancel", StringComparison.Ordinal) || bottom.Contains("fictional-mask-check", StringComparison.Ordinal)) throw new InvalidDataException("Catalog actions are inaccessible or expose a credential.");
+                await SaveEvidenceAsync("v2-" + name + "-bottom-" + width + "-" + theme.Name, bottom, token).ConfigureAwait(false);
+                backend.FeedKey("escape"); await PumpUntilAsync(app, () => dialog.IsClosed, token).ConfigureAwait(false);
+                if (await outcome.ConfigureAwait(false) != null) throw new InvalidDataException("Escape submitted a catalog edit.");
+                app.Stop();
+            }
         }
         private static async Task HelpTopicsAsync(CancellationToken token)
         {
@@ -83,6 +261,7 @@ namespace Test.Shared
                 {
                     string fixture = Path.GetFullPath(Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE") ?? Path.Combine(AppContext.BaseDirectory, "../../../../Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll"));
                     RunnerProfile profile = await client.CreateParticipantAsync(new RunnerProfile { Name = "Terminal stop fixture", Executable = "dotnet", Arguments = new List<string> { fixture, "hang" } }, token).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ARGUEBOT_SIMULATION_URL"))) await VerifyPanelJourneyAsync(client, token).ConfigureAwait(false);
                     await VerifyFailurePresentationAsync(client, fixture, token).ConfigureAwait(false);
                     foreach (string journey in new[] { "agent_turn", "paused", "delete_agent_turn", "delete_paused" })
                     {
@@ -160,13 +339,85 @@ namespace Test.Shared
                 await ServiceLifecycleSuites.DeleteStoppedHomeAsync(home).ConfigureAwait(false);
             }
         }
+        private static async Task VerifyPanelJourneyAsync(ArgueBotClient client, CancellationToken token)
+        {
+            List<string> ids = new List<string>();
+            for (int index = 0; index < 5; index++) ids.Add((await client.CreateParticipantAsync(new RunnerProfile { Name = "Terminal panel " + index, Kind = "rest", Provider = "ollama", Endpoint = Environment.GetEnvironmentVariable("ARGUEBOT_SIMULATION_URL")!, Model = "multi-agent-slow" }, token).ConfigureAwait(false)).Id);
+            Conversation conversation = await client.CreateConversationAsync("Terminal four-agent context journey", token).ConfigureAwait(false);
+            for (int index = 0; index < 20; index++) await client.NoteAsync(conversation.Id, "Original terminal evidence " + index + ": " + new string('x', 1600), "terminal-source-" + index, token).ConfigureAwait(false);
+            DebateRun run = await client.StartAsync(conversation.Id, new CreateRunRequest { ProtocolVersion = 2, ParticipantIds = ids.Take(4).ToList(), OrchestratorId = ids[4], MaxRounds = 2, InterventionSeconds = 0, Policy = new DebatePolicy { MaxContextCharacters = 16384 }, IdempotencyKey = "terminal-panel" }, token).ConfigureAwait(false);
+            HeadlessBackend backend = new HeadlessBackend(80, 24) { ClaimsTerminal = false };
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                ConversationApp workspace = new ConversationApp(client); workspace.Configure(app); app.Start();
+                Task refresh = workspace.RefreshAsync(token); await PumpUntilAsync(app, () => refresh.IsCompleted, token).ConfigureAwait(false); await refresh.ConfigureAwait(false);
+                foreach (string mode in new[] { "next_turn", "interrupt_now" })
+                {
+                    app.Focus("composer"); backend.FeedInput(Encoding.UTF8.GetBytes("Terminal constraint " + mode)); app.PumpInputOnce(); backend.FeedKey("enter");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    if (mode == "interrupt_now") { backend.FeedKey("down"); app.PumpInputOnce(); }
+                    await SaveEvidenceAsync("v2-context-choice-" + mode, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    backend.FeedKey("enter"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
+                }
+                await WaitHttpRunStateAsync(client, conversation.Id, run.Id, "paused", token).ConfigureAwait(false);
+                List<InterjectionReceipt> receipts = await client.InterjectionsAsync(conversation.Id, token: token).ConfigureAwait(false);
+                if (receipts.Count != 2 || !receipts.Any(receipt => receipt.DeliveryMode == "interrupt_now") || !receipts.Any(receipt => receipt.DeliveryMode == "next_turn")) throw new InvalidDataException("Terminal context choices did not persist through the real service.");
+                backend.FeedKey("ctrl+r"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
+                await WaitHttpRunStateAsync(client, conversation.Id, run.Id, "completed", token).ConfigureAwait(false);
+                List<DebateProposal> proposals = await client.ProposalsAsync(conversation.Id, run.Id, token).ConfigureAwait(false);
+                if (proposals[0].Agreements.Count != 4 || proposals[0].Agreements.Any(vote => vote.Position != "agree")) throw new InvalidDataException("The terminal resume journey lost unanimous votes.");
+                foreach (int selection in new[] { 8, 9, 10, 11 })
+                {
+                    backend.FeedKey("ctrl+r"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+                    for (int index = 0; index < selection; index++) { backend.FeedKey("down"); app.PumpInputOnce(); }
+                    backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog || app.Modals.Top is ChoiceDialog memory && memory.Title == "Summaries, page 1" || !workspace.IsBusy, token).ConfigureAwait(false);
+                    if (selection == 8 && app.Modals.Top is not MessageDialog) throw new InvalidDataException("Terminal proposals did not open their complete reader.");
+                    await SaveEvidenceAsync("v2-panel-inspect-" + selection, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+                    if (selection == 10) await ReviewSummaryAsync(client, conversation.Id, run.Id, app, backend, token).ConfigureAwait(false);
+                    backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
+                }
+                app.Stop();
+            }
+            await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + conversation.Id, token: token).ConfigureAwait(false);
+            foreach (string id in ids) await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/participants/" + id, token: token).ConfigureAwait(false);
+        }
+        private static async Task ReviewSummaryAsync(ArgueBotClient client, string conversationId, string runId, TuiApplication app, HeadlessBackend backend, CancellationToken token)
+        {
+            ContextSummary summary = (await client.SummariesAsync(conversationId, runId, token: token).ConfigureAwait(false)).First();
+            if (summary.ParentSummaryIds.Count == 0 || summary.Sources.Count == 0) throw new InvalidDataException("The terminal journey did not produce inspectable derived memory.");
+            backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                app.Theme = theme; backend.Resize(width, 30); app.RenderOnce();
+                await SaveEvidenceAsync("v2-summary-" + width + "-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
+            }
+            backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+            backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+            foreach (int width in new[] { 60, 80, 120 })
+            foreach (Theme theme in new[] { TerminalTheme.Dark, Theme.Light })
+            {
+                app.Theme = theme; backend.Resize(width, 30); app.RenderOnce();
+                string frame = Snapshot.ToText(app.CaptureFrame()!);
+                if (!frame.Contains("SHA-256", StringComparison.Ordinal)) throw new InvalidDataException("The original source reader hid its provenance hash.");
+                await SaveEvidenceAsync("v2-summary-source-" + width + "-" + theme.Name, frame, token).ConfigureAwait(false);
+            }
+            backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+            for (int index = 0; index < summary.SourceIds.Count; index++) { backend.FeedKey("down"); app.PumpInputOnce(); }
+            backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog, token).ConfigureAwait(false);
+            if (!Snapshot.ToText(app.CaptureFrame()!).Contains(summary.ParentSummaryIds[0], StringComparison.Ordinal)) throw new InvalidDataException("The parent summary link opened the wrong provenance.");
+            backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
+            backend.FeedKey("escape"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog dialog && dialog.Title == "Summaries, page 1", token).ConfigureAwait(false);
+            backend.Resize(80, 24); app.Theme = TerminalTheme.Dark; app.RenderOnce();
+        }
         private static async Task WaitHttpRunStateAsync(ArgueBotClient client, string conversationId, string runId, string state, CancellationToken token)
         {
-            for (int attempt = 0; attempt < 100; attempt++)
+            for (int attempt = 0; attempt < 400; attempt++)
             {
                 DebateRun run = (await client.RunsAsync(conversationId, token).ConfigureAwait(false)).Single(item => item.Id == runId);
                 if (run.State == state) return;
-                if (run.State == "failed") throw new InvalidDataException("Stop fixture failed before reaching " + state);
+                if (run.State == "failed" || run.State == "paused" && state == "completed") throw new InvalidDataException("Panel fixture stopped before " + state + ": " + run.State + " / " + run.Outcome);
                 await Task.Delay(50, token).ConfigureAwait(false);
             }
             throw new InvalidDataException("Stop fixture did not reach " + state);
@@ -266,6 +517,7 @@ namespace Test.Shared
                 List<RunnerProfile> profiles = new List<RunnerProfile> { AgentPresets.Create(0), AgentPresets.Create(1) };
                 profiles[0].Id = "fixture-one"; profiles[1].Id = "fixture-two";
                 DebateSetupEditor editor = new DebateSetupEditor(profiles, "Keep this question after a failed start", false);
+                ((Dropdown<string>)editor.SpeakersForm.GetField(profiles.Count)).SelectedIndex = 1;
                 TaskCompletionSource pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 List<string> commands = new List<string>();
                 DebateWizardDialog dialog = new DebateWizardDialog(editor, app, request => { commands.Add(request.IdempotencyKey); return commands.Count == 1 ? pending.Task : Task.CompletedTask; });
@@ -274,13 +526,17 @@ namespace Test.Shared
                 if (dialog.CanClose || dialog.RequestClose(null)) throw new InvalidDataException("A pending start could discard its state.");
                 dialog.Wizard.Next();
                 if (commands.Count != 1) throw new InvalidDataException("A pending start was submitted twice.");
-                pending.SetException(new InvalidOperationException("The service is temporarily unavailable."));
-                await PumpUntilAsync(app, () => dialog.CanClose && ContentText(dialog, app.CaptureFrame()!).Contains("temporarilyunavailable", StringComparison.Ordinal), token).ConfigureAwait(false);
+                pending.SetException(new DomainException(409, "duplicate_seat_name", "Two selected participants are named Codex. Rename one so positions and votes stay attributable.", "participantIds"));
+                await PumpUntilAsync(app, () => dialog.CanClose && ContentText(dialog, app.CaptureFrame()!).Contains("Speakers:Twoselected", StringComparison.Ordinal), token).ConfigureAwait(false);
                 if (result.IsCompleted || dialog.Wizard.CurrentIndex != 3 || ((TextField)editor.QuestionForm.GetField(0)).Value != "Keep this question after a failed start") throw new InvalidDataException("A failed start discarded its review or draft.");
                 await SaveEvidenceAsync("debate-start-error", Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
                 ClickText(app, backend, "[ Start debate ]");
                 await PumpUntilAsync(app, () => result.IsCompleted, token).ConfigureAwait(false);
                 if (await result.ConfigureAwait(false) == null || commands.Count != 2 || commands[0] != commands[1]) throw new InvalidDataException("Explicit retry lost its command identity.");
+                List<RunnerProfile> twins = new List<RunnerProfile> { AgentPresets.Create(0), AgentPresets.Create(1) };
+                twins[0].Id = "fixture-twin-one"; twins[1].Id = "fixture-twin-two"; twins[1].Name = twins[0].Name.ToUpperInvariant();
+                DebateSetupEditor duplicate = new DebateSetupEditor(twins, "Duplicate names", false);
+                if (!duplicate.SpeakersForm.ValidateAll().Any(error => error.Message.Contains("Rename one", StringComparison.Ordinal))) throw new InvalidDataException("The terminal setup accepted two seats with the same name.");
                 app.Stop();
             }
         }
@@ -305,7 +561,14 @@ namespace Test.Shared
                     await SaveEvidenceAsync("help-wrapped-" + width, Snapshot.ToText(frame), token).ConfigureAwait(false);
                     ClickText(app, backend, "Troubleshooting");
                     await PumpUntilAsync(app, () => result.IsCompleted, token).ConfigureAwait(false);
-                    if (await result.ConfigureAwait(false) is not int selected || topics[selected] != "Troubleshooting failed or paused debates") throw new InvalidDataException("Wrapped help text selected the wrong topic.");
+                    if (await result.ConfigureAwait(false) is not int selected || topics[selected] != "Troubleshooting") throw new InvalidDataException("Wrapped help text selected the wrong topic.");
+                    ChoiceDialog sections = new ChoiceDialog("Menu", new[] { ChoiceDialog.Heading + "First", "one", ChoiceDialog.Heading + "Second", "two" });
+                    Task<object?> sectioned = app.ShowAsync(sections); app.RenderOnce();
+                    string sectionScreen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!sectionScreen.Contains("FIRST", StringComparison.Ordinal) || !sectionScreen.Contains("> one", StringComparison.Ordinal) || sectionScreen.Contains("\u0001", StringComparison.Ordinal)) throw new InvalidDataException("Menu sections must render as headings and start on the first selectable option.");
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter"); app.PumpInputOnce();
+                    await PumpUntilAsync(app, () => sectioned.IsCompleted, token).ConfigureAwait(false);
+                    if (await sectioned.ConfigureAwait(false) is not int sectionChoice || sectionChoice != 3) throw new InvalidDataException("Arrow keys must skip section headings.");
                     string[] longList = Enumerable.Range(0, 20).Select(index => "Option " + index + ": this full description needs to remain readable").ToArray();
                     ChoiceDialog scrolling = new ChoiceDialog("Actions", longList);
                     Task<object?> scrollResult = app.ShowAsync(scrolling); app.RenderOnce();
@@ -360,7 +623,7 @@ namespace Test.Shared
                 int menuColumn = rows[1].IndexOf("Menu", StringComparison.Ordinal);
                 if (menuColumn < 0) throw new InvalidDataException("The main menu was not visible.");
                 ClickText(app, backend, "Menu");
-                await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Main menu", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Menu", token).ConfigureAwait(false);
                 ClickText(app, backend, "New debate or conversation");
                 await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("New:", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
                 ClickText(app, backend, "Start a debate: guided setup");
@@ -389,6 +652,7 @@ namespace Test.Shared
                 ((TextField)question.GetField(0)).Value = "Which architecture should we use?";
                 backend.FeedKey("enter");
                 await PumpUntilAsync(app, () => dialog.Wizard.CurrentIndex == 1, token).ConfigureAwait(false);
+                ((Dropdown<string>)dialog.Editor.SpeakersForm.GetField(service.Profiles.Count)).SelectedIndex = 1;
                 backend.FeedKey("alt+right");
                 await PumpUntilAsync(app, () => dialog.Wizard.CurrentIndex == 2, token).ConfigureAwait(false);
                 backend.FeedKey("alt+right");
@@ -414,6 +678,7 @@ namespace Test.Shared
                     field.Value = "";
                     backend.FeedInput(Encoding.UTF8.GetBytes("A different debate question")); app.PumpInputOnce(); app.RenderOnce();
                     if (field.Value != "A different debate question") throw new InvalidDataException("New debate did not accept keyboard input.");
+                    ((Dropdown<string>)fresh.Editor.SpeakersForm.GetField(service.Profiles.Count)).SelectedIndex = 1;
                     if (!fresh.Wizard.Next() || !fresh.Wizard.Next() || !fresh.Wizard.Next() || fresh.Editor.Extract().Question != field.Value || !fresh.Editor.Review().Contains(field.Value, StringComparison.Ordinal)) throw new InvalidDataException("Review and submission did not use the newly typed question.");
                     backend.FeedKey("escape");
                     await PumpUntilAsync(app, () => app.Modals.Top == null && !workspace.IsBusy, token).ConfigureAwait(false);
@@ -428,7 +693,7 @@ namespace Test.Shared
                 for (int attempt = 0; attempt < 3; attempt++)
                 {
                     ClickText(app, backend, "Menu");
-                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Main menu", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Menu", token).ConfigureAwait(false);
                     ClickText(app, backend, "Delete this conversation");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Choose an action", token).ConfigureAwait(false);
                     string confirmation = ContentText((DialogModal)app.Modals.Top!, app.CaptureFrame()!);
@@ -472,7 +737,7 @@ namespace Test.Shared
                 if (condition()) return;
                 await Task.Delay(10, token).ConfigureAwait(false);
             }
-            throw new InvalidDataException("Terminal journey did not reach the expected screen. Current modal: " + (app.Modals.Top is DialogModal dialog ? dialog.Title : "none"));
+            throw new InvalidDataException("Terminal journey did not reach the expected screen. Current modal: " + (app.Modals.Top is DialogModal dialog ? dialog.Title : "none") + "\n" + Snapshot.ToText(app.CaptureFrame()!));
         }
         private static async Task DebateSetupAsync(CancellationToken token)
         {
@@ -498,20 +763,22 @@ namespace Test.Shared
                     if (dialog.IsClosed || ((TextField)editor.QuestionForm.GetField(0)).Value != "Compare these approaches") throw new InvalidDataException("Context help lost the debate draft.");
                     backend.FeedKey("enter"); app.PumpInputOnce();
                     if (dialog.Wizard.CurrentIndex != 1) throw new InvalidDataException("Enter did not advance from the question.");
-                    ((Dropdown<string>)editor.SpeakersForm.GetField(1)).SelectedIndex = 0;
-                    if (dialog.Wizard.Next()) throw new InvalidDataException("Duplicate speakers were accepted.");
-                    ((Dropdown<string>)editor.SpeakersForm.GetField(1)).SelectedIndex = 1;
-                    ((Dropdown<string>)editor.SpeakersForm.GetField(2)).SelectedIndex = 3;
+                    ((Checkbox)editor.SpeakersForm.GetField(1)).Checked = false;
+                    if (dialog.Wizard.Next()) throw new InvalidDataException("A panel with fewer than two agents was accepted.");
+                    ((Checkbox)editor.SpeakersForm.GetField(1)).Checked = true;
+                    ((Checkbox)editor.SpeakersForm.GetField(2)).Checked = true;
+                    if (dialog.Wizard.Next()) throw new InvalidDataException("A debate without an explicit orchestrator was accepted.");
+                    ((Dropdown<string>)editor.SpeakersForm.GetField(3)).SelectedIndex = 1;
                     dialog.Wizard.Next(); dialog.Wizard.Back(); app.RenderOnce();
-                    editor.SpeakersForm.SetFocusedField(2); backend.FeedKey("enter"); app.PumpInputOnce(); app.RenderOnce();
-                    if (!((Dropdown<string>)editor.SpeakersForm.GetField(2)).IsOpen) throw new InvalidDataException("The final-agent dropdown did not open.");
+                    editor.SpeakersForm.SetFocusedField(3); backend.FeedKey("enter"); app.PumpInputOnce(); app.RenderOnce();
+                    if (!((Dropdown<string>)editor.SpeakersForm.GetField(3)).IsOpen) throw new InvalidDataException("The orchestrator dropdown did not open.");
                     await SaveEvidenceAsync("debate-expanded-speakers-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
                     backend.FeedKey("escape");
-                    await PumpUntilAsync(app, () => !((Dropdown<string>)editor.SpeakersForm.GetField(2)).IsOpen, token).ConfigureAwait(false);
-                    if (dialog.IsClosed || ((Dropdown<string>)editor.SpeakersForm.GetField(2)).IsOpen) throw new InvalidDataException("Escape discarded the wizard instead of closing the dropdown.");
+                    await PumpUntilAsync(app, () => !((Dropdown<string>)editor.SpeakersForm.GetField(3)).IsOpen, token).ConfigureAwait(false);
+                    if (dialog.IsClosed) throw new InvalidDataException("Escape discarded the wizard instead of closing the dropdown.");
                     AssertButtonPalette(dialog.Wizard.Buttons, theme);
                     string speakers = Snapshot.ToText(app.CaptureFrame()!);
-                    if (!speakers.Contains("Next", StringComparison.Ordinal) || !speakers.Contains("Cancel", StringComparison.Ordinal) || !speakers.Contains("Third agent", StringComparison.Ordinal)) throw new InvalidDataException("Speaker choices or navigation were hidden.");
+                    if (!speakers.Contains("Next", StringComparison.Ordinal) || !speakers.Contains("Cancel", StringComparison.Ordinal) || !speakers.Contains("Orchestrator model", StringComparison.Ordinal)) throw new InvalidDataException("Speaker choices or navigation were hidden.");
                     await SaveEvidenceAsync("debate-speakers-" + theme.Name, speakers, token).ConfigureAwait(false);
                     dialog.Wizard.Next();
                     ((TextField)editor.SettingsForm.GetField(0)).Value = "51";
@@ -520,16 +787,16 @@ namespace Test.Shared
                     app.RenderOnce();
                     await SaveEvidenceAsync("debate-settings-" + theme.Name, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
                     dialog.Wizard.Back();
-                    if (((Dropdown<string>)editor.SpeakersForm.GetField(2)).SelectedIndex != 3) throw new InvalidDataException("Back lost the speaker selection.");
+                    if (!((Checkbox)editor.SpeakersForm.GetField(2)).Checked) throw new InvalidDataException("Back lost the speaker selection.");
                     dialog.Wizard.Next(); dialog.Wizard.Next(); app.RenderOnce();
                     AssertButtonPalette(dialog.Wizard.Buttons, theme);
                     string review = Snapshot.ToText(app.CaptureFrame()!);
-                    if (!review.Contains("Start debate", StringComparison.Ordinal) || !review.Contains("Closes each round: Gemini", StringComparison.Ordinal)) throw new InvalidDataException("Review omitted the ending speaker or Start action.");
+                    if (!review.Contains("Start debate", StringComparison.Ordinal) || !review.Contains("Orchestrator: Claude", StringComparison.Ordinal)) throw new InvalidDataException("Review omitted the ending speaker or Start action.");
                     await SaveEvidenceAsync("debate-review-" + theme.Name, review, token).ConfigureAwait(false);
                     if (result.IsCompleted) throw new InvalidDataException("The debate started before the review was confirmed.");
                     dialog.Wizard.Next();
                     CreateRunRequest? request = await result.WaitAsync(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
-                    if (request == null || request.Question != "Compare these approaches" || !request.ParticipantIds.SequenceEqual(new[] { "one", "two", "three" }) || request.MaxRounds != 6 || request.InterventionSeconds != 15) throw new InvalidDataException("Debate setup changed the prompt, speaker order or settings.");
+                    if (request == null || request.Question != "Compare these approaches" || !request.ParticipantIds.SequenceEqual(new[] { "one", "two", "three" }) || request.MaxRounds != 6 || request.InterventionSeconds != 15 || request.OrchestratorId != "one" || request.ProtocolVersion != 2) throw new InvalidDataException("Debate setup changed the prompt, speaker order or settings.");
                     app.Stop();
                 }
             }
@@ -580,7 +847,7 @@ namespace Test.Shared
                 for (int index = 0; index < 30 && !app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
                 app.RenderOnce();
                 string helpScreen = Snapshot.ToText(app.CaptureFrame()!);
-                if (!helpScreen.Contains("Configure agents and harnesses", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not open the help topic menu.");
+                if (!helpScreen.Contains("Get started: your first debate", StringComparison.Ordinal) || !helpScreen.Contains("Keyboard shortcuts", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not open the help topic menu.");
                 await SaveEvidenceAsync("help-menu", helpScreen, token).ConfigureAwait(false);
                 backend.FeedKey("escape");
                 for (int index = 0; index < 30 && app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
@@ -677,7 +944,7 @@ namespace Test.Shared
                     Task splash = SplashScreen.ShowAsync(app, token);
                     app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame()!);
-                    if (!screen.Contains("F1 Help", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal) || !screen.Contains("v0.1.0", StringComparison.Ordinal) || !screen.Contains("2026 Joel Christner", StringComparison.Ordinal) || !screen.Contains("https://github.com/jchristn/ArgueBot", StringComparison.Ordinal) || !screen.Contains("MIT License", StringComparison.Ordinal) || !screen.Contains("Ctrl+E: configure agents", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
+                    if (!screen.Contains("F1 Help", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal) || !screen.Contains("v2.0.0", StringComparison.Ordinal) || !screen.Contains("2026 Joel Christner", StringComparison.Ordinal) || !screen.Contains("https://github.com/jchristn/ArgueBot", StringComparison.Ordinal) || !screen.Contains("MIT License", StringComparison.Ordinal) || !screen.Contains("Ctrl+E: configure agents", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
                     string[] rows = screen.Split('\n');
                     int hintRow = Array.FindIndex(rows, row => row.Contains("Press any key", StringComparison.Ordinal));
                     if (hintRow < 0 || !rows[hintRow + 1].Contains(new string(' ', 62), StringComparison.Ordinal)) throw new InvalidDataException("Splash needs an empty interior row below its final text.");
@@ -741,7 +1008,7 @@ namespace Test.Shared
                     FormDialog<GenerationAttempt> dialog = new FormDialog<GenerationAttempt>("Generation provenance", details.Form, () => attempt, readOnly: true);
                     Task<GenerationAttempt?> result = app.ShowAsync<GenerationAttempt>(dialog);
                     dialog.HandlePaste("attempted edit");
-                    if (((TextField)details.Form.GetField(0)).Value != attempt.Id || ((TextField)details.Form.GetField(9)).Value != "msg_fixture_1" || ((TextField)details.Form.GetField(details.Form.FieldCount - 1)).Value != "msg_fixture_40") throw new InvalidDataException("Attempt provenance became editable or lost source ordering.");
+                    if (((TextField)details.Form.GetField(0)).Value != attempt.Id || ((TextField)details.Form.GetField(details.Form.FieldCount - attempt.ContextMessageIds.Count)).Value != "msg_fixture_1" || ((TextField)details.Form.GetField(details.Form.FieldCount - 1)).Value != "msg_fixture_40") throw new InvalidDataException("Attempt provenance became editable or lost source ordering.");
                     for (int index = 0; index < details.Form.FieldCount + 1; index++) { backend.FeedKey("tab"); app.PumpInputOnce(); }
                     app.RenderOnce(); string screen = Snapshot.ToText(app.CaptureFrame()!);
                     if (!screen.Contains("msg_fixture_40", StringComparison.Ordinal) || !screen.Contains("Close", StringComparison.Ordinal)) throw new InvalidDataException("Long provenance did not scroll to its final source and close controls.");
@@ -849,7 +1116,7 @@ namespace Test.Shared
                     app.Start(); app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame() ?? throw new InvalidDataException("Terminal frame was missing."));
                     await SaveEvidenceAsync("workspace-" + width, screen, token).ConfigureAwait(false);
-                    foreach (string label in new[] { "Conversations", "Note: Enter sends", "Welcome to ArgueBot", "Run controls", "Start debate" })
+                    foreach (string label in new[] { "Conversations", "Add context: Enter sends", "Welcome to ArgueBot", "Run controls", "Start debate" })
                         if (!screen.Contains(label, StringComparison.Ordinal)) throw new InvalidDataException("Workspace at " + width + " columns clipped " + label);
                     // The toolkit audit recognizes focus frames, not the borderless control indicators verified below.
                     FocusAudit.Run(app, new FocusAuditOptions { CheckFocusIndicator = false }).ThrowIfProblems();
@@ -860,7 +1127,7 @@ namespace Test.Shared
                     {
                         app.Focus(region); app.RenderOnce();
                         string focusedScreen = Snapshot.ToText(app.CaptureFrame()!);
-                        if (!focusedScreen.Contains(region == "threads" ? "› Conversations" : "› Note: Enter sends", StringComparison.Ordinal)) throw new InvalidDataException("A borderless workspace control lost its focus indicator.");
+                        if (!focusedScreen.Contains(region == "threads" ? "› Conversations" : "› Add context: Enter sends", StringComparison.Ordinal)) throw new InvalidDataException("A borderless workspace control lost its focus indicator.");
                         if (!Snapshot.ToText(app.CaptureFrame()!).Split('\n').Last().Trim().StartsWith("F1 Help", StringComparison.Ordinal)) throw new InvalidDataException("Help lost the first footer position when focus moved.");
                     }
                     backend.FeedKey("ctrl+t"); app.PumpInputOnce(); app.RenderOnce();

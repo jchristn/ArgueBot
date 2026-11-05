@@ -8,6 +8,10 @@ namespace ArgueBot.Core.Database.Interfaces
     /// <summary>Service-owned attempt checkpoints. Execution callers must hold the conversation gate and exclusive service/database ownership.</summary>
     public interface IAttemptMethods
     {
+        /// <summary>Persist observed endpoint capacity wait time.</summary>
+        Task RecordEndpointWaitAsync(RequestContext context, string attemptId, long milliseconds, CancellationToken token = default);
+        /// <summary>Persist an exact resolved credential revision before external invocation.</summary>
+        Task RecordCredentialAsync(RequestContext context, string attemptId, CredentialMetadata credential, CancellationToken token = default);
         /// <summary>Atomically accept an answer, pending attempt, exact context provenance and agent-turn checkpoint. Expected run revision and recipient/context ownership are enforced.</summary>
         Task<GenerationWork> BeginAsync(RequestContext context, DebateRun run, IReadOnlyList<Message> selectedContext, string systemPrompt, int maxContextCharacters, int maxContextMessages, CancellationToken token = default);
         /// <summary>Durably mark invocation as about to start. A crash after this checkpoint leaves external execution uncertain; no automatic retry is permitted.</summary>

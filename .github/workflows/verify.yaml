@@ -10,6 +10,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
+      ARGUEBOT_CLI_FIXTURE: ${{ github.workspace }}/src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll
       ARGUEBOT_TUI_EVIDENCE_DIR: ${{ github.workspace }}/test-results/terminal
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +46,8 @@ jobs:
           path: test-results
   dashboard:
     runs-on: ubuntu-latest
+    env:
+      ARGUEBOT_SIMULATION_URL: http://127.0.0.1:4491
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -61,11 +64,19 @@ jobs:
       - name: Install browser
         working-directory: dashboard
         run: npx playwright install --with-deps chromium
+      - name: Start provider contract fixture
+        run: |
+          mkdir -p .run
+          PORT=4491 node postman/mocks/ollama/default.js > .run/browser-provider.log 2>&1 &
+          for attempt in $(seq 1 20); do
+            if curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat; then break; fi
+            sleep 1
+          done
       - name: Browser journeys
         working-directory: dashboard
         run: npm run test:e2e
       - name: Generated API artifact drift
-        run: node scripts/generate-api.mjs && git diff --exit-code -- REST_API.md assets/postman assets/transport.json
+        run: node scripts/generate-api.mjs && node scripts/generate-v2-workflow.mjs && git diff --exit-code -- REST_API.md assets/postman assets/transport.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -112,6 +123,14 @@ jobs:
             sleep 1
           done
           curl -fsS -H 'Content-Type: application/json' -d '{"model":"fixture","messages":[],"stream":true}' http://127.0.0.1:4491/api/chat
+      - name: Install pinned Postman CLI
+        run: npm install -g postman-cli@1.75.0 @openai/codex@0.166.0
+      - name: Codex sanitized login parser compatibility (offline)
+        run: node scripts/test-codex-login.mjs
+      - name: Isolated v2 Postman behavior
+        run: node scripts/test-v2-postman.mjs
+      - name: All CLI surfaces with real provider transport
+        run: node scripts/test-cli-surfaces.mjs
       - name: All supported provider and runner descriptors
         run: ARGUEBOT_CLI_FIXTURE="$PWD/src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll" dotnet run --project src/Test.Automated -c Release --no-build -- --results test-results/integration.json
       - uses: actions/upload-artifact@v4
@@ -121,3 +140,20 @@ jobs:
           path: |
             test-results
             .run/runner-fixture.log
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build application image
+        run: docker compose -f docker/compose.yaml build
+      - name: Verify packaged surfaces and encrypted credential persistence
+        run: node scripts/test-container.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-evidence
+          path: .run/container-*/container.log

@@ -25,12 +25,14 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 
 | Button | What it does |
 | --- | --- |
-| Help | Explains navigation, agents, debates, history and administration. |
-| Menu | Lists every available action, including search, follow-up questions, history, administration and detaching. |
-| New | Starts guided debate setup or creates an empty conversation. |
+| Help | Ten task-ordered topics, from a first-debate walkthrough to setup, steering, follow-ups, troubleshooting and a keyboard shortcut reference. |
+| Menu | Every action, grouped under headings: the open conversation, conversations, setup, and view and help. Run controls are grouped the same way: run, steer the debate, inspect and working memory. |
+| New | Starts guided debate setup or creates an empty conversation, asking for its title, an optional opening question and, when custom prompts exist, which prompt each debate step uses. |
 | Agents | Adds or edits the CLI harnesses and REST models that can speak in a debate. |
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |
 | Run controls | Pauses, resumes, interrupts, extends or stops a debate. If the conversation has no debate, offers setup. |
+
+The main menu (F2) also opens **Prompts**: view a prompt's text with its parameter legend, duplicate any prompt (including the read-only factory defaults), delete a custom prompt, or edit a custom prompt's name and description and load new text from a file. See [PROMPTS.md](PROMPTS.md).
 
 The compact footer reserves **F1 Help** and shows keys for the focused control, followed by global hints as space allows. **F2 Menu** and **Ctrl+Q Detach** remain available throughout the workspace. When the conversation list has focus, the footer shows direct actions such as **d Delete**, **b Debate** and **r Run controls**. F1 lists every shortcut; F2 remains the complete action menu. Menu options wrap instead of losing text at the right edge, and long lists scroll to keep the chosen option visible.
 
@@ -39,13 +41,13 @@ The compact footer reserves **F1 Help** and shows keys for the focused control, 
 1. Choose **New**, then **Start a debate: guided setup**.
 2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, a REST model endpoint, or a custom CLI harness. Review the fields and save. Repeat until two agents are enabled.
 3. In **Question**, enter what you want debated. Enter or the **Next** button advances.
-4. In **Speakers**, choose the opening agent, the second agent, and optionally a third agent. Enter opens a dropdown; arrows select an item. Choose a different agent for each position.
-5. In **Settings**, set the maximum rounds and the time available to intervene between turns.
+4. In **Speakers**, check every agent for the panel, up to the service limit, then choose an explicit orchestrator model. Space toggles a checkbox; Enter opens the orchestrator dropdown and arrows select an item.
+5. In **Settings**, set the maximum rounds and the time available to intervene between turns. Optionally enter the checked seat numbers in the opening order you want.
 6. In **Review**, check the question, speaking order, ending condition and intervention window. Choose **Back** to change anything, **Cancel** to leave, or **Start debate** to submit it.
 
 Back preserves your answers. Expanded fields scroll within the setup step, while Back/Next/Cancel remain visible. The setup does not create the conversation or start a debate until you confirm the Review step. Adding agent profiles saves those reusable configurations separately. If the service refuses a start, the Review screen keeps the error and draft open. A pending start cannot be submitted twice.
 
-The opening agent speaks first in each round. The last selected agent speaks last in each round. Consensus or the maximum round limit ends the debate; there is no independent closing-agent policy.
+The opening order rotates each round. The orchestrator asks a question, collects responses, proposes a synthesis and requests explicit votes. Every active seat must agree on the same proposal before the service records consensus; the round limit preserves disagreement.
 
 ## Configure an agent
 
@@ -123,3 +125,13 @@ Named harness setup uses the shared `assets/harness-defaults.json` catalog in th
 Identity administration has been removed. Backup and restore are also removed. Users, roles, security audit and their shortcuts are not product features. Use `stop-web.sh` or `stop-web.bat` to stop the selected service.
 
 A failed turn displays TURN FAILED followed by its cause and recovery guidance in the transcript. Ctrl+G opens the matching generation-attempt history for inspection. After correcting an agent output limit, stop the old run and use b to start another with the original question and current agent settings. Ctrl+N starts a separate conversation with a blank question.
+
+## Reusable configuration and debate memory
+
+Choose **Agents → Connections, models and credentials** to manage endpoint, harness, model and credential forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Credential paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a credential, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
+
+Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
+
+The terminal's post-implementation checks render all new forms in dark/light themes at 60, 80 and 120 columns, and panel setup at 4, 16 and 64 seats. Rendering evidence is separate from provider compatibility; see [the implementation plan](../MULTIPLE_AGENTS_PLAN.md).
+
+For a saved HTTP endpoint, choose **Check connection / list models** to contact it with its configured auth bindings without invoking a completion. The result lists advertised IDs only; tool support and context capacity remain declarations until separately verified. The composer uses **Add context**, and every submission to a v2 run presents its own delivery choice.

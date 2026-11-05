@@ -1,17 +1,17 @@
 namespace ArgueBot.Core.Services
 {
+    using ArgueBot.Core.Models;
     using System.Text;
     using System.Text.Json;
-    using ArgueBot.Core.Models;
 
     internal static class ToolActivityText
     {
-        internal static string Format(ToolActivity activity, string attemptId)
+        internal static string Format(ToolActivity activity, string attemptId, bool conversation = false)
         {
             StringBuilder text = new StringBuilder();
-            text.Append("Local tool: ").Append(activity.Name).Append("\nStatus: ").Append(activity.State).Append("\nAttempt: ").Append(attemptId).Append("\nCall: ").Append(activity.CallId).Append("\nArguments:\n");
+            text.Append(conversation ? "Conversation tool: " : "Local tool: ").Append(activity.Name).Append("\nStatus: ").Append(activity.State).Append("\nAttempt: ").Append(attemptId).Append("\nCall: ").Append(activity.CallId).Append("\nArguments:\n");
             AppendJson(text, activity.ArgumentsJson);
-            if (activity.State == "started") text.Append("\nResult pending. If execution is interrupted, inspect the local machine before retrying.");
+            if (activity.State == "started") text.Append(conversation ? "\nWaiting for the conversation tool result." : "\nResult pending. If execution is interrupted, inspect the local machine before retrying.");
             else { text.Append("\nResult:\n"); AppendJson(text, activity.Result); }
             return text.ToString();
         }

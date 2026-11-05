@@ -1,7 +1,8 @@
 namespace ArgueBot.Tui
 {
-    using System;
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
+    using System;
     using TUIKit;
     using TUIKit.Input;
     using TUIKit.Modals;
@@ -20,7 +21,7 @@ namespace ArgueBot.Tui
             if (message.ContentTruncated) throw new ArgumentException("Load the full message before opening this reader.", nameof(message));
             Title = TranscriptFormatter.Heading(message); FooterHint = "PgUp/Dn: scroll | Esc: back";
             MaxContentWidth = 80; MaxContentHeight = 22;
-            _Editor = new ReadOnlyTextView(markdown: true) { Text = message.Content };
+            _Editor = new ReadOnlyTextView(markdown: true) { Text = MessagePresentation.Markdown(message) };
             _Editor.OnFocusChanged(true);
             _Actions.Add("Close", () => RequestClose(null)).TooltipText = "Close this read-only message without changing its content.";
         }

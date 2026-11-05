@@ -25,3 +25,6 @@ for (const locale of registry) {
 }
 if (missing.length) { console.error(missing.join('\n')); process.exit(1); }
 console.log(`Checked ${Object.keys(en).length} source strings and ${registry.length} locales; no missing literal keys.`);
+
+// ICU interpolation uses one pair of braces; i18next-style braces would render literally.
+if (Object.values(en).some(value => /\{\{\w+\}\}/.test(value))) throw new Error("Use ICU single-brace interpolation in source strings.");

@@ -1,0 +1,79 @@
+name: Package verification
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: windows-latest
+            runtime: win-arm64
+          - os: macos-latest
+            runtime: osx-arm64
+          - os: macos-latest
+            runtime: osx-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: ubuntu-latest
+            runtime: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.401
+      - name: Build dashboard and packaging entry point
+        run: |
+          npm --prefix dashboard ci
+          npm --prefix dashboard run build
+          dotnet restore src/ArgueBot.Publisher --locked-mode
+          dotnet build src/ArgueBot.Publisher -c Release --no-restore
+      - name: Install Linux packaging prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm squashfs-tools desktop-file-utils file
+          sudo gem install --no-document fpm -v 1.17.0
+      - name: Install checksum-pinned native tools
+        if: runner.os != 'macOS'
+        run: node scripts/install-package-tools.mjs ${{ matrix.runtime }}
+      - name: Build native Windows channels
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: build-installers.bat --runtime ${{ matrix.runtime }}
+      - name: Build native Unix channels
+        if: runner.os != 'Windows'
+        run: ./build-installers.sh --runtime ${{ matrix.runtime }}
+      - name: Verify extracted native bundle where architecture matches
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ }
+          $runtime = '${{ matrix.runtime }}'
+          $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+          if (!$runtime.EndsWith($architecture)) { Write-Output "Built $runtime. Native execution requires a matching runner; this job does not claim that coverage."; exit 0 }
+          $destination = Join-Path $PWD '.run/package smoke 議論'
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          if ($IsWindows) { Expand-Archive "installers/$version/arguebot-$version-$runtime.zip" $destination }
+          else { tar -xzf "installers/$version/arguebot-$version-$runtime.tar.gz" -C $destination; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+          node scripts/test-packaged.mjs $destination
+          exit $LASTEXITCODE
+      - name: Verify Linux package installation and retained workspace
+        if: runner.os == 'Linux' && matrix.runtime == 'linux-x64'
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props)
+          node scripts/test-linux-installer.mjs "installers/$version/arguebot-$version-linux-x64.deb"
+          node scripts/test-linux-installer.mjs "installers/$version/arguebot-$version-linux-x64.rpm"
+          APPIMAGE_EXTRACT_AND_RUN=1 "installers/$version/arguebot-$version-linux-x64.AppImage" --help
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packages-${{ matrix.runtime }}
+          path: installers/

@@ -1,3 +1,4 @@
+import ActionMenu from "./ActionMenu.jsx";
 import ObjectRow from "./ObjectRow.jsx";
 import CopyableId from "./CopyableId.jsx";
 import { Fragment, useState } from "react";
@@ -7,10 +8,10 @@ import { useData } from "./useData.js";
 import { Button, ErrorPanel, Field, Modal, Pagination } from "./ui.jsx";
 import { formatDate } from "../i18n/index.js";
 
-export default function AttemptDialog({ conversationId, runs, messages, onClose }) {
+export default function AttemptDialog({ conversationId, runs, messages, initialRunId, onClose }) {
   const { api } = useOutletContext();
   const { t } = useTranslation();
-  const [runId, setRunId] = useState(runs.at(-1)?.id || "");
+  const [runId, setRunId] = useState(initialRunId || runs.at(-1)?.id || "");
   const [paging, setPaging] = useState({ pageNumber: 1, pageSize: 25 });
   const [detail, setDetail] = useState(null);
   const [sources, setSources] = useState({});
@@ -35,12 +36,12 @@ export default function AttemptDialog({ conversationId, runs, messages, onClose 
     {data && <>
       <Pagination page={data} onChange={(changes) => setPaging((current) => ({ ...current, ...changes }))} />
       <div className="table-scroll"><table>
-        <thead><tr>{["attempts.number", "attempts.state", "attempts.participant", "common.actions"].map((key) => <th key={key} scope="col" title={t(key)}>{t(key)}</th>)}</tr></thead>
+        <thead><tr>{["attempts.number", "attempts.state", "attempts.participant", "common.actions"].map((key) => <th key={key} scope="col" title={t(key)} className={key === "common.actions" ? "actions-cell" : undefined}>{t(key)}</th>)}</tr></thead>
         <tbody>{data.items.map((entry) => <ObjectRow key={entry.id} inspect onOpen={() => setDetail(entry)}>
-          <td>{entry.number}<CopyableId value={entry.id} /></td>
-          <td><span className="badge" title={entry.errorCode || entry.state}>{t(`state.${entry.state}`, { defaultValue: entry.state })}</span></td>
-          <td>{run?.participants.find((participant) => participant.id === entry.participantId)?.name}<CopyableId value={entry.participantId} /></td>
-          <td><Button label="attempts.inspect" onClick={() => setDetail(entry)} /></td>
+          <td><span className="cell-with-id"><span>{entry.number}</span><CopyableId value={entry.id} /></span></td>
+          <td><span className="badge" title={entry.errorCode || entry.state}>{t(`state.${entry.state}`, { defaultValue: entry.state })}</span>{entry.repair && <span className="badge" title={t("attempts.repair.help")}>{t("attempts.repair")}</span>}</td>
+          <td><span className="cell-with-id"><span>{[...(run?.participants || []), run?.orchestrator].find(participant => participant?.id === entry.participantId)?.name}</span><CopyableId value={entry.participantId} /></span></td>
+          <td className="actions-cell"><ActionMenu context={`${t("attempts.number")} ${entry.number}`} items={[{ label: "attempts.inspect", onClick: () => setDetail(entry) }]} /></td>
         </ObjectRow>)}</tbody>
       </table></div>
       {data.items.length === 0 && <p>{t("attempts.empty")}</p>}
@@ -49,8 +50,9 @@ export default function AttemptDialog({ conversationId, runs, messages, onClose 
       <h3>{t("attempts.number")} {detail.number}</h3>
       {detail.errorMessage && <p role="alert">{detail.errorMessage}</p>}
       <dl className="server-details">
-        {[["common.id", detail.id], ["attempts.prompt", `${detail.promptVersion} / ${detail.promptDigest}`], ["attempts.duration", t("attempts.durationValue", { milliseconds: detail.durationMilliseconds })], ["attempts.characters", t("attempts.charactersValue", { count: detail.contextCharacters })], ["common.error", detail.errorCode || t("common.none")]].map(([key, value]) => <Fragment key={key}><dt title={t(key)}>{t(key)}</dt><dd>{key === "common.id" ? <CopyableId value={value} /> : <code>{value}</code>}</dd></Fragment>)}
+        {[["common.id", detail.id], ["attempts.endpointWait", t("attempts.durationValue", { milliseconds: detail.endpointWaitMilliseconds || 0 })], ["attempts.prompt", `${detail.promptVersion} / ${detail.promptDigest}`], ["attempts.duration", t("attempts.durationValue", { milliseconds: detail.durationMilliseconds })], ["attempts.characters", t("attempts.charactersValue", { count: detail.contextCharacters })], ["attempts.timeout", [...(run?.participants || []), run?.orchestrator].find(participant => participant?.id === detail.participantId)?.timeoutSeconds], ["common.error", detail.errorCode || t("common.none")]].map(([key, value]) => <Fragment key={key}><dt title={t(key)}>{t(key)}</dt><dd>{key === "common.id" ? <CopyableId value={value} /> : <code>{value}</code>}</dd></Fragment>)}
       </dl>
+      <h4>{t("attempts.credentials")}</h4><ul>{detail.credentialRevisions?.map(item => <li key={`${item.credentialId}:${item.revision}`}><CopyableId value={item.credentialId} /> · {t("catalog.revision", { revision: item.revision })}</li>)}</ul>{!detail.credentialRevisions?.length && <p>{t("attempts.noCredentials")}</p>}
       <h4 title={t("attempts.context.help")}>{t("attempts.context")}</h4>
       {sourceError && <ErrorPanel error={sourceError} />}
       <ol>{detail.contextMessageIds.map((id) => <li key={id}><CopyableId value={id} /><p>{source.get(id)?.content ?? t("attempts.missing")}</p>{(!source.has(id) || source.get(id).contentTruncated) && <Button label="messages.loadSource" onClick={() => loadSource(id)} />}</li>)}</ol>

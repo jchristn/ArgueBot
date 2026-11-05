@@ -8,6 +8,7 @@
     <ProjectReference Include="../ArgueBot.Core/ArgueBot.Core.csproj" />
     <ProjectReference Include="../ArgueBot.Client/ArgueBot.Client.csproj" />
     <ProjectReference Include="../ArgueBot.Runners/ArgueBot.Runners.csproj" />
+    <ProjectReference Include="../ArgueBot.Publisher/ArgueBot.Publisher.csproj" />
   </ItemGroup>
   <ItemGroup><None Include="../../assets/fixtures/*" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">

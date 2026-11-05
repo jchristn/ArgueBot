@@ -1,224 +1,235 @@
 namespace ArgueBot.Tui
 {
+    /// <summary>Task-ordered help topics for the terminal interface.</summary>
     internal static class TerminalHelp
     {
         internal static string[] Titles { get; } = new[]
         {
-            "Navigation and conversations",
-            "Configure agents and harnesses",
-            "Start and control a debate",
-            "After consensus: final instructions and follow-ups",
-            "History, messages and attempts",
-            "Troubleshooting failed or paused debates",
-            "Theme and detaching"
+            "Get started: your first debate",
+            "Find your way around",
+            "Set up agents",
+            "Models, connections, credentials and prompts",
+            "Start a debate",
+            "Watch and steer a debate",
+            "After a debate: follow-ups and reading",
+            "Troubleshooting",
+            "Keyboard shortcuts",
+            "Themes, detaching and your data"
         };
 
         internal static string[] Pages { get; } = new[]
         {
             """
+            Get started: your first debate
+
+            1. Add agents. Press Ctrl+E (or Menu > Agents) and choose Add agent. Pick a preset such as Claude Code or Codex, check the executable, and save. You need at least two enabled agents. The program must already be installed and signed in on the machine running the service.
+
+            2. Start a debate. Press Ctrl+N and choose Start a debate: guided setup. Enter the question, choose the agents and an orchestrator, set the number of rounds, review, and choose Start debate.
+
+            3. Watch it. Turns appear in the history pane as they finish. Type in the note box at the bottom to add context; ArgueBot asks whether it applies at the next turn or interrupts the current one.
+
+            4. Use the result. When the debate ends, press Ctrl+Y to ask one agent for a final deliverable, such as a plan or a summary.
+
+            The service keeps running when you close the TUI (Ctrl+Q). Open the web dashboard on the same service to read the debate as a full-page transcript.
+
+            Press Escape to return to the Help contents.
+            """,
+            """
             Find your way around
 
-            The left pane lists saved conversations. The right pane shows the open conversation's history. The note composer at the bottom saves context. The buttons at the top expose common actions; F2 opens the full action menu.
+            The screen has three parts: the conversation list on the left, the open conversation's history on the right, and the note box at the bottom. The buttons along the top run common actions. F2 opens the Menu with everything else, grouped by what you want to do.
 
-            Tab and Shift+Tab move between controls. Up/Down chooses a conversation; Enter opens it. Clicking a row opens it too. The > marker identifies the open conversation. The highlighted row can be different: letter shortcuts in the list act on the highlighted row, while global shortcuts and the menu use the open conversation.
+            Moving around
 
-            Jump directly with Alt+1 for conversations, Alt+2 for history, or Alt+3 for the note composer. Escape in the workspace returns to conversations. In a dialog it returns one level; if a dropdown is open, Escape closes that dropdown first.
+            Tab and Shift+Tab move between controls. Alt+1 jumps to conversations, Alt+2 to history, Alt+3 to the note box. Escape returns to the conversation list; in a dialog it goes back one level and closes an open dropdown first.
 
-            Conversation-list keys (lowercase)
+            The conversation list
 
-            n: New debate or empty conversation. b: Set up a debate in the highlighted conversation. e: Configure agents. /: Search titles and content, then choose active or archived history. Alt+Left/Right changes conversation pages.
+            Up and Down highlight a conversation; Enter or a click opens it. The > marker shows the open conversation and * marks a pinned one. Letter keys in the list act on the highlighted conversation (see Keyboard shortcuts), while Ctrl shortcuts and the Menu act on the open one. Alt+Left and Alt+Right change pages.
 
-            r: Run controls. p: Pause or resume. s: Confirm stopping a debate. Follow-up in the top action bar (Ctrl+Y), or f in the list: ask one agent another question. l: Read full history. g: Inspect generation attempts. a: Move to the note composer. ?: Help. These letters type normally in text fields.
-
-            Notes and replies
-
-            Type in the note composer and press Enter to save a note. A note adds context; it does not ask an agent to answer. Use f in the list or Ctrl+Y to request an answer. Unsent note drafts are kept separately when you switch conversations.
-
-            Delete safely
-
-            Press d or Delete in the list. Check the named conversation before confirming permanent deletion of it and its messages. Cancel is selected by default. If a run blocks deletion, choose Stop debate and delete permanently to let ArgueBot stop it, wait and finish deletion. Cancelling that offer leaves both untouched. If you cancel deletion after stopping has begun, the conversation is kept but the stop request remains in effect.
-
-            The footer shows keys for the focused control. F1 opens Help and F2 lists all actions even when not every hint fits. Resize to at least 60 columns by 20 rows for the workspace.
+            The footer shows keys for the focused control. The workspace needs at least 60 columns by 20 rows; a smaller terminal shows a resize screen until you enlarge it.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Give the debate agents to work with
+            Set up agents
 
-            Open Agents with Ctrl+E, the Agents button, or e in the conversation list. Choose Add agent, then a Claude Code, Codex, Gemini, Mux, REST model or custom CLI preset. A debate needs at least two enabled agents. A follow-up needs one. Choose an existing profile to edit it, enable it or delete the reusable profile; historical run snapshots remain readable.
+            An agent is anything that can take a seat in a debate: a command-line program such as Claude Code, Codex, Gemini CLI or Mux, or a model reached over HTTP. Open Agents with Ctrl+E, choose Add agent, then a preset. Choose an existing agent to edit, enable, disable or delete it. Disabled agents are left out of new debates.
 
-            CLI setup: program first, arguments separately
+            Command-line agents
 
-            Executable means the program name, such as claude or codex, or its full path on the machine running the service. Do not put a whole command such as claude --verbose here. Do not wrap the path in quotes. A path containing spaces is still one executable value.
+            Executable is only the program name (claude, codex) or its full path on the service machine. Do not put flags there, and do not quote a path that contains spaces. Each Argument row holds one flag or one value: --output-format in one row, stream-json in the next. With no rows, the preset's defaults are used; adding any row replaces all of them, so include the full list. Working directory is where the program runs.
 
-            Each Argument row holds exactly one flag or value. For example, --output-format goes in one row and stream-json in the next. Spaces inside a row remain part of that one argument. An empty row is passed as an empty argument.
+            Presets do not install or sign in a program. It must be available to the service and signed in for the account that runs the service. A full path avoids PATH differences between your terminal and the service.
 
-            With no rows, the selected CLI protocol supplies its built-in arguments. Adding any custom rows replaces the entire default list; include the complete argument list and the required output-format options. Choose the protocol matching the program, since ArgueBot must understand its output. The prompt is sent through standard input. The working directory is optional and refers to the service machine.
+            HTTP models
 
-            Installation and sign-in
+            Choose the provider, the endpoint and the exact model name. For an API key, either set up a reusable model with a stored credential (see Models, connections, credentials and prompts) or enter the name of an environment variable on the service machine, never the key itself. HTTP agents can read and write files and run programs through the service's local tools, in their working directory.
 
-            Presets configure a profile; they do not install the program or sign in for you. The executable must be available to the service, with the harness's authentication already configured for the account running it. A full path can resolve differences between your terminal's PATH and the service's PATH. Harness tool permissions come from the harness and its saved arguments.
+            Saving
 
-            REST setup
-
-            Choose the provider, its HTTP(S) endpoint and the exact model identifier. The credential field takes an environment variable name, never the secret itself. That variable must be present in the service environment. Restart the service after changing its environment. REST agents can read and write files, list directories and run programs through service-owned local tools. Set Working directory to the project they should use; empty uses the service directory. Tool calls and results appear as Local tool entries in history. They run as the service account, just like CLI harnesses. Stop cancels a running tool process; pause waits for the current turn. A model must support native tool calls. The service local execution setting controls both CLI harnesses and REST tools.
-
-            Save and apply changes
-
-            Tab moves between fields. Ctrl+S or Save saves; Escape cancels. Validation and service errors keep the draft open so you can correct it. Disabling an agent excludes it from new runs.
-
-            Profile changes affect new debates and follow-ups. Existing runs keep their original agent settings. After fixing a profile, stop the old run and start a new debate; Resume retries with the old settings. Profile edits do not rewrite history.
+            Ctrl+S saves and Escape cancels. A validation error keeps your draft open. Changes apply to new debates; a debate already running keeps the settings it started with.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Start a debate with a reviewed setup
+            Models, connections, credentials and prompts
 
-            Choose New or Ctrl+N, then Start a debate: guided setup. To use an existing conversation, open it and press Ctrl+B or choose Start debate. In the list, b uses the highlighted conversation. If too few agents are enabled, setup offers to open Agents first.
+            Menu > Models, connections and credentials manages reusable configuration. Menu > Prompts manages the instructions each debate step sends.
 
-            1. Question: New (Ctrl+N) starts with a blank question; b or Ctrl+B in an existing conversation preserves its original question in an editable field. Enter the issue the agents should discuss. Starting in an existing conversation keeps its history as context. The question shown on Review is submitted. Enter or Next advances.
+            Credentials
 
-            2. Speakers: select the opening agent, second agent and optional third agent. Enter opens a dropdown, arrows select and Enter confirms. Choose distinct agents. The opening agent speaks first in each round; the last selected agent speaks last. There is no separate closing-agent setting.
+            Import a credential once and reuse it. Kinds: Claude Code OAuth token (from claude setup-token), Codex login (the auth.json file from a dedicated codex login), bearer token, header key and value, and query string key and value. Values are encrypted on the service. Choosing a credential then Reveal value shows it after you confirm. In Docker or under another account, command-line agents need a stored credential because there is no local sign-in.
 
-            3. Settings: choose the round limit and the intervention time between turns. A round gives each selected speaker a turn. The intervention window gives you time to add context or use run controls before generation continues.
+            Connections and models
 
-            4. Review: read the question, speaker order and settings. Back or Alt+Left returns without losing answers; Next or Alt+Right advances. Only Start debate on Review submits the run. A failed submission leaves the review and error open. Do not keep pressing Start while a request is pending.
+            An HTTP endpoint is an Ollama or OpenAI-compatible server, with optional authentication bindings that use stored credentials. A CLI harness is a reusable command-line program with its arguments and credential. A model names what an agent runs: a model ID on an endpoint, or a harness. Agents can select a reusable model. Model checks make a real call and can cost money; saving never calls a model.
 
-            Control an ongoing debate
+            Encryption keys
 
-            r in the list or Ctrl+R opens run controls. Available commands depend on the run's state. Pause after turn lets the current answer finish before pausing. Ctrl+P or p pauses, or resumes a run already paused. Continue immediately skips an intervention window.
+            Credential encryption keys shows the active key and offers rotation. After rotating, back up the protected secrets directory.
 
-            Interrupt current generation cancels the current answer and retains partial text. Resume retries the unfinished turn and may incur another model charge. It does not reconstruct the remainder of an interrupted answer. Resume uses the run's original agent settings.
+            Prompts
 
-            A private directive goes only to the chosen participant when its context is assembled; it is different from a shared note. Extend by two rounds increases the round limit when the run's state permits it. Extending is not a general way to reopen a consensus-completed run.
-
-            Stop and completion
-
-            s in the list or F8 for the open conversation asks you to confirm stopping. Partial answers remain in history. Wait for Debate stopped before treating it as stopped. You may also press d and accept the combined stop-and-delete offer when removing the conversation.
-
-            A run ends on consensus or its round limit. Consensus records the agents' declared agreement; it is not an independent verification of their claims. For final instructions after completion, use a follow-up as described in the next Help topic.
+            Each debate step (orchestrator question, agent response, proposal, vote, working-memory summary) uses a prompt. Factory prompts are read-only; choose one and Duplicate to make an editable copy. View shows the text and the parameters a step supports, such as {question} or {current_question}. Edit changes a copy's name and description and can load new text from a file. When you create a conversation with New, you can choose a prompt for each step.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Turn the discussion into a final deliverable
+            Start a debate
 
-            After consensus or the round limit, use a follow-up to ask one agent to summarize, revise or act on the discussion. You do not need to restart the debate just to ask for a final answer.
+            Press Ctrl+N and choose Start a debate: guided setup, or open a conversation and press Ctrl+B to debate inside it with its history as context. If fewer than two agents are enabled, setup offers to open Agents first. To create an empty conversation instead, choose Create an empty conversation: it asks for a title, an optional opening question and, when you have custom prompts, which prompt each step uses.
 
-            1. Highlight the conversation and press lowercase f. Alternatively, open the conversation and press Ctrl+Y, or choose Ask an agent a follow-up question in F2 Menu.
+            The four steps
 
-            2. Choose the enabled agent that should respond. A follow-up runs one agent, not all the debate participants.
+            1. Question: what the agents should debate. In an existing conversation it starts with that conversation's question and stays editable.
 
-            3. Enter your instructions in Follow-up question and press Enter. This field can contain instructions rather than a literal question. Escape cancels before submission.
+            2. Speakers: check at least two agents and choose the orchestrator. The orchestrator asks the questions, drafts proposals and summarizes; it does not vote. The opening speaker rotates each round.
 
-            Example final instructions
+            3. Settings: the round limit and the pause between turns, which gives you time to add context.
 
-            Using the agreed conclusions, write the final implementation plan. Include the chosen approach, unresolved risks, concrete steps and a test checklist.
+            4. Review: check everything, then Start debate. Back (Alt+Left) and Next (Alt+Right) keep your answers. If starting fails, the error names the step to fix.
 
-            Or: Summarize the consensus for a nontechnical reader in five short paragraphs, and distinguish agreed facts from assumptions.
+            How a round works
 
-            What the agent receives
-
-            The selected agent receives eligible conversation context within the service's context limits. The follow-up question and answer become part of the same conversation. Do not assume every message fits an unlimited context window. Inspect generation attempts if you need to check the exact source messages supplied.
-
-            Notes versus follow-ups
-
-            The note composer saves shared context without triggering an answer. To get an answer, send the instructions through f or Ctrl+Y. Notes can be useful before a later follow-up, but Enter in the note composer alone does not execute them.
-
-            If a run is still active or paused
-
-            A conversation cannot start another run while unfinished work occupies it. Resume the existing run if you want it to finish, or use s/F8 to stop it before starting the follow-up. Do not choose Delete if you want to keep the discussion.
-
-            If you want several agents to discuss a new issue together, use b/Ctrl+B for a fresh debate instead. Follow-ups use the selected agent's current reusable profile; resuming an older debate retains that older run's saved profiles.
+            The orchestrator asks one pointed question, every agent answers, the orchestrator proposes an answer, and every agent votes. The debate reaches consensus only when every active agent explicitly agrees with the same proposal; otherwise it continues until the round limit.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Read the discussion without losing the details
+            Watch and steer a debate
 
-            The workspace shows a live history view, which can contain shortened previews of long messages. Alt+2 focuses it. Use Up/Down, PageUp/PageDown, Home and End to scroll or jump to the latest content. Enter or l while history is focused opens the full history workflow.
+            Turns appear in the history pane as they finish. A turn still being written shows Responding. Long turns show a preview; press Ctrl+L to read them in full.
 
-            Full messages
+            Add context
 
-            l in the conversation list, Ctrl+L, or Menu > Read full message history opens paged history. Choose the message you want to read. A preview notice means you should use this full-message reader for the complete text. The reader is read-only: typing or pasting does not edit the saved answer.
+            Type in the note box and press Enter. While a debate is running, ArgueBot asks when it applies: Use in next turn lets the current answer finish; Interrupt now stops it and continues with your context. New context means agents vote again on a fresh proposal.
 
-            Inside long help pages and message readers, arrows scroll a line, PageUp/PageDown scroll a page, Home/End jumps to the beginning/end, and the mouse wheel scrolls. A scrollbar indicates more text. Tab moves focus to Close; Escape returns to the previous view.
+            Run controls (Ctrl+R)
 
-            Understand message states
+            Run: pause after the current turn, resume, continue immediately (skip the pause between turns), interrupt the current answer, extend by two rounds, or stop. Ctrl+P pauses or resumes; F8 stops after you confirm.
 
-            Streaming means text is still arriving. Completed means the invocation finished. Interrupted is partial text retained after cancellation or a related interruption. Failed means generation did not complete successfully; a failed row may contain partial text or no text. A later successful retry does not erase the earlier failed attempt.
+            Steer the debate: send a private directive to one agent, edit the proposal under vote (every agent votes again), change agents at the next safe point, or answer an agent's clarification request.
 
-            Inspect attempts
+            Inspect: proposals and votes, how your context was delivered, summaries with their original sources, and budget usage.
 
-            g in the list or Ctrl+G opens generation attempts. Select a current or historical run, then an attempt. Refresh or change pages as needed. The inspector shows the run's original question, participant snapshot, state, safe error code, elapsed time, prompt version/digest and ordered source-message IDs.
+            Working memory: rebuild or exclude a summary. Pause first; original turns are never deleted.
 
-            Use this to distinguish a launch failure from a later output failure, see which invocation was retried, and identify what context was supplied. Source IDs refer to the stored messages; context limits can exclude older messages. A prompt digest identifies prompt text, not proof that an answer is correct.
-
-            Private directives
-
-            Directives are addressed to one selected participant. They are not shared notes. Another participant's generation context excludes directives meant for someone else. Inspect the attempt's source context when checking what an agent actually received.
-
-            The web dashboard attached to the same service can display the same durable conversations. Closing a reader or switching interfaces does not delete the history.
+            Resuming retries the unfinished turn with the debate's original settings and may repeat work or cost.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Find the cause before retrying
+            After a debate: follow-ups and reading
 
-            A Failed row is a recorded invocation, not necessarily the current run's final state. First open g/Ctrl+G, select the relevant run and inspect its latest attempt. Check the safe error code and participant snapshot. Earlier failed attempts remain visible even after a successful retry.
+            A debate ends on consensus or at its round limit. Consensus records that the agents agreed; it does not prove they are right.
 
-            The agent produced no answer
+            Ask for a deliverable
 
-            This means the failed message has no answer text. It does not identify the cause by itself. The attempt inspector and local service logs provide more information. A very quick failure often points to program startup or configuration, but the recorded error is the evidence to use.
+            Press Ctrl+Y (or f in the list), choose one agent, and type instructions, for example: Using the agreed conclusions, write the implementation plan with risks, steps and a test checklist. The agent sees the conversation within its context limit, and its answer joins the conversation. To have several agents discuss a new question, start another debate with Ctrl+B instead.
 
-            Program could not start / Win32Exception
+            Read the conversation
 
-            Check Agents with e/Ctrl+E. Executable must be only a program name or path, with flags in separate Argument rows. Confirm the program exists on the service machine and the working directory exists. A full path can fix PATH differences. After changing a profile, stop the old run and start a new debate; Resume keeps its original saved configuration.
+            Ctrl+L opens the full history; choose any message to read it in full. In readers, arrows and PageUp/PageDown scroll, Home and End jump, and Escape goes back. For a document-style transcript with rounds, the final proposal and every vote, open the conversation in the web dashboard and choose Read transcript. It can copy as Markdown or print to PDF.
 
-            Process exited / authentication problems
+            Inspect what happened
 
-            Check that the harness is signed in for the service's operating-system account and that its arguments match the installed version. For REST agents, check the endpoint, model and credential environment variable. Do not enter secret values in an environment-reference field. A restarted service is needed to pick up changes to its process environment.
+            Ctrl+G opens generation attempts: each model call with its state, error, timing, prompt and the exact messages it was given. Failed attempts stay listed after a successful retry.
 
-            Invalid output / InvalidDataException
-
-            The program started but ArgueBot could not accept its output. Check that the selected protocol matches the executable and that custom arguments retain the required output format. Custom arguments replace all defaults. If a corrected configuration still fails, retain the attempt ID and service diagnostics for investigation rather than repeatedly retrying.
-
-            Active or paused run blocks an action
-
-            Use r/Ctrl+R to inspect controls. Resume if you want to continue the same run, or s/F8 to stop it and retain the conversation. Delete offers Stop debate and delete permanently when unfinished work blocks removal. Cancel preserves the conversation; confirm the combined action only if its history should be removed.
-
-            Connection or permission errors
-
-            A connection error can mean the service is restarting or unavailable. Preserve drafts and wait for the connection line to recover. Permission refusals come from the service; hiding or changing a TUI control does not grant access. Ask the service administrator to check the account when necessary.
-
-            Retrying a generation can repeat external work or incur another model charge. ArgueBot does not automatically retry an interrupted turn. Use an explicit Resume only when that is the action you want.
+            If the conversation still has a paused or running debate, resume or stop it (Ctrl+R) before starting a follow-up.
 
             Press Escape to return to the Help contents.
             """,
             """
-            Make the workspace comfortable
+            Troubleshooting
 
-            Ctrl+T switches between Quiet Charcoal and the light theme. Focus changes the selected control's appearance; conversation, history and note headings also show an accent indicator when their pane is focused. The footer changes to show keys for the current control.
+            Start with Ctrl+G: choose the run, then its latest attempt, and read the error and explanation.
 
-            Tab/Shift+Tab moves between controls. Alt+1, Alt+2 and Alt+3 jump to conversations, history and notes. Use the mouse for buttons and conversation rows if you prefer; keyboard actions remain available through F1 Help and F2 Menu.
+            The program could not start
 
-            The workspace needs at least 60 columns by 20 rows. If the terminal is smaller, a resize screen replaces clipped controls. Increase the window size to return without discarding workspace state. F1, F2 and Ctrl+Q remain available on that screen.
+            In Agents, check that Executable is only a program name or path, with flags in separate rows, and that the program and working directory exist on the service machine. After fixing an agent, stop the old debate and start a new one; Resume keeps the old settings.
 
-            Leave without stopping the debate
+            Sign-in or exit errors
 
-            Ctrl+Q or Menu > Detach closes the TUI. The service owns execution, so accepted debates and background jobs continue while the terminal is closed. Detach does not mean Stop, and closing a dialog does not withdraw a submitted operation.
+            Check that the program is signed in for the account running the service and that its arguments suit the installed version. For HTTP models check the endpoint, model name and credential. Environment changes need a service restart.
 
-            To stop an unfinished debate before leaving, use s in the conversation list or F8 for the open conversation and confirm. To delete it too, use d and review the deletion and combined stop/delete confirmations. A deleted conversation and its history cannot be recovered through this interface.
+            Malformed output (InvalidDataException)
 
-            Return to the same data
+            The program started but its output could not be read. Check that the preset matches the program and that custom arguments keep the required output format. The service keeps the raw output in its local runner-failure log for diagnosis.
 
-            Launch the TUI with the same application home and service connection to reopen saved conversations and profiles. A different home selects a different local installation's data. The default home can be overridden with --home or ARGUEBOT_HOME. The web interface attached to that service uses the same durable history.
+            Provider refused, rate limited or unavailable
 
-            Saved conversations and sent notes remain after detaching. Unsent composer drafts are kept when switching conversations within the running TUI; do not rely on them surviving exit. Save a note first if you want its text stored with the conversation.
+            The attempt says which. Fix credentials, wait for the rate limit, or try later, then resume.
 
-            Help inside dialogs
+            A paused or running debate blocks something
 
-            F1 opens interaction help without discarding a form or wizard draft. F1, Escape or Back to dialog returns to that draft. Escape closes the innermost dropdown or dialog first. When reading a help topic, Escape returns to the contents; Escape again returns to the workspace.
+            Resume it, or stop it with F8. Deleting offers to stop and delete in one step.
+
+            Connection lost
+
+            The service may be restarting. Drafts are kept; wait for the status to recover.
+
+            Press Escape to return to the Help contents.
+            """,
+            """
+            Keyboard shortcuts
+
+            Anywhere
+
+            F1 Help. F2 Menu. Ctrl+Q detach. Ctrl+T switch theme. Tab and Shift+Tab move between controls. Alt+1 conversations, Alt+2 history, Alt+3 note box. Escape goes back.
+
+            The open conversation
+
+            Ctrl+N new debate or conversation. Ctrl+B start a debate here. Ctrl+R run controls. Ctrl+P pause or resume. F8 stop. Ctrl+Y follow-up question. Ctrl+L full history. Ctrl+G generation attempts. Ctrl+E agents. Ctrl+F search.
+
+            Conversation list (lowercase letters, highlighted conversation)
+
+            n new. b start a debate. e agents. / search. r run controls. p pause or resume. s stop. f follow-up. l full history. g generation attempts. d delete. a go to the note box. ? help. Alt+Left and Alt+Right change pages. These letters type normally in text fields.
+
+            Dialogs and forms
+
+            Ctrl+S saves. Escape cancels or goes back. F1 shows help without losing your draft. In the setup wizard, Alt+Left and Alt+Right move between steps.
+
+            Press Escape to return to the Help contents.
+            """,
+            """
+            Themes, detaching and your data
+
+            Theme
+
+            Ctrl+T, or Menu > Switch theme, toggles between the dark and light themes.
+
+            Leave without stopping anything
+
+            Ctrl+Q, or Menu > Detach, closes the TUI. The service keeps running, so debates continue. To stop a debate before leaving, press F8 (or s in the list) and confirm.
+
+            Deleting
+
+            Press d in the list and check the named conversation before confirming; Cancel is selected by default. Deletion removes the conversation and its messages permanently.
+
+            Your data
+
+            Conversations, agents and settings live in the application home (~/.arguebot unless you pass --home or set ARGUEBOT_HOME). Start the TUI with the same home to see the same data. The web dashboard attached to the same service shows the same conversations. Sent notes are saved; unsent drafts survive switching conversations but not exiting.
 
             Press Escape to return to the Help contents.
             """

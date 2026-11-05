@@ -1,41 +1,84 @@
+import { mergeToolActivity, messageContent } from "../utils/message-content.js";
+import { speakerHues } from "../utils/speaker-colors.js";
+import DebatePolicyEditor from "../components/DebatePolicyEditor.jsx";
+import DebatePanel from "../components/DebatePanel.jsx";
+import TranscriptTimeline, { LiveTurn, plainText, timelineRows } from "../components/TranscriptTimeline.jsx";
+import PromptPicker, { chosenPrompts } from "../components/PromptPicker.jsx";
+import { randomId } from "../utils/random-id.js";
 import RunActivity from "../components/RunActivity.jsx";
 import FailedTurn from "../components/FailedTurn.jsx";
 import CopyButton from "../components/CopyButton.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import { useEffect, useRef, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
-import { Button, ErrorPanel, Field, Modal, Pagination } from "../components/ui.jsx";
+import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
+import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
-function StartDialog({ profiles, onStart, onClose }) {
+function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
   const { t } = useTranslation();
+  const [question, setQuestion] = useState(defaultQuestion);
+  const [prompts, setPrompts] = useState([]);
+  const [promptIds, setPromptIds] = useState(() => ({ ...defaultPrompts }));
+  useEffect(() => { api?.prompts().then(setPrompts).catch(() => setPrompts([])); }, [api]);
+  const [fieldError, setFieldError] = useState(null);
+  const [removedNotice, setRemovedNotice] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [orchestrator, setOrchestrator] = useState("");
+  const [policy, setPolicy] = useState(() => structuredClone(capabilities.defaultPolicy));
+  const [commandKey, setCommandKey] = useState(randomId);
   const [rounds, setRounds] = useState(5);
   const [seconds, setSeconds] = useState(10);
   const [busy, setBusy] = useState(false);
+  useEffect(() => setCommandKey(randomId()), [selected, orchestrator, rounds, seconds, policy]);
+  useEffect(() => {
+    const available = new Set(profiles.filter(profile => profile.enabled).map(profile => profile.id));
+    setSelected(value => { const kept = value.filter(id => available.has(id)); if (kept.length === value.length) return value; setRemovedNotice(true); return kept; });
+    setOrchestrator(value => { if (!value || available.has(value)) return value; setRemovedNotice(true); return ""; });
+  }, [profiles]);
+  const selectedNames = selected.map(id => profiles.find(profile => profile.id === id)?.name || "");
+  const duplicateName = selectedNames.find((name, index) => name && selectedNames.findIndex(other => other.toLocaleLowerCase() === name.toLocaleLowerCase()) !== index);
+  const errorFor = field => fieldError && (fieldError.field === field || (field === "policy" && fieldError.field.startsWith("policy."))) ? fieldError.message : "";
   return (
-    <Modal title="debate.new" onClose={onClose}>
+    <Modal title="debate.new" className="start-debate" onClose={onClose}>
       <form
+        onChange={() => { setFieldError(null); setRemovedNotice(false); }}
         onSubmit={async (event) => {
           event.preventDefault();
           setBusy(true);
+          setFieldError(null);
           try {
             await onStart({
+              protocolVersion: 2,
+              question: question.trim(),
+              promptIds: chosenPrompts(promptIds),
+              orchestratorId: orchestrator,
+              idempotencyKey: commandKey,
               participantIds: selected,
               maxRounds: rounds,
               interventionSeconds: seconds,
+              policy,
             });
+          } catch (failure) {
+            if (failure.code === "profile_not_found" || failure.code === "disabled_profile") await onRefresh();
+            if (failure.field) setFieldError({ field: failure.field, message: failure.message });
+            else notify(failure);
           } finally {
             setBusy(false);
           }
         }}
       >
-        <fieldset title={t("debate.participants.help")}>
+        {fieldError && <p className="field-error" role="alert">{t("debate.fieldError")}</p>}
+        <Field label="debate.question">{props => <textarea {...props} rows={3} maxLength={4000} required aria-invalid={errorFor("question") ? "true" : undefined} value={question} onChange={event => { setQuestion(event.target.value); setCommandKey(randomId()); }} />}</Field>
+        {errorFor("question") && <p className="field-error" role="alert">{errorFor("question")}</p>}
+        {prompts.length > 0 && <PromptPicker prompts={prompts} value={promptIds} onChange={next => { setPromptIds(next); setCommandKey(randomId()); }} />}
+        {fieldError?.field?.startsWith("promptIds") && <p className="field-error" role="alert">{fieldError.message}</p>}
+        <fieldset title={t("debate.participants.help")} aria-invalid={errorFor("participantIds") || duplicateName ? "true" : undefined} className={errorFor("participantIds") || duplicateName ? "invalid" : undefined}>
           <legend>{t("debate.participants")}</legend>
           <p className="muted">{t("debate.participants.help")}</p>
           {profiles
@@ -51,7 +94,7 @@ function StartDialog({ profiles, onStart, onClose }) {
                   title={t("debate.participants.help")}
                   checked={selected.includes(profile.id)}
                   disabled={
-                    !selected.includes(profile.id) && selected.length >= 3
+                    !selected.includes(profile.id) && selected.length >= maximum
                   }
                   onChange={(event) =>
                     setSelected((value) =>
@@ -71,6 +114,13 @@ function StartDialog({ profiles, onStart, onClose }) {
               </label>
             ))}
         </fieldset>
+        {duplicateName && <p className="field-error" role="alert">{t("debate.duplicateNames", { name: duplicateName })}</p>}
+        {errorFor("participantIds") && <p className="field-error" role="alert">{errorFor("participantIds")}</p>}
+        {removedNotice && <p className="notice" role="status">{t("debate.removedSelection")}</p>}
+        {selected.length > 0 && <ol className="selected-panel">{selected.map((id, index) => <li key={id}><span>{profiles.find(profile => profile.id === id)?.name}</span><button type="button" className="button" disabled={index === 0} aria-label={t("panel.moveEarlier", { name: profiles.find(profile => profile.id === id)?.name })} onClick={() => setSelected(value => { const next = [...value]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; return next; })}>↑</button><button type="button" className="button" disabled={index === selected.length - 1} aria-label={t("panel.moveLater", { name: profiles.find(profile => profile.id === id)?.name })} onClick={() => setSelected(value => { const next = [...value]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; return next; })}>↓</button></li>)}</ol>}
+        <Field label="panel.orchestrator">{props => <select {...props} required className={errorFor("orchestratorId") ? "invalid" : undefined} aria-invalid={errorFor("orchestratorId") ? "true" : undefined} value={orchestrator} onChange={event => setOrchestrator(event.target.value)}><option value="">{t("panel.choose")}</option>{profiles.filter(profile => profile.enabled).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select>}</Field>
+        {errorFor("orchestratorId") && <p className="field-error" role="alert">{errorFor("orchestratorId")}</p>}
+        <p className="muted">{t("panel.setupHelp", { maximum })}</p>
         <div className="form-grid">
           <Field label="debate.rounds">
             {(props) => (
@@ -97,6 +147,10 @@ function StartDialog({ profiles, onStart, onClose }) {
             )}
           </Field>
         </div>
+        {["maxRounds", "interventionSeconds"].map(field => errorFor(field) && <p key={field} className="field-error" role="alert">{errorFor(field)}</p>)}
+        <DebatePolicyEditor value={policy} maximum={capabilities.maximumPolicy} onChange={setPolicy} />
+        {errorFor("policy") && <p className="field-error" role="alert">{errorFor("policy")}</p>}
+        <p className="muted">{t("policy.workload", { turns: selected.length * rounds, orchestration: rounds * 2 })}</p>
         <p className="muted">{t("debate.context")}</p>
         <footer>
           <Button
@@ -109,7 +163,7 @@ function StartDialog({ profiles, onStart, onClose }) {
             label="debate.start"
             className="primary"
             type="submit"
-            disabled={busy || selected.length < 2}
+            disabled={busy || selected.length < 2 || !orchestrator || !!duplicateName}
           />
         </footer>
       </form>
@@ -122,26 +176,56 @@ function WorkspaceContent({ id }) {
   const draftKey = `arguebot.draft:${location.origin}:${id}`;
   const [text, setText] = useState(() => localStorage.getItem(draftKey) || "");
   const [modeChoice, setModeChoice] = useState(null);
+  const [deliveryMode, setDeliveryMode] = useState(() => localStorage.getItem(draftKey + ":delivery") || "");
+  const [contextKey, setContextKey] = useState(randomId);
+  const [pinned, setPinned] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [starting, setStarting] = useState(false);
-  const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [attemptsRunId, setAttemptsRunId] = useState(null);
   const [fullMessage, setFullMessage] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const [view, setView] = useState(() => localStorage.getItem("arguebot.transcriptView") === "cards" ? "cards" : "timeline");
+  const [expanded, setExpanded] = useState(() => new Set());
+  const seenFailures = useRef(new Set());
+  const chooseView = next => { setView(next); localStorage.setItem("arguebot.transcriptView", next); };
+  const toggleExpanded = rowId => setExpanded(current => { const next = new Set(current); if (next.has(rowId)) next.delete(rowId); else next.add(rowId); return next; });
+  const [jumpTarget, setJumpTarget] = useState("");
+  const toggleMessage = messageId => setCollapsed(current => { const next = new Set(current); if (next.has(messageId)) next.delete(messageId); else next.add(messageId); return next; });
+  const jumpTo = messageId => {
+    if (!messageId) return;
+    setCollapsed(current => { if (!current.has(messageId)) return current; const next = new Set(current); next.delete(messageId); return next; });
+    setExpanded(current => { if (current.has(messageId)) return current; const next = new Set(current); next.add(messageId); return next; });
+    tail.current = false;
+    setJumpTarget(messageId);
+    requestAnimationFrame(() => { const target = document.getElementById("message-" + messageId); target?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); target?.querySelector(".message-toggle")?.focus({ preventScroll: true }); });
+    setTimeout(() => setJumpTarget(current => current === messageId ? "" : current), 1600);
+  };
   const [historyView, setHistoryView] = useState({ pageNumber: 1, pageSize: 25, tail: true });
+  const [panelOpen, setPanelOpen] = useState(() => { const saved = localStorage.getItem("arguebot.debatePanel"); return saved ? saved === "open" : window.innerWidth >= 1200; });
+  const togglePanel = () => setPanelOpen(current => { localStorage.setItem("arguebot.debatePanel", current ? "closed" : "open"); return !current; });
   const [busy, setBusy] = useState(false);
   const [connection, setConnection] = useState("common.connected");
   const feed = useRef();
   const tail = useRef(true);
   const scrollPageTop = useRef(false);
   const { data, error, reload } = useData(id + JSON.stringify(historyView), async () => {
-    const [conversation, messagePage, runs, profiles] = await Promise.all([
+    const [conversation, messagePage, runs, profiles, capabilities] = await Promise.all([
       api.conversation(id),
       api.messages(id, historyView),
       api.runs(id),
       api.participants(),
+      api.capabilities(),
     ]);
-    return { conversation, messages: messagePage.items, messagePage, runs, profiles };
+    return { conversation, messages: messagePage.items, messagePage, runs, profiles, capabilities };
   });
   const run = data?.runs.at(-1);
+  useEffect(() => {
+    const fresh = (data?.messages || []).filter(message => ["failed", "interrupted"].includes(message.state) && !seenFailures.current.has(message.id)).map(message => message.id);
+    if (!fresh.length) return;
+    fresh.forEach(messageId => seenFailures.current.add(messageId));
+    setExpanded(current => new Set([...current, ...fresh]));
+  }, [data?.messages]);
+  const hues = speakerHues([...(data?.runs || []).flatMap(item => [item.orchestrator?.name, ...(item.participants || []).map(seat => seat.name)])], (data?.messages || []).map(message => message.speaker));
   const active =
     run && !["completed", "failed", "cancelled"].includes(run.state);
   // The composer defaults to a follow-up question once a debate completes; an
@@ -155,7 +239,8 @@ function WorkspaceContent({ id }) {
         : "note";
   useEffect(() => {
     localStorage.setItem(draftKey, text);
-  }, [draftKey, text]);
+    localStorage.setItem(draftKey + ":delivery", deliveryMode);
+  }, [draftKey, text, deliveryMode]);
   useEffect(() => {
     if (scrollPageTop.current && feed.current) { feed.current.scrollTop = 0; scrollPageTop.current = false; }
     else if (tail.current && feed.current) feed.current.scrollTop = feed.current.scrollHeight;
@@ -226,17 +311,21 @@ function WorkspaceContent({ id }) {
       setBusy(false);
     }
   };
+  const needsDelivery = run?.protocolVersion === 2 && mode !== "followup";
   const send = async (event) => {
     event?.preventDefault();
     if (
       !text.trim() ||
       busy ||
+      (needsDelivery && !deliveryMode) ||
       (mode === "steer" && (!active || run?.mode === "followup"))
     )
       return;
     setBusy(true);
     try {
-      if (mode === "steer" && active)
+      if (mode !== "followup" && run?.protocolVersion === 2)
+        await api.interject(id, { runId: run.id, text, deliveryMode, pinned, recipientId: mode === "steer" ? recipient || run.participants[run.speakerIndex]?.id : "", idempotencyKey: contextKey });
+      else if (mode === "steer" && active)
         await api.action(id, run.id, {
           action: "steer",
           text,
@@ -251,7 +340,7 @@ function WorkspaceContent({ id }) {
           interventionSeconds: 0,
         });
       else await api.note(id, text);
-      setText("");
+      setText(""); setDeliveryMode(""); setContextKey(randomId());
       await reload();
     } catch (failure) {
       notify(failure);
@@ -264,7 +353,7 @@ function WorkspaceContent({ id }) {
     setBusy(true);
     try {
       const messages = await api.allMessages(id);
-      const content = "# " + data.conversation.title + "\n\n" + messages.map((message) => `## ${message.speaker} (${message.kind})\n\n${message.content}`).join("\n\n");
+      const content = "# " + data.conversation.title + "\n\n" + messages.map((message) => `## ${message.speaker} (${message.kind})\n\n${messageContent(message)}`).join("\n\n");
       const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
       const anchor = document.createElement("a"); anchor.href = url; anchor.download = id + ".md"; anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -277,21 +366,23 @@ function WorkspaceContent({ id }) {
   return (
     <div className="workspace">
       {fullMessage && <FullMessageDialog conversationId={id} messageId={fullMessage} onClose={() => setFullMessage(null)} />}
-      {attemptsOpen && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} onClose={() => setAttemptsOpen(false)} />}
+      {attemptsRunId && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} initialRunId={attemptsRunId} onClose={() => setAttemptsRunId(null)} />}
       <header className="workspace-heading">
         <div>
-          <p className="eyebrow">{t("debate.title")}</p>
           <h1 title={data.conversation.title}>{data.conversation.title}</h1>
-          <CopyableId value={id} />
-          <span className="live-label">
-            <span className="status-dot" />
-            {t(connection)}
-          </span>
+          <div className="workspace-meta">
+            <CopyableId value={id} />
+            <span className="live-label">
+              <span className="status-dot" />
+              {t(connection)}
+            </span>
+          </div>
         </div>
         <div className="utilities">
+          <Link className="button primary" to={`/dashboard/conversations/${id}/read`} title={t("reader.open.help")}><Icon name="prompt" />{t("reader.open")}</Link>
           <CopyButton label="conversations.copy" iconOnly disabled={!data.messagePage.totalCount} loadText={async () => {
             const messages = await api.allMessages(id);
-            return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${message.content}`).join("\n\n");
+            return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${messageContent(message)}`).join("\n\n");
           }} />
           <Button
             label="conversations.export"
@@ -334,9 +425,10 @@ function WorkspaceContent({ id }) {
             >
               {run.participants.map((profile) => profile.name).join(" · ")}
             </span>
-            {run.outcome && <span className="muted" role="status" title={t("debate.outcome.help")}>{t(`outcome.${run.outcome}`, { defaultValue: run.outcome })}</span>}
+            {run.outcome && <span className="muted" role="status" title={t("debate.outcome.help")}>{t(run.protocolVersion === 2 && ["consensus", "max_rounds"].includes(run.outcome) ? `outcome.v2.${run.outcome}` : `outcome.${run.outcome}`, { defaultValue: run.outcome })}</span>}
             <div className="run-controls">
-              <Button label="attempts.title" onClick={() => setAttemptsOpen(true)} />
+              {run.protocolVersion === 2 && <Button label={panelOpen ? "panel.hide" : "panel.show"} aria-expanded={panelOpen} aria-controls="debate-panel" onClick={togglePanel} />}
+              <Button label="attempts.title" onClick={() => setAttemptsRunId(run.id)} />
               {active && (
                 <>
                   {run.state === "paused" ? (
@@ -386,14 +478,26 @@ function WorkspaceContent({ id }) {
       <div className="history-navigation">
         <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
         {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
+        {data.messages.length > 0 && <div className="feed-toolbar" role="toolbar" aria-label={t("messages.navigation")}>
+        <div className="segmented" role="radiogroup" aria-label={t("timeline.view")}>{["timeline", "cards"].map(item => <button key={item} type="button" role="radio" aria-checked={view === item} className={view === item ? "active" : ""} title={t(`timeline.view.${item}.help`)} onClick={() => chooseView(item)}>{t(`timeline.view.${item}`)}</button>)}</div>
+        {view === "cards"
+          ? <><Button label="messages.collapseAll" onClick={() => setCollapsed(new Set(data.messages.map(message => message.id)))} /><Button label="messages.expandAll" disabled={collapsed.size === 0} onClick={() => setCollapsed(new Set())} /></>
+          : <><Button label="messages.collapseAll" disabled={expanded.size === 0} onClick={() => setExpanded(new Set())} /><Button label="messages.expandAll" onClick={() => setExpanded(new Set(timelineRows(mergeToolActivity(data.messages)).filter(row => row.id).map(row => row.id)))} /></>}
+        <select aria-label={t("messages.jump")} title={t("messages.jump.help")} value="" onChange={event => jumpTo(event.target.value)}>
+          <option value="">{t("messages.jump")}</option>
+          {(view === "timeline" ? timelineRows(mergeToolActivity(data.messages)).filter(row => row.id).map(row => row.type === "turn" ? row.message : { ...row.messages[0], kind: "tool" }) : mergeToolActivity(data.messages)).map((message, index) => <option key={message.id} value={message.id}>{`${index + 1}. ${speakerLabel(t, message.speaker)} · ${t("state." + message.kind, { defaultValue: message.kind })}`}</option>)}
+        </select>
+        <span className="feed-count">{t("messages.shown", { count: mergeToolActivity(data.messages).length })}</span>
+      </div>}
       </div>
+      <div className={"workspace-body" + (run?.protocolVersion === 2 && panelOpen ? " with-panel" : "")}>
       <div
         className="message-feed"
         ref={feed}
         onScroll={() => {
           if (feed.current) {
+            // Scrolling up only stops following the newest turn; the latest page keeps updating. Paging back pins a page.
             tail.current = feed.current.scrollHeight - feed.current.scrollTop - feed.current.clientHeight < 80;
-            if (!tail.current && historyView.tail) setHistoryView((current) => ({ ...current, tail: false, pageNumber: data.messagePage.pageNumber, throughSequence: data.messagePage.throughSequence }));
           }
         }}
         aria-label={t("debate.history")}
@@ -409,17 +513,20 @@ function WorkspaceContent({ id }) {
             />
           </div>
         )}
-        {data.messages.map((message) => (
-          <article
-            className={
-              "message " + (message.speaker === "user" ? "user-message" : "")
-            }
+        {view === "timeline" && <TranscriptTimeline api={api} conversationId={id} messages={mergeToolActivity(data.messages)} hues={hues} expanded={expanded} onToggle={toggleExpanded} jumpTarget={jumpTarget} onFull={setFullMessage} onInspect={setAttemptsRunId} />}
+        {view === "cards" && mergeToolActivity(data.messages).map((message) => {
+          const folded = collapsed.has(message.id);
+          return <article
+            id={"message-" + message.id}
+            className={"message" + (message.speaker === "user" ? " user-message" : "") + (folded ? " collapsed" : "") + (jumpTarget === message.id ? " jump-target" : "")}
+            style={hues.has(message.speaker) ? { "--speaker-hue": hues.get(message.speaker) } : undefined}
             key={message.id}
           >
             <header>
-              <strong title={message.speaker}>{message.speaker}</strong>
+              <button type="button" className="message-toggle" aria-expanded={!folded} aria-controls={"message-body-" + message.id} aria-label={t(folded ? "messages.expand" : "messages.collapse", { speaker: speakerLabel(t, message.speaker) })} title={t(folded ? "messages.expand" : "messages.collapse", { speaker: speakerLabel(t, message.speaker) })} onClick={() => toggleMessage(message.id)}><Icon name="chevron" /></button>
+              <strong title={speakerLabel(t, message.speaker)}>{speakerLabel(t, message.speaker)}</strong>
               <span className="badge" title={t("composer.mode.help")}>
-                {t("state." + message.kind, { defaultValue: message.kind })}
+                {t("state." + (message.kind === "tool" && message.content.startsWith("Conversation tool:") ? "contextTool" : message.kind === "question" && message.speaker !== "user" ? "orchestratorQuestion" : message.kind), { defaultValue: message.kind })}
               </span>
               <time title={formatDate(message.createdUtc)}>
                 {formatDate(message.createdUtc)}
@@ -428,19 +535,18 @@ function WorkspaceContent({ id }) {
                 <span className="stream-dot" title={t("state.streaming")} />
               )}
               <CopyableId value={message.id} />
-              <CopyButton label="messages.copy" loadText={async () => (await api.message(id, message.id)).content} iconOnly />
-              {message.contentTruncated && <Button label="messages.full" onClick={() => setFullMessage(message.id)} />}
+              <CopyButton label="messages.copy" iconOnly loadText={async () => (await api.message(id, message.id)).content} />
+              <Button label="messages.window" icon="external" iconOnly onClick={() => setFullMessage(message.id)} />
             </header>
-            {message.contentTruncated && <p className="muted" title={t("messages.preview.help")}>{t("messages.preview", { bytes: message.contentBytes })}</p>}
-            {message.kind === "tool" ? <pre>{message.content}</pre> : <div className="markdown">
-              <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+            {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
+            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
+            {["failed", "interrupted"].includes(message.state) && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsRunId(message.runId)} />}
             </div>}
-            {message.state === "failed" && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsOpen(true)} />}
-            {message.state === "interrupted" && (
-              <small className="warning">{t("debate.partial")}</small>
-            )}
-          </article>
-        ))}
+          </article>;
+        })}
+        <LiveTurn run={run} messages={data.messages} hues={hues} />
+      </div>
+      {run?.protocolVersion === 2 && panelOpen && <aside className="debate-sidebar" aria-label={t("panel.title")}><DebatePanel api={api} id={id} run={run} profiles={data.profiles} notify={notify} onChange={reload} /></aside>}
       </div>
       <form className="composer" onSubmit={send}>
         <div className="composer-options">
@@ -449,7 +555,7 @@ function WorkspaceContent({ id }) {
             title={t("composer.mode.help")}
             value={mode}
             onChange={(event) => {
-              setModeChoice({ key: modeKey, mode: event.target.value });
+              setModeChoice({ key: modeKey, mode: event.target.value }); setContextKey(randomId());
               setRecipient("");
             }}
           >
@@ -475,7 +581,7 @@ function WorkspaceContent({ id }) {
                   : data.profiles[0]?.id) ||
                 ""
               }
-              onChange={(event) => setRecipient(event.target.value)}
+              onChange={(event) => { setRecipient(event.target.value); setContextKey(randomId()); }}
             >
               {(mode === "steer" ? run?.participants || [] : data.profiles).map(
                 (profile) => (
@@ -486,6 +592,8 @@ function WorkspaceContent({ id }) {
               )}
             </select>
           )}
+          {run?.protocolVersion === 2 && mode !== "followup" && <label className="checkbox-label"><input type="checkbox" checked={pinned} onChange={event => { setPinned(event.target.checked); setContextKey(randomId()); }} />{t("panel.pin")}</label>}
+          {run?.protocolVersion === 2 && mode !== "followup" && <select aria-label={t("panel.delivery")} className={deliveryMode ? "" : "needs-choice"} required value={deliveryMode} onChange={event => { setDeliveryMode(event.target.value); setContextKey(randomId()); }}><option value="" disabled>{t("delivery.choose")}</option><option value="next_turn">{t("delivery.next_turn")}</option><option value="interrupt_now">{t("delivery.interrupt_now")}</option></select>}
           <span>{t("composer.draft")}</span>
         </div>
         <div className="composer-input">
@@ -495,7 +603,7 @@ function WorkspaceContent({ id }) {
             placeholder={t("composer.placeholder")}
             rows="2"
             value={text}
-            onChange={(event) => setText(event.target.value)}
+            onChange={(event) => { setText(event.target.value); setContextKey(randomId()); }}
             onKeyDown={(event) => {
               if (
                 event.key === "Enter" &&
@@ -514,6 +622,7 @@ function WorkspaceContent({ id }) {
             disabled={
               busy ||
               !text.trim() ||
+              (needsDelivery && !deliveryMode) ||
               (mode === "followup" && (!!active || !data.profiles.length)) ||
               (mode === "steer" && (!active || run?.mode === "followup"))
             }
@@ -524,20 +633,27 @@ function WorkspaceContent({ id }) {
       {starting && (
         <StartDialog
           profiles={data.profiles}
+          maximum={data.capabilities.maxParticipants}
+          capabilities={data.capabilities}
+          api={api}
+          defaultQuestion={data.conversation.openingQuestion || data.conversation.title}
+          defaultPrompts={data.conversation.promptIds || {}}
           onClose={() => setStarting(false)}
+          notify={notify}
+          onRefresh={reload}
           onStart={async (request) => {
-            try {
-              await api.startRun(id, request);
-              setStarting(false);
-              await reload();
-            } catch (failure) {
-              notify(failure);
-            }
+            await api.startRun(id, request);
+            setStarting(false);
+            await reload();
           }}
         />
       )}
     </div>
   );
+}
+/** One line of plain text from a message, for its collapsed preview. */
+function previewText(content) {
+  return plainText(content || "").slice(0, 220);
 }
 export default function Workspace() {
   const { id } = useParams();

@@ -17,6 +17,22 @@ export default function Home() {
     ]);
     return { conversations, participants };
   });
+  // Latest run state for the visible recent conversations loads separately, so the page does not wait on it.
+  const recentIds = data?.conversations.items.slice(0, 8).map((conversation) => conversation.id) ?? [];
+  const { data: runs } = useData("home-runs:" + recentIds.join(","), async () => {
+    const latest = await Promise.all(recentIds.map(async (conversationId) => {
+      try { return (await api.runs(conversationId)).at(-1) || null; } catch { return null; }
+    }));
+    return Object.fromEntries(recentIds.map((conversationId, index) => [conversationId, latest[index]]));
+  });
+  const status = (run) => {
+    if (!run) return null;
+    if (["paused", "failed"].includes(run.state)) return { tone: "attention", label: t("home.run.attention") };
+    if (!["completed", "cancelled"].includes(run.state)) return { tone: "active", label: t("home.run.active", { count: run.participants?.length ?? 0 }) };
+    if (run.outcome === "consensus" && run.protocolVersion === 2) return { tone: "done", label: t("home.run.unanimous") };
+    return { tone: "done", label: t(`state.${run.state === "completed" ? run.outcome || "completed" : run.state}`, { defaultValue: run.state }) };
+  };
+  const attention = runs ? Object.values(runs).filter((run) => run && ["paused", "failed"].includes(run.state)).length : null;
   return (
     <>
       <div className="page-heading">
@@ -41,6 +57,10 @@ export default function Home() {
         <article>
           <span>{t("home.participants")}</span>
           <strong>{data?.participants.length ?? "…"}</strong>
+        </article>
+        <article>
+          <span>{t("home.attention")}</span>
+          <strong>{attention ?? "…"}</strong>
         </article>
         <article>
           <span>{t("home.local")}</span>
@@ -80,6 +100,7 @@ export default function Home() {
                 title={t("conversations.open.help")}
               >
                 <span>{conversation.title}</span>
+                {status(runs?.[conversation.id]) && <span className={"badge run-status " + status(runs[conversation.id]).tone}>{status(runs[conversation.id]).label}</span>}
                 <time>{formatDate(conversation.updatedUtc)}</time>
                 <Icon name="arrow" />
               </Link>
@@ -90,10 +111,11 @@ export default function Home() {
       <p className="product-note">{t("home.notice")}</p>
       {creating && (
         <ConversationForm
+          api={api}
           onClose={() => setCreating(false)}
-          onSave={async (title) => {
+          onSave={async (title, question, promptIds) => {
             try {
-              const record = await api.createConversation(title);
+              const record = await api.createConversation(title, question, promptIds);
               setCreating(false);
               navigate("/dashboard/conversations/" + record.id);
             } catch (failure) {

@@ -27,7 +27,7 @@ namespace ArgueBot.Server
         internal static async Task GuardAsync(HttpContextBase http, Func<Task> action)
         {
             try { await action().ConfigureAwait(false); }
-            catch (DomainException ex) { await ErrorAsync(http, new ApiError { Code = ex.Code, Message = ex.Message, RequestId = (http.Metadata as RequestContext)?.CorrelationId ?? "" }, ex.StatusCode).ConfigureAwait(false); }
+            catch (DomainException ex) { await ErrorAsync(http, new ApiError { Code = ex.Code, Message = ex.Message, Field = ex.Field, RequestId = (http.Metadata as RequestContext)?.CorrelationId ?? "" }, ex.StatusCode).ConfigureAwait(false); }
             catch (JsonException) { await SendAsync(http, new ApiError { Code = "invalid_json", Message = "Request JSON does not match the documented contract." }, 400).ConfigureAwait(false); }
             catch (ArgumentException) { await SendAsync(http, new ApiError { Code = "invalid_argument", Message = "A value is outside the allowed range or format." }, 400).ConfigureAwait(false); }
             catch (FormatException) { await ErrorAsync(http, new ApiError { Code = "invalid_format", Message = "A field has an invalid format." }, 400).ConfigureAwait(false); }

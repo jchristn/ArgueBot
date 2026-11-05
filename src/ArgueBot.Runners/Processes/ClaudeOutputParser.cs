@@ -12,6 +12,7 @@ namespace ArgueBot.Runners.Processes
     internal sealed class ClaudeOutputParser
     {
         private readonly Dictionary<string, string> _Messages = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Dictionary<int, string> _IndexedResults = new Dictionary<int, string>();
         private string _CurrentMessage = "legacy-message";
         private string _LastAnswerMessage = "";
         private int _MessageNumber;
@@ -55,7 +56,19 @@ namespace ArgueBot.Runners.Processes
                             if ((root.TryGetProperty("is_error", out JsonElement error) && error.ValueKind == JsonValueKind.True) || (ReadString(root, "subtype") ?? "").StartsWith("error", StringComparison.Ordinal)) throw new DomainException(502, "agent_result_error", "Claude reported an unsuccessful result. Inspect the retained process diagnostics.");
                             string? result = ReadString(root, "result");
                             if (string.IsNullOrWhiteSpace(result)) throw new DomainException(502, "empty_answer", "Claude completed without a final answer. Inspect the retained process diagnostics.");
-                            await SnapshotAsync(_LastAnswerMessage.Length == 0 ? "result" : _LastAnswerMessage, result, onText, token).ConfigureAwait(false);
+                            if (root.TryGetProperty("result_index", out JsonElement index))
+                            {
+                                if (index.ValueKind != JsonValueKind.Number || !index.TryGetInt32(out int resultIndex) || resultIndex < 0) throw new JsonException("Expected a nonnegative integer for result_index.");
+                                if (_IndexedResults.TryGetValue(resultIndex, out string? previousResult))
+                                {
+                                    if (previousResult != result) throw new InvalidDataException("Agent result conflicts with an earlier result for the same Claude result index.");
+                                    break;
+                                }
+                                _IndexedResults.Add(resultIndex, result);
+                                // Background-agent wakeups can finish multiple internal turns. Indexed results can repeat an older assistant message, not the latest one.
+                                if (!_Messages.ContainsValue(result)) await SnapshotAsync("indexed-result-" + resultIndex, result, onText, token).ConfigureAwait(false);
+                            }
+                            else await SnapshotAsync(_LastAnswerMessage.Length == 0 ? "result" : _LastAnswerMessage, result, onText, token).ConfigureAwait(false);
                             break;
                         case "text_delta":
                             await DeltaAsync(ReadString(root, "text"), onText, token).ConfigureAwait(false);

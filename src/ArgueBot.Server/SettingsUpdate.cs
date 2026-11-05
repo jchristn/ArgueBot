@@ -15,6 +15,10 @@ namespace ArgueBot.Server
         public int Port { get; set; }
         /// <summary>Concurrent conversations, 1 to 64.</summary>
         public int MaxConcurrentRuns { get; set; }
+        /// <summary>Maximum active seats per debate.</summary>
+        public int? MaxParticipants { get; set; }
+        /// <summary>Optional native or container listener address. Requires restart.</summary>
+        public string? ListenAddress { get; set; }
         /// <summary>Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value.</summary>
         public int? StreamBatchCharacters { get; set; }
         /// <summary>Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value.</summary>

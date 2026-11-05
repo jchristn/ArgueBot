@@ -1,5 +1,8 @@
 namespace ArgueBot.Client
 {
+    using ArgueBot.Core.Configuration;
+    using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -11,15 +14,83 @@ namespace ArgueBot.Client
     using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Configuration;
-    using ArgueBot.Core.Models;
-    using ArgueBot.Core.Services;
 
     /// <summary>Shared typed HTTP client for TUI and console surfaces. Owns its HTTP connection pool.</summary>
     public sealed class ArgueBotClient : IDisposable
     {
         private readonly HttpClient _Http;
         private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+        private async Task<List<T>> ReadListPagesAsync<T>(string route, int pageSize, CancellationToken token)
+        {
+            List<T> result = new List<T>();
+            for (int page = 1; ; page++)
+            {
+                List<T> items = await SendAsync<List<T>>(HttpMethod.Get, route + "?pageNumber=" + page.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token).ConfigureAwait(false);
+                result.AddRange(items);
+                if (items.Count < pageSize) return result;
+            }
+        }
+        private async Task<List<T>> ReadConfigurationAsync<T>(string resource, CancellationToken token)
+        {
+            List<T> result = new List<T>();
+            for (int page = 1; ; page++)
+            {
+                List<T> items = await SendAsync<List<T>>(HttpMethod.Get, "v2.0/api/configuration/" + resource + "?pageSize=100&pageNumber=" + page.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token).ConfigureAwait(false);
+                result.AddRange(items);
+                if (items.Count < 100) return result;
+            }
+        }
+        /// <summary>Preview saved request destinations and binding names without contacting the endpoint or resolving credentials.</summary>
+        public Task<EndpointPreview> PreviewEndpointAsync(string id, CancellationToken token = default)
+        { return SendAsync<EndpointPreview>(HttpMethod.Get, "v2.0/api/configuration/endpoints/" + Uri.EscapeDataString(id) + "/preview", token: token); }
+        /// <summary>Contact a saved endpoint to list advertised models without generating a completion.</summary>
+        public Task<EndpointDiscovery> DiscoverEndpointAsync(string id, CancellationToken token = default)
+        { return SendAsync<EndpointDiscovery>(HttpMethod.Post, "v2.0/api/configuration/endpoints/" + Uri.EscapeDataString(id) + "/discover", token: token); }
+        /// <summary>List reusable endpoints.</summary>
+        public Task<List<EndpointProfile>> EndpointsAsync(CancellationToken token = default)
+        { return ReadConfigurationAsync<EndpointProfile>("endpoints", token); }
+        /// <summary>Create or revision-check a reusable endpoint.</summary>
+        public Task<EndpointProfile> SaveEndpointAsync(EndpointProfile value, CancellationToken token = default)
+        { return SendAsync<EndpointProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/endpoints" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
+        /// <summary>List reusable harnesses.</summary>
+        public Task<List<HarnessProfile>> HarnessesAsync(CancellationToken token = default)
+        { return ReadConfigurationAsync<HarnessProfile>("harnesses", token); }
+        /// <summary>Create or revision-check a reusable harness.</summary>
+        public Task<HarnessProfile> SaveHarnessAsync(HarnessProfile value, CancellationToken token = default)
+        { return SendAsync<HarnessProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/harnesses" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
+        /// <summary>Read a bounded page of observed checks tied to exact model and transport revisions.</summary>
+        public Task<List<ModelCheck>> ModelChecksAsync(string modelId, int pageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<ModelCheck>>(HttpMethod.Get, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks?pageNumber=" + pageNumber, token: token); }
+        /// <summary>Explicitly invoke a potentially billable completion and optional harmless tool check.</summary>
+        public Task<ModelCheck> CheckModelAsync(string modelId, ModelCheckRequest request, CancellationToken token = default)
+        { return SendAsync<ModelCheck>(HttpMethod.Post, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks", request, token); }
+        /// <summary>List reusable models.</summary>
+        public Task<List<ModelProfile>> ModelsAsync(CancellationToken token = default)
+        { return ReadConfigurationAsync<ModelProfile>("models", token); }
+        /// <summary>Create or revision-check a reusable model.</summary>
+        public Task<ModelProfile> SaveModelAsync(ModelProfile value, CancellationToken token = default)
+        { return SendAsync<ModelProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/models" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
+        /// <summary>Read safe master-key identities without key material.</summary>
+        public Task<CredentialKeyStatus> CredentialKeysAsync(CancellationToken token = default)
+        { return SendAsync<CredentialKeyStatus>(HttpMethod.Get, "v2.0/api/configuration/credential-keys", token: token); }
+        /// <summary>Rotate the expected active master key and reencrypt stored credentials.</summary>
+        public Task<CredentialKeyStatus> RotateCredentialKeyAsync(string expectedKeyId, CancellationToken token = default)
+        { return SendAsync<CredentialKeyStatus>(HttpMethod.Post, "v2.0/api/configuration/credential-keys/rotate", new RotateCredentialKeyRequest { ExpectedKeyId = expectedKeyId }, token); }
+        /// <summary>Retire earlier master keys once every credential uses the active key. Older backups can no longer decrypt their credentials.</summary>
+        public Task<CredentialKeyStatus> RetireCredentialKeysAsync(string expectedKeyId, CancellationToken token = default)
+        { return SendAsync<CredentialKeyStatus>(HttpMethod.Post, "v2.0/api/configuration/credential-keys/retire", new RotateCredentialKeyRequest { ExpectedKeyId = expectedKeyId }, token); }
+        /// <summary>List safe credential metadata; no values are returned.</summary>
+        public Task<List<CredentialMetadata>> CredentialsAsync(CancellationToken token = default)
+        { return ReadConfigurationAsync<CredentialMetadata>("credentials", token); }
+        /// <summary>Import or replace a write-only credential.</summary>
+        public Task<CredentialMetadata> SaveCredentialAsync(string id, CredentialRequest value, CancellationToken token = default)
+        { return SendAsync<CredentialMetadata>(id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/credentials" + (id.Length == 0 ? "" : "/" + Uri.EscapeDataString(id)), value, token); }
+        /// <summary>Reveal a ready credential's decrypted value. Handle the result as a secret.</summary>
+        public Task<RevealedCredential> RevealCredentialAsync(string id, CancellationToken token = default)
+        { return SendAsync<RevealedCredential>(HttpMethod.Post, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "/reveal", token: token); }
+        /// <summary>Disable a credential with an expected revision.</summary>
+        public Task<Acknowledgement> DisableCredentialAsync(string id, long revision, CancellationToken token = default)
+        { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
         /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler.</summary>
         public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null)
         {
@@ -39,14 +110,32 @@ namespace ArgueBot.Client
         public Task<Page> ConversationsAsync(string search = "", bool archived = false, int page = 1, CancellationToken token = default)
         { return SendAsync<Page>(HttpMethod.Get, "v1.0/api/conversations?search=" + Uri.EscapeDataString(search) + "&archived=" + archived.ToString().ToLowerInvariant() + "&pageNumber=" + page, null, token); }
         /// <summary>Create a named conversation.</summary>
-        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default)
-        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title }, token); }
+        public Task<Conversation> CreateConversationAsync(string title, CancellationToken token = default, string openingQuestion = "", Dictionary<string, string>? promptIds = null)
+        { return SendAsync<Conversation>(HttpMethod.Post, "v1.0/api/conversations", new ConversationRequest { Title = title, OpeningQuestion = openingQuestion, PromptIds = promptIds }, token); }
+        /// <summary>List factory and workspace prompts, optionally for one debate step.</summary>
+        public Task<List<PromptTemplate>> PromptsAsync(string purpose = "", CancellationToken token = default)
+        { return SendAsync<List<PromptTemplate>>(HttpMethod.Get, "v2.0/api/prompts" + (purpose.Length == 0 ? "" : "?purpose=" + Uri.EscapeDataString(purpose)), token: token); }
+        /// <summary>Read one prompt.</summary>
+        public Task<PromptTemplate> PromptAsync(string id, CancellationToken token = default)
+        { return SendAsync<PromptTemplate>(HttpMethod.Get, "v2.0/api/prompts/" + Uri.EscapeDataString(id), token: token); }
+        /// <summary>Create a prompt when its ID is empty, otherwise update it with its expected revision.</summary>
+        public Task<PromptTemplate> SavePromptAsync(PromptTemplate prompt, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(prompt); return SendAsync<PromptTemplate>(prompt.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/prompts" + (prompt.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(prompt.Id)), prompt, token); }
+        /// <summary>Copy a prompt, including a factory default, into an editable prompt.</summary>
+        public Task<PromptTemplate> DuplicatePromptAsync(string id, CancellationToken token = default)
+        { return SendAsync<PromptTemplate>(HttpMethod.Post, "v2.0/api/prompts/" + Uri.EscapeDataString(id) + "/duplicate", token: token); }
+        /// <summary>Delete a workspace prompt with its expected revision.</summary>
+        public Task<Acknowledgement> DeletePromptAsync(string id, long revision, CancellationToken token = default)
+        { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/prompts/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
+        /// <summary>List prompt placeholders and where each has a value.</summary>
+        public Task<List<PromptParameter>> PromptParametersAsync(CancellationToken token = default)
+        { return SendAsync<List<PromptParameter>>(HttpMethod.Get, "v2.0/api/prompt-parameters", token: token); }
         /// <summary>Read a conversation.</summary>
         public Task<Conversation> ConversationAsync(string id, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Get, Root(id), null, token); }
         /// <summary>Update title/pin/archive using its current revision.</summary>
         public Task<Conversation> UpdateConversationAsync(Conversation conversation, CancellationToken token = default)
-        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
+        { return SendAsync<Conversation>(HttpMethod.Put, Root(conversation.Id), new ConversationRequest { Title = conversation.Title, OpeningQuestion = conversation.OpeningQuestion, PromptIds = conversation.PromptIds, Pinned = conversation.Pinned, Archived = conversation.Archived, Revision = conversation.Revision }, token); }
         /// <summary>Read one authenticated SSE connection after a committed cursor. Frames are bounded to 1048576 UTF-16 characters, idle reads to fifteen seconds, and identifiers/order are validated. Reconnect after normal completion using the last yielded sequence; expired cursors require a fresh head followed by snapshots. Enumeration cancellation/disposal closes the HTTP body.</summary>
         public async IAsyncEnumerable<DurableEvent> WatchEventsAsync(string id, long after = 0, [EnumeratorCancellation] CancellationToken token = default)
         {
@@ -145,7 +234,7 @@ namespace ArgueBot.Client
         { return SendAsync<List<DebateRun>>(HttpMethod.Get, Root(id) + "/runs", null, token); }
         /// <summary>Start a debate, freezing participant configuration.</summary>
         public Task<DebateRun> StartAsync(string id, CreateRunRequest request, CancellationToken token = default)
-        { return SendAsync<DebateRun>(HttpMethod.Post, Root(id) + "/runs", request, token); }
+        { return SendAsync<DebateRun>(HttpMethod.Post, (request.ProtocolVersion == 2 ? V2Root(id) : Root(id)) + "/runs", request, token); }
         /// <summary>Apply a moderator command to a run.</summary>
         public async Task ActionAsync(string id, string runId, CommandRequest request, CancellationToken token = default)
         { if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) request.IdempotencyKey = Guid.NewGuid().ToString("N"); await SendAsync<AcceptedResponse>(HttpMethod.Post, Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/actions", request, token).ConfigureAwait(false); }
@@ -163,12 +252,40 @@ namespace ArgueBot.Client
                     {
                         if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
                         ApiError? error = await response.Content.ReadFromJsonAsync<ApiError>(_Json, token).ConfigureAwait(false);
-                        throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.");
+                        throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.", error?.Field ?? "");
                     }
                     return await response.Content.ReadFromJsonAsync<T>(_Json, token).ConfigureAwait(false) ?? throw new InvalidDataException("Server returned an empty response.");
                 }
             }
         }
+        /// <summary>Read the server's supported debate modes and roster capacity.</summary>
+        public Task<ServiceCapabilities> CapabilitiesAsync(CancellationToken token = default)
+        { return SendAsync<ServiceCapabilities>(HttpMethod.Get, "v2.0/api/capabilities", token: token); }
+        /// <summary>Persist an interjection with the caller's explicit delivery mode and stable command key.</summary>
+        public Task<InterjectionReceipt> InterjectAsync(string id, InterjectionRequest request, CancellationToken token = default)
+        { return SendAsync<InterjectionReceipt>(HttpMethod.Post, V2Root(id) + "/interjections", request, token); }
+        /// <summary>Read a bounded page of context receipts and per-seat deliveries.</summary>
+        public Task<List<InterjectionReceipt>> InterjectionsAsync(string id, int pageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<InterjectionReceipt>>(HttpMethod.Get, V2Root(id) + "/interjections?pageNumber=" + pageNumber, token: token); }
+        /// <summary>Queue an add, remove or replacement at the next safe boundary.</summary>
+        public Task<Acknowledgement> ChangeRosterAsync(string id, string runId, RosterChangeRequest request, CancellationToken token = default)
+        { return SendAsync<Acknowledgement>(HttpMethod.Post, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/roster", request, token); }
+        /// <summary>Read current and historical roster membership.</summary>
+        public Task<List<DebateSeat>> RosterAsync(string id, string runId, CancellationToken token = default)
+        { return SendAsync<List<DebateSeat>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/roster", token: token); }
+        /// <summary>Read candidates and each participant's explicit agreement or dissent.</summary>
+        public Task<List<DebateProposal>> ProposalsAsync(string id, string runId, CancellationToken token = default)
+        { return ReadListPagesAsync<DebateProposal>(V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/proposals", 50, token); }
+        /// <summary>Read bounded source-linked summaries for a run.</summary>
+        public Task<List<ContextSummary>> SummariesAsync(string id, string runId, int pageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<ContextSummary>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/summaries?pageNumber=" + pageNumber, token: token); }
+        /// <summary>Read a specific summary and a bounded page of its immutable original source identities.</summary>
+        public Task<List<ContextSummary>> SummaryAsync(string id, string runId, string summaryId, int sourcePageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<ContextSummary>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/summaries?id=" + Uri.EscapeDataString(summaryId) + "&sourcePageNumber=" + sourcePageNumber, token: token); }
+        /// <summary>Read moderator clarification requests and their status.</summary>
+        public Task<List<ClarificationRequest>> ClarificationsAsync(string id, string runId, CancellationToken token = default)
+        { return ReadListPagesAsync<ClarificationRequest>(V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/clarifications", 100, token); }
+        private static string V2Root(string id) { return "v2.0/api/conversations/" + Uri.EscapeDataString(id); }
         private static string Root(string id) { return "v1.0/api/conversations/" + Uri.EscapeDataString(id); }
         /// <summary>Dispose the client pool.</summary>
         public void Dispose() { _Http.Dispose(); }

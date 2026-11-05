@@ -1,3 +1,6 @@
+import ActionMenu from "../components/ActionMenu.jsx";
+import CatalogTab, { catalogKinds } from "../components/CatalogTab.jsx";
+import Tabs from "../components/Tabs.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import harnesses from "../../../assets/harness-defaults.json";
@@ -6,7 +9,7 @@ import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
-function ProfileForm({ onSave, onClose, initial }) {
+function ProfileForm({ onSave, onClose, initial, api }) {
   const { t } = useTranslation();
   const [profile, setProfile] = useState(
     initial ? { ...initial, ...(initial.kind === "cli" ? { executable: initial.executable || harnesses[initial.provider]?.executable || "", arguments: initial.arguments.length ? initial.arguments : [...(harnesses[initial.provider]?.arguments || [])] } : {}) } : {
@@ -24,6 +27,7 @@ function ProfileForm({ onSave, onClose, initial }) {
       enabled: true,
     },
   );
+  const { data: models } = useData("models", () => api.configuration("models"));
   const [busy, setBusy] = useState(false);
   const executableIsCommand = profile.kind === "cli" && /^\s*(claude|codex|gemini|mux)(\.exe)?\s+-/i.test(profile.executable);
   const field = (name, label, type = "text", extra = {}) => (
@@ -66,7 +70,9 @@ function ProfileForm({ onSave, onClose, initial }) {
             required: true,
             maxLength: 200,
           })}
-          <Field label="profile.kind">
+          <Field label="catalog.modelProfileId">{props => <select {...props} value={profile.modelProfileId || ""} onChange={event => setProfile(value => ({ ...value, modelProfileId: event.target.value }))}><option value="">{t("catalog.inline")}</option>{models?.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}</select>}</Field>
+          <Field label="catalog.roleInstructions">{props => <textarea {...props} value={profile.roleInstructions || ""} rows={3} onChange={event => setProfile(value => ({ ...value, roleInstructions: event.target.value }))} />}</Field>
+          {!profile.modelProfileId && <Field label="profile.kind">
             {(props) => (
               <select
                 {...props}
@@ -83,12 +89,13 @@ function ProfileForm({ onSave, onClose, initial }) {
               </select>
             )}
           </Field>
-          {profile.kind === "rest" && <Field label="profile.provider">
+          }
+          {!profile.modelProfileId && profile.kind === "rest" && <Field label="profile.provider">
             {(props) => <select {...props} value={profile.provider} onChange={(event) => setProfile((value) => ({ ...value, provider: event.target.value }))}>
               {["ollama", "openai", "anthropic", "gemini"].map((provider) => <option key={provider} value={provider}>{provider}</option>)}
             </select>}
           </Field>}
-          {profile.kind === "cli" ? (
+          {!profile.modelProfileId && (profile.kind === "cli" ? (
             <>
               <div>
               {field("executable", "profile.executable", "text", {
@@ -157,7 +164,7 @@ function ProfileForm({ onSave, onClose, initial }) {
                 autoComplete: "off",
               })}
             </>
-          )}
+          ))}
           {field("timeoutSeconds", "profile.timeout", "number", {
             min: 1,
             max: 3600,
@@ -208,30 +215,18 @@ export default function Participants() {
   const { data, error, reload } = useData("participants", () =>
     api.participants(),
   );
+  const catalog = useData("catalog", async () => Object.fromEntries(await Promise.all(catalogKinds.map(async key => [key, await api.configuration(key)]))));
   const [modal, setModal] = useState(null);
-  return (
+  const agents = () => (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>{t("participants.title")}</h1>
-          <p>{t("participants.description")}</p>
+      <div className="tab-toolbar">
+        <p className="muted">{t("participants.description")}</p>
+        <div className="toolbar-actions">
+          <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
+          <Button label="participants.add" icon="plus" className="primary" onClick={() => setModal({ kind: "form" })} />
         </div>
-        <Button
-          label="participants.add"
-          icon="plus"
-          className="primary"
-          onClick={() => setModal({ kind: "form" })}
-        />
       </div>
       {error && <ErrorPanel error={error} retry={reload} />}
-      <div className="filters">
-        <Button
-          label="common.refresh"
-          icon="refresh"
-          iconOnly
-          onClick={reload}
-        />
-      </div>
       <div className="table-scroll">
         <table>
           <thead>
@@ -241,7 +236,7 @@ export default function Participants() {
               <th scope="col">{t("profile.typeColumn")}</th>
               <th scope="col">{t("profile.modelColumn")}</th>
               <th scope="col">{t("profile.enabledColumn")}</th>
-              <th scope="col">{t("common.actions")}</th>
+              <th scope="col" className="actions-cell">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -262,25 +257,12 @@ export default function Participants() {
                     {t(profile.enabled ? "profile.yes" : "profile.no")}
                   </span>
                 </td>
-                <td>
-                  <div className="row-actions">
-                    <Button
-                      label="common.edit"
-                      help="participants.add.help"
-                      onClick={() => setModal({ kind: "form", profile })}
-                    />
-                    <Button
-                      label="common.inspect"
-                      help="common.inspect"
-                      onClick={() => setModal({ kind: "json", profile })}
-                    />
-                    <Button
-                      label="common.delete"
-                      help="profile.delete.help"
-                      className="danger"
-                      onClick={() => setModal({ kind: "delete", profile })}
-                    />
-                  </div>
+                <td className="actions-cell">
+                  <ActionMenu context={profile.name} items={[
+                    { label: "common.edit", help: "participants.add.help", onClick: () => setModal({ kind: "form", profile }) },
+                    { label: "common.inspect", help: "common.inspect", onClick: () => setModal({ kind: "json", profile }) },
+                    { label: "common.delete", help: "profile.delete.help", danger: true, onClick: () => setModal({ kind: "delete", profile }) },
+                  ]} />
                 </td>
               </ObjectRow>
             ))}
@@ -290,8 +272,24 @@ export default function Participants() {
       {data?.length === 0 && (
         <div className="empty-state">{t("participants.empty")}</div>
       )}
+    </>
+  );
+  const tabs = [
+    { key: "agents", label: "participants.tab.agents", help: "participants.tab.agents.help", count: data?.length, render: agents },
+    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data} error={catalog.error} reload={catalog.reload} /> })),
+  ];
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <h1>{t("participants.title")}</h1>
+          <p>{t("participants.pageDescription")}</p>
+        </div>
+      </div>
+      <Tabs tabs={tabs} label="participants.title" />
       {modal?.kind === "form" && (
         <ProfileForm
+          api={api}
           initial={modal.profile}
           onClose={() => setModal(null)}
           onSave={async (profile) => {

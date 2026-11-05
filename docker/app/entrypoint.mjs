@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+const home = process.env.ARGUEBOT_HOME || '/data';
+fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+const settings = home + '/arguebot.json';
+if (!fs.existsSync(settings)) fs.writeFileSync(settings, JSON.stringify({ port: 4317, listenAddress: '0.0.0.0', maxParticipants: 16 }), { mode: 0o600, flag: 'wx' });
+const child = spawn('dotnet', ['/app/server/ArgueBot.Server.dll', '--home', home], { stdio: 'inherit' });
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => child.kill(signal));
+child.on('exit', code => process.exit(code ?? 1));
+child.on('error', () => { process.stderr.write('ArgueBot could not start. Check the container runtime and volume permissions.\n'); process.exit(1); });

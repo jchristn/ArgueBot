@@ -10,6 +10,8 @@ namespace ArgueBot.Tui
 
     internal sealed class ChoiceDialog : HelpDialog, IThemeable
     {
+        /// <summary>Prefix marking a choice as a non-selectable section heading, for example Heading + "Setup".</summary>
+        internal const string Heading = "\u0001";
         private readonly string[] _Choices;
         private readonly string _Description;
         private readonly Dictionary<int, Rect> _HitAreas = new Dictionary<int, Rect>();
@@ -27,6 +29,16 @@ namespace ArgueBot.Tui
             Title = _Description.Length == 0 ? title : "Choose an action";
             FooterHint = "↑↓ move | Enter select | Esc back";
             MaxContentWidth = 76; MaxContentHeight = 22;
+            _Selected = Nearest(0, 1);
+        }
+        private bool IsHeading(int index) { return index >= 0 && index < _Choices.Length && _Choices[index].StartsWith(Heading, StringComparison.Ordinal); }
+        /// <summary>The closest selectable choice from an index, searching in a direction first and then back.</summary>
+        private int Nearest(int index, int direction)
+        {
+            index = Math.Max(0, Math.Min(index, _Choices.Length - 1));
+            for (int probe = index; probe >= 0 && probe < _Choices.Length; probe += direction) if (!IsHeading(probe)) return probe;
+            for (int probe = index; probe >= 0 && probe < _Choices.Length; probe -= direction) if (!IsHeading(probe)) return probe;
+            return 0;
         }
         /// <inheritdoc />
         public void ApplyTheme(Theme theme) { ApplyHelpTheme(theme); _Theme = theme; ApplyBorderTheme(theme); BackgroundStyle = theme.Text; }
@@ -37,17 +49,17 @@ namespace ArgueBot.Tui
             if (HandleDismiss(key, -1)) return true;
             switch (key.Code)
             {
-                case KeyCode.Up: Select(_Selected - 1); break;
-                case KeyCode.Down: Select(_Selected + 1); break;
-                case KeyCode.Home: Select(0); break;
-                case KeyCode.End: Select(_Choices.Length - 1); break;
-                case KeyCode.PageUp: Select(_Selected - _VisibleCount); break;
-                case KeyCode.PageDown: Select(_Selected + _VisibleCount); break;
-                case KeyCode.Enter: if (_Choices.Length > 0) Close(_Selected); break;
+                case KeyCode.Up: Select(_Selected - 1, -1); break;
+                case KeyCode.Down: Select(_Selected + 1, 1); break;
+                case KeyCode.Home: Select(0, 1); break;
+                case KeyCode.End: Select(_Choices.Length - 1, -1); break;
+                case KeyCode.PageUp: Select(_Selected - _VisibleCount, -1); break;
+                case KeyCode.PageDown: Select(_Selected + _VisibleCount, 1); break;
+                case KeyCode.Enter: if (_Choices.Length > 0 && !IsHeading(_Selected)) Close(_Selected); break;
             }
             return true;
         }
-        private void Select(int index) { _Selected = Math.Max(0, Math.Min(index, _Choices.Length - 1)); }
+        private void Select(int index, int direction) { _Selected = Nearest(index, direction); }
         /// <inheritdoc />
         public override bool HandleMouse(MouseEvent mouse)
         {
@@ -55,19 +67,19 @@ namespace ArgueBot.Tui
             if (!ContentBounds.Contains(new Point(mouse.X, mouse.Y))) return false;
             if (mouse.Kind == MouseEventKind.Wheel)
             {
-                if (mouse.Button == MouseButton.WheelUp) Select(_Selected - 1);
-                else if (mouse.Button == MouseButton.WheelDown) Select(_Selected + 1);
+                if (mouse.Button == MouseButton.WheelUp) Select(_Selected - 1, -1);
+                else if (mouse.Button == MouseButton.WheelDown) Select(_Selected + 1, 1);
                 return true;
             }
             if (mouse.Kind != MouseEventKind.Press || mouse.Button != MouseButton.Left) return false;
             Point local = new Point(mouse.X - ContentBounds.X, mouse.Y - ContentBounds.Y);
             if (_Overflow && local.X == ContentBounds.Width - 1 && local.Y >= _ListOffset)
             {
-                Select((local.Y - _ListOffset) * Math.Max(0, _Choices.Length - 1) / Math.Max(1, _ListHeight - 1)); return true;
+                Select((local.Y - _ListOffset) * Math.Max(0, _Choices.Length - 1) / Math.Max(1, _ListHeight - 1), 1); return true;
             }
             foreach (KeyValuePair<int, Rect> hit in _HitAreas)
             {
-                if (!hit.Value.Contains(local)) continue;
+                if (!hit.Value.Contains(local) || IsHeading(hit.Key)) continue;
                 _Selected = hit.Key; Close(_Selected); return true;
             }
             return false;
@@ -103,7 +115,7 @@ namespace ArgueBot.Tui
             int totalRows = 0;
             foreach (string choice in _Choices) totalRows += Math.Max(1, Rows(choice, content.Size.Width - 3, _Theme.Text).Count);
             _Overflow = totalRows > available;
-            _Top = Math.Min(_Top, _Selected);
+            _Top = Math.Min(_Top, IsHeading(_Selected - 1) ? _Selected - 1 : _Selected);
             int selectedRows = 0;
             for (int index = _Top; index <= _Selected && index < _Choices.Length; index++) selectedRows += Math.Max(1, Rows(_Choices[index], content.Size.Width - 3, _Theme.Text).Count);
             while (_Top < _Selected && selectedRows > available)
@@ -113,15 +125,16 @@ namespace ArgueBot.Tui
             int y = offset; _VisibleCount = 0;
             for (int index = _Top; index < _Choices.Length && y < content.Size.Height; index++)
             {
-                CellStyle style = index == _Selected ? _Theme.Selection : _Theme.Text;
-                IReadOnlyList<StyledText> rows = Rows(_Choices[index], content.Size.Width - 3, style);
+                bool heading = IsHeading(index);
+                CellStyle style = index == _Selected ? _Theme.Selection : heading ? _Theme.Accent : _Theme.Text;
+                IReadOnlyList<StyledText> rows = Rows(heading ? _Choices[index].Substring(Heading.Length).ToUpperInvariant() : _Choices[index], content.Size.Width - 3, style);
                 int naturalHeight = Math.Max(1, rows.Count);
                 if (naturalHeight > content.Size.Height - y && index != _Selected) break;
                 int height = Math.Min(naturalHeight, content.Size.Height - y);
                 Rect area = new Rect(0, y, Math.Max(0, content.Size.Width - 1), height);
                 content.Fill(area, Cell.Blank(style)); _HitAreas[index] = area; _VisibleCount++;
-                content.DrawText(0, y, index == _Selected ? "> " : "  ", style);
-                for (int row = 0; row < rows.Count && row < height; row++) content.DrawStyledText(2, y + row, rows[row]);
+                if (!heading) content.DrawText(0, y, index == _Selected ? "> " : "  ", style);
+                for (int row = 0; row < rows.Count && row < height; row++) content.DrawStyledText(heading ? 0 : 2, y + row, heading ? rows[row].Bold() : rows[row]);
                 y += height;
             }
             _VisibleCount = Math.Max(1, _VisibleCount);

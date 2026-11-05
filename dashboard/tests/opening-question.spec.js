@@ -1,0 +1,30 @@
+import { test, expect } from "@playwright/test";
+
+test("new conversation asks for a title and an opening question, and the debate starts from the question", async ({ page, request }) => {
+  const title = "Opening flow " + Date.now();
+  const question = "Should the billing service own its own database?";
+  for (const name of ["Opening A", "Opening B"]) await request.post("/v1.0/api/participants", { data: { name: name + " " + title, kind: "cli", provider: "claude" } });
+  await page.goto("/dashboard/conversations");
+  await page.getByRole("button", { name: "New conversation", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "New conversation" });
+  await expect(dialog.getByRole("textbox", { name: "Title", exact: true })).toBeFocused();
+  await dialog.getByRole("textbox", { name: "Title", exact: true }).fill(title);
+  await dialog.getByRole("textbox", { name: "Opening question (optional)", exact: true }).fill(question);
+  await page.screenshot({ path: "../.run/screenshots/new-conversation-dialog.png" });
+  await dialog.getByRole("button", { name: "Create conversation", exact: true }).click();
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  const id = page.url().split("/").at(-1);
+  const stored = await (await request.get(`/v1.0/api/conversations/${id}`)).json();
+  expect(stored.title).toBe(title);
+  expect(stored.openingQuestion).toBe(question);
+  await page.getByRole("button", { name: "Start debate" }).first().click();
+  const start = page.getByRole("dialog");
+  await expect(start.getByRole("textbox", { name: "Debate question", exact: true })).toHaveValue(question);
+  await page.keyboard.press("Escape");
+  await page.goto("/dashboard/conversations");
+  await page.getByRole("searchbox").fill(title);
+  const row = page.getByRole("row").filter({ hasText: id });
+  await expect(row.getByRole("cell").first()).toHaveText(title);
+  await expect(row).not.toContainText(question);
+  await request.delete(`/v1.0/api/conversations/${id}`);
+});

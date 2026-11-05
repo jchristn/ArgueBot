@@ -1,6 +1,103 @@
 # Changelog
 
-## Unreleased
+## Unreleased: v2.0.0
+
+v2.0.0 is a complete rewrite of ArgueBot and the successor to its Node.js prototype (0.1.0). It replaces the npm-based CLI, terminal and web interfaces with one C# service that owns all execution and storage, and three clients that share it: a terminal interface (TUI), a React web dashboard and a scriptable CLI. Debates become structured, multi-agent and moderated. This release is still an unpublished preview on the `feature/v2.0.0` branch.
+
+### Highlights
+
+- **Multi-agent debate protocol.** Panels of 2 to 16 agents by default (configurable up to 64) with a separate orchestrator. Each round the orchestrator asks one question, agents respond, the orchestrator proposes an answer and every active agent votes. Consensus requires explicit agreement from every active agent on the same proposal. Invalid structured replies get one correction request before the debate pauses.
+- **Agents.** Claude Code, Codex, Gemini CLI, Mux and generic CLI harnesses, plus REST models through Ollama or OpenAI-compatible endpoints. REST models can run local file and process tools on the service machine. Agents get built-in evidence tools: list and search turns, read full turns and summaries, check supporting evidence, inspect debate state and ask the moderator for clarification.
+- **Moderation.** Shared or private context delivered immediately or at the next turn, pinned constraints, proposal edits, roster changes at safe boundaries, and pause, resume, interrupt, extend and stop controls.
+- **Memory.** Source-linked, seven-section working memory with private partitions, so long debates fit model context without discarding original turns.
+- **Prompt library.** Read-only factory prompts for each debate step, editable duplicates with validated `{parameters}`, per-conversation choices and prompts frozen with each debate.
+- **Reusable configuration.** Models, CLI harnesses, HTTP endpoints and encrypted credentials (Claude Code tokens, Codex logins, bearer, header and query API keys) with master-key rotation, retirement and a confirmed reveal. Per-run execution budgets, timeouts and output limits.
+- **Interfaces.**
+  - Web dashboard: live timeline, full-page transcript reader, Prompts and Participants pages, request history and an API Explorer.
+  - TUI: guided setup and run controls.
+  - CLI and REST API: the same workflows, with generated OpenAPI and Postman artifacts.
+- **Operations.** SQLite by default or PostgreSQL, automatic schema upgrades with a backup first, a Docker image with health checks, and self-contained builds for Windows, macOS and Linux on x64 and ARM64.
+- **Diagnostics.** Failed turns explain their cause, such as provider authorization, rate limits, outages, disconnects, timeouts and output limits. Every generation attempt is recorded with its exact context, and local runner-failure records keep the raw agent output.
+
+### Removed before release
+
+Development of the v2.0.0 preview added and later removed several capabilities. The detailed entries below mention them as they happened; none of them ship in v2.0.0:
+
+- User accounts, roles, permissions, login, pairing, sessions, tenant administration and the security audit. ArgueBot is one open local workspace.
+- MySQL and SQL Server providers. SQLite and PostgreSQL remain.
+- The bundled external metrics, traces and logs stack. Local logs and request history remain.
+- Public backup and restore workflows. Upgrades still take an automatic backup first.
+- The Node.js 0.1.0 CLI, terminal and web interfaces and their npm commands.
+
+### Upgrade notes
+
+- Databases from earlier v2 previews upgrade automatically on startup (currently schema 29). SQLite upgrades create a backup first; PostgreSQL upgrades take a logical snapshot. Older binaries refuse a newer schema.
+- Existing protocol 1 debate histories keep their original rules. New debates use protocol 2.
+- Inline agent profiles from before schema 14 become reusable models and harnesses; historical run snapshots stay unchanged.
+
+### Detailed changes
+
+The entries below record the preview's development in reverse order, newest first.
+
+- TUI: group the Menu and Run controls under section headings that arrow keys skip, remove the duplicate Stop entry, and rewrite Help as ten task-ordered topics (first debate, navigation, agents, configuration and prompts, starting, steering, after a debate, troubleshooting, shortcuts, and data) with stale account and credential guidance removed.
+- Show orchestrator questions, proposals, votes and summaries as readable text in the TUI and dashboard even when a model wraps its JSON reply in a code fence, and when a long reply arrives as a cut-off preview or is still streaming.
+- Set the product version to 2.0.0.
+- Add a full-page transcript reader for finished and running conversations: contents by debate and round, the final proposal with a per-agent vote table, rounds with the orchestrator question, responses and vote tables, moderator context, per-agent colors with a filter to hide agents, tool calls folded or hidden, foldable turns, full text for long turns, Copy as Markdown and print or save as PDF.
+- Workspace: long turns that arrive as a bounded preview now load and render their full text when shown, and every turn has Open in window for a wide markdown reader (tables included). A live row at the end of the transcript shows which agent is working, on which step, for how long, and its latest visible activity, even when the agent streams nothing. Scrolling up no longer pins the page, so new turns keep arriving; paging back still pins it. Previews keep identifiers such as get_debate_state intact.
+- Workspace: a compact Timeline view (now the default) for watching debates: one line per turn with agent color, step, vote position and a preview that follows streaming text, numbered rounds, grouped tool calls, in-place expansion and automatically opened failures. The card view remains a choice. The workspace header, run strip and transcript toolbar take less height, and the start debate dialog is wider.
+- Fix Codex turns failing as malformed output when Codex reports a configuration warning: its `error` items carry a plain-text `message`, which the CLI parser now accepts and ignores. The parser also skips other field shapes it does not use, such as the object `result` of Codex tool-call items and web-search results, instead of failing the turn. Space the participant name and ID apart in the generation attempts table.
+- Add a debate prompt library (schema 29): read-only factory prompts for the question, response, proposal, vote and summary steps that reproduce the built-in text exactly, plus custom prompts made by duplicating them. Prompts use `{parameters}` validated against a per-step legend. Conversations choose a prompt per step, the start dialog can override the choice, and each debate freezes the chosen text. Available from the dashboard Prompts page, TUI Prompts menu, `prompts` CLI commands and `/v2.0/api/prompts`.
+- Conversations have a title and a separate optional opening question (schema 28, `openingQuestion` in the API, `--question` in the CLI, two prompts in the TUI). New conversation asks for both; debates default to the opening question, or the title when it is blank, and the web start dialog shows the question for editing. Updates that omit the opening question keep it.
+- Conversations: a Stop debate action (with confirmation) for unfinished debates, delete errors shown inside the delete dialog with a Stop debate and delete option, and notices rendered inside an open dialog instead of beneath it.
+- Clicking a conversation row opens the conversation; tab toolbar and settings actions sit flush right; transcript cards are denser, with a stronger edge color per agent, assigned in roster order from a 12-hue palette so agents never share a color (a name hash had given Claude Code and Codex the same one).
+- Dashboard density and navigation: tighter spacing across pages, tables, forms and dialogs; a smaller row Actions trigger; a compact request inspector; a 66% taller request chart; Title Case navigation and tab names; collapsible transcript cards with Collapse all, Expand all and Jump to turn; and the message feed as the workspace's only scrolling region (hidden copy-status text no longer stretched the page).
+- Add an explicit credential reveal for the moderator: `POST /v2.0/api/configuration/credentials/{id}/reveal`, the client, `configuration credentials reveal ID` in the CLI, Reveal value in the TUI, and a confirmed Reveal value action in the dashboard with show, hide and copy. Request history excludes credential response bodies as well as request bodies; model tools never expose reveal.
+- Topbar: the repository link uses the GitHub mark, and the server address shows in a badge.
+- Dashboard tables: replace per-row button groups with a single Actions menu that renders above the table, opens above its button near the bottom of the screen and stays inside the viewport, with arrow-key, Escape and outside-click handling. The conversations list shows a Title column and a Rename action.
+- Show credential setup commands for macOS, Linux or Windows PowerShell, defaulting to the browser's platform, with a remembered switch; the TUI help uses the host shell.
+- Keep primary button text readable on hover in light and dark themes, with an automated hover-contrast check across routes.
+- Add bearer token, header key and value, and query string key and value HTTP credential types (schema 27). Header and query credentials store their parameter name, the add dialog adapts to the chosen type, and endpoint bindings that use a typed credential take its placement. Harness logins can no longer be bound to endpoints.
+- Web Participants page: split agents, models, CLI harnesses, HTTP endpoints and credentials into URL-linked tabs with tables. Credentials show kind, status and which harnesses and endpoints use them, and the add dialog explains how to obtain a Claude Code token, a dedicated Codex login or an API key, with copyable commands. Harness forms offer only credentials of the matching kind and explain that None uses the service user's own login, which Docker lacks. The TUI credential help gives the same steps.
+
+- Classify provider refusals as `provider_unauthorized` (401/403), `provider_rate_limited` (429, with the provider's Retry-After interval in the message), `provider_unavailable` (5xx), `provider_disconnected` (midstream drop, partial text kept) and `provider_unreachable`, each with recovery guidance. Add 403, 5xx and midstream-disconnect scenarios to the provider simulation, and an invalid refresh response fixture.
+- Docker: health checks gain a start period and faster start interval, the published port comes from `ARGUEBOT_PORT`, a secret-free `docker/.env.example` documents provider settings, and the guide states the local-execution trust model.
+
+- Web workspace: show the debate panel beside the transcript with a remembered Show/Hide control, merge each tool call's start and result into one card (also in the TUI), make summary citations open their sources, and show moderator turns as "You". Add parameter and body-field guidance, placeholder and JSON checks to the API Explorer, a clarification dialog component test, and an automated structural accessibility, right-to-left and pseudo-locale review that found and fixed clipped right-to-left sidebar text.
+
+- Credentials: keep a Codex login usable when its refresh request never reaches the login service or is refused with 429 or 5xx (`refresh_unavailable`), and label `refresh_uncertain` as Sign-in needed across the web and TUI. Refuse master-key rotation before changing keys when an enabled credential cannot be decrypted, skip unreadable disabled ones, and add explicit retirement of earlier keys from every interface. Redact only credential-like inherited environment values.
+
+- Complete the model evidence tools: `list_turns` seat and phase filters with a `nextAfter` cursor; literal, case-insensitive `search_context` with match-centered snippets that behaves the same on SQLite and PostgreSQL; `get_supporting_details` for up to 20 IDs with summary source links and explicit gaps; and pinned constraints plus earlier positions in `get_debate_state`. Deduplicate repeated clarification requests within an invocation, and reject summaries that do not attribute a supplied pinned constraint.
+
+- Reject invalid debate setups with field-specific errors (`field` in API errors, CLI output, web and TUI setup), including over-limit panels, repeated profiles and duplicate seat names. Ask a model once for a corrected reply after an invalid question, proposal or vote before pausing (schema 26). Let the moderator edit the proposal under vote from every interface; all seats vote again and votes on the replaced proposal stay as history.
+
+- Scope private directives to their recipient: they no longer advance the shared context epoch, reset the round or interrupt another agent, and a recipient that has not yet seen one votes again before the debate finalizes, with its earlier vote kept as superseded history (schema 25).
+
+- Keep the previous summary active until a moderator rebuild validates (schema 24), and stop a turn that asks a blocking clarification from advancing or voting. Add race, vote-position and roster regression tests.
+- Require an explicit delivery choice for every web context submission and clarification answer; show protocol-aware outcomes, proposal access and Home debate status; clarify connection-form help, terminal delivery and proposal views, and reorganize CLI help.
+
+- Fix v2 debate extension after the round limit, interjections lost to concurrent run updates or stored without their run, late output after cancellation, summary-source validation order, shared-only summary rebuild deactivation and startup detection of a missing rotated credential keyring.
+
+- Add manifest-driven self-contained distribution builds for six runtime targets, native macOS/Windows/Linux packaging recipes, checksum-pinned tooling and packaging CI. Verify macOS bundle startup and Linux arm64 package installation, same-version replacement, browser/terminal entry points and data-preserving removal. Windows native execution and publication remain unverified.
+
+- Add explicit inherited environment names to reusable harnesses across web, TUI, CLI and API, freeze selections with participant snapshots, and redact selected values from model output.
+- Verify the application container on Linux arm64, including credential injection, encrypted persistence, key rotation and missing-key recovery. Fix the clean dashboard build and loopback Host/origin validation for container port mappings.
+
+- Add reusable model output-capture limits and HTTP generated-token, temperature and top-p overrides, frozen into accepted run snapshots and editable through web, TUI, CLI and API.
+
+- Classify compacted memory into seven explicit sections, expose original hashes and parent summaries across interfaces, and distinguish direct moderator-context delivery from summary-based delivery. Invalid replacement summaries preserve prior memory and original evidence.
+
+
+- Implement the v2.0.0 preview: configurable multi-agent panels, explicit unanimous ratification, a selected orchestrator model, safe-boundary roster changes, and per-interjection interrupt/next-turn delivery.
+- Add source-linked context compaction, scoped evidence tools, blocking moderator clarification and native Claude/Codex MCP invocation bridges.
+- Add reusable endpoints, harnesses and models; combined HTTP auth bindings; encrypted write-only credential import; serialized Codex refresh and isolated invocation homes.
+- Add independent execution budgets, orchestration guidance, shared endpoint capacity, actual transport-aware context sizing, private summary partitions, paged source manifests, credential revision provenance, versioned master-key rotation and explicit completion/tool verification.
+- Expose debate, configuration, memory and recovery workflows in the dashboard, TUI, CLI, native client, REST reference, API Explorer and Postman artifacts. Add an application Docker build and deployment guide.
+- Add post-implementation browser and terminal layout checks, four-agent CLI/Postman journeys, and recovery/provider tests. PostgreSQL acceptance passes locally. Linux arm64 container acceptance passes with fictional providers; live-provider and other platform acceptance remain open; see MULTIPLE_AGENTS_PLAN.md.
+
+
+- Accept successful indexed Claude results that repeat earlier assistant messages after background-agent wakeups, without duplicating text or accepting conflicting replacements for the same result index.
+
+- Distinguish CLI/REST turn deadlines from explicit interruption, stop and service shutdown; expose recovery guidance for interrupted cards, frozen timeouts and live elapsed time, open the matching historical run when inspecting a failed turn, and correlate generation logs with attempt and response IDs.
 
 - Explain I/O failures beside failed answers in the dashboard and TUI, preserve specific output-limit causes across reloads, and recover safe explanations from retained historical diagnostics.
 - Preserve the original question when b starts another debate in an existing TUI conversation, keep it editable, and freeze the reviewed question in new debate runs. Ctrl+N still starts blank.

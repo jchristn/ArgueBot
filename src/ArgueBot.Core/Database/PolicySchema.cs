@@ -1,0 +1,15 @@
+namespace ArgueBot.Core.Database
+{
+    internal static class PolicySchema
+    {
+        internal const string Create = """
+CREATE TABLE IF NOT EXISTS debate_policies(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, max_participant_turns BIGINT NOT NULL DEFAULT 8192, max_orchestration_calls BIGINT NOT NULL DEFAULT 256, max_compaction_calls BIGINT NOT NULL DEFAULT 256, max_tool_calls BIGINT NOT NULL DEFAULT 8192, max_wall_clock_seconds BIGINT NOT NULL DEFAULT 86400, max_context_characters BIGINT NOT NULL DEFAULT 262144, max_estimated_input_tokens BIGINT NOT NULL DEFAULT 0, question_instructions TEXT NOT NULL DEFAULT '', synthesis_instructions TEXT NOT NULL DEFAULT '', summary_instructions TEXT NOT NULL DEFAULT '', participant_turns BIGINT NOT NULL DEFAULT 0, orchestration_calls BIGINT NOT NULL DEFAULT 0, compaction_calls BIGINT NOT NULL DEFAULT 0, tool_calls BIGINT NOT NULL DEFAULT 0, estimated_input_tokens BIGINT NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, FOREIGN KEY(tenant_id,id) REFERENCES runs(tenant_id,id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS debate_attempt_usage(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, estimated_input_tokens BIGINT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, FOREIGN KEY(tenant_id,id) REFERENCES generation_attempts(tenant_id,id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS debate_tool_reservations(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, attempt_id TEXT NOT NULL, call_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(attempt_id,call_id), FOREIGN KEY(tenant_id,run_id) REFERENCES runs(tenant_id,id) ON DELETE CASCADE);
+""";
+        internal const string Upgrade = """
+INSERT INTO debate_policies(id,tenant_id,max_wall_clock_seconds,created_utc,updated_utc) SELECT run_id,tenant_id,0,created_utc,updated_utc FROM debate_state WHERE NOT EXISTS(SELECT 1 FROM debate_policies p WHERE p.id=debate_state.run_id);
+UPDATE debate_policies SET participant_turns=(SELECT COUNT(*) FROM debate_attempts d JOIN generation_attempts a ON a.id=d.attempt_id WHERE a.run_id=debate_policies.id AND d.purpose IN ('response','ratification')), orchestration_calls=(SELECT COUNT(*) FROM debate_attempts d JOIN generation_attempts a ON a.id=d.attempt_id WHERE a.run_id=debate_policies.id AND d.purpose IN ('question','synthesis')), compaction_calls=(SELECT COUNT(*) FROM debate_attempts d JOIN generation_attempts a ON a.id=d.attempt_id WHERE a.run_id=debate_policies.id AND d.purpose='compaction');
+""";
+    }
+}

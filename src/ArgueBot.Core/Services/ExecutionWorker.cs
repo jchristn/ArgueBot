@@ -10,6 +10,7 @@ namespace ArgueBot.Core.Services
         internal Task Completion { get; set; } = Task.CompletedTask;
         internal CancellationTokenSource? Generation { get; set; }
         internal bool PauseAfterTurn { get; set; }
+        internal bool InterruptRequested { get; set; }
         internal bool StopRequested { get; set; }
         internal bool SkipWindow { get; set; }
         internal ConcurrentDictionary<string, long> Holds { get; } = new ConcurrentDictionary<string, long>();

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ArgueBot web
+Comment=Open the moderated debate workspace in your browser
+Exec=arguebot-web
+Icon=arguebot
+Terminal=false
+Categories=Development;

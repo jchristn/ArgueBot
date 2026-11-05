@@ -1,5 +1,6 @@
 namespace ArgueBot.Core.Configuration
 {
+    using ArgueBot.Core.Database;
     using System;
     using System.Collections.Generic;
     using System.IO;
@@ -8,7 +9,6 @@ namespace ArgueBot.Core.Configuration
     using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
-    using ArgueBot.Core.Database;
 
     /// <summary>Typed bootstrap settings. Runner and conversation configuration lives in the database.</summary>
     public sealed class ServiceSettings
@@ -57,6 +57,10 @@ namespace ArgueBot.Core.Configuration
         public int ContextMaxMessages { get; set; } = 1000;
         /// <summary>Default maximum concurrent conversations.</summary>
         public int MaxConcurrentRuns { get; set; } = 4;
+        /// <summary>Maximum active participants per debate, 2 through 64. Requires restart.</summary>
+        public int MaxParticipants { get; set; } = 16;
+        /// <summary>Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port.</summary>
+        public string ListenAddress { get; set; } = "127.0.0.1";
         /// <summary>Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only.</summary>
         public bool AllowCli { get; set; } = true;
         /// <summary>Load or atomically create service settings.</summary>
@@ -105,6 +109,8 @@ namespace ArgueBot.Core.Configuration
         /// <summary>Validate settings before they can become the next startup configuration.</summary>
         public void Validate()
         {
+            if (ListenAddress != "127.0.0.1" && ListenAddress != "0.0.0.0") throw new InvalidDataException("ListenAddress must be 127.0.0.1 or 0.0.0.0.");
+            if (MaxParticipants < 2 || MaxParticipants > 64) throw new InvalidDataException("MaxParticipants must be 2 through 64.");
             if (TlsPasswordEnvironmentVariable == null || (TlsPasswordEnvironmentVariable.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(TlsPasswordEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$"))) throw new ArgumentException("Use a TLS password environment variable name.");
             if (EventRetentionDays < 1 || EventRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(EventRetentionDays));
             if (EventMaxPerConversation < 1 || EventMaxPerConversation > 1000000) throw new ArgumentOutOfRangeException(nameof(EventMaxPerConversation));
