@@ -32,7 +32,7 @@ If the operating system blocks a downloaded build, review the source and checksu
 
 ## Getting started
 
-Source builds require the .NET 10 SDK. The repository pins its SDK in [global.json](global.json). Building the web dashboard also requires Node.js 24 and npm; the terminal interface does not require npm. The shared library/test matrix additionally uses .NET 8.
+Source builds require the .NET 10 SDK. The repository pins its SDK in [global.json](global.json). Building the web dashboard also requires Node.js 24 and npm; the terminal interface does not require npm. The .NET 8 SDK is also needed for the shared library/test matrix and for the launchers' `net8.0` option.
 
 Clone the repository and choose an interface:
 
@@ -45,6 +45,8 @@ Clone the repository and choose an interface:
 `stop-web` shuts the service down, which needs a system administrator: sign in once with the CLI's `login` (the session is remembered for that home), or set `ARGUEBOT_TOKEN`.
 
 Both launchers build before running. The web launcher installs dashboard dependencies when needed, starts or attaches to the selected service, and prints the URL to open in your browser. The default URL is <http://127.0.0.1:4317/dashboard>. Re-running it reuses the service for that application home.
+
+Each launcher accepts an optional target framework as its first argument, `net8.0` or `net10.0` (the default). For example, `./go-tui.sh net8.0` or `go-web.bat net8.0 --port 4417` builds and runs the .NET 8 build. Building for .NET 8 requires the .NET 8 SDK.
 
 Every interface asks you to sign in. A new service starts with a default administrator, **`admin@arguebot`** with password **`password`**, and a default bearer token **`arguebotadmin`**. The sign-in pages always show them. Change the password after you first sign in. Docker and external telemetry services are not required.
 

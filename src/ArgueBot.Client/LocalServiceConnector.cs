@@ -2,6 +2,7 @@ namespace ArgueBot.Client
 {
     using System;
     using System.Diagnostics;
+    using System.Globalization;
     using System.IO;
     using System.Net.Http;
     using System.Net.Http.Json;
@@ -68,7 +69,7 @@ namespace ArgueBot.Client
                 if (!autoStart) throw new InvalidOperationException("The local service is not running. Start ArgueBot.Server or omit --no-start.");
                 ProcessStartInfo start = LocateServer();
                 start.ArgumentList.Add("--home"); start.ArgumentList.Add(paths.Home); start.ArgumentList.Add("--detached");
-                if (portOverride.HasValue) { start.ArgumentList.Add("--port"); start.ArgumentList.Add(portOverride.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
+                if (portOverride.HasValue) { start.ArgumentList.Add("--port"); start.ArgumentList.Add(portOverride.Value.ToString(CultureInfo.InvariantCulture)); }
                 start.UseShellExecute = false; start.CreateNoWindow = true;
                 start.RedirectStandardInput = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
                 using (Process process = OperatingSystem.IsWindows() ? WindowsServiceLauncher.Start(start) : Process.Start(start) ?? throw new IOException("The local service process could not start."))
@@ -118,7 +119,7 @@ namespace ArgueBot.Client
                     string project = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "ArgueBot.Server.csproj");
                     if (File.Exists(project))
                     {
-                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", "net10.0", "ArgueBot.Server.dll");
+                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", "net" + Environment.Version.Major.ToString(CultureInfo.InvariantCulture) + ".0", "ArgueBot.Server.dll");
                         break;
                     }
                     directory = directory.Parent;

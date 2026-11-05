@@ -2,7 +2,7 @@
 
 The C# TUI and web dashboard are the supported conversation interfaces. Both use the same persistent service.
 
-Build and launch from the repository root with `./go-tui.sh` on macOS/Linux or `go-tui.bat` on Windows. Both build the C# solution first and forward TUI arguments, for example `./go-tui.sh --home .run/home`. A manual equivalent is:
+Build and launch from the repository root with `./go-tui.sh` on macOS/Linux or `go-tui.bat` on Windows. Both build the service and TUI first and forward TUI arguments, for example `./go-tui.sh --home .run/home`. An optional first argument selects the target framework, `net8.0` or `net10.0` (the default), for example `./go-tui.sh net8.0 --home .run/home`. A manual equivalent is:
 
 ```sh
 dotnet build src/ArgueBot.sln -c Release
@@ -118,7 +118,7 @@ Help pages, message readers and debate review open at the beginning and wrap to 
 
 F1 Help contains eight scrollable guides: navigation, agent setup, debate setup/controls, final instructions after consensus, history/attempts, troubleshooting, administration/recovery, and theme/detaching. Each guide explains the workflow and keys, with examples and recovery steps. Escape returns to the contents, then to the workspace.
 
-For the web interface, `./go-web.sh` or `go-web.bat` builds the React dashboard and C# solution, then starts or attaches to the shared service and prints its plain dashboard URL. Open it directly. The default local workspace requires no authentication, account, tenant, pairing code or special link. The service continues in the background after the launcher exits. Run it again to reuse a running service. Both interfaces accept `--home PATH`; `--port N` selects the web service's port only when starting an absent service.
+For the web interface, `./go-web.sh` or `go-web.bat` (optionally followed by `net8.0` or `net10.0`) builds the React dashboard and C# solution, then starts or attaches to the shared service and prints its plain dashboard URL. Open it directly. The default local workspace requires no authentication, account, tenant, pairing code or special link. The service continues in the background after the launcher exits. Run it again to reuse a running service. Both interfaces accept `--home PATH`; `--port N` selects the web service's port only when starting an absent service.
 
 See [the usability review](TUI-USABILITY.md) for the comparison with Armada, Armor, S3Drive and Mux and the verification scope.
 

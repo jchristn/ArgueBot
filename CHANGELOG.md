@@ -53,6 +53,7 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 - TUI: a full-screen sign-in page with the server URL, email and password or a token, a tenant choice and an explicit opt-in for remote plain HTTP; the default credentials are always visible. The session is remembered for the home and refreshed while the TUI runs. Menu gains Account (identity, password, tokens, sessions, sign out, switch server), Administration (users, tenants, audit log) and Share a read-only link.
 - CLI: `login`, `logout`, `whoami`, `me`, `credentials`, `sessions`, `users`, `tenants`, `audit`, `shares`, `secrets` and `secret-keys`; `--token`, `ARGUEBOT_TOKEN`, `--tenant` and `--allow-http`. A remembered session is shared with the TUI in an owner-only `client-session.json` (never the password).
 - The C# client sends a bearer token on every request and event stream, and refuses plain HTTP to a remote server unless allowed.
+- `go-tui` and `go-web` take an optional target framework as their first argument (`net8.0` or `net10.0`, default `net10.0`), for example `go-tui.bat net8.0`. The service, CLI and TUI now also target .NET 8, and a source-tree client starts the service built for its own framework.
 
 ### API artifacts
 

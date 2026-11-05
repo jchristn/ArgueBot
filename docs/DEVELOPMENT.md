@@ -2,11 +2,11 @@
 
 The current runtime is C# with a React/Vite dashboard. It provides signed-in users in separate tenants (see [IDENTITY.md](IDENTITY.md)), service-owned execution, CLI and REST participants, and local tools for REST models. Roles and permissions (RBAC), pairing, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-`go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
+`go-tui` and `go-web` build and launch the supported interfaces. Pass `net8.0` or `net10.0` (the default) as the first argument to choose the target framework. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
 
 ## Build and test
 
-Use .NET 10 for applications, plus .NET 8 for shared library and test targets. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
+Applications (service, CLI and TUI) target .NET 8 and .NET 10, as do the shared libraries and tests. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
 
 ```sh
 npm --prefix dashboard ci
