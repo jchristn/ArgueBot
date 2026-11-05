@@ -13,3 +13,20 @@ describe("mergeToolActivity", () => {
     expect(mergeToolActivity(messages).map(message => message.id)).toEqual(["m1", "m2"]);
   });
 });
+
+import { messageContent } from "./message-content.js";
+describe("messageContent", () => {
+  const show = (kind, content, extra = {}) => messageContent({ kind, content, state: "completed", ...extra });
+  it("reads fenced replies, cut-off previews and streaming replies", () => {
+    expect(show("synthesis", '```json\n{"proposal": "Ship behind a flag."}\n```')).toBe("Ship behind a flag.");
+    expect(show("ratification", '```json\n{"proposalId":"p","position":"needs_information","rationale":"Missing data."}\n```')).toBe("**needs information**\n\nMissing data.");
+    expect(show("synthesis", '{"proposal": "Line one\\nLine \\u0022two\\u0022 is cut', { contentTruncated: true })).toBe('Line one\nLine "two" is cut…');
+    expect(show("question", '{"question": "Complete question.", "rationale": "cut', { contentTruncated: true })).toBe("Complete question.");
+    expect(show("question", '```json\n{"question": "Still wri', { state: "streaming" })).toBe("Still wri…");
+  });
+  it("leaves failed turns, plain text and ordinary responses unchanged", () => {
+    expect(show("question", '{"oops', { state: "failed" })).toBe('{"oops');
+    expect(show("question", "Plain question?")).toBe("Plain question?");
+    expect(show("response", '{"question": "x"}')).toBe('{"question": "x"}');
+  });
+});

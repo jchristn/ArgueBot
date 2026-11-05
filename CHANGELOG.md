@@ -39,6 +39,7 @@ Development of the v2.0.0 preview added and later removed several capabilities. 
 
 The entries below record the preview's development in reverse order, newest first.
 
+- Show orchestrator questions, proposals, votes and summaries as readable text in the TUI and dashboard even when a model wraps its JSON reply in a code fence, and when a long reply arrives as a cut-off preview or is still streaming.
 - Set the product version to 2.0.0.
 - Add a full-page transcript reader for finished and running conversations: contents by debate and round, the final proposal with a per-agent vote table, rounds with the orchestrator question, responses and vote tables, moderator context, per-agent colors with a filter to hide agents, tool calls folded or hidden, foldable turns, full text for long turns, Copy as Markdown and print or save as PDF.
 - Workspace: long turns that arrive as a bounded preview now load and render their full text when shown, and every turn has Open in window for a wide markdown reader (tables included). A live row at the end of the transcript shows which agent is working, on which step, for how long, and its latest visible activity, even when the agent streams nothing. Scrolling up no longer pins the page, so new turns keep arriving; paging back still pins it. Previews keep identifiers such as get_debate_state intact.
