@@ -32,6 +32,8 @@ namespace ArgueBot.Tui
         private int _ActionInProgress;
         private DateTime _FeedbackUntil;
         private readonly StatusBar _Status = new StatusBar { RightText = "ArgueBot", ReservedHint = KeyHint.For("f1", "Help") };
+        /// <summary>The signed-in user, tenant and server, shown in the status bar.</summary>
+        internal string Identity { get { return _Session?.Describe() ?? "ArgueBot"; } }
         private List<Conversation> _Conversations = new List<Conversation>();
         private string? _Selected;
         private string? _SelectedTitle;
@@ -46,7 +48,21 @@ namespace ArgueBot.Tui
         private UiDispatcher? _Dispatcher;
         private CancellationToken _Token;
         internal bool IsBusy { get { return Volatile.Read(ref _ActionInProgress) != 0; } }
-        internal ConversationApp(ArgueBotClient client) { _Client = client; }
+        private readonly TuiSession? _Session;
+        private readonly bool _ShowSplash;
+        /// <summary>Why the workspace closed.</summary>
+        internal TuiExit Exit { get; private set; } = TuiExit.Quit;
+        internal ConversationApp(ArgueBotClient client, TuiSession? session = null, bool showSplash = true) { _Client = client; _Session = session; _ShowSplash = showSplash; }
+        /// <summary>Close the workspace for a reason that returns to the sign-in page.</summary>
+        private void EndSession(TuiExit reason) { Exit = reason; _App?.Post(_App.Quit); }
+        private AccountWorkflow Account() { return new AccountWorkflow(_Client, _Session ?? throw new InvalidOperationException("Sign in first."), _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
+        /// <summary>Refresh a session token when it has less than ten minutes left, so a long-running TUI stays signed in.</summary>
+        private async Task KeepSessionAsync(CancellationToken token)
+        {
+            if (_Session == null || !_Session.IsSession || !_Session.ExpiresUtc.HasValue || _Session.ExpiresUtc.Value - DateTime.UtcNow > TimeSpan.FromMinutes(10)) return;
+            TokenResponse refreshed = await _Client.RefreshAsync(token).ConfigureAwait(false);
+            _Session.Remember(refreshed.Token, refreshed.ExpiresUtc, _Session.Persist);
+        }
         internal async Task RunAsync(CancellationToken token)
         {
             using (CancellationTokenSource polling = CancellationTokenSource.CreateLinkedTokenSource(token))
@@ -55,7 +71,7 @@ namespace ArgueBot.Tui
                 Task poll = Task.CompletedTask;
                 try
                 {
-                    await TuiApp.RunAsync(app => { Configure(app); poll = PollAsync(polling.Token); app.Post(() => Launch(() => SplashScreen.ShowAsync(app, polling.Token))); }, token).ConfigureAwait(false);
+                    await TuiApp.RunAsync(app => { Configure(app); poll = PollAsync(polling.Token); if (_ShowSplash) app.Post(() => Launch(() => SplashScreen.ShowAsync(app, polling.Token))); }, token).ConfigureAwait(false);
                 }
                 finally { polling.Cancel(); try { await poll.ConfigureAwait(false); } catch (OperationCanceledException) { } }
             }
@@ -166,7 +182,8 @@ namespace ArgueBot.Tui
         {
             while (!token.IsCancellationRequested)
             {
-                try { await RefreshAsync(token).ConfigureAwait(false); }
+                try { await KeepSessionAsync(token).ConfigureAwait(false); await RefreshAsync(token).ConfigureAwait(false); }
+                catch (DomainException ex) when (ex.StatusCode == 401) { EndSession(TuiExit.SessionEnded); return; }
                 catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
                 { _App?.Post(() => _Feedback.Content = Text.From("Connection: " + ex.Message, _App!.Theme.Error)); }
                 await Task.Delay(500, token).ConfigureAwait(false);
@@ -220,7 +237,7 @@ namespace ArgueBot.Tui
                     if (index >= 0) _Threads.Select(index);
                     _TotalPages = Math.Max(1, (int)Math.Min(int.MaxValue, (page.TotalCount + page.PageSize - 1) / Math.Max(1, page.PageSize)));
                     if (_LastContent != content) { TranscriptFormatter.Render(_Transcript, history.Items, _App!.Theme, title, failures); _LastContent = content; }
-                    if (DateTime.UtcNow >= _FeedbackUntil) _Feedback.Content = Text.From("Connected | " + page.TotalCount + (page.TotalCount == 1 ? " conversation" : " conversations") + " | Page " + _Page + "/" + _TotalPages + " | " + history.TotalCount + " messages", _App!.Theme.Muted);
+                    if (DateTime.UtcNow >= _FeedbackUntil) _Feedback.Content = Text.From((_Session == null ? "Connected" : _Session.ShortIdentity()) + " | " + page.TotalCount + (page.TotalCount == 1 ? " conversation" : " conversations") + " | Page " + _Page + "/" + _TotalPages + " | " + history.TotalCount + " messages", _App!.Theme.Muted);
                     return Task.FromResult(true);
                 }).ConfigureAwait(false);
             }
@@ -237,6 +254,7 @@ namespace ArgueBot.Tui
             _App?.Post(() => { foreach (Button button in _Actions.Buttons) button.IsEnabled = false; });
             try { await action().ConfigureAwait(false); }
             catch (OperationCanceledException) when (_Token.IsCancellationRequested) { }
+            catch (DomainException ex) when (ex.StatusCode == 401 && _Session != null) { EndSession(TuiExit.SessionEnded); }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 string message = ex is DomainException domain && domain.Code == "active_run"
@@ -353,17 +371,17 @@ namespace ArgueBot.Tui
         }
         private async Task CatalogAsync()
         {
-            int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "CLI harnesses", "Models", "Credentials (write-only)", "Credential encryption keys")).ConfigureAwait(false);
+            int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "CLI harnesses", "Models", "Secrets (write-only)", "Secret encryption keys")).ConfigureAwait(false);
             if (kind < 0) return;
             if (kind == 4)
             {
                 CredentialKeyStatus status = await _Client.CredentialKeysAsync(_Token).ConfigureAwait(false);
-                int action = await UiAsync(() => _App!.SelectStyledAsync("Credential encryption: active " + status.ActiveKeyId + ", " + status.RetainedKeyCount + (status.RetainedKeyCount == 1 ? " key" : " keys"), "Rotate master key and reencrypt stored credentials", status.RetainedKeyCount > 1 ? "Retire earlier keys (older backups lose their credentials)" : "Retire earlier keys (none to retire)", "Back")).ConfigureAwait(false);
+                int action = await UiAsync(() => _App!.SelectStyledAsync("Secret encryption: active " + status.ActiveKeyId + ", " + status.RetainedKeyCount + (status.RetainedKeyCount == 1 ? " key" : " keys"), "Rotate master key and reencrypt stored secrets", status.RetainedKeyCount > 1 ? "Retire earlier keys (older backups lose their credentials)" : "Retire earlier keys (none to retire)", "Back")).ConfigureAwait(false);
                 if (action == 0)
                 {
-                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Rotate the master key? Credential values and revisions stay the same. Previous keys remain for recovery until you retire them. Back up the protected secrets directory after rotation.")).ConfigureAwait(false)) return;
+                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Rotate the master key? Secret values and revisions stay the same. Previous keys remain for recovery until you retire them. Back up the protected secrets directory after rotation.")).ConfigureAwait(false)) return;
                     CredentialKeyStatus rotated = await _Client.RotateCredentialKeyAsync(status.ActiveKeyId, _Token).ConfigureAwait(false);
-                    await ReadPanelAsync("Credential key rotated", rotated.ReencryptedCredentials + " credentials reencrypted." + (rotated.SkippedCredentials > 0 ? " " + rotated.SkippedCredentials + " disabled credentials could not be read and were left unchanged; replace them to include them." : "") + " Active key: " + rotated.ActiveKeyId + "\nBack up the protected secrets directory separately from the database.").ConfigureAwait(false);
+                    await ReadPanelAsync("Secret key rotated", rotated.ReencryptedCredentials + " secrets reencrypted." + (rotated.SkippedCredentials > 0 ? " " + rotated.SkippedCredentials + " disabled credentials could not be read and were left unchanged; replace them to include them." : "") + " Active key: " + rotated.ActiveKeyId + "\nBack up the protected secrets directory separately from the database.").ConfigureAwait(false);
                 }
                 else if (action == 1 && status.RetainedKeyCount > 1)
                 {
@@ -385,7 +403,7 @@ namespace ArgueBot.Tui
                     if (action == 2)
                     {
                         EndpointPreview preview = await _Client.PreviewEndpointAsync(items[selected - 1].Id, _Token).ConfigureAwait(false);
-                        await ReadPanelAsync("Request preview", "Saved configuration only; no endpoint contacted or credential resolved. All values are redacted.\n\nPOST " + preview.GenerationUrl + "\n\nGET " + preview.DiscoveryUrl + "\n\nConfigured HTTP headers:\n\n" + (preview.HeaderNames.Count == 0 ? "None" : string.Join("\n\n", preview.HeaderNames.Select(name => name + ": [redacted]"))) + "\n\nConfigured query parameters:\n\n" + (preview.QueryNames.Count == 0 ? "None" : string.Join("\n\n", preview.QueryNames.Select(name => name + "=[redacted]"))) + "\n\nStandard protocol headers are added by the transport.").ConfigureAwait(false);
+                        await ReadPanelAsync("Request preview", "Saved configuration only; no endpoint contacted or secret resolved. All values are redacted.\n\nPOST " + preview.GenerationUrl + "\n\nGET " + preview.DiscoveryUrl + "\n\nConfigured HTTP headers:\n\n" + (preview.HeaderNames.Count == 0 ? "None" : string.Join("\n\n", preview.HeaderNames.Select(name => name + ": [redacted]"))) + "\n\nConfigured query parameters:\n\n" + (preview.QueryNames.Count == 0 ? "None" : string.Join("\n\n", preview.QueryNames.Select(name => name + "=[redacted]"))) + "\n\nStandard protocol headers are added by the transport.").ConfigureAwait(false);
                         return;
                     }
                     if (action == 1)
@@ -430,18 +448,18 @@ namespace ArgueBot.Tui
                 CredentialMetadata? item = selected == 0 ? null : credentials[selected - 1];
                 if (item != null)
                 {
-                    int action = await UiAsync(() => _App!.SelectStyledAsync(item.Name, "Replace value", "Reveal value", "Disable credential", "Back")).ConfigureAwait(false); if (action < 0 || action == 3) return;
+                    int action = await UiAsync(() => _App!.SelectStyledAsync(item.Name, "Replace value", "Reveal value", "Disable secret", "Back")).ConfigureAwait(false); if (action < 0 || action == 3) return;
                     if (action == 1)
                     {
                         int confirm = await UiAsync(() => _App!.SelectStyledAsync("Show " + item.Name + " on screen? Anyone who can see this terminal can read it.", "Cancel", "Reveal")).ConfigureAwait(false); if (confirm != 1) return;
                         RevealedCredential revealed = await _Client.RevealCredentialAsync(item.Id, _Token).ConfigureAwait(false);
-                        await ReadPanelAsync("Credential value", (revealed.ParameterName.Length > 0 ? revealed.ParameterName + ": " : "") + revealed.SecretValue).ConfigureAwait(false);
+                        await ReadPanelAsync("Secret value", (revealed.ParameterName.Length > 0 ? revealed.ParameterName + ": " : "") + revealed.SecretValue).ConfigureAwait(false);
                         revealed.SecretValue = "";
                         return;
                     }
                     if (action == 2) { await _Client.DisableCredentialAsync(item.Id, item.Revision, _Token).ConfigureAwait(false); return; }
                 }
-                await EditCatalogAsync("Import credential (write-only)", CatalogForms.Credential(item), async value => { await _Client.SaveCredentialAsync(item?.Id ?? "", value, _Token).ConfigureAwait(false); value.SecretValue = ""; }).ConfigureAwait(false);
+                await EditCatalogAsync("Import secret (write-only)", CatalogForms.Credential(item), async value => { await _Client.SaveCredentialAsync(item?.Id ?? "", value, _Token).ConfigureAwait(false); value.SecretValue = ""; }).ConfigureAwait(false);
             }
         }
         private async Task ModelChecksAsync(ModelProfile model)
@@ -887,6 +905,7 @@ namespace ArgueBot.Tui
                 Add("Ask one agent a follow-up question  (Ctrl+Y)", FollowupAsync);
                 Add("Read the full history  (Ctrl+L)", HistoryAsync);
                 Add("Inspect generation attempts  (Ctrl+G)", AttemptsAsync);
+                if (_Session != null) { string shareId = _Selected; string shareTitle = title; Add("Share a read-only link to this transcript", () => Account().ShareAsync(shareId, shareTitle)); }
                 Add("Delete this conversation  (d in the list)", DeleteConversationAsync);
             }
             Section("Conversations");
@@ -896,8 +915,25 @@ namespace ArgueBot.Tui
             if (_Page < _TotalPages) Add("Next page of conversations  (Alt+Right)", () => UiAsync(() => { ChangePage(1); return Task.FromResult(true); }));
             Section("Set up");
             Add("Agents: who can take part in a debate  (Ctrl+E)", ParticipantsAsync);
-            Add("Models, connections and credentials", CatalogAsync);
+            Add("Models, connections and secrets", CatalogAsync);
             Add("Prompts: the instructions each debate step sends", PromptsAsync);
+            if (_Session != null)
+            {
+                Section("Account");
+                Add("Who am I signed in as", () => Account().ShowAccountAsync());
+                if (_Session.IsSession) Add("Change your password", () => Account().ChangePasswordAsync());
+                Add("Your bearer tokens: create, disable or delete", () => Account().TokensAsync());
+                Add("Your sessions: sign out other devices", () => Account().SessionsAsync());
+                Add("Sign out", async () => { if (await UiAsync(() => _App.ConfirmStyledAsync("Sign out of " + _Session.Server + "?", "Sign out", "Cancel")).ConfigureAwait(false)) EndSession(TuiExit.SignOut); });
+                Add("Switch server: sign in to another ArgueBot service", () => { EndSession(TuiExit.SwitchServer); return Task.CompletedTask; });
+                if (_Session.IsTenantAdmin)
+                {
+                    Section("Administration");
+                    Add("Users in " + _Session.Details.Tenant.Name, () => Account().UsersAsync());
+                    if (_Session.IsSystemAdmin) Add("Tenants", () => Account().TenantsAsync());
+                    Add("Audit log: sign-ins, changes and denied requests", () => Account().AuditAsync());
+                }
+            }
             Section("View and help");
             Add((_App.Theme.Name == "Dark" ? "Switch to the light theme" : "Switch to the dark theme") + "  (Ctrl+T)", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
             Add("Help  (F1)", HelpAsync);

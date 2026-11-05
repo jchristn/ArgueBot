@@ -22,6 +22,8 @@ namespace ArgueBot.Tui
         private int _ListOffset;
         private int _ListHeight;
         private bool _Overflow;
+        /// <summary>The choices, including section headings (prefixed with <see cref="Heading"/>).</summary>
+        internal IReadOnlyList<string> Choices { get { return _Choices; } }
         internal ChoiceDialog(string title, string[] choices)
         {
             _Choices = choices;

@@ -38,7 +38,7 @@ namespace ArgueBot.Tui
                 Checkbox keep = new Checkbox("Keep this binding", true); form.Add("", keep);
                 Dropdown<string> kind = Choice(form, "Binding type", kinds, Array.IndexOf(kinds, binding.Kind), "No bindings means no added authentication. Bearer uses Authorization.");
                 TextField key = Text(form, "Header or query name", binding.Name, "API key, header and query bindings require a unique name.");
-                Dropdown<string> credential = Choice(form, "Stored credential", credentialNames, credentials.FindIndex(value => value.Id == binding.CredentialId) + 1, "Select exactly one value source for each binding.");
+                Dropdown<string> credential = Choice(form, "Stored secret", credentialNames, credentials.FindIndex(value => value.Id == binding.CredentialId) + 1, "Select exactly one value source for each binding.");
                 TextField environment = Text(form, "Environment reference", binding.EnvironmentVariable, "Name on the service host, never the secret value.");
                 TextField value = Text(form, "Nonsecret header value", binding.Value, "Routing metadata only. Authentication values must reference a credential or environment variable.");
                 bindings.Add(() => keep.Checked ? new HttpAuthBinding { Kind = kinds[kind.SelectedIndex], Name = key.Value, CredentialId = credential.SelectedIndex == 0 ? "" : credentials[credential.SelectedIndex - 1].Id, EnvironmentVariable = environment.Value, Value = value.Value } : new HttpAuthBinding { Kind = "removed" });
@@ -56,7 +56,7 @@ namespace ArgueBot.Tui
             Dropdown<string> provider = Choice(form, "Protocol", providers, Array.IndexOf(providers, item.Provider), "Choose a harness before adjusting its executable and arguments.");
             TextField executable = Text(form, "Executable", item.Executable, "Direct program name or path on the service host.", true);
             TextField directory = Text(form, "Working directory", item.WorkingDirectory, "Optional directory on the service host.");
-            Dropdown<string> credential = Choice(form, "CLI credential", new[] { "Use existing service-host login" }.Concat(credentials.Select(value => value.Name + " (" + value.Kind + ")")).ToArray(), credentials.FindIndex(value => value.Id == item.CredentialId) + 1, "Claude OAuth token or Codex auth.json. The service injects it for each invocation. In Docker there is no host login, so choose a stored credential.");
+            Dropdown<string> credential = Choice(form, "CLI secret", new[] { "Use existing service-host login" }.Concat(credentials.Select(value => value.Name + " (" + value.Kind + ")")).ToArray(), credentials.FindIndex(value => value.Id == item.CredentialId) + 1, "Claude OAuth token or Codex auth.json. The service injects it for each invocation. In Docker there is no host login, so choose a stored credential.");
             Checkbox enabled = new Checkbox("Enabled for new runs", item.Enabled); form.Add("", enabled);
             TextField environment = Text(form, "Inherited environment names", string.Join(", ", item.EnvironmentVariables), "Comma-separated service variable names only. Standard paths, locale, proxy and TLS settings are retained. Other variables require an explicit name here.");
             List<Func<string?>> arguments = new List<Func<string?>>();
@@ -126,17 +126,17 @@ namespace ArgueBot.Tui
             TextField name = Text(form, "Safe display name", item?.Name ?? "", "Never include a secret in the display name.", true);
             string[] kinds = new[] { "claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query", "token" };
             string[] kindLabels = new[] { "Claude Code OAuth token", "Codex auth.json login", "Bearer token", "Header key and value", "Query string key and value", "HTTP token (placement set on the endpoint)" };
-            Dropdown<string> kind = Choice(form, "Credential kind", kindLabels, Math.Max(0, Array.IndexOf(kinds, item?.Kind ?? "claude_oauth")), "Claude Code: run claude setup-token and paste the token. Codex: run " + CodexLoginCommand + ", then give the path to its auth.json. Bearer, header or query: an API key from the provider console; header and query kinds also need the parameter name below. Bind it to an endpoint. Existing kinds cannot change.");
+            Dropdown<string> kind = Choice(form, "Secret kind", kindLabels, Math.Max(0, Array.IndexOf(kinds, item?.Kind ?? "claude_oauth")), "Claude Code: run claude setup-token and paste the token. Codex: run " + CodexLoginCommand + ", then give the path to its auth.json. Bearer, header or query: an API key from the provider console; header and query kinds also need the parameter name below. Bind it to an endpoint. Existing kinds cannot change.");
             TextField parameter = Text(form, "Header or query name", item?.ParameterName ?? "", "Only for header and query kinds, for example x-api-key or key. Fixed after creation.");
             TextField secret = Text(form, "Paste value (masked)", "", "Write-only. Paste a token or complete Codex auth.json. Use a dedicated CLI login that no other process refreshes."); secret.MaskChar = '*';
-            TextField file = Text(form, "Or credential file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
+            TextField file = Text(form, "Or secret file path", "", "Optional local file. Read locally and send to the service; never persisted as configuration.");
             editor.Extract = () =>
             {
                 string value = secret.Value;
                 if (file.Value.Length > 0)
                 {
                     System.IO.FileInfo info = new System.IO.FileInfo(file.Value);
-                    if (info.Length > 65536) throw new InvalidOperationException("Credential files must be at most 64 KiB.");
+                    if (info.Length > 65536) throw new InvalidOperationException("Secret files must be at most 64 KiB.");
                     value = System.IO.File.ReadAllText(file.Value);
                 }
                 string chosen = kinds[kind.SelectedIndex];

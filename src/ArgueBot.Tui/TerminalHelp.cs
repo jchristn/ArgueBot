@@ -8,10 +8,11 @@ namespace ArgueBot.Tui
             "Get started: your first debate",
             "Find your way around",
             "Set up agents",
-            "Models, connections, credentials and prompts",
+            "Models, connections, secrets and prompts",
             "Start a debate",
             "Watch and steer a debate",
             "After a debate: follow-ups and reading",
+            "Accounts, servers and sign-in",
             "Troubleshooting",
             "Keyboard shortcuts",
             "Themes, detaching and your data"
@@ -64,7 +65,7 @@ namespace ArgueBot.Tui
 
             HTTP models
 
-            Choose the provider, the endpoint and the exact model name. For an API key, either set up a reusable model with a stored credential (see Models, connections, credentials and prompts) or enter the name of an environment variable on the service machine, never the key itself. HTTP agents can read and write files and run programs through the service's local tools, in their working directory.
+            Choose the provider, the endpoint and the exact model name. For an API key, either set up a reusable model with a stored secret (see Models, connections, secrets and prompts) or enter the name of an environment variable on the service machine, never the key itself. HTTP agents can read and write files and run programs through the service's local tools, in their working directory.
 
             Saving
 
@@ -73,21 +74,21 @@ namespace ArgueBot.Tui
             Press Escape to return to the Help contents.
             """,
             """
-            Models, connections, credentials and prompts
+            Models, connections, secrets and prompts
 
-            Menu > Models, connections and credentials manages reusable configuration. Menu > Prompts manages the instructions each debate step sends.
+            Menu > Models, connections and secrets manages reusable configuration. Menu > Prompts manages the instructions each debate step sends.
 
-            Credentials
+            Secrets
 
-            Import a credential once and reuse it. Kinds: Claude Code OAuth token (from claude setup-token), Codex login (the auth.json file from a dedicated codex login), bearer token, header key and value, and query string key and value. Values are encrypted on the service. Choosing a credential then Reveal value shows it after you confirm. In Docker or under another account, command-line agents need a stored credential because there is no local sign-in.
+            Import a secret once and reuse it. Kinds: Claude Code OAuth token (from claude setup-token), Codex login (the auth.json file from a dedicated codex login), bearer token, header key and value, and query string key and value. Values are encrypted on the service. Choosing a secret then Reveal value shows it after you confirm. In Docker or under another account, command-line agents need a stored secret because there is no local sign-in.
 
             Connections and models
 
-            An HTTP endpoint is an Ollama or OpenAI-compatible server, with optional authentication bindings that use stored credentials. A CLI harness is a reusable command-line program with its arguments and credential. A model names what an agent runs: a model ID on an endpoint, or a harness. Agents can select a reusable model. Model checks make a real call and can cost money; saving never calls a model.
+            An HTTP endpoint is an Ollama or OpenAI-compatible server, with optional authentication bindings that use stored secrets. A CLI harness is a reusable command-line program with its arguments and secret. A model names what an agent runs: a model ID on an endpoint, or a harness. Agents can select a reusable model. Model checks make a real call and can cost money; saving never calls a model.
 
             Encryption keys
 
-            Credential encryption keys shows the active key and offers rotation. After rotating, back up the protected secrets directory.
+            Secret encryption keys shows the active key and offers rotation. After rotating, back up the protected secrets directory.
 
             Prompts
 
@@ -161,6 +162,25 @@ namespace ArgueBot.Tui
             Press Escape to return to the Help contents.
             """,
             """
+            Accounts, servers and sign-in
+
+            Every ArgueBot service needs a sign-in. The sign-in page asks for the server URL, then your email and password, or a bearer token instead. It always shows the default administrator: admin@arguebot with password password, and the token arguebotadmin. Change that password soon, from Menu > Change your password.
+
+            Server URL. The TUI fills in the local service it started or attached to, for example http://127.0.0.1:4317. To use another machine, enter its address, such as https://arguebot.example.com. Remote servers should use HTTPS. Tick Allow plain HTTP only on a network you trust, because your password would cross it unencrypted. Menu > Switch server signs in somewhere else.
+
+            Tenants. People in a tenant share its conversations, agents and secrets; tenants never see each other's. If your email and password work in several tenants, the sign-in page asks which one.
+
+            Staying signed in. A successful sign-in is remembered for this home (the session token only, never the password) in client-session.json, readable only by you. The TUI refreshes it while it runs. Menu > Sign out ends the session and forgets it. To sign in with a token without saving it, set ARGUEBOT_TOKEN before starting.
+
+            Account. Menu > Your bearer tokens creates tokens for scripts and the CLI; a new token is shown once. Menu > Your sessions signs out other devices.
+
+            Administration. Tenant administrators see Menu > Users and Audit log: add people, reset passwords, disable sign-in and review sign-ins and denied requests. System administrators also see Tenants, and can open any tenant's users.
+
+            Sharing. With a conversation open, Menu > Share a read-only link creates a public link that expires after the time you choose. Anyone with the link can read the transcript, and nothing else. Revoke it from the same place.
+
+            Press Escape to return to the Help contents.
+            """,
+            """
             Troubleshooting
 
             Start with Ctrl+G: choose the run, then its latest attempt, and read the error and explanation.
@@ -171,7 +191,7 @@ namespace ArgueBot.Tui
 
             Sign-in or exit errors
 
-            Check that the program is signed in for the account running the service and that its arguments suit the installed version. For HTTP models check the endpoint, model name and credential. Environment changes need a service restart.
+            Check that the program is signed in for the account running the service and that its arguments suit the installed version. For HTTP models check the endpoint, model name and secret. Environment changes need a service restart.
 
             Malformed output (InvalidDataException)
 
@@ -179,7 +199,7 @@ namespace ArgueBot.Tui
 
             Provider refused, rate limited or unavailable
 
-            The attempt says which. Fix credentials, wait for the rate limit, or try later, then resume.
+            The attempt says which. Fix the secret, wait for the rate limit, or try later, then resume.
 
             A paused or running debate blocks something
 
