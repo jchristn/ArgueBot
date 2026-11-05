@@ -236,6 +236,35 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     });
     expect(edges.length).toBeGreaterThanOrEqual(4);
     expect(new Set(edges.map(([, color]) => color)).size, JSON.stringify(edges)).toBe(edges.length);
+    // The full-page reader stays legible with four agents, an orchestrator, the moderator and tool calls.
+    await page.getByRole("link", { name: "Read transcript" }).click();
+    await expect(page).toHaveURL(/\/read$/);
+    const doc = page.locator(".reader-document");
+    await expect(doc.locator(".reader-outcome")).toContainText("Final proposal");
+    const finalVotes = doc.locator(".reader-outcome .reader-votes tbody tr");
+    await expect(finalVotes).toHaveCount(4);
+    await expect(doc.locator(".reader-round-heading").first()).toHaveText("Round 1");
+    await expect(doc.locator(".reader-vote-block").first().locator("tbody tr")).toHaveCount(4);
+    await expect(doc.locator(".reader-tool")).toHaveCount(0);
+    const chips = page.getByRole("group", { name: "Speakers:" }).locator(".reader-chip");
+    expect(await chips.count()).toBeGreaterThanOrEqual(4);
+    const hueCount = await page.evaluate(() => new Set([...document.querySelectorAll(".reader-turn:not(.from-moderator)")].map(turn => getComputedStyle(turn).borderInlineStartColor)).size);
+    expect(hueCount).toBeGreaterThanOrEqual(4);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: "../.run/screenshots/reader-1440.png" });
+    const codex = chips.filter({ hasText: /^Codex/ });
+    await codex.click();
+    await expect(codex).toHaveAttribute("aria-pressed", "false");
+    await expect(doc.locator(".reader-turn").filter({ has: page.locator("summary strong", { hasText: /^Codex/ }) })).toHaveCount(0);
+    await page.getByRole("button", { name: "Show everyone" }).click();
+    await page.getByLabel("Show tool calls").check();
+    expect(await doc.locator(".reader-tool").count()).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.querySelector(".reader-page").scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+    await page.screenshot({ path: "../.run/screenshots/reader-390.png" });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("link", { name: "Back to workspace" }).click();
+    await expect(page.locator(".message-feed")).toBeVisible();
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(theme => { localStorage.setItem("arguebot.theme", theme); document.documentElement.dataset.theme = theme; }, theme);

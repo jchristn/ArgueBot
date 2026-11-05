@@ -10,7 +10,7 @@ import FailedTurn from "../components/FailedTurn.jsx";
 import CopyButton from "../components/CopyButton.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import { useEffect, useRef, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -370,6 +370,7 @@ function WorkspaceContent({ id }) {
           </div>
         </div>
         <div className="utilities">
+          <Link className="button primary" to={`/dashboard/conversations/${id}/read`} title={t("reader.open.help")}><Icon name="prompt" />{t("reader.open")}</Link>
           <CopyButton label="conversations.copy" disabled={!data.messagePage.totalCount} loadText={async () => {
             const messages = await api.allMessages(id);
             return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${messageContent(message)}`).join("\n\n");

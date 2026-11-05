@@ -184,6 +184,7 @@ export default function Conversations() {
                     <td className="actions-cell">
                       <ActionMenu context={record.title} items={[
                         { label: "conversations.open", help: "conversations.open.help", onClick: () => navigate("/dashboard/conversations/" + record.id) },
+                        { label: "reader.open", help: "reader.open.help", onClick: () => navigate("/dashboard/conversations/" + record.id + "/read") },
                         { label: "conversations.renameAction", help: "conversations.rename.help", onClick: () => setModal({ kind: "rename", record }) },
                         { label: record.pinned ? "conversations.unpin" : "conversations.pin", help: "conversations.pin.help", onClick: () => update(record, { pinned: !record.pinned }) },
                         { label: record.archived ? "conversations.unarchive" : "conversations.archive", help: "conversations.archive.help", onClick: () => update(record, { archived: !record.archived }) },

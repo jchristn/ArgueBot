@@ -20,6 +20,7 @@ const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
 const Prompts = lazy(() => import("./views/Prompts.jsx"));
+const TranscriptReader = lazy(() => import("./views/TranscriptReader.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
@@ -195,6 +196,7 @@ export default function App() {
       >
         {connected ? (
           <Routes>
+            <Route path="/dashboard/conversations/:id/read" element={<TranscriptReader />} />
             <Route
               element={
                 <Shell
