@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("table rows use an Actions menu that stays in the viewport and renames conversations", async ({ page, request }) => {
   test.setTimeout(120000);
@@ -23,7 +23,7 @@ test("table rows use an Actions menu that stays in the viewport and renames conv
       await trigger.click();
       const menu = page.getByRole("menu");
       await expect(menu).toBeVisible();
-      await expect(menu.getByRole("menuitem")).toHaveText(["Open conversation", "Read transcript", "Rename", "Pin", "Archive", "View JSON", "Delete"]);
+      await expect(menu.getByRole("menuitem")).toHaveText(["Open conversation", "Read transcript", "Share", "Rename", "Pin", "Archive", "View JSON", "Delete"]);
       const box = await menu.boundingBox();
       const viewport = page.viewportSize();
       expect(box.x).toBeGreaterThanOrEqual(0);
@@ -53,7 +53,7 @@ test("table rows use an Actions menu that stays in the viewport and renames conv
     await expect(dialog).toHaveCount(0);
     await page.getByRole("searchbox").fill(`Renamed ${suffix}`);
     await expect(page.getByRole("row").filter({ hasText: created.at(-1).id })).toContainText(`Renamed ${suffix}`);
-    for (const tab of ["agents", "models", "harnesses", "endpoints", "credentials"]) {
+    for (const tab of ["agents", "models", "endpoints", "credentials"]) {
       await page.goto("/dashboard/participants?tab=" + tab);
       const toolbar = page.locator(".tab-toolbar");
       const primary = toolbar.locator(".button.primary");

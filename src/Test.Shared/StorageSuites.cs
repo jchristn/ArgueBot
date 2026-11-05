@@ -223,8 +223,8 @@ namespace Test.Shared
                     if (page.TotalCount != 1) throw new InvalidDataException("Search did not find message content.");
                     RequestContext foreign = Owner(); foreign.TenantId = "ten_foreign";
                     try { await database.ReadConversationAsync(foreign, id, token).ConfigureAwait(false); throw new InvalidDataException("Cross-tenant read accepted."); } catch (DomainException ex) when (ex.StatusCode == 404) { }
-                    RequestContext viewer = Owner(); viewer.Role = "viewer"; viewer.IsAdmin = false; viewer.IsTenantAdmin = false;
-                    try { await database.CreateConversationAsync(viewer, "denied", token).ConfigureAwait(false); throw new InvalidDataException("Viewer mutation accepted."); } catch (DomainException ex) when (ex.StatusCode == 403) { }
+                    RequestContext anonymous = Owner(); anonymous.IsAuthenticated = false;
+                    try { await database.CreateConversationAsync(anonymous, "denied", token).ConfigureAwait(false); throw new InvalidDataException("Unauthenticated mutation accepted."); } catch (DomainException ex) when (ex.StatusCode == 401) { }
                     List<DurableEvent> events = await database.ReadEventsAsync(context, id, token: token).ConfigureAwait(false);
                     if (events.Count != 2 || events[0].Sequence != 1 || events[1].Sequence != 2) throw new InvalidDataException("Durable event sequence or deduplication failed.");
                     await database.BackupAsync(Path.Combine(home, "backups", "test.db"), token).ConfigureAwait(false);

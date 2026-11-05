@@ -10,6 +10,11 @@ namespace ArgueBot.Tui
             TextPromptDialog dialog = new TextPromptDialog(title, initial); dialog.ApplyTheme(app.Theme);
             return await app.ShowAsync<string>(dialog).ConfigureAwait(false);
         }
+        internal static async Task<string?> PromptSecretAsync(this TuiApplication app, string title)
+        {
+            TextPromptDialog dialog = new TextPromptDialog(title, "", true); dialog.ApplyTheme(app.Theme);
+            return await app.ShowAsync<string>(dialog).ConfigureAwait(false);
+        }
         internal static async Task<int> SelectStyledAsync(this TuiApplication app, string title, params string[] choices)
         {
             ChoiceDialog dialog = new ChoiceDialog(title, choices); dialog.ApplyTheme(app.Theme);

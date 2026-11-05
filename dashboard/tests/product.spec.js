@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
@@ -17,7 +17,7 @@ test("REST participant executes local tools and preserves visible tool history",
   await new Promise((resolve) => listener.listen(0, "127.0.0.1", resolve));
   const port = listener.address().port; await new Promise((resolve) => listener.close(resolve));
   const cli = path.resolve("../src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll");
-  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "" } });
+  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "arguebotadmin" } });
   const origin = `http://127.0.0.1:${port}`;
   try {
     expect(invoke("service", "web", "--port", String(port)).status).toBe(0);
@@ -50,14 +50,14 @@ test("REST participant executes local tools and preserves visible tool history",
   } finally { invoke("service", "stop"); await fs.rm(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); }
 });
 
-test("plain local dashboard opens and writes without authentication or pairing", async ({ page }) => {
+test("web launcher opens a signed-in dashboard that writes with a bearer token and never pairs", async ({ page }) => {
   const home = await fs.mkdtemp(path.resolve("../.run/open local workspace "));
   const listener = net.createServer();
   await new Promise((resolve) => listener.listen(0, "127.0.0.1", resolve));
   const port = listener.address().port;
   await new Promise((resolve) => listener.close(resolve));
   const cli = path.resolve("../src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll");
-  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "" } });
+  const invoke = (...args) => spawnSync("dotnet", [cli, "--home", home, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, ARGUEBOT_TOKEN: "arguebotadmin" } });
   try {
     const launch = invoke("service", "web", "--port", String(port));
     expect(launch.status).toBe(0);
@@ -69,8 +69,7 @@ test("plain local dashboard opens and writes without authentication or pairing",
     page.on("request", (request) => requests.push({ url: request.url(), authorization: request.headers().authorization }));
     await page.goto(url);
     await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
-    await expect(page.getByText("Local workspace", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sign out", exact: true })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Account and sign out" })).toContainText("Default tenant");
     for (const [provider, flag] of [["claude", "--dangerously-skip-permissions"], ["codex", "--yolo"], ["mux", "--no-session-persistence"]]) {
       const created = await page.request.post(`http://127.0.0.1:${port}/v1.0/api/participants`, { data: { kind: "cli", provider } });
       expect(created.status()).toBe(201);
@@ -112,7 +111,7 @@ test("plain local dashboard opens and writes without authentication or pairing",
       controller.abort();
       return { health, saved: saved.status, eventText };
     });
-    expect(result.health.authenticationRequired).toBe(false);
+    expect(result.health.authenticationRequired).toBe(true);
     expect(result.saved).toBe(201);
     expect(result.eventText).not.toContain("session_revoked");
     expect(result.eventText).toContain("event:");
@@ -121,7 +120,8 @@ test("plain local dashboard opens and writes without authentication or pairing",
     await page.goto(url + "#connect=obsolete-link");
     await expect(page.getByRole("heading", { name: "Your thinking, in progress" })).toBeVisible();
     await expect(page).not.toHaveURL(/#/);
-    expect(requests.every((request) => !request.authorization && !request.url.endsWith("/auth/pair"))).toBe(true);
+    expect(requests.every((request) => !request.url.endsWith("/auth/pair"))).toBe(true);
+    expect(requests.filter((request) => /\/v[12]\.0\/api\//.test(request.url)).every((request) => request.authorization === "Bearer arguebotadmin")).toBe(true);
     for (const width of [390, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await page.screenshot({ path: `../.run/screenshots/open-local-${width}.png`, fullPage: true });

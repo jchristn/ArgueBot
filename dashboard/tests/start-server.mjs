@@ -14,7 +14,7 @@ try {
 }
 await fs.writeFile(
   file,
-  JSON.stringify({ ...settings, port: 4420, tlsEnabled: true, requireAuthentication: false }),
+  JSON.stringify({ ...settings, port: 4420, tlsEnabled: true }),
   { mode: 0o600 },
 );
 const child = spawn(

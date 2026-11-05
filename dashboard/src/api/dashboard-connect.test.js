@@ -1,20 +1,16 @@
 import { afterEach, expect, it, vi } from "vitest";
 
 afterEach(() => { vi.resetModules(); vi.restoreAllMocks(); sessionStorage.clear(); history.replaceState(null, "", "/"); });
-it("opens the local workspace without enrollment and clears obsolete credentials", async () => {
-  vi.resetModules();
+it("checks the service once, drops obsolete fragments and restores no session when none is stored", async () => {
   history.replaceState(null, "", "/dashboard#connect=obsolete");
-  sessionStorage.setItem("arguebot.session", "obsolete-session");
   const request = vi.fn().mockResolvedValue({ status: "ready" });
-  const api = { token: "obsolete-session", request };
-  vi.doMock("./client.js", () => ({ api }));
+  vi.doMock("./client.js", () => ({ api: { token: "", request } }));
+  vi.doMock("./session.js", () => ({ restoreSession: vi.fn().mockResolvedValue(null) }));
   const { connectDashboard } = await import("./dashboard-connect.js");
   const first = connectDashboard();
   expect(connectDashboard()).toBe(first);
-  await expect(first).resolves.toMatchObject({ status: "ready" });
+  await expect(first).resolves.toBeNull();
   expect(request).toHaveBeenCalledOnce();
   expect(request).toHaveBeenCalledWith("/health");
-  expect(api.token).toBe("");
-  expect(sessionStorage.getItem("arguebot.session")).toBeNull();
   expect(location.hash).toBe("");
 });

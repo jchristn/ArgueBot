@@ -8,16 +8,30 @@ export class ApiError extends Error {
     this.code = data.code;
     this.field = data.field || "";
     this.requestId = data.requestId;
+    this.tenants = Array.isArray(data.tenants) ? data.tenants : [];
+    this.requiredPermission = data.requiredPermission || "";
   }
 }
+/** Configuration resource names used by the views, mapped to their 2.1 routes. */
+const configurationRoute = (resource) => (resource === "credentials" ? "secrets" : resource);
 export class ApiClient {
   constructor() {
     this.token = "";
     this.clientId = randomId();
+    /** Called with the ApiError when a request returns 401, so the app can sign out and show the sign-in page. */
+    this.onUnauthorized = null;
+  }
+  authorization() {
+    return this.token ? { Authorization: "Bearer " + this.token } : {};
+  }
+  failed(status, data) {
+    const error = new ApiError(status, data);
+    if (status === 401 && this.token && this.onUnauthorized) this.onUnauthorized(error);
+    return error;
   }
   async request(
     path,
-    { method = "GET", body, signal } = {},
+    { method = "GET", body, signal, headers = {} } = {},
   ) {
     const response = await fetch(path, {
       method,
@@ -26,13 +40,45 @@ export class ApiClient {
         "Content-Type": "application/json",
         "Accept-Language": i18n.language,
         "x-client-id": this.clientId,
+        ...this.authorization(),
+        ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError(response.status, data);
+    if (!response.ok) throw this.failed(response.status, data);
     return data;
   }
+  loginInfo() { return this.request("/v2.0/api/login-info"); }
+  login(email, password, tenantId = "") { return this.request("/v2.0/api/token", { method: "POST", body: { email, password, tenantId } }); }
+  refreshToken() { return this.request("/v2.0/api/token/refresh", { method: "POST" }); }
+  logout() { return this.request("/v2.0/api/token", { method: "DELETE" }); }
+  tokenDetails() { return this.request("/v2.0/api/token/details"); }
+  me() { return this.request("/v2.0/api/me"); }
+  updateMe(body) { return this.request("/v2.0/api/me", { method: "PUT", body }); }
+  changePassword(currentPassword, newPassword) { return this.request("/v2.0/api/me/password", { method: "PUT", body: { currentPassword, newPassword } }); }
+  /** x-tenant-id for a system administrator acting in another tenant; empty for the caller's own tenant. */
+  tenantScope(tenantId) { return tenantId ? { "x-tenant-id": tenantId } : {}; }
+  userRoot(userId) { return userId ? "/v2.0/api/users/" + encodeURIComponent(userId) : "/v2.0/api/me"; }
+  credentials(userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials", { headers: this.tenantScope(tenantId) }); }
+  createCredential(body, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials", { method: "POST", body, headers: this.tenantScope(tenantId) }); }
+  updateCredential(id, body, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id), { method: "PUT", body, headers: this.tenantScope(tenantId) }); }
+  revealToken(id, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id) + "/reveal", { method: "POST", headers: this.tenantScope(tenantId) }); }
+  deleteCredential(id, userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/credentials/" + encodeURIComponent(id), { method: "DELETE", headers: this.tenantScope(tenantId) }); }
+  sessions(userId = "", tenantId = "") { return this.request(this.userRoot(userId) + "/sessions", { headers: this.tenantScope(tenantId) }); }
+  revokeSession(id, own = true, tenantId = "") { return this.request((own ? "/v2.0/api/me/sessions/" : "/v2.0/api/sessions/") + encodeURIComponent(id), { method: "DELETE", headers: this.tenantScope(tenantId) }); }
+  users(tenantId = "") { return this.request("/v2.0/api/users", { headers: this.tenantScope(tenantId) }); }
+  saveUser(body, tenantId = "") { const { id, ...value } = body; return this.request("/v2.0/api/users" + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value, headers: this.tenantScope(tenantId) }); }
+  deleteUser(id, tenantId = "") { return this.request("/v2.0/api/users/" + encodeURIComponent(id), { method: "DELETE", headers: this.tenantScope(tenantId) }); }
+  resetPassword(id, newPassword, tenantId = "") { return this.request("/v2.0/api/users/" + encodeURIComponent(id) + "/password", { method: "PUT", body: { newPassword }, headers: this.tenantScope(tenantId) }); }
+  tenants() { return this.request("/v2.0/api/tenants"); }
+  saveTenant(body) { const { id, ...value } = body; return this.request("/v2.0/api/tenants" + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
+  deleteTenant(id, confirmName) { return this.request("/v2.0/api/tenants/" + encodeURIComponent(id) + "?confirmName=" + encodeURIComponent(confirmName), { method: "DELETE" }); }
+  audit(filters = {}) {
+    const query = new URLSearchParams(Object.entries({ pageNumber: 1, pageSize: 50, ...filters }).filter(([, value]) => value !== "" && value !== undefined && value !== null));
+    return this.request("/v2.0/api/audit?" + query);
+  }
+  deleteAudit(beforeUtc) { return this.request("/v2.0/api/audit?beforeUtc=" + encodeURIComponent(beforeUtc), { method: "DELETE" }); }
 
   conversations({
     search = "",
@@ -126,9 +172,11 @@ export class ApiClient {
   }
   modelChecks(id, page = 1) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks?pageNumber=${page}`); }
   checkModel(id, body) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks`, { method: "POST", body }); }
-  credentialKeys() { return this.request("/v2.0/api/configuration/credential-keys"); }
-  rotateCredentialKey(expectedKeyId) { return this.request("/v2.0/api/configuration/credential-keys/rotate", { method: "POST", body: { expectedKeyId } }); }
-  retireCredentialKeys(expectedKeyId) { return this.request("/v2.0/api/configuration/credential-keys/retire", { method: "POST", body: { expectedKeyId } }); }
+  agentChecks(id, page = 1) { return this.request(`/v2.0/api/participants/${encodeURIComponent(id)}/checks?pageNumber=${page}`); }
+  checkAgent(id, body) { return this.request(`/v2.0/api/participants/${encodeURIComponent(id)}/checks`, { method: "POST", body }); }
+  credentialKeys() { return this.request("/v2.0/api/configuration/secret-keys"); }
+  rotateCredentialKey(expectedKeyId) { return this.request("/v2.0/api/configuration/secret-keys/rotate", { method: "POST", body: { expectedKeyId } }); }
+  retireCredentialKeys(expectedKeyId) { return this.request("/v2.0/api/configuration/secret-keys/retire", { method: "POST", body: { expectedKeyId } }); }
   summaries(id, runId, pageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?pageNumber=" + pageNumber); }
   summary(id, runId, summaryId, sourcePageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?id=" + encodeURIComponent(summaryId) + "&sourcePageNumber=" + sourcePageNumber); }
   clarifications(id, runId) { return this.readListPages(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/clarifications", 100); }
@@ -145,21 +193,26 @@ export class ApiClient {
   async configuration(resource) {
     const result = [];
     for (let page = 1; ; page++) {
-      const items = await this.request("/v2.0/api/configuration/" + resource + "?pageSize=100&pageNumber=" + page);
+      const items = await this.request("/v2.0/api/configuration/" + configurationRoute(resource) + "?pageSize=100&pageNumber=" + page);
       result.push(...items);
       if (items.length < 100) return result;
     }
   }
-  saveConfiguration(resource, body) { const { id, ...value } = body; return this.request("/v2.0/api/configuration/" + resource + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
+  saveConfiguration(resource, body) { const { id, ...value } = body; return this.request("/v2.0/api/configuration/" + configurationRoute(resource) + (id ? "/" + encodeURIComponent(id) : ""), { method: id ? "PUT" : "POST", body: value }); }
   prompts(purpose = "") { return this.request("/v2.0/api/prompts" + (purpose ? "?purpose=" + encodeURIComponent(purpose) : "")); }
   prompt(id) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id)); }
   savePrompt(prompt) { return this.request("/v2.0/api/prompts" + (prompt.id ? "/" + encodeURIComponent(prompt.id) : ""), { method: prompt.id ? "PUT" : "POST", body: prompt }); }
   duplicatePrompt(id) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "/duplicate", { method: "POST" }); }
   deletePrompt(id, revision) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   promptParameters() { return this.request("/v2.0/api/prompt-parameters"); }
-  revealCredential(id) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
-  disableCredential(id, revision) { return this.request("/v2.0/api/configuration/credentials/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
+  revealCredential(id) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
+  disableCredential(id, revision) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   capabilities() { return this.request("/v2.0/api/capabilities"); }
+  shares(conversationId) { return this.request(this.v2root(conversationId) + "/shares"); }
+  createShare(conversationId, body) { return this.request(this.v2root(conversationId) + "/shares", { method: "POST", body }); }
+  revealShare(conversationId, shareId) { return this.request(this.v2root(conversationId) + "/shares/" + encodeURIComponent(shareId) + "/reveal", { method: "POST" }); }
+  revokeShare(conversationId, shareId) { return this.request(this.v2root(conversationId) + "/shares/" + encodeURIComponent(shareId), { method: "DELETE" }); }
+  sharedTranscript(shareToken) { return this.request("/v2.0/api/shares/" + encodeURIComponent(shareToken)); }
   v2root(id) { return "/v2.0/api/conversations/" + encodeURIComponent(id); }
   interject(id, body) { return this.request(this.v2root(id) + "/interjections", { method: "POST", body }); }
   interjections(id, pageNumber = 1) { return this.request(this.v2root(id) + "/interjections?pageNumber=" + pageNumber); }
@@ -253,7 +306,7 @@ export class ApiClient {
     return this.request("/openapi.json");
   }
   async executeExplorer(path, method, body, headers = {}) {
-    if (!path.startsWith("/v1.0/") && path !== "/health")
+    if (!path.startsWith("/v1.0/") && !path.startsWith("/v2.0/") && path !== "/health")
       throw new ApiError(400, {
         code: "invalid_path",
         message: i18n.t("explorer.invalidPath"),
@@ -263,6 +316,7 @@ export class ApiClient {
       method,
       headers: {
         "Content-Type": "application/json",
+        ...this.authorization(),
         ...headers,
       },
       ...(method !== "GET" && method !== "HEAD" && body ? { body } : {}),
@@ -285,11 +339,12 @@ export class ApiClient {
       signal,
       headers: {
         Accept: "text/event-stream",
+        ...this.authorization(),
         ...(cursor ? { "Last-Event-ID": cursor } : {}),
       },
     });
     if (!response.ok)
-      throw new ApiError(
+      throw this.failed(
         response.status,
         await response.json().catch(() => ({})),
       );

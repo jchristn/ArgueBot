@@ -16,7 +16,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Frozen HTTP bindings containing only nonsecret values and credential references.</summary>
         public List<HttpAuthBinding> AuthBindings { get { return _AuthBindings; } set { System.ArgumentNullException.ThrowIfNull(value); _AuthBindings = value; } }
         private string _CredentialId = "";
-        /// <summary>CLI credential reference.</summary>
+        /// <summary>Optional stored secret that signs in a CLI agent: a Claude Code token for claude or a Codex login for codex. Empty uses the service machine's own login.</summary>
         public string CredentialId { get { return _CredentialId; } set { System.ArgumentNullException.ThrowIfNull(value); _CredentialId = value; } }
         /// <summary>Exact model context character budget.</summary>
         public int ContextMaxCharacters { get; set; } = 262144;
@@ -28,14 +28,14 @@ namespace ArgueBot.Core.Models
         /// <summary>Model revision frozen at admission.</summary>
         public long ModelRevision { get; set; }
         private string _TransportId = "";
-        /// <summary>Endpoint or harness identity frozen at admission; endpoint capacity remains a live resource limit.</summary>
+        /// <summary>Endpoint identity frozen at admission; endpoint capacity remains a live resource limit.</summary>
         public string TransportId { get { return _TransportId; } set { ArgumentNullException.ThrowIfNull(value); _TransportId = value; } }
-        /// <summary>Endpoint or harness revision frozen at admission.</summary>
+        /// <summary>Endpoint revision frozen at admission.</summary>
         public long TransportRevision { get; set; }
         /// <summary>Ephemeral service-only injection. Excluded from serialization and persistence.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public Dictionary<string, string> RuntimeEnvironment { get; } = new Dictionary<string, string>();
-        /// <summary>Restrict inherited process variables for reusable harness snapshots; legacy inline profiles retain their original behavior.</summary>
+        /// <summary>Restrict a CLI agent to standard process variables plus the named environmentVariables; false passes the service environment.</summary>
         public bool RestrictEnvironment { get; set; }
         private List<string> _EnvironmentVariables = new List<string>();
         /// <summary>Additional inherited variable names frozen at admission. Values are resolved only when the child starts.</summary>
@@ -49,6 +49,10 @@ namespace ArgueBot.Core.Models
         /// <summary>Service-only callback recording endpoint wait time, including cancellation while queued.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public Func<long, System.Threading.CancellationToken, System.Threading.Tasks.Task>? RuntimeEndpointWait { get; set; }
+        /// <summary>Tenant whose endpoints and secrets this invocation may use. Set by the service for each invocation; never persisted.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string RuntimeTenantId { get { return _RuntimeTenantId; } set { ArgumentNullException.ThrowIfNull(value); _RuntimeTenantId = value; } }
+        private string _RuntimeTenantId = "";
         /// <summary>Invocation-only MCP bridge process. Never persisted or accepted from a transport document.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public List<string> RuntimeMcpCommand { get; } = new List<string>();
@@ -78,7 +82,7 @@ namespace ArgueBot.Core.Models
         /// <summary>REST base URI.</summary>
         public string Endpoint { get { return _Endpoint; } set { ArgumentNullException.ThrowIfNull(value); _Endpoint = value; } }
 
-        /// <summary>REST model identifier.</summary>
+        /// <summary>Model identifier: required for HTTP agents; optional for CLI agents, passed as --model to Claude Code, Codex and Gemini or into a literal {model} argument.</summary>
         public string Model { get { return _Model; } set { ArgumentNullException.ThrowIfNull(value); _Model = value; } }
 
         /// <summary>Direct executable path or name.</summary>
@@ -87,7 +91,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Ordered arguments; prompts use standard input.</summary>
         public List<string> Arguments { get { return _Arguments; } set { ArgumentNullException.ThrowIfNull(value); _Arguments = value; } }
 
-        /// <summary>Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory.</summary>
+        /// <summary>Directory on the execution host for CLI agents and REST local tools; empty uses the service directory.</summary>
         public string WorkingDirectory { get { return _WorkingDirectory; } set { ArgumentNullException.ThrowIfNull(value); _WorkingDirectory = value; } }
 
         /// <summary>Environment reference to credential; never its value.</summary>

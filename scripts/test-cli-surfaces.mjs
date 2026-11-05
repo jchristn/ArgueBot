@@ -20,13 +20,28 @@ await fs.writeFile(path.join(home, 'arguebot.json'), JSON.stringify({port,tlsEna
 let started = false;
 let checks = 0;
 function invoke(words, body) {
-  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body), encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`CLI ${words.slice(0,2).join(' ')} failed: ${result.stderr}`);
   return result.stdout;
 }
 function command(words, body) { return JSON.parse(invoke(words, body)); }
+/** Run the CLI without ARGUEBOT_TOKEN, so it relies on --token or the remembered session. */
+function bare(words, body) {
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body, encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
+  if (result.error) throw result.error;
+  return result;
+}
 function check(condition, message) {if (!condition) throw new Error(message); checks++;}
+/** Status of an unauthenticated request to the service's current endpoint, which may have moved to HTTPS with the fixture certificate. */
+async function publicStatus(route) {
+  const endpoint = JSON.parse(await fs.readFile(path.join(home,'runtime/service.json'),'utf8')).Endpoint.replace(/\/$/, '');
+  if (!endpoint.startsWith('https:')) return status(endpoint + route);
+  const https = await import('node:https');
+  return new Promise((resolve, reject) => https.get(endpoint + route, { rejectUnauthorized: false }, response => { response.resume(); response.on('end', () => resolve(response.statusCode)); }).on('error', reject));
+}
+/** HTTP status of a request, reading the body so the connection is released before the next request. */
+async function status(url, options) { const response = await fetch(url, options); await response.arrayBuffer(); return response.status; }
 
 try {
   started = true;
@@ -40,13 +55,12 @@ try {
   const attached = JSON.parse(await fs.readFile(path.join(home,'runtime/service.json'),'utf8'));
   check(attach.includes(`http://127.0.0.1:${port}/dashboard`) && descriptor.ProcessId === attached.ProcessId, 'Web launch did not reuse the existing service and actual port.');
   check(!await fs.access(path.join(home,'runtime/pairing-code')).then(()=>true,()=>false), 'Open service generated a pairing code.');
+  check(await status(`http://127.0.0.1:${port}/v2.0/api/conversations`)===401, 'An unauthenticated request was accepted.');
   for (const removed of ['auth/me','auth/pair','auth/login','users','roles','permissions','audit','backups','backup-operations']) {
-    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${removed}`, {method: removed.startsWith('auth/') && removed!=='auth/me' ? 'POST' : 'GET'});
-    check(response.status===404, `Removed product route ${removed} is still exposed.`);
+    check(await status(`http://127.0.0.1:${port}/v1.0/api/${removed}`, {method: removed.startsWith('auth/') && removed!=='auth/me' ? 'POST' : 'GET', headers:{authorization:'Bearer arguebotadmin'}})===404, `Removed product route ${removed} is still exposed.`);
   }
   for (const [method, suffix] of [['POST','backups'],['POST','backups/bak_fixture/restore'],['POST','backups/bak_fixture/verify'],['DELETE','backups/bak_fixture'],['GET','backups/bak_fixture/download']]) {
-    const response = await fetch(`http://127.0.0.1:${port}/v1.0/api/${suffix}`, {method});
-    check(response.status===404, `Removed archive operation ${method} ${suffix} is still exposed.`);
+    check(await status(`http://127.0.0.1:${port}/v1.0/api/${suffix}`, {method, headers:{authorization:'Bearer arguebotadmin'}})===404, `Removed archive operation ${method} ${suffix} is still exposed.`);
   }
   check(!/backups|restore/i.test(invoke(['--help'])), 'CLI help still advertises archive workflows.');
   const server = path.join(root,'src/ArgueBot.Server/bin/Release/net10.0/ArgueBot.Server.dll');
@@ -120,9 +134,11 @@ try {
   const model = command(['configuration','models','add','-'], {name:'CLI reusable model',endpointId:endpoint.id,model:'multi-agent',maxOutputBytes:1048576,generation:{maxOutputTokens:2048,temperature:0.25,topP:0.9}});
   check(model.maxOutputBytes === 1048576 && model.generation.maxOutputTokens === 2048 && model.generation.temperature === 0.25 && model.generation.topP === 0.9, 'CLI generation overrides were not preserved.');
   if (process.env.ARGUEBOT_SIMULATION_URL) { const observed = command(['configuration','models','check',model.id,'-'], {idempotencyKey:'cli-model-check',checkTools:false}); check(observed.completionVerified && observed.state === 'completed', 'CLI explicit model check did not observe a completion.'); check(command(['configuration','models','checks',model.id]).length === 1, 'CLI model-check history was not durable.'); }
-  const harness = command(['configuration','harnesses','add','-'], {name:'CLI reusable harness',provider:'plain',executable:'dotnet',arguments:[fixture,'plain'],environmentVariables:['ARGUEBOT_FIXTURE_ALLOWED']});
-  check(harness.environmentVariables[0] === 'ARGUEBOT_FIXTURE_ALLOWED', 'CLI harness lost its inherited environment names.');
-  for (const [kind,item] of [['endpoints',endpoint],['models',model],['harnesses',harness],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
+  const agent = command(['participants','add','-'], {name:'CLI agent with environment',kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain'],restrictEnvironment:true,environmentVariables:['ARGUEBOT_FIXTURE_ALLOWED']});
+  check(agent.restrictEnvironment && agent.environmentVariables[0] === 'ARGUEBOT_FIXTURE_ALLOWED', 'CLI agent lost its allowed environment names.');
+  check(command(['participants','list']).some(value=>value.id===agent.id), 'CLI participants list lost its created agent.');
+  command(['participants','delete',agent.id]);
+  for (const [kind,item] of [['endpoints',endpoint],['models',model],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
   const replacement = command(['configuration','credentials','update',credential.id,'-'], {name:credential.name,kind:credential.kind,revision:credential.revision,secretValue:'fictional-cli-rotated'});
   check(replacement.revision > credential.revision, 'CLI credential rotation did not advance its revision.');
   const revealed = command(['configuration','credentials','reveal',credential.id]);
@@ -133,7 +149,7 @@ try {
     const panel = ['Claude','Codex','Gemini','DeepSeek'].map(name=>command(['participants','add','-'], {name:`CLI ${name}`,modelProfileId:model.id}));
     const moderator = command(['participants','add','-'], {name:'CLI orchestrator',modelProfileId:model.id});
     const debate = command(['conversations','create','CLI four-agent consensus']);
-    const rejected = spawnSync('dotnet', [cli, '--home', home + path.sep, 'debate','start',debate.id,'-'], {cwd:root, input: JSON.stringify({protocolVersion:2,participantIds:[panel[0].id],orchestratorId:moderator.id,idempotencyKey:'cli-v2-one-seat'}), encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:''}});
+    const rejected = spawnSync('dotnet', [cli, '--home', home + path.sep, 'debate','start',debate.id,'-'], {cwd:root, input: JSON.stringify({protocolVersion:2,participantIds:[panel[0].id],orchestratorId:moderator.id,idempotencyKey:'cli-v2-one-seat'}), encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
     check(rejected.status===2 && rejected.stderr.includes('too_few_participants (participantIds)'), `CLI did not report a field-specific admission error: ${rejected.stderr}`);
     const live = command(['debate','start',debate.id,'-'], {protocolVersion:2,participantIds:panel.map(value=>value.id),orchestratorId:moderator.id,maxRounds:2,interventionSeconds:0,idempotencyKey:'cli-v2-start'});
     const receipt = command(['interject',debate.id,'-'], {text:'Require a reversible rollout.',deliveryMode:'next_turn',pinned:true,idempotencyKey:'cli-v2-context'});
@@ -147,6 +163,49 @@ try {
     check(Array.isArray(command(['debate','summaries',debate.id,live.id])) && Array.isArray(command(['debate','clarifications',debate.id,live.id])), 'CLI memory views failed.');
     check(command(['debate','interjections',debate.id]).some(value=>value.id===receipt.id), 'CLI context history lost its receipt.');
   } else console.log('SKIP: Set ARGUEBOT_SIMULATION_URL for the four-agent CLI provider journey.');
+
+  // Sign-in, remembered sessions, tokens, administration, sharing and the secrets aliases.
+  const unsigned = bare(['whoami']);
+  check(unsigned.status === 1 && unsigned.stderr.includes('authentication_required') && unsigned.stderr.includes("Sign in with 'login'"), 'An unsigned CLI command did not explain how to sign in.');
+  check(bare(['login','--email','admin@arguebot','--password-stdin'], 'wrong-password\n').stderr.includes('invalid_credentials'), 'A wrong password was not rejected.');
+  const signedIn = bare(['login','--email','admin@arguebot','--password-stdin'], 'password\n');
+  check(signedIn.status === 0 && JSON.parse(signedIn.stdout).tenant.name === 'Default tenant', 'CLI sign-in failed: ' + signedIn.stderr);
+  const sessionFile = path.join(home, 'client-session.json');
+  const remembered = JSON.parse(await fs.readFile(sessionFile, 'utf8'));
+  check(remembered.token.startsWith('abs_') && !JSON.stringify(remembered).includes('"password"'), 'The remembered session must hold a token and never the password.');
+  if (process.platform !== 'win32') check(((await fs.stat(sessionFile)).mode & 0o077) === 0, 'The remembered session file must be private to its owner.');
+  const whoami = JSON.parse(bare(['whoami']).stdout);
+  check(whoami.principalType === 'User' && whoami.user.email === 'admin@arguebot', 'whoami did not use the remembered session.');
+  const created = JSON.parse(bare(['credentials','create','CLI automation','--days','30']).stdout);
+  check(created.token.startsWith('abt_') && created.credential.expiresUtc, 'credentials create did not print a new token once.');
+  check(JSON.parse(bare(['--token', created.token, 'whoami']).stdout).principalType === 'Credential', '--token did not authenticate as the credential.');
+  check(JSON.parse(bare(['credentials','reveal', created.credential.id]).stdout).token === created.token, 'credentials reveal did not return the token.');
+  check(!bare(['credentials','list']).stdout.includes(created.token), 'Credential lists must not include tokens.');
+  bare(['credentials','disable', created.credential.id]);
+  check(bare(['--token', created.token, 'whoami']).stderr.includes('credential_inactive'), 'A disabled credential still worked.');
+  const member = JSON.parse(bare(['users','add','-'], JSON.stringify({firstName:'CLI', email:'cli-member@example.test', password:'member-password'})).stdout);
+  check(member.email === 'cli-member@example.test' && !member.isTenantAdmin, 'users add did not create a member.');
+  check(JSON.parse(bare(['users','list']).stdout).some(user => user.id === member.id), 'users list did not include the new member.');
+  const tenant = JSON.parse(bare(['tenants','add','CLI tenant']).stdout);
+  const outsider = JSON.parse(bare(['--tenant', tenant.id, 'users','add','-'], JSON.stringify({email:'cli-admin@example.test', password:'tenant-password', isTenantAdmin:true})).stdout);
+  check(outsider.tenantId === tenant.id && outsider.isTenantAdmin, '--tenant did not let a system administrator add a user to another tenant.');
+  check(JSON.parse(bare(['audit','--operation','UserCreated']).stdout).items.length >= 1, 'audit did not return user creation records.');
+  const shared = command(['conversations','create','CLI shared transcript']);
+  const link = JSON.parse(bare(['shares','create', shared.id, '--hours','2']).stdout);
+  check(link.path === '/share/' + link.token, 'shares create did not print the link.');
+  check(await publicStatus(`/v2.0/api/shares/${link.token}`) === 200, 'A CLI share link did not open without sign-in.');
+  check(JSON.parse(bare(['shares','reveal', shared.id, link.share.id]).stdout).url === link.url, 'shares reveal did not return the link.');
+  bare(['shares','revoke', shared.id, link.share.id]);
+  check(await publicStatus(`/v2.0/api/shares/${link.token}`) === 404, 'A revoked CLI share link still opened.');
+  check(Array.isArray(JSON.parse(bare(['secrets','list']).stdout)), 'secrets list did not work.');
+  const alias = bare(['configuration','credentials','list']);
+  check(alias.status === 0 && alias.stderr.includes('deprecated'), 'The configuration credentials alias did not warn.');
+  check(JSON.parse(bare(['secret-keys','status']).stdout).activeKeyId, 'secret-keys status did not work.');
+  const memberSession = bare(['login','--email','cli-member@example.test','--password-stdin'], 'member-password\n');
+  check(memberSession.status === 0, 'A member could not sign in.');
+  check(bare(['users','list']).stderr.includes('forbidden'), 'A member listed users.');
+  check(bare(['logout']).status === 0 && await fs.stat(sessionFile).then(() => false, () => true), 'logout did not forget the session.');
+  check(bare(['whoami']).stderr.includes('authentication_required'), 'whoami still worked after logout.');
   console.log(`CLI surface smoke passed ${checks} assertions against an isolated service.`);
 } finally {
   if(started) {

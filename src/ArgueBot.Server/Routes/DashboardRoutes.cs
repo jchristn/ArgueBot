@@ -25,12 +25,14 @@ namespace ArgueBot.Server.Routes
         }
         internal void Register(Webserver server)
         {
-            server.Routes.PreAuthentication.Dynamic.Add(HttpMethod.GET, new Regex(@"^/(?:$|dashboard(?:/.*)?$|assets/[A-Za-z0-9._-]+$)", RegexOptions.CultureInvariant), ServeAsync);
+            server.Routes.PreAuthentication.Dynamic.Add(HttpMethod.GET, new Regex(@"^/(?:$|dashboard(?:/.*)?$|share/[A-Za-z0-9_-]{20,128}$|assets/[A-Za-z0-9._-]+$)", RegexOptions.CultureInvariant), ServeAsync);
         }
         private async Task ServeAsync(HttpContextBase http)
         {
             string path = http.Request.Url.RawWithoutQuery;
             string relative = path.StartsWith("/assets/", StringComparison.Ordinal) ? path.TrimStart('/') : "index.html";
+            // Share links carry their token in the path: never send it to other sites as a referrer, and keep it out of search indexes.
+            if (path.StartsWith("/share/", StringComparison.Ordinal)) { http.Response.Headers["Referrer-Policy"] = "no-referrer"; http.Response.Headers["X-Robots-Tag"] = "noindex, nofollow"; }
             if (_Directory == null) { http.Response.StatusCode = 503; await http.Response.Send("Dashboard is not built. Run npm --prefix dashboard ci and npm --prefix dashboard run build.", http.Token).ConfigureAwait(false); return; }
             string file = Path.GetFullPath(Path.Combine(_Directory, relative));
             if (!file.StartsWith(_Directory + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(file)) { http.Response.StatusCode = 404; await http.Response.Send("Asset not found.", http.Token).ConfigureAwait(false); return; }

@@ -13,7 +13,7 @@ namespace ArgueBot.Core.Database.Implementations
     using System.Threading.Tasks;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
-    /// <summary>Domain operations for reusable endpoints, harnesses and models.</summary>
+    /// <summary>Domain operations for reusable endpoints and models.</summary>
     public sealed class CatalogMethods : ICatalogMethods
     {
         private readonly DatabaseDriverBase _Database;
@@ -54,40 +54,6 @@ namespace ArgueBot.Core.Database.Implementations
             }, token).ConfigureAwait(false);
             item.Revision = create ? 1 : item.Revision + 1; return item;
         }
-        /// <summary>List reusable harness configuration, including disabled records.</summary>
-        public async Task<List<HarnessProfile>> HarnessesAsync(RequestContext context, CancellationToken token = default, string id = "", int pageNumber = 1, int pageSize = 100)
-        {
-            RequireAuthenticated(context); ValidatePage(pageNumber, pageSize); List<HarnessProfile> result = new List<HarnessProfile>();
-            using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
-            {
-                using (DbCommand command = Command(connection, null, "SELECT * FROM connection_harnesses WHERE tenant_id=@tenant AND (@id='' OR id=@id) ORDER BY name,id LIMIT @limit OFFSET @offset", P("tenant", context.TenantId, "id", id, "limit", pageSize, "offset", ((long)pageNumber - 1) * pageSize)))
-                using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Add(new HarnessProfile { Id = S(reader, "id"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), Name = S(reader, "name"), Provider = S(reader, "provider"), Executable = S(reader, "executable"), WorkingDirectory = S(reader, "cwd"), CredentialId = S(reader, "credential_id"), Enabled = Convert.ToInt32(reader["enabled"], CultureInfo.InvariantCulture) != 0 }); }
-                foreach (HarnessProfile item in result)
-                {
-                    await LoadHarnessArgumentsAsync(connection, item, token).ConfigureAwait(false);
-                    await HarnessEnvironmentMethods.LoadAsync(connection, null, context.TenantId, item.Id, item.EnvironmentVariables, token).ConfigureAwait(false);
-                }
-            }
-            return result;
-        }
-        /// <summary>Create or revision-check an update to a reusable harness.</summary>
-        public async Task<HarnessProfile> SaveHarnessAsync(RequestContext context, HarnessProfile item, CancellationToken token = default)
-        {
-            RequireWrite(context); CatalogValidation.Validate(item);
-            bool create = item.Id.Length == 0;
-            if (create) item.Id = Ids.New("har_");
-            await _Database.WriteAsync(async (connection, transaction) =>
-            {
-                Dictionary<string, object?> values = P("id", item.Id, "tenant", context.TenantId, "revision", item.Revision, "name", item.Name, "provider", item.Provider, "executable", item.Executable, "cwd", item.WorkingDirectory, "credential_id", item.CredentialId, "enabled", item.Enabled ? 1 : 0);
-                if (create) await ExecuteAsync(connection, transaction, "INSERT INTO connection_harnesses(id,tenant_id,name,provider,executable,cwd,credential_id,enabled,created_utc,updated_utc) VALUES(@id,@tenant,@name,@provider,@executable,@cwd,@credential_id,@enabled,@now,@now)", token, values).ConfigureAwait(false);
-                else if (await ExecuteAsync(connection, transaction, "UPDATE connection_harnesses SET name=@name,provider=@provider,executable=@executable,cwd=@cwd,credential_id=@credential_id,enabled=@enabled,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND revision=@revision", token, values).ConfigureAwait(false) != 1) throw new DomainException(409, "revision_conflict", "Configuration changed. Refresh before saving.");
-                await ExecuteAsync(connection, transaction, "DELETE FROM connection_arguments WHERE tenant_id=@tenant AND harness_id=@id", token, P("tenant", context.TenantId, "id", item.Id)).ConfigureAwait(false);
-                await HarnessEnvironmentMethods.SaveAsync(connection, transaction, context.TenantId, item.Id, true, item.EnvironmentVariables, token).ConfigureAwait(false);
-                for (int index = 0; index < item.Arguments.Count; index++) await ExecuteAsync(connection, transaction, "INSERT INTO connection_arguments(id,tenant_id,harness_id,position,value,created_utc,updated_utc) VALUES(@id,@tenant,@harness,@position,@value,@now,@now)", token, P("id", Ids.New("arg_"), "tenant", context.TenantId, "harness", item.Id, "position", index, "value", item.Arguments[index])).ConfigureAwait(false);
-            }, token).ConfigureAwait(false);
-            item.Revision = create ? 1 : item.Revision + 1; return item;
-        }
         /// <summary>List reusable model configuration, including disabled records.</summary>
         public async Task<List<ModelProfile>> ModelsAsync(RequestContext context, CancellationToken token = default, string id = "", int pageNumber = 1, int pageSize = 100)
         {
@@ -96,7 +62,7 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 using (DbCommand command = Command(connection, null, "SELECT * FROM connection_models WHERE tenant_id=@tenant AND (@id='' OR id=@id) ORDER BY name,id LIMIT @limit OFFSET @offset", P("tenant", context.TenantId, "id", id, "limit", pageSize, "offset", ((long)pageNumber - 1) * pageSize)))
                 using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-                { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Add(new ModelProfile { Id = S(reader, "id"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), Name = S(reader, "name"), EndpointId = S(reader, "endpoint_id"), HarnessId = S(reader, "harness_id"), Model = S(reader, "model"), ContextMaxCharacters = Convert.ToInt32(reader["context_characters"], CultureInfo.InvariantCulture), SupportsTools = Convert.ToInt32(reader["supports_tools"], CultureInfo.InvariantCulture) != 0, Enabled = Convert.ToInt32(reader["enabled"], CultureInfo.InvariantCulture) != 0 }); }
+                { while (await reader.ReadAsync(token).ConfigureAwait(false)) result.Add(new ModelProfile { Id = S(reader, "id"), Revision = Convert.ToInt64(reader["revision"], CultureInfo.InvariantCulture), Name = S(reader, "name"), EndpointId = S(reader, "endpoint_id"), Model = S(reader, "model"), ContextMaxCharacters = Convert.ToInt32(reader["context_characters"], CultureInfo.InvariantCulture), SupportsTools = Convert.ToInt32(reader["supports_tools"], CultureInfo.InvariantCulture) != 0, Enabled = Convert.ToInt32(reader["enabled"], CultureInfo.InvariantCulture) != 0 }); }
                 foreach (ModelProfile model in result) await GenerationSettingsMethods.LoadModelAsync(connection, context.TenantId, model, token).ConfigureAwait(false);
             }
             return result;
@@ -106,12 +72,11 @@ namespace ArgueBot.Core.Database.Implementations
         {
             RequireWrite(context); CatalogValidation.Validate(item);
             if (item.EndpointId.Length > 0 && !(await EndpointsAsync(context, token, item.EndpointId).ConfigureAwait(false)).Any()) throw Missing();
-            if (item.HarnessId.Length > 0 && !(await HarnessesAsync(context, token, item.HarnessId).ConfigureAwait(false)).Any()) throw Missing();
             bool create = item.Id.Length == 0;
             if (create) item.Id = Ids.New("mod_");
             await _Database.WriteAsync(async (connection, transaction) =>
             {
-                Dictionary<string, object?> values = P("id", item.Id, "tenant", context.TenantId, "revision", item.Revision, "name", item.Name, "endpoint_id", item.EndpointId, "harness_id", item.HarnessId, "model", item.Model, "context_characters", item.ContextMaxCharacters, "supports_tools", item.SupportsTools ? 1 : 0, "enabled", item.Enabled ? 1 : 0);
+                Dictionary<string, object?> values = P("id", item.Id, "tenant", context.TenantId, "revision", item.Revision, "name", item.Name, "endpoint_id", item.EndpointId, "harness_id", "", "model", item.Model, "context_characters", item.ContextMaxCharacters, "supports_tools", item.SupportsTools ? 1 : 0, "enabled", item.Enabled ? 1 : 0);
                 if (create) await ExecuteAsync(connection, transaction, "INSERT INTO connection_models(id,tenant_id,name,endpoint_id,harness_id,model,context_characters,supports_tools,enabled,created_utc,updated_utc) VALUES(@id,@tenant,@name,@endpoint_id,@harness_id,@model,@context_characters,@supports_tools,@enabled,@now,@now)", token, values).ConfigureAwait(false);
                 else if (await ExecuteAsync(connection, transaction, "UPDATE connection_models SET name=@name,endpoint_id=@endpoint_id,harness_id=@harness_id,model=@model,context_characters=@context_characters,supports_tools=@supports_tools,enabled=@enabled,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND revision=@revision", token, values).ConfigureAwait(false) != 1) throw new DomainException(409, "revision_conflict", "Configuration changed. Refresh before saving.");
                 await GenerationSettingsMethods.SaveAsync(connection, transaction, context.TenantId, item.Id, item.Generation, item.MaxOutputBytes, token).ConfigureAwait(false);
@@ -120,13 +85,7 @@ namespace ArgueBot.Core.Database.Implementations
         }
         internal static void ValidatePage(int pageNumber, int pageSize)
         { if (pageNumber < 1 || pageSize < 1 || pageSize > 100) throw new DomainException(400, "invalid_page", "Use a positive page number and a page size from 1 through 100."); }
-        private static DomainException Missing() { return new DomainException(409, "configuration_unavailable", "The referenced model, endpoint or harness is unavailable or disabled. Choose an enabled configuration."); }
-        private static async Task LoadHarnessArgumentsAsync(DbConnection connection, HarnessProfile item, CancellationToken token)
-        {
-            using (DbCommand command = Command(connection, null, "SELECT value FROM connection_arguments WHERE harness_id=@id ORDER BY position", P("id", item.Id)))
-            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
-            { while (await reader.ReadAsync(token).ConfigureAwait(false)) item.Arguments.Add(reader.GetString(0)); }
-        }
+        private static DomainException Missing() { return new DomainException(409, "configuration_unavailable", "The referenced model or endpoint is unavailable or disabled. Choose an enabled configuration."); }
         /// <summary>Resolve a reusable model at admission; subsequent snapshots retain these exact nonsecret settings.</summary>
         public async Task ResolveAsync(RequestContext context, RunnerProfile profile, CancellationToken token = default)
         {
@@ -135,25 +94,9 @@ namespace ArgueBot.Core.Database.Implementations
             profile.Model = model.Model; profile.ModelRevision = model.Revision; profile.ContextMaxCharacters = model.ContextMaxCharacters; profile.SupportsTools = model.SupportsTools; profile.MaxOutputBytes = model.MaxOutputBytes; profile.Generation = model.Generation;
             profile.EnvironmentVariables.Clear(); profile.RestrictEnvironment = false;
             profile.AuthBindings.Clear(); profile.CredentialId = ""; profile.SecretEnvironmentVariable = "";
-            if (model.EndpointId.Length > 0)
-            {
-                EndpointProfile endpoint = (await EndpointsAsync(context, token, model.EndpointId).ConfigureAwait(false)).FirstOrDefault(item => item.Enabled) ?? throw Missing();
-                profile.Kind = "rest"; profile.Provider = endpoint.Protocol; profile.Endpoint = endpoint.BaseUrl; profile.TimeoutSeconds = endpoint.TimeoutSeconds;
-                profile.AuthBindings = endpoint.AuthBindings; profile.TransportRevision = endpoint.Revision; profile.TransportId = endpoint.Id; profile.Executable = ""; profile.Arguments.Clear();
-            }
-            else
-            {
-                HarnessProfile harness = (await HarnessesAsync(context, token, model.HarnessId).ConfigureAwait(false)).FirstOrDefault(item => item.Enabled) ?? throw Missing();
-                profile.RestrictEnvironment = true; profile.EnvironmentVariables = new List<string>(harness.EnvironmentVariables);
-                profile.Kind = "cli"; profile.Provider = harness.Provider; profile.Executable = harness.Executable; profile.Arguments = harness.Arguments;
-                profile.WorkingDirectory = harness.WorkingDirectory; profile.CredentialId = harness.CredentialId; profile.TransportRevision = harness.Revision; profile.TransportId = harness.Id; profile.Endpoint = "";
-                if (model.Model.Length > 0)
-                {
-                    if (harness.Provider == "claude" || harness.Provider == "codex" || harness.Provider == "gemini") { profile.Arguments.Add("--model"); profile.Arguments.Add(model.Model); }
-                    else if (profile.Arguments.Contains("{model}")) profile.Arguments = profile.Arguments.Select(value => value == "{model}" ? model.Model : value).ToList();
-                    else throw new DomainException(400, "model_flag_required", "This harness needs a literal {model} argument placeholder to select its model.");
-                }
-            }
+            EndpointProfile endpoint = (await EndpointsAsync(context, token, model.EndpointId).ConfigureAwait(false)).FirstOrDefault(item => item.Enabled) ?? throw Missing();
+            profile.Kind = "rest"; profile.Provider = endpoint.Protocol; profile.Endpoint = endpoint.BaseUrl; profile.TimeoutSeconds = endpoint.TimeoutSeconds;
+            profile.AuthBindings = endpoint.AuthBindings; profile.TransportRevision = endpoint.Revision; profile.TransportId = endpoint.Id; profile.Executable = ""; profile.Arguments.Clear();
         }
         internal static async Task SaveProfileAsync(DbConnection connection, DbTransaction transaction, RequestContext context, RunnerProfile profile, CancellationToken token)
         {

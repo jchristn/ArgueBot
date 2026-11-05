@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("card view: transcript cards collapse, jump navigation works and only the feed scrolls", async ({ page, request }) => {
   test.setTimeout(90000);

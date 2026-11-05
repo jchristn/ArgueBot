@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("prompts page shows read-only factory defaults, edits a duplicate with the parameter legend, and conversations choose it", async ({ page, request }) => {
   test.setTimeout(90000);

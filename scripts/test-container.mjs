@@ -12,7 +12,8 @@ await fs.mkdir(path.join(root, '.run'), { recursive: true });
 const directory = await fs.mkdtemp(path.join(root, '.run/container-'));
 const override = path.join(directory, 'compose.yaml');
 await fs.writeFile(override, 'services:\n  arguebot:\n    ports: !override\n      - "127.0.0.1::4317"\n    restart: "no"\n    environment:\n      ARGUEBOT_FIXTURE_ALLOWED: fictional-allowed\n      ARGUEBOT_FIXTURE_SECRET: fictional-unrelated-secret\n');
-const composeArgs = ['compose', '-p', project, '-f', path.join(root, 'docker/compose.yaml'), '-f', override];
+// Test the image built from this checkout (docker/compose.build.yaml), not the published one.
+const composeArgs = ['compose', '-p', project, '-f', path.join(root, 'docker/compose.yaml'), '-f', path.join(root, 'docker/compose.build.yaml'), '-f', override];
 let assertions = 0;
 let base;
 function check(condition, message) { assert.ok(condition, message); assertions++; }
@@ -23,10 +24,11 @@ function docker(args, input) {
   return result.stdout.trim();
 }
 function compose(args, input) { return docker([...composeArgs, ...args], input); }
-function exec(args, input) { return compose(['exec', '-T', 'arguebot', ...args], input); }
+// Commands inside the container sign in with the seeded default administrator token.
+function exec(args, input) { return compose(['exec', '-T', '-e', 'ARGUEBOT_TOKEN=arguebotadmin', 'arguebot', ...args], input); }
 function cli(args, input) { return JSON.parse(exec(['dotnet', '/app/cli/ArgueBot.Cli.dll', '--home', '/data', ...args], input === undefined ? undefined : JSON.stringify(input))); }
 async function api(route, body, method = body === undefined ? 'GET' : 'POST') {
-  const response = await fetch(base + '/v2.0/api' + route, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(45000) });
+  const response = await fetch(base + '/v2.0/api' + route, { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer arguebotadmin' }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(45000) });
   assert.ok(response.ok, `API ${method} ${route} returned ${response.status}`);
   return response.json();
 }
@@ -54,6 +56,11 @@ try {
   check((await fetch(base + '/health', { headers: { Origin: 'http://127.0.0.1:1' } })).status === 403, 'Unrelated browser origin was accepted.');
   check(exec(['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '-H', 'Host: attacker.invalid', 'http://127.0.0.1:4317/health']) === '403', 'Non-loopback request authority was accepted.');
   check(exec(['id', '-u']) === '10001', 'Container must run without root.');
+  check((await fetch(base + '/health').then(response => response.json())).authenticationRequired === true, 'The container must require sign-in.');
+  check((await fetch(base + '/v2.0/api/conversations').then(async response => { await response.arrayBuffer(); return response.status; })) === 401, 'An unauthenticated API request was accepted.');
+  const signIn = await fetch(base + '/v2.0/api/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@arguebot', password: 'password' }) }).then(response => response.json());
+  check(typeof signIn.token === 'string' && signIn.token.startsWith('abs_') && signIn.tenant.name === 'Default tenant', 'The default administrator cannot sign in to the container.');
+  check(exec(['sh', '-c', 'test -f /data/secrets/session.key && echo present']) === 'present', 'The session key must live on the protected secrets volume.');
   const page = await fetch(base + '/dashboard').then(response => response.text());
   check(page.includes('<div id="root">') && /assets\/.+\.js/.test(page), 'Packaged dashboard assets are missing.');
   check(cli(['capabilities']).debateProtocol === 2, 'Packaged CLI cannot attach to the service.');
@@ -63,9 +70,9 @@ try {
   docker(['cp', path.join(root, 'scripts/test-codex-login.mjs'), id + ':/work/test-codex-login.mjs']);
   check(exec(['node', '/work/test-codex-login.mjs']).includes('documents parse'), 'Pinned Codex rejects sanitized credentials.');
   provider();
-  const credential = await api('/configuration/credentials', { name: 'Container fictional token', kind: 'token', secretValue: 'fictional-gateway-token' });
-  const claude = await api('/configuration/credentials', { name: 'Container fictional Claude login', kind: 'claude_oauth', secretValue: 'fictional-claude-oauth' });
-  const codex = await api('/configuration/credentials', { name: 'Container fictional Codex login', kind: 'codex_auth_json', secretValue: JSON.stringify({ OPENAI_API_KEY: 'fictional-codex-key' }) });
+  const credential = await api('/configuration/secrets', { name: 'Container fictional token', kind: 'token', secretValue: 'fictional-gateway-token' });
+  const claude = await api('/configuration/secrets', { name: 'Container fictional Claude login', kind: 'claude_oauth', secretValue: 'fictional-claude-oauth' });
+  const codex = await api('/configuration/secrets', { name: 'Container fictional Codex login', kind: 'codex_auth_json', secretValue: JSON.stringify({ OPENAI_API_KEY: 'fictional-codex-key' }) });
   check(!JSON.stringify([credential, claude, codex]).includes('secretValue'), 'Credential import echoes secret fields.');
   const harnessFixture = path.join(directory, 'credentials.cjs');
   await fs.writeFile(harnessFixture, `const fs=require('fs');
@@ -86,8 +93,7 @@ process.stdin.on('end',()=>{
   docker(['cp', harnessFixture, id + ':/work/credentials.cjs']);
   const credentialModels = [];
   for (const [name, imported] of [['claude', claude], ['codex', codex]]) {
-    const harness = await api('/configuration/harnesses', { name: `Container ${name} injection fixture`, provider: name, executable: 'node', arguments: ['/work/credentials.cjs', name], workingDirectory: '/work', credentialId: imported.id, environmentVariables: ['ARGUEBOT_FIXTURE_ALLOWED'] });
-    credentialModels.push(await api('/configuration/models', { name: `Container ${name} injection`, harnessId: harness.id, model: '' }));
+    credentialModels.push(await api('/participants', { name: `Container ${name} injection fixture`, kind: 'cli', provider: name, executable: 'node', arguments: ['/work/credentials.cjs', name], workingDirectory: '/work', credentialId: imported.id, restrictEnvironment: true, environmentVariables: ['ARGUEBOT_FIXTURE_ALLOWED'] }));
   }
   const endpoint = await api('/configuration/endpoints', { name: 'Container loopback fixture', protocol: 'ollama', baseUrl: 'http://127.0.0.1:4491', authBindings: [
     { kind: 'bearer', credentialId: credential.id }, { kind: 'api_key', name: 'X-Api-Key', credentialId: credential.id },
@@ -117,14 +123,14 @@ process.stdin.on('end',()=>{
   provider();
   check((await api('/configuration/credential-keys')).activeKeyId === rotated.activeKeyId, 'Replacement lost the rotated key identity.');
   check((await api(proposalPath))[0].agreements.length === 4, 'Replacement lost debate history.');
-  check((await api('/configuration/credentials')).length === 3, 'Replacement lost imported credentials.');
+  check((await api('/configuration/secrets')).length === 3, 'Replacement lost imported credentials.');
   for (const configured of credentialModels) {
-    const observation = await api(`/configuration/models/${configured.id}/checks`, { idempotencyKey: 'container-credential-injection', checkTools: false });
+    const observation = await api(`/participants/${configured.id}/checks`, { idempotencyKey: 'container-credential-injection', checkTools: false });
     check(observation.completionVerified, `Persisted CLI credential injection failed: ${observation.errorCode}`);
   }
   const observed = await api(`/configuration/models/${model.id}/checks`, { idempotencyKey: 'container-after-replacement', checkTools: false });
   check(observed.completionVerified, 'Encrypted token was not usable after container replacement.');
-  const exposed = JSON.stringify(await api('/configuration/credentials')) + compose(['logs', '--no-color']);
+  const exposed = JSON.stringify(await api('/configuration/secrets')) + compose(['logs', '--no-color']);
   check(!['fictional-gateway-token', 'fictional-claude-oauth', 'fictional-codex-key'].some(value => exposed.includes(value)), 'Container metadata or logs exposed a credential.');
   check(exec(['node', '-e', 'const fs=require("fs");console.log(fs.readdirSync("/data/runtime/credential-homes").length)']) === '0', 'Container retained temporary credential homes.');
   compose(['down']);

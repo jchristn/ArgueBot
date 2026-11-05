@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import path from "node:path";
 
 test("a real CLI deadline exposes its cause and frozen settings beside the partial answer", async ({ page, request }) => {

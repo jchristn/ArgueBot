@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, ErrorPanel, Field, Modal } from "./ui.jsx";
 import Markdown from "react-markdown";
-import harnessDefaults from "../../../assets/harness-defaults.json";
+import ObjectRow from "./ObjectRow.jsx";
 
 const credentialKinds = ["claude_oauth", "codex_auth_json", "http_bearer", "http_header", "http_query"];
 const httpKinds = ["token", "http_bearer", "http_header", "http_query"];
@@ -66,15 +66,13 @@ function CommandBox({ command }) {
   const { t } = useTranslation();
   return <div className="command-box"><code aria-label={t("credential.guide.command")}>{command}</code><CopyButton value={command} label="credential.guide.copyCommand" iconOnly /></div>;
 }
-const harnessCredentialKind = { claude: "claude_oauth", codex: "codex_auth_json" };
 const empty = {
   endpoints: { name: "", protocol: "ollama", baseUrl: "http://127.0.0.1:11434", timeoutSeconds: 300, maxConcurrentInvocations: 1, enabled: true, authBindings: [] },
-  harnesses: { name: "", provider: "claude", executable: "claude", arguments: harnessDefaults.claude.arguments, workingDirectory: "", credentialId: "", environmentVariables: [], enabled: true },
-  models: { name: "", endpointId: "", harnessId: "", model: "", contextMaxCharacters: 262144, maxOutputBytes: 67108864, generation: { maxOutputTokens: null, temperature: null, topP: null }, supportsTools: true, enabled: true },
+  models: { name: "", endpointId: "", model: "", contextMaxCharacters: 262144, maxOutputBytes: 67108864, generation: { maxOutputTokens: null, temperature: null, topP: null }, supportsTools: true, enabled: true },
   credentials: { name: "", kind: "claude_oauth", parameterName: "", secretValue: "" },
 };
 /** The catalog record kinds, in the order the Participants tabs show them. */
-export const catalogKinds = ["models", "harnesses", "endpoints", "credentials"];
+export const catalogKinds = ["models", "endpoints", "credentials"];
 export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
   const { t } = useTranslation();
   const [value, setValue] = useState(() => structuredClone(initial ? { ...initial, ...(kind === "credentials" ? { secretValue: "" } : {}) } : { ...empty[kind], ...(preset || {}) }));
@@ -88,12 +86,10 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
   const usable = accepts => [["", t("catalog.none")], ...(data.credentials || []).filter(item => (item.status === "ready" || item.id === value.credentialId || item.id === accepts.current) && accepts.kinds.includes(item.kind)).map(item => [item.id, `${item.name} (${t(`credential.kind.${item.kind}`, { defaultValue: item.kind })})`])];
   const credentials = usable({ kinds: httpKinds, current: "" });
   const credentialById = id => (data.credentials || []).find(item => item.id === id);
-  const harnessKind = harnessCredentialKind[value.provider] || "";
-  const harnessCredentials = usable({ kinds: harnessKind ? [harnessKind] : [], current: value.credentialId });
   const bind = (index, key, next) => change("authBindings", value.authBindings.map((item, position) => position === index ? { ...item, [key]: next } : item));
   return <Modal title={initial ? `catalog.edit.${kind}` : `catalog.add.${kind}`} wide onClose={() => !busy && onClose()}><form onSubmit={async event => {
     event.preventDefault(); setBusy(true); setError(null);
-    try { await onSave(kind === "harnesses" ? { ...value, environmentVariables: (value.environmentVariables || []).filter(Boolean) } : value); change("secretValue", ""); }
+    try { await onSave(value); change("secretValue", ""); }
     catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }} autoComplete="off">
@@ -113,17 +109,10 @@ export function CatalogForm({ kind, initial, data, onSave, onClose, preset }) {
         <Button type="button" label="catalog.addBinding" disabled={value.authBindings.length >= 32} onClick={() => change("authBindings", [...value.authBindings, { kind: "bearer", name: "", credentialId: "", environmentVariable: "", value: "" }])} />
       </fieldset>
     </>}
-    {kind === "harnesses" && <>
-      <div className="form-grid">{select("provider", Object.entries(harnessDefaults).map(([id, preset]) => [id, preset.name]), provider => setValue(current => ({ ...current, provider, executable: harnessDefaults[provider].executable, arguments: [...harnessDefaults[provider].arguments] })))}{field("executable", "text", { required: true })}{field("workingDirectory")}{harnessKind ? select("credentialId", harnessCredentials) : null}{checkbox("enabled")}</div>
-      <p className="muted field-note">{t(harnessKind ? (value.credentialId ? "catalog.harnessCredential.stored" : "catalog.harnessCredential.none") : "catalog.harnessCredential.unsupported")} {harnessKind && harnessCredentials.length === 1 && t("catalog.harnessCredential.addFirst", { kind: t(`credential.kind.${harnessKind}`) })}</p>
-      <Field label="catalog.environmentVariables">{props => <input {...props} value={(value.environmentVariables || []).join(", ")} onChange={event => change("environmentVariables", event.target.value.split(",").map(name => name.trim()))} />}</Field>
-      <fieldset className="argument-editor"><legend>{t("profile.arguments")}</legend><p className="muted">{t("profile.arguments.help")}</p>{value.arguments.map((argument, index) => <div className="argument-row" key={index}><input aria-label={t("profile.argument", { number: index + 1 })} value={argument} onChange={event => change("arguments", value.arguments.map((item, position) => position === index ? event.target.value : item))} /><Button type="button" label="common.remove" onClick={() => change("arguments", value.arguments.filter((_, position) => position !== index))} /></div>)}<Button type="button" label="profile.addArgument" onClick={() => change("arguments", [...value.arguments, ""])} /></fieldset>
-    </>}
     {kind === "models" && <div className="form-grid">
-      {select("endpointId", [["", t("catalog.none")], ...(data.endpoints || []).map(item => [item.id, item.name])], endpointId => setValue(current => ({ ...current, endpointId, harnessId: endpointId ? "" : current.harnessId })))}
-      {select("harnessId", [["", t("catalog.none")], ...(data.harnesses || []).map(item => [item.id, item.name])], harnessId => setValue(current => ({ ...current, harnessId, endpointId: harnessId ? "" : current.endpointId, generation: harnessId ? { maxOutputTokens: null, temperature: null, topP: null } : current.generation })))}
-      {field("model", "text", { required: Boolean(value.endpointId) })}{field("contextMaxCharacters", "number", { min: 8192, max: 16777216, required: true })}{field("maxOutputBytes", "number", { min: 1024, max: 67108864, required: true })}{checkbox("supportsTools")}{checkbox("enabled")}
-      {value.endpointId && <fieldset className="generation-settings"><legend>{t("catalog.generation")}</legend><p className="muted">{t("catalog.generationHelp")}</p>{generationField("maxOutputTokens", 1, 1048576, 1)}{generationField("temperature", 0, 2, "any")}{generationField("topP", 0, 1, "any")}</fieldset>}
+      <Field label="catalog.endpointId">{props => <select {...props} required value={value.endpointId} onChange={event => change("endpointId", event.target.value)}><option value="">{t("catalog.chooseEndpoint")}</option>{(data.endpoints || []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</Field>
+      {field("model", "text", { required: true })}{field("contextMaxCharacters", "number", { min: 8192, max: 16777216, required: true })}{field("maxOutputBytes", "number", { min: 1024, max: 67108864, required: true })}{checkbox("supportsTools")}{checkbox("enabled")}
+      {<fieldset className="generation-settings"><legend>{t("catalog.generation")}</legend><p className="muted">{t("catalog.generationHelp")}</p>{generationField("maxOutputTokens", 1, 1048576, 1)}{generationField("temperature", 0, 2, "any")}{generationField("topP", 0, 1, "any")}</fieldset>}
     </div>}
     {kind === "credentials" && <>
       <Field label="catalog.kind">{props => <select {...props} value={value.kind} disabled={Boolean(initial)} onChange={event => setValue(current => ({ ...current, kind: event.target.value, parameterName: "" }))}>{(credentialKinds.includes(value.kind) ? credentialKinds : [...credentialKinds, value.kind]).map(item => <option key={item} value={item}>{t(`credential.kind.${item}`, { defaultValue: item })}</option>)}</select>}</Field>
@@ -195,13 +184,13 @@ function RevealDialog({ api, credential, onClose }) {
   </Modal>;
 }
 
-/** Names of the harnesses and endpoints that reference a credential. */
+/** Names of the agents and endpoints that reference a credential. */
 function usedBy(data, id) {
-  return [...(data.harnesses || []).filter(item => item.credentialId === id), ...(data.endpoints || []).filter(item => (item.authBindings || []).some(binding => binding.credentialId === id))].map(item => item.name);
+  return [...(data.agents || []).filter(item => item.credentialId === id), ...(data.endpoints || []).filter(item => (item.authBindings || []).some(binding => binding.credentialId === id))].map(item => item.name);
 }
 
 /** One reusable configuration kind as a table with its add, edit and inspection actions. */
-export default function CatalogTab({ api, notify, kind, data, error, reload }) {
+export default function CatalogTab({ api, notify, kind, data, error, reload, systemAdmin = false }) {
   const { t } = useTranslation();
   const [modelCheck, setModelCheck] = useState(null);
   const [keys, setKeys] = useState(null);
@@ -215,15 +204,14 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
   const enabled = item => <span className={item.enabled ? "badge" : "badge muted-badge"}>{t(item.enabled ? "catalog.on" : "catalog.off")}</span>;
   const columns = {
     credentials: [["catalog.column.kind", item => <>{t(`credential.kind.${item.kind}`, { defaultValue: item.kind })}{item.parameterName && <> <code>{item.parameterName}</code></>}</>], ["catalog.column.status", item => <span className={item.status === "ready" ? "badge" : "badge status-attention"} title={item.status === "refresh_uncertain" ? t("credential.status.refresh_uncertain.help") : undefined}>{t(`credential.status.${item.status}`, { defaultValue: item.status })}</span>], ["catalog.column.usedBy", item => { const names = usedBy(data, item.id); return names.length ? names.join(", ") : <span className="muted">{t("catalog.unused")}</span>; }]],
-    harnesses: [["catalog.column.program", item => <><span>{harnessDefaults[item.provider]?.name || item.provider}</span> <code>{item.executable}</code></>], ["catalog.column.login", item => harnessCredentialKind[item.provider] ? (item.credentialId ? nameOf("credentials", item.credentialId) || item.credentialId : <span className="muted">{t("catalog.localLogin")}</span>) : <span className="muted">{t("catalog.environmentOnly")}</span>], ["catalog.column.enabled", enabled]],
     endpoints: [["catalog.column.protocol", item => item.protocol === "openai" ? "OpenAI-compatible" : "Ollama"], ["catalog.column.address", item => <code>{item.baseUrl}</code>], ["catalog.column.auth", item => item.authBindings?.length ? t("catalog.bindingCount", { count: item.authBindings.length }) : <span className="muted">{t("catalog.noAuth")}</span>], ["catalog.column.enabled", enabled]],
-    models: [["catalog.column.model", item => item.model ? <code>{item.model}</code> : <span className="muted">{t("catalog.harnessDefault")}</span>], ["catalog.column.runsOn", item => nameOf("endpoints", item.endpointId) || nameOf("harnesses", item.harnessId) || <span className="muted">{t("catalog.unassigned")}</span>], ["catalog.column.enabled", enabled]],
+    models: [["catalog.column.model", item => <code>{item.model}</code>], ["catalog.column.runsOn", item => nameOf("endpoints", item.endpointId) || <span className="muted">{t("catalog.unassigned")}</span>], ["catalog.column.enabled", enabled]],
   }[kind];
   return <section className="catalog-tab" aria-label={t(`catalog.${kind}`)}>
     <div className="tab-toolbar">
       <p className="muted">{t(`catalog.intro.${kind}`)}</p>
       <div className="toolbar-actions">
-        {kind === "credentials" && <Button label="catalog.keys" onClick={async () => { try { setKeys(await api.credentialKeys()); } catch (failure) { notify(failure); } }} />}
+        {kind === "credentials" && systemAdmin && <Button label="catalog.keys" onClick={async () => { try { setKeys(await api.credentialKeys()); } catch (failure) { notify(failure); } }} />}
         <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
         <Button label={`catalog.add.${kind}`} icon="plus" className="primary" onClick={() => setEditing({})} disabled={!data} />
       </div>
@@ -233,7 +221,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
     {data && items.length === 0 && <div className="empty-state">{t(`catalog.empty.${kind}`)}</div>}
     {items.length > 0 && <div className="table-scroll"><table>
       <thead><tr><th scope="col">{t("catalog.name")}</th>{columns.map(([label]) => <th scope="col" key={label}>{t(label)}</th>)}<th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
-      <tbody>{items.map(item => <tr key={item.id}>
+      <tbody>{items.map(item => <ObjectRow key={item.id} onOpen={() => setEditing(item)}>
         <td><strong>{item.name}</strong></td>
         {columns.map(([label, render]) => <td key={label}>{render(item)}</td>)}
         <td className="actions-cell"><ActionMenu context={item.name} items={[
@@ -244,7 +232,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
           { label: "catalog.reveal", help: "catalog.reveal.help", hidden: kind !== "credentials" || item.status !== "ready", onClick: () => setRevealing(item) },
           { label: "catalog.disable", help: "catalog.disable.help", hidden: kind !== "credentials" || item.status === "disabled", danger: true, onClick: async () => { try { await api.disableCredential(item.id, item.revision); await reload(); } catch (failure) { notify(failure); } } },
         ]} /></td>
-      </tr>)}</tbody>
+      </ObjectRow>)}</tbody>
     </table></div>}
     {revealing && <RevealDialog api={api} credential={revealing} onClose={() => setRevealing(null)} />}
     {keys && <KeyDialog api={api} notify={notify} initial={keys} onClose={() => setKeys(null)} />}

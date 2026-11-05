@@ -32,7 +32,15 @@ namespace ArgueBot.Core.Database.Implementations
                 if (check.CheckTools != request.CheckTools) throw new DomainException(409, "idempotency_conflict", "The check key already has different input.");
                 await LoadSnapshotAsync(context, check, token).ConfigureAwait(false); return check;
             }
-            RunnerProfile profile = new RunnerProfile { Id = Ids.New("par_"), Name = "Explicit model check", ModelProfileId = modelId };
+            RunnerProfile profile;
+            if (modelId.StartsWith("par_", StringComparison.Ordinal))
+            {
+                // An agent check runs the saved agent exactly as a debate seat would, including its secret, model and arguments.
+                profile = await _Database.Profiles.ReadAsync(context, modelId, token).ConfigureAwait(false);
+                if (!profile.Enabled) throw new DomainException(409, "configuration_unavailable", "Enable the agent before checking it.");
+                profile.Id = Ids.New("par_"); profile.Name = "Explicit agent check: " + profile.Name;
+            }
+            else profile = new RunnerProfile { Id = Ids.New("par_"), Name = "Explicit model check", ModelProfileId = modelId };
             await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false);
             profile.TimeoutSeconds = Math.Min(30, profile.TimeoutSeconds); profile.MaxOutputBytes = 8192;
             if (request.CheckTools && !profile.SupportsTools) throw new DomainException(400, "tools_not_declared", "Enable declared tool support before explicitly checking the tool round trip.");

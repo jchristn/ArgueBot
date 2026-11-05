@@ -10,11 +10,12 @@ namespace ArgueBot.Tui
     internal sealed class TextPromptDialog : HelpDialog, IThemeable
     {
         private readonly TextField _Field;
-        internal TextPromptDialog(string title, string initial)
+        internal TextPromptDialog(string title, string initial, bool masked = false)
         {
-            Title = title; FooterHint = "Enter: accept | Esc: cancel";
+            Title = title; FooterHint = masked ? "Enter: accept | Ctrl+R: show or hide | Esc: cancel" : "Enter: accept | Esc: cancel";
             MaxContentWidth = 64;
             _Field = new TextField { Value = initial, IsFocused = true };
+            if (masked) { _Field.MaskChar = '*'; _Field.RevealKey = KeyChord.Parse("ctrl+r"); }
         }
         /// <inheritdoc />
         public void ApplyTheme(Theme theme)

@@ -5,7 +5,7 @@ namespace ArgueBot.Tui
 
     internal static class AgentPresets
     {
-        internal static string[] Choices { get { return new[] { "Claude Code (installed CLI)", "Codex (installed CLI)", "Gemini (installed CLI)", "Mux (installed CLI)", "REST model endpoint (Ollama / OpenAI / Anthropic / Gemini)", "Custom CLI harness" }; } }
+        internal static string[] Choices { get { return new[] { "Claude Code (installed CLI)", "Codex (installed CLI)", "Gemini (installed CLI)", "Mux (installed CLI)", "HTTP model (Ollama / OpenAI / Anthropic / Gemini)", "Another CLI program" }; } }
         internal static RunnerProfile Create(int index)
         {
             switch (index)

@@ -19,6 +19,12 @@ namespace ArgueBot.Client
     public sealed class ArgueBotClient : IDisposable
     {
         private readonly HttpClient _Http;
+        private volatile string _Token = "";
+        private volatile string _TenantId = "";
+        /// <summary>Tenant sent as x-tenant-id on every request. Leave empty for the token's own tenant; system administrators set it to manage another tenant's users, sessions and audit log.</summary>
+        public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value.Trim(); } }
+        /// <summary>Bearer token (session or credential) sent as Authorization: Bearer on every request and event stream. Empty sends none.</summary>
+        public string Token { get { return _Token; } set { ArgumentNullException.ThrowIfNull(value); _Token = value.Trim(); } }
         private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
         private async Task<List<T>> ReadListPagesAsync<T>(string route, int pageSize, CancellationToken token)
         {
@@ -52,18 +58,18 @@ namespace ArgueBot.Client
         /// <summary>Create or revision-check a reusable endpoint.</summary>
         public Task<EndpointProfile> SaveEndpointAsync(EndpointProfile value, CancellationToken token = default)
         { return SendAsync<EndpointProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/endpoints" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
-        /// <summary>List reusable harnesses.</summary>
-        public Task<List<HarnessProfile>> HarnessesAsync(CancellationToken token = default)
-        { return ReadConfigurationAsync<HarnessProfile>("harnesses", token); }
-        /// <summary>Create or revision-check a reusable harness.</summary>
-        public Task<HarnessProfile> SaveHarnessAsync(HarnessProfile value, CancellationToken token = default)
-        { return SendAsync<HarnessProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/harnesses" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
         /// <summary>Read a bounded page of observed checks tied to exact model and transport revisions.</summary>
         public Task<List<ModelCheck>> ModelChecksAsync(string modelId, int pageNumber = 1, CancellationToken token = default)
         { return SendAsync<List<ModelCheck>>(HttpMethod.Get, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks?pageNumber=" + pageNumber, token: token); }
         /// <summary>Explicitly invoke a potentially billable completion and optional harmless tool check.</summary>
         public Task<ModelCheck> CheckModelAsync(string modelId, ModelCheckRequest request, CancellationToken token = default)
         { return SendAsync<ModelCheck>(HttpMethod.Post, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks", request, token); }
+        /// <summary>Read a bounded page of observed checks of a saved agent.</summary>
+        public Task<List<ModelCheck>> AgentChecksAsync(string profileId, int pageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<ModelCheck>>(HttpMethod.Get, "v2.0/api/participants/" + Uri.EscapeDataString(profileId) + "/checks?pageNumber=" + pageNumber, token: token); }
+        /// <summary>Explicitly run a saved agent once, with its secret and model. This can cost money.</summary>
+        public Task<ModelCheck> CheckAgentAsync(string profileId, ModelCheckRequest request, CancellationToken token = default)
+        { return SendAsync<ModelCheck>(HttpMethod.Post, "v2.0/api/participants/" + Uri.EscapeDataString(profileId) + "/checks", request, token); }
         /// <summary>List reusable models.</summary>
         public Task<List<ModelProfile>> ModelsAsync(CancellationToken token = default)
         { return ReadConfigurationAsync<ModelProfile>("models", token); }
@@ -91,14 +97,14 @@ namespace ArgueBot.Client
         /// <summary>Disable a credential with an expected revision.</summary>
         public Task<Acknowledgement> DisableCredentialAsync(string id, long revision, CancellationToken token = default)
         { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
-        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler.</summary>
-        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null)
+        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler. Remote servers need HTTPS unless <paramref name="allowInsecureRemote"/> is set, because passwords and tokens would otherwise cross the network unencrypted.</summary>
+        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null, bool allowInsecureRemote = false)
         {
             Uri address = new Uri(endpoint.TrimEnd('/') + "/", UriKind.Absolute);
             if ((address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps) || address.UserInfo.Length > 0 || address.Query.Length > 0 || address.Fragment.Length > 0)
                 throw new ArgumentException("Use an HTTP service URL without embedded credentials, query or fragment.", nameof(endpoint));
-            if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps)
-                throw new ArgumentException("Remote service connections require HTTPS.", nameof(endpoint));
+            if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps && !allowInsecureRemote)
+                throw new ArgumentException("Remote servers need HTTPS: sign-in would send your password and token unencrypted. Use an https:// URL, or allow plain HTTP explicitly (--allow-http) on a network you trust.", nameof(endpoint));
             _Http = handler == null ? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) : new HttpClient(handler, true);
             _Http.BaseAddress = address; _Http.Timeout = TimeSpan.FromSeconds(30);
             _Http.DefaultRequestHeaders.Add("x-client-id", Guid.NewGuid().ToString("N"));
@@ -142,6 +148,7 @@ namespace ArgueBot.Client
             if (after < 0) throw new ArgumentOutOfRangeException(nameof(after));
             using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, Root(id) + "/events"))
             {
+                Authorize(request);
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
                 request.Headers.Add("Last-Event-ID", id + ":" + after.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 using (HttpResponseMessage response = await _Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
@@ -238,6 +245,13 @@ namespace ArgueBot.Client
         /// <summary>Apply a moderator command to a run.</summary>
         public async Task ActionAsync(string id, string runId, CommandRequest request, CancellationToken token = default)
         { if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) request.IdempotencyKey = Guid.NewGuid().ToString("N"); await SendAsync<AcceptedResponse>(HttpMethod.Post, Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/actions", request, token).ConfigureAwait(false); }
+        private void Authorize(HttpRequestMessage request)
+        {
+            string current = _Token;
+            if (current.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", current);
+            string tenant = _TenantId;
+            if (tenant.Length > 0) request.Headers.Add("x-tenant-id", tenant);
+        }
         /// <summary>Read a typed API response and normalize safe domain failures.</summary>
         public async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, CancellationToken token = default)
         {
@@ -246,18 +260,60 @@ namespace ArgueBot.Client
             using (HttpRequestMessage request = new HttpRequestMessage(method, path))
             {
                 if (body != null) request.Content = JsonContent.Create(body, options: _Json);
+                Authorize(request);
                 using (HttpResponseMessage response = await _Http.SendAsync(request, token).ConfigureAwait(false))
                 {
                     if (!response.IsSuccessStatusCode)
                     {
                         if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
-                        ApiError? error = await response.Content.ReadFromJsonAsync<ApiError>(_Json, token).ConfigureAwait(false);
+                        string text = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                        ApiError? error = null;
+                        try { error = text.Length == 0 ? null : JsonSerializer.Deserialize<ApiError>(text, _Json); }
+                        catch (JsonException) { }
+                        if (error?.Code == "tenant_required")
+                        {
+                            TenantRequiredError? choice = JsonSerializer.Deserialize<TenantRequiredError>(text, _Json);
+                            throw new TenantRequiredException(choice?.Tenants ?? new List<TenantChoice>());
+                        }
                         throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.", error?.Field ?? "");
                     }
                     return await response.Content.ReadFromJsonAsync<T>(_Json, token).ConfigureAwait(false) ?? throw new InvalidDataException("Server returned an empty response.");
                 }
             }
         }
+        /// <summary>Public sign-in page information, including the default credentials. Needs no token.</summary>
+        public Task<LoginInfo> LoginInfoAsync(CancellationToken token = default)
+        { return SendAsync<LoginInfo>(HttpMethod.Get, "v2.0/api/login-info", token: token); }
+        /// <summary>Sign in with an email and password. On success the session token becomes this client's <see cref="Token"/>. Throws <see cref="TenantRequiredException"/> when a tenant must be chosen.</summary>
+        public async Task<TokenResponse> LoginAsync(string email, string password, string tenantId = "", CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(email); ArgumentNullException.ThrowIfNull(password); ArgumentNullException.ThrowIfNull(tenantId);
+            TokenResponse response = await SendAsync<TokenResponse>(HttpMethod.Post, "v2.0/api/token", new LoginRequest { Email = email, Password = password, TenantId = tenantId }, token).ConfigureAwait(false);
+            Token = response.Token;
+            return response;
+        }
+        /// <summary>Replace the session token with a fresh one and use it from now on.</summary>
+        public async Task<TokenResponse> RefreshAsync(CancellationToken token = default)
+        {
+            TokenResponse response = await SendAsync<TokenResponse>(HttpMethod.Post, "v2.0/api/token/refresh", token: token).ConfigureAwait(false);
+            Token = response.Token;
+            return response;
+        }
+        /// <summary>Sign out: revoke the current session and clear <see cref="Token"/>.</summary>
+        public async Task LogoutAsync(CancellationToken token = default)
+        {
+            await SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/token", token: token).ConfigureAwait(false);
+            Token = "";
+        }
+        /// <summary>Reveal a bearer-token credential: your own, or another user's when <paramref name="userId"/> is set and you are a tenant administrator. Audited.</summary>
+        public Task<RevealedToken> RevealTokenAsync(string credentialId, string userId = "", CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(credentialId); ArgumentNullException.ThrowIfNull(userId); return SendAsync<RevealedToken>(HttpMethod.Post, (userId.Length == 0 ? "v2.0/api/me" : "v2.0/api/users/" + Uri.EscapeDataString(userId)) + "/credentials/" + Uri.EscapeDataString(credentialId) + "/reveal", token: token); }
+        /// <summary>Show an active public share link again. Audited.</summary>
+        public Task<ConversationShareCreated> RevealShareAsync(string conversationId, string shareId, CancellationToken token = default)
+        { return SendAsync<ConversationShareCreated>(HttpMethod.Post, "v2.0/api/conversations/" + Uri.EscapeDataString(conversationId) + "/shares/" + Uri.EscapeDataString(shareId) + "/reveal", token: token); }
+        /// <summary>Describe the current token: user, tenant, principal and expiry.</summary>
+        public Task<TokenDetails> TokenDetailsAsync(CancellationToken token = default)
+        { return SendAsync<TokenDetails>(HttpMethod.Get, "v2.0/api/token/details", token: token); }
         /// <summary>Read the server's supported debate modes and roster capacity.</summary>
         public Task<ServiceCapabilities> CapabilitiesAsync(CancellationToken token = default)
         { return SendAsync<ServiceCapabilities>(HttpMethod.Get, "v2.0/api/capabilities", token: token); }

@@ -2,7 +2,7 @@
 
 Current scope: backup archives, restore jobs and offline snapshot commands have been removed at user direction. Existing archive files are left untouched. Database migration safety snapshots remain internal. Earlier validation notes describe historical behavior.
 
-The replacement service binds to 127.0.0.1 and owns its application home exclusively. Start it with `dotnet run --project src/ArgueBot.Server -c Release -- --home .run/home`. Distribution packages, full live-provider compatibility, and release acceptance remain unfinished; see [ROADMAP.md](../ROADMAP.md).
+The replacement service binds to 127.0.0.1 and owns its application home exclusively. Start it with `dotnet run --project src/ArgueBot.Server -c Release -- --home .run/home`. Distribution packages, full live-provider compatibility, and release acceptance remain unfinished.
 
 Local console/TUI clients automatically attach through owner-readable `runtime/service.json` metadata or start a sibling service binary for the selected home. Source builds can locate the Release service output in the same checkout. `--server` always attaches explicitly; `--no-start` disables automatic startup. Background startup detaches the Unix session or creates a windowless Windows process, redirects startup messages to `logs/startup.log`, and leaves the service running when a client exits. Concurrent startup still relies on the exclusive home lock rather than PID metadata. The console's `service stop` uses the graceful shutdown endpoint; process supervisors may restart a stopped container according to their own policy.
 
@@ -26,7 +26,17 @@ History compatibility uses attachment protocol 2, independent of database schema
 
 Event retention is enabled by default and does not delete transcript messages or audit records. Settings exposes EventRetentionEnabled, EventRetentionDays (1..3650), EventMaxPerConversation (1..1000000), EventMaintenanceSeconds (5..3600), EventRetentionBatchSize (1..1000) and EventReplayPageSize (1..1000). Save and restart to apply. Disabling maintenance leaves existing events intact. Pruning preserves the latest sequence anchor even when it is older than the age limit. Replay-gap and pruned-event counters use bounded provider labels. Maintenance scans eligible conversation metadata in bounded batches and prunes each conversation in its own writer transaction.
 
-The product has no tenant identities, account administration, pairing or sign-in. See [open workspace scope](IDENTITY.md).
+## Sign-in operations
+
+See [IDENTITY.md](IDENTITY.md) for the model. Operational notes:
+
+- **Defaults.** Every startup creates the Default tenant, the default administrator (`admin@arguebot` / `password`) and the default token (`arguebotadmin`) if they are missing. A changed password, name or tenant name is never reset. Change the default password after the first sign-in.
+- **Forgotten password.** A tenant or system administrator resets it: dashboard Users > Actions > Reset password, TUI Menu > Users, or `users password USER_ID` in the CLI. If every administrator is locked out, sign in with the default token `arguebotadmin` (it cannot be disabled) and reset the password from there.
+- **Sign everyone out.** Stop the service, delete `secrets/session.key` in the application home and start it again. Every session token stops working; credential tokens keep working. To revoke one user's access, disable the user; to revoke a token, disable or delete its credential.
+- **Back up** the `secrets` directory with the database: it holds the secret encryption keys, the session key (`session.key`) and the token key (`token.key`). Without `token.key`, bearer tokens and share links keep working but can no longer be revealed.
+- **Audit retention.** Audit records are kept until an administrator deletes older ones (dashboard Audit log > Delete old records, or `DELETE /v2.0/api/audit?beforeUtc=...`). Deleting a tenant keeps its audit records.
+- **Rate limits** are kept in memory: 10 failed sign-ins per address or email in 5 minutes, and 120 public share reads per address per minute. A restart clears them.
+- **Remote access.** Set `listenAddress` to `0.0.0.0` (native installs listen on `127.0.0.1` by default), add host names to `allowedHosts` in `arguebot.json` or `ARGUEBOT_ALLOWED_HOSTS` (or `*` for any name, after changing the default password), restart, and serve over HTTPS. A request with an unlisted `Host` gets 403 `invalid_host`.
 
 
 Schema-13 initialization accounts for repaired default assignments as `authorization.default_assignment_seed` with the System migration actor and no fabricated user identity. Identity changes use `user.default_assignment_sync` with the authenticated actor. Unchanged defaults produce no extra migration events. Protected assignments cannot be edited through assignment administration.

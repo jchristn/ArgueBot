@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import { startProviderFixture } from "./provider-fixture.js";
 
 // Lightweight structural audit run inside the page. It complements, and does not replace, a manual screen-reader pass.
@@ -43,7 +43,7 @@ test("structural accessibility, right-to-left and expansion review across routes
     const conversation = await post("/v2.0/api/conversations", { title: "Accessibility review" });
     const run = await post(`/v2.0/api/conversations/${conversation.id}/runs`, { protocolVersion: 2, participantIds: profiles.slice(0, 2).map(profile => profile.id), orchestratorId: profiles[2].id, maxRounds: 1, interventionSeconds: 0, idempotencyKey: "audit-" + Date.now() });
     await expect.poll(async () => (await (await request.get(`/v2.0/api/conversations/${conversation.id}/runs/${run.id}`)).json()).state, { timeout: 30000 }).toBe("completed");
-    const routes = ["home", "conversations", "participants", "settings", "history", "explorer", `conversations/${conversation.id}`];
+    const routes = ["home", "conversations", "participants", "settings", "history", "explorer", "account", "users", "tenants", "audit", `conversations/${conversation.id}`];
     const findings = [];
     for (const locale of ["en", "ar-XB", "en-XA"]) {
       await page.addInitScript(locale => localStorage.setItem("arguebot.locale", locale), locale);

@@ -1,12 +1,12 @@
 # Development and verification
 
-The current runtime is C# with a React/Vite dashboard. It provides one open workspace, service-owned execution, CLI and REST participants, and local tools for REST models. Accounts, pairing, roles, security audit, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
+The current runtime is C# with a React/Vite dashboard. It provides signed-in users in separate tenants (see [IDENTITY.md](IDENTITY.md)), service-owned execution, CLI and REST participants, and local tools for REST models. Roles and permissions (RBAC), pairing, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
-`go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. See [ROADMAP.md](../ROADMAP.md) for remaining acceptance work; passing fixture tests does not close all release gates.
+`go-tui` and `go-web` build and launch the supported interfaces. Pass `net8.0` or `net10.0` (the default) as the first argument to choose the target framework. Node.js and npm are used only for dashboard development and builds. Passing fixture tests does not close all release gates.
 
 ## Build and test
 
-Use .NET 10 for applications, plus .NET 8 for shared library and test targets. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
+Applications (service, CLI and TUI) target .NET 8 and .NET 10, as do the shared libraries and tests. NuGet.Config selects an ignored repository-local cache and verifies locked dependencies against published packages.
 
 ```sh
 npm --prefix dashboard ci
@@ -26,7 +26,7 @@ npm --prefix dashboard run test:e2e
 
 All fixtures use isolated application homes and loopback listeners. Console descriptors are shared with xUnit and NUnit. Optional provider and runner integrations report explicit skips when their fixture variables are absent. For real CLI parsing and process cancellation checks, set `ARGUEBOT_CLI_FIXTURE` to the built `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. These fictional harnesses require no paid provider credentials.
 
-Container acceptance uses `docker compose -f docker/compose.yaml build` followed by `node scripts/test-container.mjs`. It creates a unique Compose project, loopback port and disposable data/key/work volumes, runs the committed Postman provider fixture inside the application container, checks packaged executables and four-seat consensus, then replaces the container and verifies encrypted credentials and key recovery. Only that test project's volumes are removed. Set `DOCKER_HOST` to use a separate daemon without changing the active Docker context. Logs are retained in `.run/container-*/container.log`. These checks do not authenticate with live model providers.
+Container acceptance uses `docker compose -f docker/compose.yaml -f docker/compose.build.yaml build` followed by `node scripts/test-container.mjs`. It creates a unique Compose project, loopback port and disposable data/key/work volumes, runs the committed Postman provider fixture inside the application container, checks packaged executables and four-seat consensus, then replaces the container and verifies encrypted credentials and key recovery. Only that test project's volumes are removed. Set `DOCKER_HOST` to use a separate daemon without changing the active Docker context. Logs are retained in `.run/container-*/container.log`. These checks do not authenticate with live model providers.
 
 Focused console suites include `--suite Storage`, `--suite Service`, `--suite Terminal`, `--suite Configuration`, `--suite Security`, `--suite Runners`, `--suite Providers` and `--suite Packaging`. The Security suite concerns local certificate trust, not product users. Windows launcher parity must also be verified on Windows.
 
@@ -40,7 +40,7 @@ dotnet run --project src/ArgueBot.Cli -c Release --no-build -- --home .run/home 
 dotnet run --project src/ArgueBot.Tui -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417
 ```
 
-Clients start or attach to their selected home automatically unless `--no-start` or an explicit `--server` is supplied. No account or token is required. Agent providers may require their own credentials. See [terminal usage](TUI.md), [execution](EXECUTION.md) and [operations](OPERATIONS.md).
+Clients start or attach to their selected home automatically unless `--no-start` or an explicit `--server` is supplied. Every client signs in: the TUI shows a sign-in page, the CLI uses `login`, `--token` or `ARGUEBOT_TOKEN`, and test fixtures use the seeded default token `arguebotadmin`. Agent providers may require their own secrets. See [terminal usage](TUI.md), [execution](EXECUTION.md) and [operations](OPERATIONS.md).
 
 ## Provider fixtures
 
@@ -60,7 +60,7 @@ The CI fixture can also run directly using `PORT=4491 node --input-type=commonjs
 
 `node scripts/generate-api.mjs` produces the OpenAPI document, Postman collection, REST_API.md and transport metadata from the active contract and typed DTOs. `node scripts/generate-dependencies.mjs` records exact dependency versions, integrity hashes and declared licenses after a locked solution restore. Commit generated artifacts alongside their source changes.
 
-The verification workflow builds and tests on Windows, macOS and Linux, checks dashboard/browser behavior and generated artifact drift, and exercises PostgreSQL and the local runner fixture. Runtime data, private credentials and test evidence must stay outside tracked fixtures. Remaining packaging, parity, live-provider and release gates are documented in [ROADMAP.md](../ROADMAP.md).
+The verification workflow builds and tests on Windows, macOS and Linux, checks dashboard/browser behavior and generated artifact drift, and exercises PostgreSQL and the local runner fixture. Runtime data, private credentials and test evidence must stay outside tracked fixtures.
 
 ## CLI failure diagnostics regression coverage
 

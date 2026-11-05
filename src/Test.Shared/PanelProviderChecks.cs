@@ -26,10 +26,8 @@ namespace Test.Shared
             await database.Catalog.SaveModelAsync(context, httpModel, token).ConfigureAwait(false);
             httpModel = (await database.Catalog.ModelsAsync(context, token, httpModel.Id).ConfigureAwait(false)).Single();
             if (httpModel.Generation.Temperature.HasValue || httpModel.Generation.TopP.HasValue || httpModel.Generation.MaxOutputTokens.HasValue) throw new InvalidDataException("Clearing generation overrides did not preserve adapter defaults.");
-            HarnessProfile harness = await database.Catalog.SaveHarnessAsync(context, new HarnessProfile { Name = "Provider fixture harness", Executable = "fictional" }, token).ConfigureAwait(false);
-            ModelProfile model = await database.Catalog.SaveModelAsync(context, new ModelProfile { Name = "Provider fixture model", HarnessId = harness.Id }, token).ConfigureAwait(false);
             List<string> ids = new List<string>();
-            for (int index = 0; index < 5; index++) ids.Add((await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Agent " + index, ModelProfileId = model.Id }, token).ConfigureAwait(false)).Id);
+            for (int index = 0; index < 5; index++) ids.Add((await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Agent " + index, Kind = "cli", Provider = "plain", Executable = "fictional" }, token).ConfigureAwait(false)).Id);
             Conversation conversation = await database.CreateConversationAsync(context, "Provider explicit consensus", token).ConfigureAwait(false);
             await using (ConversationEngine engine = new ConversationEngine(database, new MultiAgentFixtureRunner()))
             {

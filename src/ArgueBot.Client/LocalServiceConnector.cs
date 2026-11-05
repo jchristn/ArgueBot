@@ -2,6 +2,7 @@ namespace ArgueBot.Client
 {
     using System;
     using System.Diagnostics;
+    using System.Globalization;
     using System.IO;
     using System.Net.Http;
     using System.Net.Http.Json;
@@ -20,9 +21,13 @@ namespace ArgueBot.Client
         public static HttpClientHandler CreateHttpHandler(string home)
         { return LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)); }
 
-        /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled.</summary>
-        public static ArgueBotClient CreateClient(string endpoint, string home)
-        { return new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home))); }
+        /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled. The bearer token comes from <paramref name="bearerToken"/> or, when that is null, from ARGUEBOT_TOKEN.</summary>
+        public static ArgueBotClient CreateClient(string endpoint, string home, string? bearerToken = null, bool allowInsecureRemote = false)
+        {
+            ArgueBotClient client = new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)), allowInsecureRemote);
+            client.Token = bearerToken ?? Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN") ?? "";
+            return client;
+        }
 
         /// <summary>Resolve an explicit remote/local address, or attach/start the selected local home. An existing verified service keeps its actual port.</summary>
         /// <param name="home">Application home to attach or start.</param>
@@ -64,7 +69,7 @@ namespace ArgueBot.Client
                 if (!autoStart) throw new InvalidOperationException("The local service is not running. Start ArgueBot.Server or omit --no-start.");
                 ProcessStartInfo start = LocateServer();
                 start.ArgumentList.Add("--home"); start.ArgumentList.Add(paths.Home); start.ArgumentList.Add("--detached");
-                if (portOverride.HasValue) { start.ArgumentList.Add("--port"); start.ArgumentList.Add(portOverride.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
+                if (portOverride.HasValue) { start.ArgumentList.Add("--port"); start.ArgumentList.Add(portOverride.Value.ToString(CultureInfo.InvariantCulture)); }
                 start.UseShellExecute = false; start.CreateNoWindow = true;
                 start.RedirectStandardInput = true; start.RedirectStandardOutput = true; start.RedirectStandardError = true;
                 using (Process process = OperatingSystem.IsWindows() ? WindowsServiceLauncher.Start(start) : Process.Start(start) ?? throw new IOException("The local service process could not start."))
@@ -114,7 +119,7 @@ namespace ArgueBot.Client
                     string project = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "ArgueBot.Server.csproj");
                     if (File.Exists(project))
                     {
-                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", "net10.0", "ArgueBot.Server.dll");
+                        assembly = Path.Combine(directory.FullName, "src", "ArgueBot.Server", "bin", "Release", "net" + Environment.Version.Major.ToString(CultureInfo.InvariantCulture) + ".0", "ArgueBot.Server.dll");
                         break;
                     }
                     directory = directory.Parent;

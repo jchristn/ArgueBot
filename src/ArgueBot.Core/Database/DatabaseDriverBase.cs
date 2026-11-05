@@ -56,6 +56,12 @@ namespace ArgueBot.Core.Database
         public IMemoryMethods Memory { get; }
         /// <summary>Debate prompt library, conversation selections and frozen run prompts.</summary>
         public IPromptMethods Prompts { get; }
+        /// <summary>Tenants, users and bearer-token credentials.</summary>
+        public IIdentityMethods Identity { get; }
+        /// <summary>Public conversation links.</summary>
+        public IShareMethods Shares { get; }
+        /// <summary>Encrypts new credential and share-link tokens so they can be revealed. Without it, new tokens are shown only once.</summary>
+        public TokenSealer? Sealer { get; set; }
         /// <summary>Moderator information requests.</summary>
         public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -81,6 +87,7 @@ namespace ArgueBot.Core.Database
             Rosters = new RosterMethods(this);
             Memory = new MemoryMethods(this);
             Prompts = new PromptMethods(this);
+            Identity = new IdentityMethods(this); Shares = new ShareMethods(this);
             Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
@@ -161,7 +168,7 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
                         // A restore target stays empty; the restored rows or the next normal start supply the factory prompts.
-                        if (!requireEmpty) await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false);
+                        if (!requireEmpty) { await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false); await IdentitySeed.EnsureAsync(connection, transaction, token).ConfigureAwait(false); }
                         transaction.Commit();
                     }
                 }
@@ -190,7 +197,7 @@ namespace ArgueBot.Core.Database
         {
             RequireAuthenticated(context);
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
-            using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE tenant_id=@tenant AND user_id=@user AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
+            using (DbCommand command = Command(connection, null, "SELECT conversations.*,(SELECT COALESCE(MAX(e.sequence_number),0) FROM events e WHERE e.tenant_id=conversations.tenant_id AND e.conversation_id=conversations.id) AS event_head FROM conversations WHERE tenant_id=@tenant AND id=@id", P("tenant", context.TenantId, "user", context.UserId, "id", id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) throw new DomainException(404, "not_found", "Conversation not found.");
@@ -206,7 +213,7 @@ namespace ArgueBot.Core.Database
         {
             RequireAuthenticated(context);
             if (page < 1 || size < 1 || size > 100) throw new DomainException(400, "invalid_page", "Page must be positive and page size between 1 and 100.");
-            string filter = "tenant_id=@tenant AND user_id=@user AND archived=@archived AND (instr(lower(title),lower(@search))>0 OR id IN (SELECT conversation_id FROM messages WHERE tenant_id=@tenant AND instr(lower(content),lower(@search))>0))";
+            string filter = "tenant_id=@tenant AND archived=@archived AND (instr(lower(title),lower(@search))>0 OR id IN (SELECT conversation_id FROM messages WHERE tenant_id=@tenant AND instr(lower(content),lower(@search))>0))";
             Dictionary<string, object?> values = P("tenant", context.TenantId, "user", context.UserId, "archived", archived ? 1 : 0, "search", search, "limit", size, "offset", checked((long)(page - 1) * size));
             Page result = new Page { PageNumber = page, PageSize = size };
             using (DbConnection connection = await OpenAsync(token).ConfigureAwait(false))
@@ -229,7 +236,7 @@ namespace ArgueBot.Core.Database
             ValidateOpeningQuestion(request.OpeningQuestion ?? "");
             await WriteAsync(async (connection, transaction) =>
             {
-                int changed = await ExecuteAsync(connection, transaction, "UPDATE conversations SET title=@title,opening_question=COALESCE(@question,opening_question),pinned=@pin,archived=@archive,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND user_id=@user AND id=@id AND revision=@revision", token, P("title", request.Title.Trim(), "question", request.OpeningQuestion?.Trim(), "pin", request.Pinned ? 1 : 0, "archive", request.Archived ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id, "revision", request.Revision)).ConfigureAwait(false);
+                int changed = await ExecuteAsync(connection, transaction, "UPDATE conversations SET title=@title,opening_question=COALESCE(@question,opening_question),pinned=@pin,archived=@archive,revision=revision+1,updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND revision=@revision", token, P("title", request.Title.Trim(), "question", request.OpeningQuestion?.Trim(), "pin", request.Pinned ? 1 : 0, "archive", request.Archived ? 1 : 0, "tenant", context.TenantId, "user", context.UserId, "id", id, "revision", request.Revision)).ConfigureAwait(false);
                 if (changed == 0) throw new DomainException(409, "revision_conflict", "Conversation changed. Reload before saving.");
                 if (request.PromptIds != null) await PromptMethods.SaveSelectionAsync(connection, transaction, context, id, request.PromptIds, token).ConfigureAwait(false);
                 await EventAsync(connection, transaction, context.TenantId, id, "conversation_updated", id, "", token).ConfigureAwait(false);
@@ -246,7 +253,8 @@ namespace ArgueBot.Core.Database
             {
                 long busy = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM runs WHERE tenant_id=@tenant AND conversation_id=@id AND state NOT IN ('completed','cancelled','failed')", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false), CultureInfo.InvariantCulture);
                 if (busy > 0) throw new DomainException(409, "active_run", "Stop the active or paused run before deleting this conversation.");
-                await ExecuteAsync(connection, transaction, "DELETE FROM conversations WHERE tenant_id=@tenant AND user_id=@user AND id=@id", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "DELETE FROM conversation_shares WHERE tenant_id=@tenant AND conversation_id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "DELETE FROM conversations WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "user", context.UserId, "id", id)).ConfigureAwait(false);
             }, token).ConfigureAwait(false);
         }
 
@@ -559,8 +567,9 @@ namespace ArgueBot.Core.Database
             RequireAuthenticated(context);
             if (!HasWritePermission(context)) throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
+        /// <summary>Without RBAC, every signed-in user of an active tenant has full data access within that tenant.</summary>
         internal static bool HasWritePermission(RequestContext context)
-        { return context.IsAdmin || context.IsTenantAdmin || context.Role == "admin" || context.Role == "operator"; }
+        { return context.IsAuthenticated; }
 
         /// <summary>Optionally acquire an exclusive provider session that is retained for all writes until disposal. Default providers use transient connections.</summary>
         protected virtual Task<DbConnection?> AcquireOwnedWriterAsync(CancellationToken token) { return Task.FromResult<DbConnection?>(null); }

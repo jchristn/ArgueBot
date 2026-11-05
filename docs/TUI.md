@@ -2,7 +2,7 @@
 
 The C# TUI and web dashboard are the supported conversation interfaces. Both use the same persistent service.
 
-Build and launch from the repository root with `./go-tui.sh` on macOS/Linux or `go-tui.bat` on Windows. Both build the C# solution first and forward TUI arguments, for example `./go-tui.sh --home .run/home`. A manual equivalent is:
+Build and launch from the repository root with `./go-tui.sh` on macOS/Linux or `go-tui.bat` on Windows. Both build the service and TUI first and forward TUI arguments, for example `./go-tui.sh --home .run/home`. An optional first argument selects the target framework, `net8.0` or `net10.0` (the default), for example `./go-tui.sh net8.0 --home .run/home`. A manual equivalent is:
 
 ```sh
 dotnet build src/ArgueBot.sln -c Release
@@ -10,6 +10,19 @@ dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home
 ```
 
 The home above is an isolated development home. Reuse the same home to see the same saved agents and conversations. The TUI automatically starts or attaches to its service. The splash closes after three seconds or any key.
+
+## Sign in
+
+The TUI starts on a sign-in page whenever it has no valid session. It shows the default administrator (`admin@arguebot` / `password`) and default token (`arguebotadmin`) at the top of the form and beside each field.
+
+- **Server URL** is filled with the local service the TUI started or attached to. To use another ArgueBot service, enter its address, for example `https://arguebot.example.com`, or start with `--server URL`. Plain `http://` to another machine is refused unless you tick **Allow plain HTTP** or start with `--allow-http`, because your password would cross the network unencrypted.
+- Enter an **Email** and **Password** (Ctrl+R shows or hides it), or a **bearer token** instead. Ctrl+S signs in; Esc quits.
+- If your email and password work in several tenants, a list asks which tenant to use.
+- Problems appear at the top of the form and keep what you typed: an invalid URL, a server that does not answer, a host name the server does not allow, a wrong password, a disabled account or tenant, and too many attempts each have their own message.
+
+After signing in, the session (never the password) is remembered for this home in `client-session.json`, readable only by you, and refreshed while the TUI runs, so the next start skips the page. `ARGUEBOT_TOKEN` signs in with a token without saving it. The connection line at the bottom shows who you are and which tenant you are in.
+
+**Menu > Account** shows who you are signed in as, changes your password, manages your bearer tokens (create, reveal again, disable or delete) and sessions, signs out and switches server. Signing out or a revoked session returns to the sign-in page. Tenant administrators also get **Menu > Users** and **Audit log**; system administrators get **Tenants**, where they can open any tenant's users. With a conversation open, **Menu > Share a read-only link** creates a public link that expires after the time you choose, and lists and revokes earlier links.
 
 ## Appearance
 
@@ -28,7 +41,7 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 | Help | Ten task-ordered topics, from a first-debate walkthrough to setup, steering, follow-ups, troubleshooting and a keyboard shortcut reference. |
 | Menu | Every action, grouped under headings: the open conversation, conversations, setup, and view and help. Run controls are grouped the same way: run, steer the debate, inspect and working memory. |
 | New | Starts guided debate setup or creates an empty conversation, asking for its title, an optional opening question and, when custom prompts exist, which prompt each debate step uses. |
-| Agents | Adds or edits the CLI harnesses and REST models that can speak in a debate. |
+| Agents | Adds, edits or checks the agents that can speak in a debate: CLI programs with an optional secret and model, or HTTP models. |
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |
 | Run controls | Pauses, resumes, interrupts, extends or stops a debate. If the conversation has no debate, offers setup. |
 
@@ -39,7 +52,7 @@ The compact footer reserves **F1 Help** and shows keys for the focused control, 
 ## Set up your first debate
 
 1. Choose **New**, then **Start a debate: guided setup**.
-2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, a REST model endpoint, or a custom CLI harness. Review the fields and save. Repeat until two agents are enabled.
+2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, an HTTP model, or another CLI program. Review the fields, optionally choose a model and a **Secret** (select a stored secret when running in Docker or to override the credentials used by default by the agent), and save. Repeat until two agents are enabled.
 3. In **Question**, enter what you want debated. Enter or the **Next** button advances.
 4. In **Speakers**, check every agent for the panel, up to the service limit, then choose an explicit orchestrator model. Space toggles a checkbox; Enter opens the orchestrator dropdown and arrows select an item.
 5. In **Settings**, set the maximum rounds and the time available to intervene between turns. Optionally enter the checked seat numbers in the opening order you want.
@@ -51,13 +64,13 @@ The opening order rotates each round. The orchestrator asks a question, collects
 
 ## Configure an agent
 
-CLI presets fill in the harness name, executable and protocol. The harness must be installed on the machine running the service. The supported CLI protocols supply their normal arguments when you leave the argument list empty. The **Executable (program only)** field takes `claude`, `codex`, or a full program path. Do not enter a whole command such as `claude --verbose`, and do not wrap a path in quotes. Paths containing spaces are allowed.
+CLI presets fill in the agent name, executable and protocol. The program must be installed on the machine running the service. The supported CLI protocols supply their normal arguments when you leave the argument list empty. The **Executable (program only)** field takes `claude`, `codex`, or a full program path. Do not enter a whole command such as `claude --verbose`, and do not wrap a path in quotes. Paths containing spaces are allowed.
 
 Put each flag or value in its own **Argument** row. For example, `--output-format` goes in one row and `stream-json` in the next. With no rows, ArgueBot uses its built-in protocol arguments. Adding rows replaces the complete default list, so custom arguments must include the protocol's required output options. An empty row is an actual empty argument. The prompt goes to stdin.
 
 The form catches common commands with flags in the executable field and explains how to correct them. Profile edits apply only to new debates. Existing debates retain their original agent settings, including incorrect ones: stop the old debate and start a new debate after fixing an agent.
 
-For a REST model, choose its provider and enter its endpoint and model identifier. The credential field takes an environment variable **name**, not the secret value. Its value must be available to the running service. If you change the service environment, restart the service before using the new value.
+For a REST model, choose its provider and enter its endpoint and model identifier. The secret field takes an environment variable **name**, not the secret value. Its value must be available to the running service. If you change the service environment, restart the service before using the new value.
 
 In agent forms, Tab moves to the next field or action. Select **Save**, or use Ctrl+S. Validation and service errors leave the draft open. Escape cancels.
 
@@ -105,7 +118,7 @@ Help pages, message readers and debate review open at the beginning and wrap to 
 
 F1 Help contains eight scrollable guides: navigation, agent setup, debate setup/controls, final instructions after consensus, history/attempts, troubleshooting, administration/recovery, and theme/detaching. Each guide explains the workflow and keys, with examples and recovery steps. Escape returns to the contents, then to the workspace.
 
-For the web interface, `./go-web.sh` or `go-web.bat` builds the React dashboard and C# solution, then starts or attaches to the shared service and prints its plain dashboard URL. Open it directly. The default local workspace requires no authentication, account, tenant, pairing code or special link. The service continues in the background after the launcher exits. Run it again to reuse a running service. Both interfaces accept `--home PATH`; `--port N` selects the web service's port only when starting an absent service.
+For the web interface, `./go-web.sh` or `go-web.bat` (optionally followed by `net8.0` or `net10.0`) builds the React dashboard and C# solution, then starts or attaches to the shared service and prints its plain dashboard URL. Open it directly. The default local workspace requires no authentication, account, tenant, pairing code or special link. The service continues in the background after the launcher exits. Run it again to reuse a running service. Both interfaces accept `--home PATH`; `--port N` selects the web service's port only when starting an absent service.
 
 See [the usability review](TUI-USABILITY.md) for the comparison with Armada, Armor, S3Drive and Mux and the verification scope.
 
@@ -120,7 +133,7 @@ See [the usability review](TUI-USABILITY.md) for the comparison with Armada, Arm
 
 For Mux, choose **Agents → Add agent → Mux (installed CLI)**. The default executable is `mux`; change it to the installed executable path if needed. Empty arguments use `print --output-format text --no-stats --no-session-persistence`. Mux reads the debate prompt from stdin and uses its own endpoint configuration and authentication on the service machine. To choose a named endpoint or model, supply the complete argument list, for example `print`, `--output-format`, `text`, `--no-stats`, `--no-session-persistence`, `--endpoint`, `my endpoint`, `--model`, `my-model`, with each value in its own argument field. Keep text output selected; JSON/JSONL output would appear literally in the transcript. ArgueBot retains the conversation history and supplies context on each turn; Mux session persistence is disabled by default. Tool permissions follow Mux configuration unless explicitly overridden in the saved arguments.
 
-Named harness setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex includes `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
+Named CLI program setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex includes `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
 
 Identity administration has been removed. Backup and restore are also removed. Users, roles, security audit and their shortcuts are not product features. Use `stop-web.sh` or `stop-web.bat` to stop the selected service.
 
@@ -128,10 +141,10 @@ A failed turn displays TURN FAILED followed by its cause and recovery guidance i
 
 ## Reusable configuration and debate memory
 
-Choose **Agents → Connections, models and credentials** to manage endpoint, harness, model and credential forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Credential paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a credential, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
+Choose **Agents → Connections, models and secrets** to manage endpoint, model and secret forms. HTTP bindings can combine bearer, API-key, header and query authentication. CLI programs are configured on agents, whose arguments remain literal, including empty arguments. Secret paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a secret, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
 
 Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
 
-The terminal's post-implementation checks render all new forms in dark/light themes at 60, 80 and 120 columns, and panel setup at 4, 16 and 64 seats. Rendering evidence is separate from provider compatibility; see [the implementation plan](../MULTIPLE_AGENTS_PLAN.md).
+The terminal's post-implementation checks render all new forms in dark/light themes at 60, 80 and 120 columns, and panel setup at 4, 16 and 64 seats. Rendering evidence is separate from provider compatibility; see [the implementation plan](../archive/MULTIPLE_AGENTS_PLAN.md).
 
 For a saved HTTP endpoint, choose **Check connection / list models** to contact it with its configured auth bindings without invoking a completion. The result lists advertised IDs only; tool support and context capacity remain declarations until separately verified. The composer uses **Add context**, and every submission to a v2 run presents its own delivery choice.

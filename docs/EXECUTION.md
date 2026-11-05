@@ -30,7 +30,7 @@ Stream callbacks larger than the configured batch size are split before persiste
 
 Conversation and profile storage uses the fixed workspace scope. Historical ownership columns are internal compatibility keys, not product accounts.
 
-Accepted execution is service-owned and does not depend on a client session or active account. The open workspace bypasses legacy identity checks. Stop and interrupt cancel external work; disconnecting a UI does not. Historical authorization-related outcomes remain readable but do not define the current product workflow.
+Accepted execution is service-owned and does not depend on a client session: a debate keeps running after its user signs out or their session expires. Each run resolves endpoints and secrets inside its own tenant. Stop and interrupt cancel external work; disconnecting a UI does not. Historical authorization-related outcomes remain readable but do not define the current product workflow.
 
 ## Agent program configuration
 
@@ -50,7 +50,7 @@ Named harness setup uses the shared `assets/harness-defaults.json` catalog in th
 
 REST participants use native tool calling through PolyPrompt for Ollama, OpenAI-compatible, Anthropic and Gemini models. The service advertises `read_file`, `write_file`, `list_directory` and `run_process`, executes requested operations and sends results back to the model until it answers. The model must support native tools. Working directory applies to both CLI and REST profiles; empty uses the service directory. Relative paths resolve there. This is a working directory, not a filesystem sandbox: operations have the service account's permissions. Container deployments operate inside the container and its explicit mounts.
 
-The existing `allowCli` setting now controls all local execution: CLI harnesses and REST tools. When false, REST chat continues with no local tools advertised. No additional permission prompt is required during a turn. File access uses explicit paths; processes use an executable plus literal argument array with no implicit shell parsing.
+The existing `allowCli` setting now controls all local execution: CLI agents and REST tools. When false, REST chat continues with no local tools advertised. No additional permission prompt is required during a turn. File access uses explicit paths; processes use an executable plus literal argument array with no implicit shell parsing.
 
 Limits are 32 calls and 16 continuation rounds per turn, 128 KiB of streamed tool argument data per response, 64 KiB per file read/write or process output stream, 200 directory entries, 256 KiB per serialized result, and 30 seconds per process within the participant's overall turn timeout. Tool errors are returned to the model so it can correct a request. Incomplete provider responses never execute their proposed calls. No provider request or local tool is automatically retried. Streaming continuation preserves provider tool IDs and Gemini thought signatures/native continuation state.
 

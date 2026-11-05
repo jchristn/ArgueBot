@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 // Measures text contrast of every visible control at rest and while hovered, in both themes.
 function measure(selector) {
@@ -32,7 +32,7 @@ for (const theme of ["light", "dark"]) {
     await page.addInitScript(theme => localStorage.setItem("arguebot.theme", theme), theme);
     await page.setViewportSize({ width: 1280, height: 900 });
     const failures = [];
-    for (const route of ["home", "conversations", "participants", "participants?tab=credentials", "participants?tab=endpoints", "history", "explorer", "settings"]) {
+    for (const route of ["home", "conversations", "participants", "participants?tab=credentials", "participants?tab=endpoints", "history", "explorer", "settings", "account", "users", "tenants", "audit"]) {
       await page.goto("/dashboard/" + route);
       await expect(page.locator("main")).toBeVisible();
       await page.waitForTimeout(300);

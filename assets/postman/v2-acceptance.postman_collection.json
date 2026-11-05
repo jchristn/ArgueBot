@@ -4,9 +4,23 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "Run only through scripts/test-v2-postman.mjs against a disposable workspace. Provider responses are simulated; service persistence, execution and API validation are real."
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
   "variable": [
     {
       "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "token",
       "value": ""
     },
     {
@@ -30,6 +44,97 @@
     }
   ],
   "item": [
+    {
+      "name": "Refuse a request without a bearer token",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401',()=>pm.response.to.have.status(401));",
+              "pm.test('Sign-in is required',()=>pm.expect(pm.response.json().code).to.equal('authentication_required'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sign in as the default administrator",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/token",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@arguebot\",\n  \"password\": \"password\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code===201)pm.collectionVariables.set('token',pm.response.json().token);",
+              "pm.test('Session token issued',()=>pm.expect(pm.response.json().token).to.match(/^abs_/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Describe the session",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/token/details",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Signed in as a system administrator',()=>{const v=pm.response.json();pm.expect(v.principalType).to.equal('User');pm.expect(v.user.isAdmin).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
     {
       "name": "Capabilities",
       "request": {
@@ -59,7 +164,7 @@
       "name": "Import fictional credential",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+        "url": "{{baseUrl}}/v2.0/api/configuration/secrets",
         "header": [
           {
             "key": "Content-Type",
@@ -91,10 +196,10 @@
       ]
     },
     {
-      "name": "Create harness with explicit environment",
+      "name": "Create agent with explicit environment",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "url": "{{baseUrl}}/v2.0/api/participants",
         "header": [
           {
             "key": "Content-Type",
@@ -103,7 +208,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Postman environment fixture\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"FIXTURE_API_KEY\"\n  ]\n}",
+          "raw": "{\n  \"name\": \"Postman environment fixture\",\n  \"kind\": \"cli\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"restrictEnvironment\": true,\n  \"environmentVariables\": [\n    \"FIXTURE_API_KEY\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -128,7 +233,7 @@
       "name": "Reject environment values in names",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "url": "{{baseUrl}}/v2.0/api/participants",
         "header": [
           {
             "key": "Content-Type",
@@ -137,7 +242,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Invalid environment\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"KEY=fictional-value\"\n  ]\n}",
+          "raw": "{\n  \"name\": \"Invalid environment\",\n  \"kind\": \"cli\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"restrictEnvironment\": true,\n  \"environmentVariables\": [\n    \"KEY=fictional-value\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1714,7 +1819,7 @@
       "name": "Inspect credential metadata",
       "request": {
         "method": "GET",
-        "url": "{{baseUrl}}/v2.0/api/configuration/credentials",
+        "url": "{{baseUrl}}/v2.0/api/configuration/secrets",
         "header": [
           {
             "key": "Content-Type",
@@ -1831,7 +1936,7 @@
       "name": "Disable fixture credential",
       "request": {
         "method": "DELETE",
-        "url": "{{baseUrl}}/v2.0/api/configuration/credentials/{{credentialId}}?revision=1",
+        "url": "{{baseUrl}}/v2.0/api/configuration/secrets/{{credentialId}}?revision=1",
         "header": [
           {
             "key": "Content-Type",

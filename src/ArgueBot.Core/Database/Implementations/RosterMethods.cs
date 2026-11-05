@@ -39,8 +39,7 @@ namespace ArgueBot.Core.Database.Implementations
             if (request.Action != "add" && !run.Participants.Any(seat => seat.Id == request.ParticipantId)) throw new DomainException(400, "invalid_participant", "Choose an active participant seat.");
             if (request.Action == "remove" && run.Participants.Count <= 2) throw new DomainException(409, "minimum_roster", "A debate needs two active seats. Replace an agent or stop the debate.");
             if (request.Action == "add" && run.Participants.Count >= _Database.Debates.MaximumParticipants) throw new DomainException(409, "participant_limit", "The panel is at the configured service limit.");
-            RunnerProfile? profile = request.Action == "remove" ? null : await _Database.Profiles.ReadAsync(context, request.ProfileId, token).ConfigureAwait(false);
-            if (profile != null) await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false);
+            RunnerProfile? profile = request.Action == "remove" ? null : await SeatSelection.ReadAsync(_Database, context, request.ProfileId, "profileId", token).ConfigureAwait(false);
             if (profile != null)
             {
                 if (!profile.Enabled) throw new DomainException(409, "disabled_profile", "Enable the selected profile first.");

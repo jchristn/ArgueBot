@@ -45,6 +45,7 @@ namespace ArgueBot.Runners
                         List<ConversationToolDefinition> definitions = new List<ConversationToolDefinition>();
                         if (check.CheckTools) definitions.Add(new ConversationToolDefinition { Name = "connection_probe", Description = "Harmless connection check. Call once with value 4 and use the returned result.", Schema = """{"type":"object","properties":{"value":{"type":"integer","enum":[4]}},"required":["value"],"additionalProperties":false}""" });
                         int calls = 0; StringBuilder output = new StringBuilder();
+                        check.Snapshot.RuntimeTenantId = context.TenantId;
                         await _Runner.GenerateWithContextAsync(check.Snapshot, "This is an explicit connection check. Do not inspect files or use local tools. " + (check.CheckTools ? "Call connection_probe exactly once with value 4, then reply briefly that the result was received." : "Reply briefly with ARGUEBOT_CONNECTION_OK. No tools are needed."), new List<Message>(), definitions, (call, cancellation) =>
                         {
                             cancellation.ThrowIfCancellationRequested();

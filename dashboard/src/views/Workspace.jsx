@@ -17,6 +17,8 @@ import remarkGfm from "remark-gfm";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Icon, Modal, Pagination, speakerLabel } from "../components/ui.jsx";
 import FullMessageDialog from "../components/FullMessageDialog.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
+import { seatOptions } from "../utils/seats.js";
 import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -105,8 +107,8 @@ function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "
                   }
                 />
                 <span>{profile.name}</span>
-                <small>
-                  {profile.kind} · {profile.model || profile.provider}
+                <small className={profile.warning ? "seat-warning" : undefined}>
+                  {profile.model}
                 </small>
                 {selected.includes(profile.id) && (
                   <b>{selected.indexOf(profile.id) + 1}</b>
@@ -173,6 +175,7 @@ function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "
 function WorkspaceContent({ id }) {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
+  const [sharing, setSharing] = useState(false);
   const draftKey = `arguebot.draft:${location.origin}:${id}`;
   const [text, setText] = useState(() => localStorage.getItem(draftKey) || "");
   const [modeChoice, setModeChoice] = useState(null);
@@ -209,13 +212,17 @@ function WorkspaceContent({ id }) {
   const tail = useRef(true);
   const scrollPageTop = useRef(false);
   const { data, error, reload } = useData(id + JSON.stringify(historyView), async () => {
-    const [conversation, messagePage, runs, profiles, capabilities] = await Promise.all([
+    const [conversation, messagePage, runs, agents, capabilities, models, secrets] = await Promise.all([
       api.conversation(id),
       api.messages(id, historyView),
       api.runs(id),
       api.participants(),
       api.capabilities(),
+      api.configuration("models"),
+      api.configuration("credentials"),
     ]);
+    // Debate seats are agents, each with its own optional secret; see utils/seats.js.
+    const profiles = seatOptions({ models, secrets, agents }, t);
     return { conversation, messages: messagePage.items, messagePage, runs, profiles, capabilities };
   });
   const run = data?.runs.at(-1);
@@ -366,6 +373,7 @@ function WorkspaceContent({ id }) {
   return (
     <div className="workspace">
       {fullMessage && <FullMessageDialog conversationId={id} messageId={fullMessage} onClose={() => setFullMessage(null)} />}
+      {sharing && data && <ShareDialog api={api} conversation={data.conversation} onClose={() => setSharing(false)} />}
       {attemptsRunId && <AttemptDialog conversationId={id} runs={data.runs} messages={data.messages} initialRunId={attemptsRunId} onClose={() => setAttemptsRunId(null)} />}
       <header className="workspace-heading">
         <div>
@@ -380,6 +388,7 @@ function WorkspaceContent({ id }) {
         </div>
         <div className="utilities">
           <Link className="button primary" to={`/dashboard/conversations/${id}/read`} title={t("reader.open.help")}><Icon name="prompt" />{t("reader.open")}</Link>
+          <Button label="share.action" icon="external" onClick={() => setSharing(true)} />
           <CopyButton label="conversations.copy" iconOnly disabled={!data.messagePage.totalCount} loadText={async () => {
             const messages = await api.allMessages(id);
             return "# " + data.conversation.title + "\n\n" + messages.map(message => `## ${message.speaker} (${message.kind})\n\n${messageContent(message)}`).join("\n\n");

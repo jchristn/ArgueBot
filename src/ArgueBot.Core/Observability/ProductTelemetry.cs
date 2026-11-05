@@ -7,9 +7,9 @@ namespace ArgueBot.Core.Observability
     public static class ProductTelemetry
     {
         /// <summary>Application meter collected by the process composition root.</summary>
-        public static readonly Meter Meter = new Meter("ArgueBot", "2.0.0");
+        public static readonly Meter Meter = new Meter("ArgueBot", "2.1.0");
         /// <summary>Application spans collected with Watson and PolyPrompt spans.</summary>
-        public static readonly ActivitySource Activities = new ActivitySource("ArgueBot", "2.0.0");
+        public static readonly ActivitySource Activities = new ActivitySource("ArgueBot", "2.1.0");
         /// <summary>Completed database writes by provider and outcome.</summary>
         public static readonly Counter<long> StorageWrites = Meter.CreateCounter<long>("arguebot.storage.writes");
         /// <summary>Database write duration in seconds.</summary>

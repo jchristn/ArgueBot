@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 let home, origin;
 const cli = path.resolve('../src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll');
-const invoke = (...args) => spawnSync('dotnet', [cli, '--home', home, ...args], { encoding:'utf8', timeout:10000, env:{...process.env, ARGUEBOT_TOKEN:''} });
+const invoke = (...args) => spawnSync('dotnet', [cli, '--home', home, ...args], { encoding:'utf8', timeout:10000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'} });
 test.beforeAll(async () => {
  home = await fs.mkdtemp(path.resolve('../.run/clipboard workspace '));
  const server=net.createServer(); await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve)); const port=server.address().port; await new Promise(resolve=>server.close(resolve));

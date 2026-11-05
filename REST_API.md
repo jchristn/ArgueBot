@@ -1,12 +1,26 @@
 # REST API
 
-The ArgueBot service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations remain in [ROADMAP.md](ROADMAP.md) and [development documentation](docs/DEVELOPMENT.md).
+The ArgueBot service owns persistent conversations, execution and configuration. This reference documents the implemented route contract; it is generated with the OpenAPI document and Postman collection from `assets/api-contract.json` and named C# DTOs. Implementation and release limitations are described in the [development documentation](docs/DEVELOPMENT.md).
 
-Use `127.0.0.1` for local connections. The service is one open workspace: no accounts, roles, permissions, pairing, login, sessions or security audit API. Host/origin checks and service ownership remain in place.
+## Authentication
+
+Every route except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, the OpenAPI document and the dashboard files needs a bearer token. Send it as `Authorization: Bearer <token>` or as `x-token: <token>`; if you send both, they must be the same token.
+
+- **Session token**: `POST /v2.0/api/token` with `{ "email", "password", "tenantId" }`, or with the `x-email`, `x-password` and optional `x-tenant-id` headers. The response holds an opaque `abs_...` token that lasts 60 minutes. `POST /v2.0/api/token/refresh` replaces it with a new token and a fresh lifetime; the previous token stops working. `DELETE /v2.0/api/token` signs out.
+- **Credential token**: a long-lived `abt_...` token created under `/v2.0/api/me/credentials`. Reveal it again with `POST .../credentials/{id}/reveal` (audited). Disable or delete the credential to revoke it.
+- **Default administrator**: `admin@arguebot` with password `password` and bearer token `arguebotadmin`. The sign-in page always shows these. Change the password and create your own credentials, then disable nothing you still need: the default user, tenant and token are protected and cannot be deleted.
+
+If the email and password match accounts in several tenants, sign-in returns 409 `tenant_required` with the tenants to choose from; send `tenantId` and sign in again. `x-tenant-id` on other routes must match the token's tenant (403 `tenant_mismatch`), except that a system administrator may use it on user, session and audit routes to act in another tenant.
+
+Failures: 401 `authentication_required`, `invalid_token`, `session_expired`, `session_revoked`, `credential_inactive`, `credential_expired`, `user_inactive`, `tenant_inactive`, `invalid_credentials`, `account_inactive`, `conflicting_credentials`, `unsupported_scheme` or `password_not_accepted`; 403 `forbidden` or `tenant_mismatch` with an `AuthorizationError` body; 429 `rate_limited` with `Retry-After` after 10 failed sign-ins from one address or for one email in 5 minutes. Every failure and every administrative change is recorded in the audit log (`GET /v2.0/api/audit`).
+
+Access classes: **Member** routes are open to any signed-in user of an active tenant, and data is shared within the tenant. **TenantAdmin** routes need a tenant administrator. **SystemAdmin** routes need a system administrator. Each route below states its class.
+
+Host names: `127.0.0.1` and `localhost` are always accepted. Add other names, such as a reverse proxy name, to `allowedHosts` in the service settings or to `ARGUEBOT_ALLOWED_HOSTS`. Use TLS, directly or through a TLS-terminating proxy, whenever the service is reachable from another machine.
 
 ## GET /health
 
-Check readiness without authentication. Open workspace endpoint.
+Check readiness without authentication. Access: public; no bearer token.
 
 Success: **200**, response: `HealthResponse`.
 
@@ -16,7 +30,7 @@ Success: **200**, response: `HealthResponse`.
 
 ## POST /v1.0/api/conversations
 
-Create a persistent conversation without starting any model. Open workspace endpoint.
+Create a persistent conversation without starting any model. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `Conversation`. Request: `ConversationRequest`.
 
@@ -31,7 +45,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations
 
-Search owned titles and message content with exact totals. Open workspace endpoint.
+Search owned titles and message content with exact totals. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Page`.
 
@@ -44,7 +58,7 @@ Success: **200**, response: `Page`.
 
 ## GET /v1.0/api/conversations/{conversationId}
 
-Read an owned conversation. Open workspace endpoint.
+Read an owned conversation. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Conversation`.
 
@@ -54,7 +68,7 @@ Success: **200**, response: `Conversation`.
 
 ## PUT /v1.0/api/conversations/{conversationId}
 
-Change title, pin or archive using an expected revision. Open workspace endpoint.
+Change title, pin or archive using an expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Conversation`. Request: `ConversationRequest`.
 
@@ -75,7 +89,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/messages
 
-Read bounded owned message previews with stable membership and exact totals. Open workspace endpoint.
+Read bounded owned message previews with stable membership and exact totals. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `MessagePage`.
 
@@ -89,7 +103,7 @@ Success: **200**, response: `MessagePage`.
 
 ## POST /v1.0/api/conversations/{conversationId}/messages
 
-Append a public note with command deduplication. Open workspace endpoint.
+Append a public note with command deduplication. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `Message`. Request: `CommandRequest`.
 
@@ -109,7 +123,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/events
 
-Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Open workspace endpoint.
+Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DurableEvent>`.
 
@@ -123,7 +137,7 @@ Success: **200**, response: `List<DurableEvent>`.
 
 ## POST /v1.0/api/participants
 
-Create a reusable direct CLI or PolyPrompt completion profile. Open workspace endpoint.
+Create a reusable direct CLI or PolyPrompt completion profile. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
@@ -142,13 +156,13 @@ Representative request:
 
 ## GET /v1.0/api/participants
 
-List current runner profiles; excludes historical snapshots. Open workspace endpoint.
+List current runner profiles; excludes historical snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<RunnerProfile>`.
 
 ## PUT /v1.0/api/participants/{profileId}
 
-Edit a reusable profile without changing historical run snapshots. Open workspace endpoint.
+Edit a reusable profile without changing historical run snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
@@ -171,7 +185,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/runs
 
-Read execution history and immutable participants. Open workspace endpoint.
+Read execution history and immutable participants. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DebateRun>`.
 
@@ -181,7 +195,7 @@ Success: **200**, response: `List<DebateRun>`.
 
 ## POST /v1.0/api/conversations/{conversationId}/runs
 
-Start a debate or single-participant follow-up with a durable receipt. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Start a debate or single-participant follow-up with a durable receipt. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `DebateRun`. Request: `CreateRunRequest`.
 
@@ -204,7 +218,7 @@ Representative request:
 
 ## GET /v1.0/api/conversations/{conversationId}/runs/{runId}
 
-Read a durable checkpoint and current revision. Open workspace endpoint.
+Read a durable checkpoint and current revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DebateRun`.
 
@@ -215,7 +229,7 @@ Success: **200**, response: `DebateRun`.
 
 ## POST /v1.0/api/conversations/{conversationId}/runs/{runId}/actions
 
-Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Apply pause, resume, interrupt, stop, continue, extend, note, steer, hold or release. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `Acknowledgement`. Request: `CommandRequest`.
 
@@ -235,7 +249,7 @@ Representative request:
 
 ## GET /v1.0/api/request-history
 
-Inspect scoped request metadata with backend filtering and paging. Open workspace endpoint.
+Inspect scoped request metadata with backend filtering and paging. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `HistoryPage`.
 
@@ -251,7 +265,7 @@ Success: **200**, response: `HistoryPage`.
 
 ## GET /v1.0/api/request-history/summary
 
-Return zero-filled UTC activity buckets for a bounded range. Open workspace endpoint.
+Return zero-filled UTC activity buckets for a bounded range. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `List<ActivityBucket>`.
 
@@ -263,7 +277,7 @@ Success: **200**, response: `List<ActivityBucket>`.
 
 ## GET /v1.0/api/request-history/{requestId}
 
-Read redacted request and response headers and body prefixes. Open workspace endpoint.
+Read redacted request and response headers and body prefixes. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `RequestHistoryEntry`.
 
@@ -273,7 +287,7 @@ Success: **200**, response: `RequestHistoryEntry`.
 
 ## DELETE /v1.0/api/request-history/{requestId}
 
-Delete one authorized retained request capture. Open workspace endpoint.
+Delete one authorized retained request capture. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -283,13 +297,13 @@ Success: **200**, response: `DeletionResponse`.
 
 ## GET /v1.0/api/settings
 
-Read redacted file settings, revision and restart metadata. Open workspace endpoint.
+Read redacted file settings, revision and restart metadata. Access: system administrators.
 
 Success: **200**, response: `SettingsView`.
 
 ## PUT /v1.0/api/settings
 
-Atomically update allowlisted nonsecret settings using its revision. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Atomically update allowlisted nonsecret settings using its revision. Access: system administrators. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `SettingsView`. Request: `SettingsUpdate`.
 
@@ -308,7 +322,7 @@ Representative request:
 
 ## POST /v1.0/api/settings/restart
 
-Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Access: system administrators. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `RestartResponse`. Request: `object`.
 
@@ -320,7 +334,7 @@ Representative request:
 
 ## DELETE /v1.0/api/participants/{profileId}
 
-Delete a reusable participant, preserving historical snapshots. Open workspace endpoint.
+Delete a reusable participant, preserving historical snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -330,7 +344,7 @@ Success: **200**, response: `DeletionResponse`.
 
 ## DELETE /v1.0/api/conversations/{conversationId}
 
-Permanently delete a stopped conversation and its retained messages/events. Open workspace endpoint.
+Permanently delete a stopped conversation and its retained messages/events. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -340,13 +354,13 @@ Success: **200**, response: `DeletionResponse`.
 
 ## POST /v1.0/api/settings/shutdown
 
-Drain active work and stop the service; a supervisor may restart it. Open workspace endpoint.
+Drain active work and stop the service; a supervisor may restart it. Access: system administrators.
 
 Success: **202**, response: `Acknowledgement`.
 
 ## GET /v1.0/api/conversations/{conversationId}/runs/{runId}/attempts
 
-Page durable generation attempts with frozen participant, prompt and context provenance. Open workspace endpoint.
+Page durable generation attempts with frozen participant, prompt and context provenance. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `AttemptPage`.
 
@@ -359,7 +373,7 @@ Success: **200**, response: `AttemptPage`.
 
 ## GET /v1.0/api/conversations/{conversationId}/messages/{messageId}
 
-Read one complete owned message without loading other history. Open workspace endpoint.
+Read one complete owned message without loading other history. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Message`.
 
@@ -370,7 +384,7 @@ Success: **200**, response: `Message`.
 
 ## POST /v2.0/api/conversations
 
-v2: Create a persistent conversation without starting any model. Open workspace endpoint.
+v2: Create a persistent conversation without starting any model. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `Conversation`. Request: `ConversationRequest`.
 
@@ -384,7 +398,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations
 
-v2: Search owned titles and message content with exact totals. Open workspace endpoint.
+v2: Search owned titles and message content with exact totals. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Page`.
 
@@ -397,7 +411,7 @@ Success: **200**, response: `Page`.
 
 ## GET /v2.0/api/conversations/{conversationId}
 
-v2: Read an owned conversation. Open workspace endpoint.
+v2: Read an owned conversation. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Conversation`.
 
@@ -407,7 +421,7 @@ Success: **200**, response: `Conversation`.
 
 ## PUT /v2.0/api/conversations/{conversationId}
 
-v2: Change title, pin or archive using an expected revision. Open workspace endpoint.
+v2: Change title, pin or archive using an expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Conversation`. Request: `ConversationRequest`.
 
@@ -428,7 +442,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/messages
 
-v2: Read bounded owned message previews with stable membership and exact totals. Open workspace endpoint.
+v2: Read bounded owned message previews with stable membership and exact totals. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `MessagePage`.
 
@@ -442,7 +456,7 @@ Success: **200**, response: `MessagePage`.
 
 ## POST /v2.0/api/conversations/{conversationId}/messages
 
-v2: Append a public note with command deduplication. Open workspace endpoint.
+v2: Append a public note with command deduplication. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `Message`. Request: `CommandRequest`.
 
@@ -462,7 +476,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/events
 
-v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Open workspace endpoint.
+v2: Read committed events after a cursor; Accept text/event-stream enables resumable SSE. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DurableEvent>`.
 
@@ -476,7 +490,7 @@ Success: **200**, response: `List<DurableEvent>`.
 
 ## POST /v2.0/api/participants
 
-v2: Create a reusable direct CLI or PolyPrompt completion profile. Open workspace endpoint.
+v2: Create a reusable direct CLI or PolyPrompt completion profile. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
@@ -495,13 +509,13 @@ Representative request:
 
 ## GET /v2.0/api/participants
 
-v2: List current runner profiles; excludes historical snapshots. Open workspace endpoint.
+v2: List current runner profiles; excludes historical snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<RunnerProfile>`.
 
 ## PUT /v2.0/api/participants/{profileId}
 
-v2: Edit a reusable profile without changing historical run snapshots. Open workspace endpoint.
+v2: Edit a reusable profile without changing historical run snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `RunnerProfile`. Request: `RunnerProfile`.
 
@@ -524,7 +538,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/runs
 
-v2: Read execution history and immutable participants. Open workspace endpoint.
+v2: Read execution history and immutable participants. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DebateRun>`.
 
@@ -534,7 +548,7 @@ Success: **200**, response: `List<DebateRun>`.
 
 ## POST /v2.0/api/conversations/{conversationId}/runs
 
-Start a model-guided panel with an explicit orchestrator. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Start a model-guided panel with an explicit orchestrator. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `DebateRun`. Request: `CreateRunRequest`.
 
@@ -563,7 +577,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}
 
-v2: Read a durable checkpoint and current revision. Open workspace endpoint.
+v2: Read a durable checkpoint and current revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DebateRun`.
 
@@ -574,7 +588,7 @@ Success: **200**, response: `DebateRun`.
 
 ## POST /v2.0/api/conversations/{conversationId}/runs/{runId}/actions
 
-v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+v2: Apply pause, resume, interrupt, stop, continue, extend, edit_proposal, rebuild_summary, exclude_summary, hold or release. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `Acknowledgement`. Request: `CommandRequest`.
 
@@ -594,7 +608,7 @@ Representative request:
 
 ## GET /v2.0/api/request-history
 
-v2: Inspect scoped request metadata with backend filtering and paging. Open workspace endpoint.
+v2: Inspect scoped request metadata with backend filtering and paging. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `HistoryPage`.
 
@@ -610,7 +624,7 @@ Success: **200**, response: `HistoryPage`.
 
 ## GET /v2.0/api/request-history/summary
 
-v2: Return zero-filled UTC activity buckets for a bounded range. Open workspace endpoint.
+v2: Return zero-filled UTC activity buckets for a bounded range. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `List<ActivityBucket>`.
 
@@ -622,7 +636,7 @@ Success: **200**, response: `List<ActivityBucket>`.
 
 ## GET /v2.0/api/request-history/{requestId}
 
-v2: Read redacted request and response headers and body prefixes. Open workspace endpoint.
+v2: Read redacted request and response headers and body prefixes. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `RequestHistoryEntry`.
 
@@ -632,7 +646,7 @@ Success: **200**, response: `RequestHistoryEntry`.
 
 ## DELETE /v2.0/api/request-history/{requestId}
 
-v2: Delete one authorized retained request capture. Open workspace endpoint.
+v2: Delete one authorized retained request capture. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -642,13 +656,13 @@ Success: **200**, response: `DeletionResponse`.
 
 ## GET /v2.0/api/settings
 
-v2: Read redacted file settings, revision and restart metadata. Open workspace endpoint.
+v2: Read redacted file settings, revision and restart metadata. Access: system administrators.
 
 Success: **200**, response: `SettingsView`.
 
 ## PUT /v2.0/api/settings
 
-v2: Atomically update allowlisted nonsecret settings using its revision. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+v2: Atomically update allowlisted nonsecret settings using its revision. Access: system administrators. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `SettingsView`. Request: `SettingsUpdate`.
 
@@ -667,7 +681,7 @@ Representative request:
 
 ## POST /v2.0/api/settings/restart
 
-v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+v2: Drain workers and reload settings; native hosts restart in-process, containers exit for their supervisor. Access: system administrators. May execute work or change service state; do not blindly replay requests.
 
 Success: **202**, response: `RestartResponse`. Request: `object`.
 
@@ -679,7 +693,7 @@ Representative request:
 
 ## DELETE /v2.0/api/participants/{profileId}
 
-v2: Delete a reusable participant, preserving historical snapshots. Open workspace endpoint.
+v2: Delete a reusable participant, preserving historical snapshots. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -687,9 +701,39 @@ Success: **200**, response: `DeletionResponse`.
 | --- | --- | --- | --- |
 | profileId | path | true | Participant profile ID. Copy it from the Participants page. |
 
+## GET /v2.0/api/participants/{profileId}/checks
+
+Read observed checks of an agent. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<ModelCheck>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| profileId | path | true | Participant profile ID. Copy it from the Participants page. |
+| pageNumber | query | false | Page to return, starting at 1. |
+
+## POST /v2.0/api/participants/{profileId}/checks
+
+Explicitly run a saved agent once, with its secret and model; potentially billable. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ModelCheck`. Request: `ModelCheckRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| profileId | path | true | Participant profile ID. Copy it from the Participants page. |
+
+Representative request:
+
+```json
+{
+  "idempotencyKey": "{{commandKey}}",
+  "checkTools": false
+}
+```
+
 ## DELETE /v2.0/api/conversations/{conversationId}
 
-v2: Permanently delete a stopped conversation and its retained messages/events. Open workspace endpoint.
+v2: Permanently delete a stopped conversation and its retained messages/events. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `DeletionResponse`.
 
@@ -699,13 +743,13 @@ Success: **200**, response: `DeletionResponse`.
 
 ## POST /v2.0/api/settings/shutdown
 
-v2: Drain active work and stop the service; a supervisor may restart it. Open workspace endpoint.
+v2: Drain active work and stop the service; a supervisor may restart it. Access: system administrators.
 
 Success: **202**, response: `Acknowledgement`.
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/attempts
 
-v2: Page durable generation attempts with frozen participant, prompt and context provenance. Open workspace endpoint.
+v2: Page durable generation attempts with frozen participant, prompt and context provenance. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `AttemptPage`.
 
@@ -718,7 +762,7 @@ Success: **200**, response: `AttemptPage`.
 
 ## GET /v2.0/api/conversations/{conversationId}/messages/{messageId}
 
-v2: Read one complete owned message without loading other history. Open workspace endpoint.
+v2: Read one complete owned message without loading other history. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Message`.
 
@@ -729,13 +773,13 @@ Success: **200**, response: `Message`.
 
 ## GET /v2.0/api/capabilities
 
-Discover panel limits and unanimity policy. Open workspace endpoint.
+Discover panel limits and unanimity policy. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `ServiceCapabilities`.
 
 ## POST /v2.0/api/conversations/{conversationId}/interjections
 
-Accept context with an explicit delivery mode. Open workspace endpoint.
+Accept context with an explicit delivery mode. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `InterjectionReceipt`. Request: `InterjectionRequest`.
 
@@ -757,7 +801,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/interjections
 
-Read context receipts and exact participant deliveries. Open workspace endpoint.
+Read context receipts and exact participant deliveries. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<InterjectionReceipt>`.
 
@@ -768,7 +812,7 @@ Success: **200**, response: `List<InterjectionReceipt>`.
 
 ## POST /v2.0/api/conversations/{conversationId}/runs/{runId}/roster
 
-Queue a roster change with expected run revision. Open workspace endpoint.
+Queue a roster change with expected run revision. Access: any signed-in user of an active tenant.
 
 Success: **202**, response: `Acknowledgement`. Request: `RosterChangeRequest`.
 
@@ -790,7 +834,7 @@ Representative request:
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/roster
 
-Read current and historical panel seats. Open workspace endpoint.
+Read current and historical panel seats. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DebateSeat>`.
 
@@ -801,7 +845,7 @@ Success: **200**, response: `List<DebateSeat>`.
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/proposals
 
-Inspect exact proposals and every recorded vote; paged newest first. Open workspace endpoint.
+Inspect exact proposals and every recorded vote; paged newest first. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<DebateProposal>`.
 
@@ -813,7 +857,7 @@ Success: **200**, response: `List<DebateProposal>`.
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/summaries
 
-Read shared and private summaries with paginated immutable source manifests. Open workspace endpoint.
+Read shared and private summaries with paginated immutable source manifests. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<ContextSummary>`.
 
@@ -827,7 +871,7 @@ Success: **200**, response: `List<ContextSummary>`.
 
 ## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications
 
-Read pending and answered moderator questions; paged newest first. Open workspace endpoint.
+Read pending and answered moderator questions; paged newest first. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<ClarificationRequest>`.
 
@@ -839,7 +883,7 @@ Success: **200**, response: `List<ClarificationRequest>`.
 
 ## GET /v2.0/api/configuration/endpoints
 
-List endpoints without secret values; bounded pages default to 100 items. Open workspace endpoint.
+List endpoints without secret values; bounded pages default to 100 items. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<EndpointProfile>`.
 
@@ -850,7 +894,7 @@ Success: **200**, response: `List<EndpointProfile>`.
 
 ## POST /v2.0/api/configuration/endpoints
 
-Create endpoints configuration. Open workspace endpoint.
+Create endpoints configuration. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `EndpointProfile`. Request: `EndpointProfile`.
 
@@ -879,7 +923,7 @@ Representative request:
 
 ## PUT /v2.0/api/configuration/endpoints/{id}
 
-Replace endpoints configuration with expected revision. Open workspace endpoint.
+Replace endpoints configuration with expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `EndpointProfile`. Request: `EndpointProfile`.
 
@@ -911,75 +955,9 @@ Representative request:
 }
 ```
 
-## GET /v2.0/api/configuration/harnesses
-
-List harnesses without secret values; bounded pages default to 100 items. Open workspace endpoint.
-
-Success: **200**, response: `List<HarnessProfile>`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| pageNumber | query | false | Page to return, starting at 1. |
-| pageSize | query | false | Items per page, 1 through 100 unless noted. |
-
-## POST /v2.0/api/configuration/harnesses
-
-Create harnesses configuration. Open workspace endpoint.
-
-Success: **201**, response: `HarnessProfile`. Request: `HarnessProfile`.
-
-Representative request:
-
-```json
-{
-  "name": "Claude Code",
-  "provider": "claude",
-  "executable": "claude",
-  "arguments": [
-    "-p",
-    "--verbose",
-    "--output-format",
-    "stream-json",
-    "--dangerously-skip-permissions"
-  ],
-  "credentialId": "{{credentialId}}",
-  "enabled": true
-}
-```
-
-## PUT /v2.0/api/configuration/harnesses/{id}
-
-Replace harnesses configuration with expected revision. Open workspace endpoint.
-
-Success: **200**, response: `HarnessProfile`. Request: `HarnessProfile`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| id | path | true | Resource ID. Copy it from the matching list. |
-
-Representative request:
-
-```json
-{
-  "name": "Claude Code",
-  "provider": "claude",
-  "executable": "claude",
-  "arguments": [
-    "-p",
-    "--verbose",
-    "--output-format",
-    "stream-json",
-    "--dangerously-skip-permissions"
-  ],
-  "credentialId": "{{credentialId}}",
-  "enabled": true,
-  "revision": 1
-}
-```
-
 ## GET /v2.0/api/configuration/models
 
-List models without secret values; bounded pages default to 100 items. Open workspace endpoint.
+List models without secret values; bounded pages default to 100 items. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<ModelProfile>`.
 
@@ -990,7 +968,7 @@ Success: **200**, response: `List<ModelProfile>`.
 
 ## POST /v2.0/api/configuration/models
 
-Create models configuration. Open workspace endpoint.
+Create models configuration. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `ModelProfile`. Request: `ModelProfile`.
 
@@ -1009,7 +987,7 @@ Representative request:
 
 ## PUT /v2.0/api/configuration/models/{id}
 
-Replace models configuration with expected revision. Open workspace endpoint.
+Replace models configuration with expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `ModelProfile`. Request: `ModelProfile`.
 
@@ -1031,9 +1009,9 @@ Representative request:
 }
 ```
 
-## GET /v2.0/api/configuration/credentials
+## GET /v2.0/api/configuration/secrets
 
-List credentials without secret values; bounded pages default to 100 items. Open workspace endpoint.
+List secrets without secret values; bounded pages default to 100 items. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<CredentialMetadata>`.
 
@@ -1042,9 +1020,20 @@ Success: **200**, response: `List<CredentialMetadata>`.
 | pageNumber | query | false | Page to return, starting at 1. |
 | pageSize | query | false | Items per page, 1 through 100 unless noted. |
 
-## POST /v2.0/api/configuration/credentials
+## GET /v2.0/api/configuration/credentials
 
-Create credentials configuration. Open workspace endpoint.
+Deprecated alias of GET /v2.0/api/configuration/secrets. Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
+
+Success: **200**, response: `List<CredentialMetadata>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| pageNumber | query | false | Page to return, starting at 1. |
+| pageSize | query | false | Items per page, 1 through 100 unless noted. |
+
+## POST /v2.0/api/configuration/secrets
+
+Create secrets configuration. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `CredentialMetadata`. Request: `CredentialRequest`.
 
@@ -1059,9 +1048,26 @@ Representative request:
 }
 ```
 
-## PUT /v2.0/api/configuration/credentials/{id}
+## POST /v2.0/api/configuration/credentials
 
-Replace credentials configuration with expected revision. Open workspace endpoint.
+Deprecated alias of POST /v2.0/api/configuration/secrets. Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
+
+Success: **201**, response: `CredentialMetadata`. Request: `CredentialRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Example gateway credential",
+  "kind": "http_header",
+  "parameterName": "x-api-key",
+  "secretValue": "{{credentialValue}}"
+}
+```
+
+## PUT /v2.0/api/configuration/secrets/{id}
+
+Replace secrets configuration with expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `CredentialMetadata`. Request: `CredentialRequest`.
 
@@ -1080,9 +1086,30 @@ Representative request:
 }
 ```
 
-## POST /v2.0/api/configuration/credentials/{id}/reveal
+## PUT /v2.0/api/configuration/credentials/{id}
 
-Reveal a ready credential's decrypted value to the moderator. Open workspace endpoint.
+Deprecated alias of PUT /v2.0/api/configuration/secrets/{id}. Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
+
+Success: **200**, response: `CredentialMetadata`. Request: `CredentialRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
+Representative request:
+
+```json
+{
+  "name": "Example gateway credential",
+  "kind": "token",
+  "secretValue": "{{credentialValue}}",
+  "revision": 1
+}
+```
+
+## POST /v2.0/api/configuration/secrets/{id}/reveal
+
+Reveal a ready secret's decrypted value to the moderator. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `RevealedCredential`.
 
@@ -1090,9 +1117,30 @@ Success: **200**, response: `RevealedCredential`.
 | --- | --- | --- | --- |
 | id | path | true | Resource ID. Copy it from the matching list. |
 
+## POST /v2.0/api/configuration/credentials/{id}/reveal
+
+Deprecated alias of POST /v2.0/api/configuration/secrets/{id}/reveal. Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
+
+Success: **200**, response: `RevealedCredential`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+
+## DELETE /v2.0/api/configuration/secrets/{id}
+
+Disable a secret while keeping historical references. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| id | path | true | Resource ID. Copy it from the matching list. |
+| revision | query | false | Expected current revision; the request is refused if the resource changed. |
+
 ## DELETE /v2.0/api/configuration/credentials/{id}
 
-Disable a credential while keeping historical references. Open workspace endpoint.
+Deprecated alias of DELETE /v2.0/api/configuration/secrets/{id}. Access: any signed-in user of an active tenant. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
 
 Success: **200**, response: `Acknowledgement`.
 
@@ -1103,13 +1151,13 @@ Success: **200**, response: `Acknowledgement`.
 
 ## GET /v2.0/api/prompt-parameters
 
-List prompt placeholders and the debate steps where each has a value. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+List prompt placeholders and the debate steps where each has a value. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `List<PromptParameter>`.
 
 ## GET /v2.0/api/prompts
 
-List factory and workspace prompts. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+List factory and workspace prompts. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `List<PromptTemplate>`.
 
@@ -1119,7 +1167,7 @@ Success: **200**, response: `List<PromptTemplate>`.
 
 ## POST /v2.0/api/prompts
 
-Create a workspace prompt. Open workspace endpoint.
+Create a workspace prompt. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `PromptTemplate`. Request: `PromptTemplate`.
 
@@ -1136,7 +1184,7 @@ Representative request:
 
 ## GET /v2.0/api/prompts/{id}
 
-Read a prompt. Open workspace endpoint.
+Read a prompt. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `PromptTemplate`.
 
@@ -1146,7 +1194,7 @@ Success: **200**, response: `PromptTemplate`.
 
 ## PUT /v2.0/api/prompts/{id}
 
-Update a workspace prompt with its expected revision. Open workspace endpoint.
+Update a workspace prompt with its expected revision. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `PromptTemplate`. Request: `PromptTemplate`.
 
@@ -1167,7 +1215,7 @@ Representative request:
 
 ## POST /v2.0/api/prompts/{id}/duplicate
 
-Copy a prompt, including a factory default, into an editable workspace prompt. Open workspace endpoint.
+Copy a prompt, including a factory default, into an editable workspace prompt. Access: any signed-in user of an active tenant.
 
 Success: **201**, response: `PromptTemplate`.
 
@@ -1177,7 +1225,7 @@ Success: **201**, response: `PromptTemplate`.
 
 ## DELETE /v2.0/api/prompts/{id}
 
-Delete a workspace prompt; factory prompts cannot be deleted. Open workspace endpoint.
+Delete a workspace prompt; factory prompts cannot be deleted. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `Acknowledgement`.
 
@@ -1188,7 +1236,7 @@ Success: **200**, response: `Acknowledgement`.
 
 ## POST /v2.0/api/configuration/endpoints/{id}/discover
 
-Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `EndpointDiscovery`.
 
@@ -1196,15 +1244,49 @@ Success: **200**, response: `EndpointDiscovery`.
 | --- | --- | --- | --- |
 | id | path | true | Resource ID. Copy it from the matching list. |
 
-## GET /v2.0/api/configuration/credential-keys
+## GET /v2.0/api/configuration/secret-keys
 
-Read safe master-key identities. Open workspace endpoint.
+Read safe master-key identities. Access: system administrators.
 
 Success: **200**, response: `CredentialKeyStatus`.
 
+## GET /v2.0/api/configuration/credential-keys
+
+Deprecated alias of GET /v2.0/api/configuration/secret-keys. Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x.
+
+Success: **200**, response: `CredentialKeyStatus`.
+
+## POST /v2.0/api/configuration/secret-keys/rotate
+
+Rotate the expected master key and reencrypt secrets. Access: system administrators. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `CredentialKeyStatus`. Request: `RotateCredentialKeyRequest`.
+
+Representative request:
+
+```json
+{
+  "expectedKeyId": "{{activeKeyId}}"
+}
+```
+
 ## POST /v2.0/api/configuration/credential-keys/rotate
 
-Rotate the expected master key and reencrypt credentials. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Deprecated alias of POST /v2.0/api/configuration/secret-keys/rotate. Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `CredentialKeyStatus`. Request: `RotateCredentialKeyRequest`.
+
+Representative request:
+
+```json
+{
+  "expectedKeyId": "{{activeKeyId}}"
+}
+```
+
+## POST /v2.0/api/configuration/secret-keys/retire
+
+Retire earlier master keys once no secret uses them. Access: system administrators. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `CredentialKeyStatus`. Request: `RotateCredentialKeyRequest`.
 
@@ -1218,7 +1300,7 @@ Representative request:
 
 ## POST /v2.0/api/configuration/credential-keys/retire
 
-Retire earlier master keys once no credential uses them. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Deprecated alias of POST /v2.0/api/configuration/secret-keys/retire. Access: system administrators. Deprecated: use the /configuration/secrets or /configuration/secret-keys route instead; this alias is removed after 2.1.x. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `CredentialKeyStatus`. Request: `RotateCredentialKeyRequest`.
 
@@ -1232,7 +1314,7 @@ Representative request:
 
 ## GET /v2.0/api/configuration/models/{id}/checks
 
-Read observed completion/tool checks. Open workspace endpoint.
+Read observed completion/tool checks. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `List<ModelCheck>`.
 
@@ -1243,7 +1325,7 @@ Success: **200**, response: `List<ModelCheck>`.
 
 ## POST /v2.0/api/configuration/models/{id}/checks
 
-Explicitly invoke a potentially billable model check. Open workspace endpoint. May execute work or change service state; do not blindly replay requests.
+Explicitly invoke a potentially billable model check. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
 
 Success: **200**, response: `ModelCheck`. Request: `ModelCheckRequest`.
 
@@ -1262,13 +1344,505 @@ Representative request:
 
 ## GET /v2.0/api/configuration/endpoints/{id}/preview
 
-Preview normalized destinations and binding names without contacting the endpoint or resolving credentials. Open workspace endpoint.
+Preview normalized destinations and binding names without contacting the endpoint or resolving credentials. Access: any signed-in user of an active tenant.
 
 Success: **200**, response: `EndpointPreview`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
 | id | path | true | Resource ID. Copy it from the matching list. |
+
+## POST /v2.0/api/token
+
+Sign in with an email and password and receive a session token. Access: public; no bearer token.
+
+Success: **201**, response: `TokenResponse`. Request: `LoginRequest`.
+
+Representative request:
+
+```json
+{
+  "email": "admin@arguebot",
+  "password": "password",
+  "tenantId": ""
+}
+```
+
+## GET /v2.0/api/login-info
+
+Read sign-in page information, including the default credentials. Access: public; no bearer token.
+
+Success: **200**, response: `LoginInfo`.
+
+## GET /v2.0/api/token
+
+Check that the bearer token is valid. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+## GET /v2.0/api/token/details
+
+Describe the bearer token: user, tenant, principal and expiry. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `TokenDetails`.
+
+## POST /v2.0/api/token/refresh
+
+Replace the session token with one that has a fresh lifetime. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `TokenResponse`.
+
+## DELETE /v2.0/api/token
+
+Sign out by revoking the current session token. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `Acknowledgement`.
+
+## GET /v2.0/api/me
+
+Read the signed-in user. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `User`.
+
+## PUT /v2.0/api/me
+
+Change your name or email with the expected revision. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `User`. Request: `UserRequest`.
+
+Representative request:
+
+```json
+{
+  "firstName": "Default",
+  "lastName": "Admin",
+  "email": "admin@arguebot",
+  "revision": "{{userRevision}}"
+}
+```
+
+## PUT /v2.0/api/me/password
+
+Change your password and sign out your other sessions. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `Acknowledgement`. Request: `PasswordChangeRequest`.
+
+Representative request:
+
+```json
+{
+  "currentPassword": "{{currentPassword}}",
+  "newPassword": "{{newPassword}}"
+}
+```
+
+## GET /v2.0/api/me/credentials
+
+List your bearer-token credentials. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<AuthCredential>`.
+
+## POST /v2.0/api/me/credentials
+
+Create a bearer-token credential; reveal the token again later if needed. Access: any signed-in user of an active tenant.
+
+Success: **201**, response: `AuthCredentialCreated`. Request: `AuthCredentialRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Fictional automation",
+  "expiresUtc": null,
+  "active": true,
+  "revision": 0
+}
+```
+
+## PUT /v2.0/api/me/credentials/{credentialId}
+
+Rename, enable or disable one of your credentials. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `AuthCredential`. Request: `AuthCredentialRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+Representative request:
+
+```json
+{
+  "name": "Fictional automation",
+  "active": false,
+  "revision": "{{resourceRevision}}"
+}
+```
+
+## DELETE /v2.0/api/me/credentials/{credentialId}
+
+Delete one of your credentials. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## GET /v2.0/api/me/sessions
+
+List your active sessions. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<AuthSession>`.
+
+## DELETE /v2.0/api/me/sessions/{sessionId}
+
+Sign out one of your sessions. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| sessionId | path | true | Session ID (ses_...). Copy it from the session list. |
+
+## GET /v2.0/api/users
+
+List users in your tenant. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `List<User>`.
+
+## POST /v2.0/api/users
+
+Create a user in your tenant. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **201**, response: `User`. Request: `UserRequest`.
+
+Representative request:
+
+```json
+{
+  "firstName": "Fictional",
+  "lastName": "Member",
+  "email": "member@example.test",
+  "password": "{{newPassword}}",
+  "isTenantAdmin": false,
+  "active": true
+}
+```
+
+## GET /v2.0/api/users/{userId}
+
+Read a user. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `User`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+## PUT /v2.0/api/users/{userId}
+
+Update a user with the expected revision. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `User`. Request: `UserRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+Representative request:
+
+```json
+{
+  "firstName": "Fictional",
+  "lastName": "Member",
+  "email": "member@example.test",
+  "isTenantAdmin": false,
+  "active": true,
+  "revision": "{{resourceRevision}}"
+}
+```
+
+## DELETE /v2.0/api/users/{userId}
+
+Delete a user; their conversations and agents stay in the tenant. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+## PUT /v2.0/api/users/{userId}/password
+
+Reset a user's password and sign out their sessions. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `Acknowledgement`. Request: `PasswordChangeRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+Representative request:
+
+```json
+{
+  "newPassword": "{{newPassword}}"
+}
+```
+
+## GET /v2.0/api/users/{userId}/credentials
+
+List a user's credentials. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `List<AuthCredential>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+## POST /v2.0/api/users/{userId}/credentials
+
+Create a credential for a user; reveal the token again later if needed. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **201**, response: `AuthCredentialCreated`. Request: `AuthCredentialRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+Representative request:
+
+```json
+{
+  "name": "Fictional integration",
+  "active": true,
+  "revision": 0
+}
+```
+
+## PUT /v2.0/api/users/{userId}/credentials/{credentialId}
+
+Rename, enable or disable a user's credential. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `AuthCredential`. Request: `AuthCredentialRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+Representative request:
+
+```json
+{
+  "name": "Fictional integration",
+  "active": false,
+  "revision": "{{resourceRevision}}"
+}
+```
+
+## DELETE /v2.0/api/users/{userId}/credentials/{credentialId}
+
+Delete a user's credential. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## GET /v2.0/api/users/{userId}/sessions
+
+List a user's active sessions. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `List<AuthSession>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+
+## DELETE /v2.0/api/sessions/{sessionId}
+
+Revoke any session in your tenant. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| sessionId | path | true | Session ID (ses_...). Copy it from the session list. |
+
+## GET /v2.0/api/audit
+
+Search the security audit log, newest first. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `AuditPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| operation | query | false | Exact audit event type, for example AuthFailure, AuthorizationDenied, SessionIssued or UserCreated. |
+| outcome | query | false | success, failure or denied. |
+| userId | query | false | User ID (usr_...). |
+| tenantId | query | false | Tenant ID (ten_...). System administrators only; tenant administrators always see their own tenant. |
+| fromUtc | query | false | Start of the range, UTC ISO 8601, for example 2026-01-01T00:00:00Z. |
+| toUtc | query | false | End of the range, UTC ISO 8601, for example 2026-01-02T00:00:00Z. |
+| pageNumber | query | false | Page to return, starting at 1. |
+| pageSize | query | false | Items per page, 1 through 100 unless noted. |
+
+## DELETE /v2.0/api/audit
+
+Delete audit records older than beforeUtc. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `DeletedCount`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| beforeUtc | query | false | Delete records created before this UTC ISO 8601 time. |
+
+## GET /v2.0/api/tenants
+
+List tenants. Access: system administrators.
+
+Success: **200**, response: `List<Tenant>`.
+
+## POST /v2.0/api/tenants
+
+Create a tenant. Access: system administrators.
+
+Success: **201**, response: `Tenant`. Request: `TenantRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "Fictional tenant",
+  "active": true
+}
+```
+
+## GET /v2.0/api/tenants/{tenantId}
+
+Read a tenant. Access: system administrators.
+
+Success: **200**, response: `Tenant`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| tenantId | path | true | Tenant ID (ten_...). Copy it from Administration > Tenants. |
+
+## PUT /v2.0/api/tenants/{tenantId}
+
+Rename, enable or disable a tenant with the expected revision. Access: system administrators.
+
+Success: **200**, response: `Tenant`. Request: `TenantRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| tenantId | path | true | Tenant ID (ten_...). Copy it from Administration > Tenants. |
+
+Representative request:
+
+```json
+{
+  "name": "Fictional tenant",
+  "active": true,
+  "revision": "{{resourceRevision}}"
+}
+```
+
+## DELETE /v2.0/api/tenants/{tenantId}
+
+Delete a tenant and everything in it; confirmName must be its exact name. Access: system administrators. May execute work or change service state; do not blindly replay requests.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| tenantId | path | true | Tenant ID (ten_...). Copy it from Administration > Tenants. |
+| confirmName | query | false | The tenant's exact current name, to confirm deletion. |
+
+## GET /v2.0/api/conversations/{conversationId}/shares
+
+List a conversation's public links. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<ConversationShare>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+
+## POST /v2.0/api/conversations/{conversationId}/shares
+
+Create a time-bound public link. Access: any signed-in user of an active tenant.
+
+Success: **201**, response: `ConversationShareCreated`. Request: `ConversationShareRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+
+Representative request:
+
+```json
+{
+  "expiresInHours": 168,
+  "includeToolCalls": false
+}
+```
+
+## DELETE /v2.0/api/conversations/{conversationId}/shares/{shareId}
+
+Revoke a public link. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+| shareId | path | true | Public link ID (shr_...). Copy it from the Share dialog. |
+
+## GET /v2.0/api/shares/{shareToken}
+
+Read the transcript behind a public link without signing in. Access: public; no bearer token.
+
+Success: **200**, response: `SharedTranscript`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| shareToken | path | true | The token at the end of a /share/ link. It is shown only when the link is created. |
+
+## POST /v2.0/api/me/credentials/{credentialId}/reveal
+
+Reveal one of your bearer tokens; audited. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `RevealedToken`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## POST /v2.0/api/users/{userId}/credentials/{credentialId}/reveal
+
+Reveal a user's bearer token; audited. Access: tenant administrators (and system administrators) of the caller's tenant. A system administrator may send x-tenant-id to act in another tenant; the bypass is audited.
+
+Success: **200**, response: `RevealedToken`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| userId | path | true | User ID (usr_...). Copy it from Administration > Users. |
+| credentialId | path | true | Bearer-token credential ID (crd_...). Copy it from the credential list. |
+
+## POST /v2.0/api/conversations/{conversationId}/shares/{shareId}/reveal
+
+Show an active public link again; audited. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ConversationShareCreated`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
+| shareId | path | true | Public link ID (shr_...). Copy it from the Share dialog. |
 
 ## DTO schemas
 
@@ -1313,6 +1887,122 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page. |
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
+
+### AuditEvent
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Audit record ID. |
+| tenantId | string | Tenant, when resolvable. |
+| userId | string | User, when resolvable. |
+| operation | string | Event type, for example AuthSuccess, AuthFailure, SessionIssued, SessionRevoked, CredentialUsed or AuthorizationDenied. |
+| outcome | string | success, failure or denied. |
+| principalType | string | User or Credential. |
+| sessionId | string | Session, when used or created. |
+| credentialId | string | Credential, when used. |
+| authScheme | string | Authentication scheme. |
+| correlationId | string | Request ID. |
+| requestType | string | Classified request type. |
+| method | string | HTTP method. |
+| path | string | URL path without the query. |
+| sourceIp | string | Client address. |
+| authenticationResult | string | Success, NotFound, Inactive or Invalid. |
+| authorizationResult | string | Permitted, DeniedImplicit or NotFound. |
+| reason | string | Free-text reason. |
+| resourceType | string | Affected resource type. |
+| resourceId | string | Affected resource ID. |
+| errorCode | string | Error code returned. |
+| statusCode | integer | HTTP status returned. |
+| createdUtc | string | When the event happened. |
+
+### AuditPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Records on this page. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Records per page, 1 through 200. |
+| totalCount | integer | Records matching the filter. |
+
+### AuthCredential
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Credential identifier. |
+| tenantId | string | Owning tenant. |
+| userId | string | Owning user. |
+| name | string | Display name. |
+| tokenLast4 | string | Last four characters of the token, for recognition. |
+| authMode | string | Authentication mode; always DirectHeader (bearer token). |
+| active | boolean | False rejects the token. |
+| protected | boolean | Protected credentials cannot be deleted or disabled. |
+| expiresUtc | string (nullable) | Optional expiry in UTC. |
+| lastUsedUtc | string (nullable) | Last time the token authenticated a request. |
+| revision | integer | Optimistic revision. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
+
+### AuthCredentialCreated
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| credential | AuthCredential | The stored credential. |
+| token | string | The bearer token. Store it now; it cannot be retrieved later. |
+
+### AuthCredentialRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Display name, 1 through 200 characters. |
+| expiresUtc | string (nullable) | Optional expiry in UTC; must be in the future when creating. |
+| active | boolean | False rejects the token. |
+| revision | integer | Expected revision when updating. |
+
+### AuthSession
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Session ID. |
+| tenantId | string | Tenant the session is bound to. |
+| userId | string | Signed-in user. |
+| credentialId | string | Credential that created the session, or empty for a password sign-in. |
+| principalType | string | User or Credential. |
+| authScheme | string | How the session was created, for example PasswordHeaders or PasswordBody. |
+| sourceIp | string | Address that created the session. |
+| userAgent | string | Client that created the session. |
+| createdUtc | string | When the session was issued. |
+| expiresUtc | string | When the session stops working unless refreshed. |
+| lastUsedUtc | string (nullable) | Last authenticated request, updated at most once a minute. |
+| revokedUtc | string (nullable) | When the session was revoked. |
+| revocationReason | string | Why the session was revoked. |
+| active | boolean | False once revoked. |
+| current | boolean | True for the session that made this request. |
+
+### AuthorizationError
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| code | string | Machine-readable error code, for example forbidden or tenant_mismatch. |
+| message | string | Human-readable explanation. |
+| reason | string | Short reason for the denial. |
+| requiredPermission | string | Access class the route needs: Member, TenantAdmin or SystemAdmin. |
+| requestType | string | Classified request, for example GET /v2.0/api/users. |
+| tenantId | string | Tenant of the caller. |
+| requestId | string | Correlation ID for request history and audit. |
 
 ### CapturedHeader
 
@@ -1399,9 +2089,47 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | archived | boolean | Archived state. |
 | revision | integer (nullable) | Expected revision. |
 
+### ConversationShare
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Share ID. |
+| conversationId | string | Shared conversation. |
+| createdByUserId | string | User who created the link. |
+| tokenLast4 | string | Last four characters of the link token, to tell links apart. |
+| includeToolCalls | boolean | Whether readers see tool calls and results. |
+| expiresUtc | string | When the link stops working. |
+| revokedUtc | string (nullable) | When the link was revoked. |
+| lastViewedUtc | string (nullable) | Last time someone opened the link. |
+| viewCount | integer | How many times the link was opened. |
+| active | boolean | False once revoked or expired. |
+| createdUtc | string | When the link was created. |
+
+### ConversationShareCreated
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| share | ConversationShare | The stored link. |
+| token | string | Link token. Anyone with it can read the transcript until it expires or is revoked. |
+| path | string | Dashboard path for the link, /share/{token}. |
+| url | string | Absolute link built from the host this request used. |
+
+### ConversationShareRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| expiresInHours | integer | Hours until the link stops working, 1 through 2160 (90 days). |
+| includeToolCalls | boolean | Show tool calls and results to readers. |
+
 ### CreateRunRequest
 
-Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
+Seat IDs (participantIds and orchestratorId) are agent IDs (par_...); a CLI agent brings its optional stored secret and model. A reusable HTTP model ID (mod_...) is accepted as a shortcut and runs on its endpoint with no role instructions. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -1570,6 +2298,14 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | estimatedInputTokens | integer | Reserved estimated input tokens for this run. |
 | tokenEstimateMethod | string | Initial prompt UTF-8 bytes plus envelope allowance; not billed provider tokens or continuation accounting. |
 
+### DeletedCount
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| deleted | integer | Records deleted. |
+
 ### DeletionResponse
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1665,23 +2401,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | endpointWaitMilliseconds | integer | Elapsed milliseconds waiting for shared endpoint capacity; zero for immediate admission, CLI or older records. |
 | credentialRevisions | array | Credential identities and revisions actually resolved for this invocation; never credential values. |
 
-### HarnessProfile
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable harness ID. |
-| name | string | Display name. |
-| provider | string | CLI output protocol. |
-| executable | string | Direct executable or path on the execution host. |
-| workingDirectory | string | Execution directory on the service host. |
-| credentialId | string | Claude OAuth token or Codex auth.json credential reference. |
-| enabled | boolean | Whether new runs may use this harness. |
-| revision | integer | Expected revision when updating. |
-| arguments | array | Literal ordered argument vector; prompts use standard input. |
-| environmentVariables | array | Additional service environment variable names to inherit. Values are never stored or returned. |
-
 ### HealthResponse
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1749,6 +2468,28 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | clarificationId | string | Optional clarification being answered or explicitly skipped. |
 | skipClarification | boolean | Record an explicit skip instead of treating the text as a supplied fact. |
 
+### LoginInfo
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| version | string | Product version. |
+| defaultEmail | string | Default administrator email. |
+| defaultPassword | string | Default administrator password. |
+| defaultToken | string | Default administrator bearer token. |
+| multipleTenants | boolean | True when more than one active tenant exists, so the page may need to ask for one. |
+
+### LoginRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| email | string | Account email. |
+| password | string | Account password. |
+| tenantId | string | Tenant to sign in to; needed only when the email exists in several tenants. |
+
 ### Message
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1790,8 +2531,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | id | string | Stable check identity. |
 | modelId | string | Reusable model identity. |
 | modelRevision | integer | Frozen model revision. |
-| transportId | string | Frozen endpoint or harness identity. |
-| transportRevision | integer | Frozen endpoint or harness revision. |
+| transportId | string | Frozen endpoint identity; empty for an agent check. |
+| transportRevision | integer | Frozen endpoint revision; zero for an agent check. |
 | state | string | queued, running, completed, failed, cancelled or uncertain. |
 | checkTools | boolean | Whether the explicit request included a tool probe. |
 | completionVerified | boolean | A complete nonempty response was observed. This does not certify debate quality. |
@@ -1829,13 +2570,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | id | string | Stable reusable model ID. |
 | name | string | Display name. |
-| endpointId | string | REST endpoint reference, mutually exclusive with harness. |
-| harnessId | string | CLI harness reference, mutually exclusive with endpoint. |
+| endpointId | string | HTTP endpoint the model runs on. |
 | model | string | Provider model identifier. |
 | contextMaxCharacters | integer | Conservative UTF-16 character budget for this model; not a token count. |
-| maxOutputBytes | integer | Service output capture ceiling, 1024 through 67108864 bytes, for CLI and HTTP models. |
-| generation | ModelGenerationSettings | Optional HTTP sampling and generated-token overrides; configure CLI-specific generation flags in the harness instead. |
-| supportsTools | boolean | Whether tools are declared available; supported CLI harnesses use native MCP and others use bounded envelopes. |
+| maxOutputBytes | integer | Service output capture ceiling, 1024 through 67108864 bytes, for HTTP models. |
+| generation | ModelGenerationSettings | Optional HTTP sampling and generated-token overrides. |
+| supportsTools | boolean | Whether the model declares tool support. |
 | enabled | boolean | Whether new runs may use this model. |
 | revision | integer | Expected revision when updating. |
 
@@ -1849,6 +2589,15 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageNumber | integer | One-based page. |
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matches. |
+
+### PasswordChangeRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| currentPassword | string | The current password; required when changing your own password. |
+| newPassword | string | The new password, 8 through 256 characters. |
 
 ### PromptParameter
 
@@ -1920,6 +2669,16 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | revision | integer | Revision of the revealed value. |
 | secretValue | string | The decrypted value. A Codex login includes the refresh token the service manages. |
 
+### RevealedToken
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Credential ID. |
+| name | string | Credential name. |
+| token | string | The bearer token. |
+
 ### RosterChangeRequest
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -1954,31 +2713,31 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### RunnerProfile
 
-CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
+An agent. CLI protocols are plain, claude, codex, gemini and mux. A CLI agent may name a stored secret in credentialId (a Claude Code token for claude, a Codex login for codex); select one when running in Docker or to override the credentials the program uses by default. model is optional for CLI agents and is passed as --model to Claude Code, Codex and Gemini, or into a literal {model} argument. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | modelProfileId | string | Reusable model reference. Empty retains inline legacy configuration. |
 | roleInstructions | string | Role-specific participant instructions. |
 | authBindings | array | Frozen HTTP bindings containing only nonsecret values and credential references. |
-| credentialId | string | CLI credential reference. |
+| credentialId | string | Optional stored secret that signs in a CLI agent: a Claude Code token for claude or a Codex login for codex. Empty uses the service machine's own login. |
 | contextMaxCharacters | integer | Exact model context character budget. |
 | supportsTools | boolean | Declared tool support. |
 | generation | ModelGenerationSettings | HTTP generation settings frozen with this participant snapshot. |
 | modelRevision | integer | Model revision frozen at admission. |
-| transportId | string | Endpoint or harness identity frozen at admission; endpoint capacity remains a live resource limit. |
-| transportRevision | integer | Endpoint or harness revision frozen at admission. |
-| restrictEnvironment | boolean | Restrict inherited process variables for reusable harness snapshots; legacy inline profiles retain their original behavior. |
+| transportId | string | Endpoint identity frozen at admission; endpoint capacity remains a live resource limit. |
+| transportRevision | integer | Endpoint revision frozen at admission. |
+| restrictEnvironment | boolean | Restrict a CLI agent to standard process variables plus the named environmentVariables; false passes the service environment. |
 | environmentVariables | array | Additional inherited variable names frozen at admission. Values are resolved only when the child starts. |
 | id | string | Stable profile identifier. |
 | name | string | Participant display name. |
 | kind | string | Runner kind: cli or rest. |
 | provider | string | Protocol adapter. |
 | endpoint | string | REST base URI. |
-| model | string | REST model identifier. |
+| model | string | Model identifier: required for HTTP agents; optional for CLI agents, passed as --model to Claude Code, Codex and Gemini or into a literal {model} argument. |
 | executable | string | Direct executable path or name. |
 | arguments | array | Ordered arguments; prompts use standard input. |
-| workingDirectory | string | Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory. |
+| workingDirectory | string | Directory on the execution host for CLI agents and REST local tools; empty uses the service directory. |
 | secretEnvironmentVariable | string | Environment reference to credential; never its value. |
 | timeoutSeconds | integer | Maximum generation seconds. |
 | maxOutputBytes | integer | Maximum captured output bytes; defaults to 64 MiB. |
@@ -1998,6 +2757,84 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | consensusPolicy | string | Every active participant must explicitly agree. |
 | rosterChanges | boolean | Roster changes are applied at safe boundaries. |
 
+### SharedMessage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Message ID. |
+| runId | string | Debate the turn belongs to, or empty for a moderator note. |
+| speaker | string | Speaker name, or user for the moderator. |
+| kind | string | Turn kind, for example question, answer, proposal, ratification or tool. |
+| state | string | completed, failed or interrupted. |
+| content | string | Complete text. |
+| createdUtc | string | When the turn was written. |
+
+### SharedProposal
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Proposal ID. |
+| runId | string | Debate. |
+| content | string | Proposed answer. |
+| superseded | boolean | True when a later proposal replaced it. |
+| agreements | array | Votes. |
+
+### SharedRun
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Run ID. |
+| state | string | Run state. |
+| outcome | string | Outcome, when finished. |
+| round | integer | Current or final round. |
+| maxRounds | integer | Round limit. |
+| question | string | The question the debate answered. |
+| protocolVersion | integer | 1 for a fixed panel, 2 for an orchestrated debate. |
+| createdUtc | string | When the debate started. |
+| orchestrator | SharedSeat (nullable) | Orchestrator, for protocol 2. |
+| participants | array | Debating agents. |
+
+### SharedSeat
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Seat ID. |
+| name | string | Display name. |
+
+### SharedTranscript
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| title | string | Conversation title. |
+| openingQuestion | string | Opening question. |
+| expiresUtc | string | When the link stops working. |
+| includeToolCalls | boolean | Whether tool turns are included. |
+| runs | array | Debates, oldest first. |
+| messages | array | Turns in order. Private directives are never included. |
+| proposals | array | Proposals for protocol 2 debates. |
+
+### SharedVote
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| participantId | string | Seat ID of the voter. |
+| messageId | string | Turn that holds the vote. |
+| position | string | agree, disagree, abstain or needs_information. |
+| rationale | string | The agent's reason. |
+| superseded | boolean | True when a later vote replaced it. |
+
 ### SummarySection
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -2015,6 +2852,109 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | messageId | string | Original conversation message identifier. |
 | digest | string | Lowercase SHA-256 of the exact original UTF-8 content. |
+
+### Tenant
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Tenant identifier. |
+| name | string | Display name. |
+| active | boolean | False disables sign-in and every token in the tenant. |
+| protected | boolean | Protected tenants cannot be deleted or disabled. |
+| revision | integer | Optimistic revision. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
+
+### TenantChoice
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Tenant ID to send as tenantId. |
+| name | string | Tenant name. |
+
+### TenantRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string | Display name, 1 through 200 characters. |
+| active | boolean | False disables the tenant. |
+| revision | integer | Expected revision when updating. |
+
+### TenantRequiredError
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| code | string | Always tenant_required. |
+| message | string | Human-readable explanation. |
+| tenants | array | Tenants whose account accepted the password. |
+
+### TokenDetails
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| principalType | string | User for a session, Credential for a bearer-token credential. |
+| authScheme | string | Bearer or XToken. |
+| sessionId | string | Session ID, or empty for a credential token. |
+| credentialId | string | Credential ID, or empty for a session. |
+| expiresUtc | string (nullable) | When the token stops working, if it expires. |
+| user | User | Signed-in user. |
+| tenant | Tenant | Tenant the token is bound to. |
+
+### TokenResponse
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| token | string | Opaque session token for Authorization: Bearer or x-token. It is not stored by the service. |
+| sessionId | string | Session ID, for listing and revoking sessions. |
+| expiresUtc | string | When the token stops working unless refreshed. |
+| user | User | Signed-in user. |
+| tenant | Tenant | Tenant the session is bound to. |
+
+### User
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | User identifier. |
+| tenantId | string | Owning tenant. |
+| firstName | string | First name. |
+| lastName | string | Last name. |
+| email | string | Email address, unique within the tenant. |
+| isAdmin | boolean | System administrator: manages every tenant. |
+| isTenantAdmin | boolean | Tenant administrator: manages users and credentials in this tenant. |
+| active | boolean | False blocks sign-in and revokes access. |
+| protected | boolean | Protected users cannot be deleted or disabled. |
+| revision | integer | Optimistic revision. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
+
+### UserRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| firstName | string | First name. |
+| lastName | string | Last name. |
+| email | string | Email address, unique within the tenant. |
+| password | string | Initial password, 8 through 256 characters, when creating. |
+| isAdmin | boolean | System administrator flag; only system administrators may set it. |
+| isTenantAdmin | boolean | Tenant administrator flag. |
+| active | boolean | False disables the user. |
+| revision | integer | Expected revision when updating. |
 
 ### ServiceSettings
 
@@ -2042,8 +2982,9 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
 | maxParticipants | integer | Maximum active participants per debate, 2 through 64. Requires restart. |
+| allowedHosts | array | Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name. |
 | listenAddress | string | Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port. |
-| allowCli | boolean | Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only. |
+| allowCli | boolean | Whether CLI agents and REST local file/process tools may execute. Default true for local mode only. |
 
 ### DatabaseSettings
 

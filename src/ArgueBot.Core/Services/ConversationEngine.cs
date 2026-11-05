@@ -261,7 +261,7 @@ namespace ArgueBot.Core.Services
                                 await _Database.Rosters.ApplyPendingAsync(context, run, token).ConfigureAwait(false);
                                 run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
                             }
-                            profile = run.ProtocolVersion == 2 ? DebatePrompts.Profile(run) : run.Participants[run.SpeakerIndex];
+                            profile = run.ProtocolVersion == 2 ? DebatePrompts.Profile(run) : run.Participants[run.SpeakerIndex]; profile.RuntimeTenantId = context.TenantId;
                             run.ExecutionProfile = profile;
                             prompt = "You are " + profile.Name + ", in a structured technical debate. Original question: " + run.Question + ". Challenge assumptions, give concrete reasons and alternatives, and concede sound points. Only when EVERY participant agrees on the substantive position, write WE HAVE CONSENSUS on its own line followed by the agreed position. Agreement is an agent declaration, not proof of truth.";
                             if (run.Mode == "followup") prompt = "You are " + profile.Name + ". Answer the user's latest follow-up question using the completed conversation below. Distinguish agent-declared agreement from unresolved trade-offs. Be concrete and actionable. Original question: " + run.Question;
@@ -280,7 +280,7 @@ namespace ArgueBot.Core.Services
                                 {
                                     run.CompactionRecipientId = await _Database.Memory.CompactionPartitionAsync(context, run, profile.Id, token).ConfigureAwait(false);
                                     run.ResumePhase = run.Phase; run.Phase = "compaction";
-                                    profile = DebatePrompts.Profile(run); run.ExecutionProfile = profile; prompt = DebatePrompts.Build(run, profile); contextBudget = Math.Min(Math.Min(_ContextMaxCharacters, profile.ContextMaxCharacters), run.ProtocolVersion == 2 ? run.Policy.MaxContextCharacters : _ContextMaxCharacters);
+                                    profile = DebatePrompts.Profile(run); profile.RuntimeTenantId = context.TenantId; run.ExecutionProfile = profile; prompt = DebatePrompts.Build(run, profile); contextBudget = Math.Min(Math.Min(_ContextMaxCharacters, profile.ContextMaxCharacters), run.ProtocolVersion == 2 ? run.Policy.MaxContextCharacters : _ContextMaxCharacters);
                                     PreparedContext prepared = await PrepareContextAsync(context, run, profile, prompt, contextBudget, token).ConfigureAwait(false);
                                     contextMessages = prepared.Messages; prompt = prepared.Prompt;
                                 }

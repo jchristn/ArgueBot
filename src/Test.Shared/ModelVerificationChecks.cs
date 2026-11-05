@@ -35,8 +35,6 @@ namespace Test.Shared
                             ModelCheck incomplete = await service.CheckAsync(context, refused.Id, new ModelCheckRequest { IdempotencyKey = "missing-probe", CheckTools = true }, token).ConfigureAwait(false);
                             if (incomplete.State != "failed" || !incomplete.CompletionVerified || incomplete.ToolsVerified || incomplete.ErrorCode != "tool_probe_not_observed") throw new InvalidDataException("A plain completion was incorrectly certified as a tool round trip.");
                         }
-                        HarnessProfile harness = await database.Catalog.SaveHarnessAsync(context, new HarnessProfile { Name = "Fixture harness", Provider = "plain", Executable = "dotnet", Arguments = new List<string> { Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE")!, "model-check" } }, token).ConfigureAwait(false);
-                        models.Add(await database.Catalog.SaveModelAsync(context, new ModelProfile { Name = "CLI fixture", HarnessId = harness.Id }, token).ConfigureAwait(false));
                         foreach (ModelProfile model in models)
                         {
                             ModelCheckRequest request = new ModelCheckRequest { IdempotencyKey = "same-check", CheckTools = true };

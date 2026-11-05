@@ -22,7 +22,7 @@ export function placeMenu(trigger, menu, viewport) {
  * Row actions behind a single "more" button. The menu renders in a body-level layer above tables and
  * dialogs and stays inside the viewport. Items: { label, help, onClick, danger, disabled, hidden }.
  */
-export default function ActionMenu({ items, label = "common.actions", context }) {
+export default function ActionMenu({ items, label = "common.actions", context, children, triggerClassName = "" }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState(null);
@@ -59,8 +59,8 @@ export default function ActionMenu({ items, label = "common.actions", context })
   // The dialog layer keeps the menu above an open <dialog>; otherwise the menu goes to the body.
   const host = trigger.current?.closest("dialog") || document.body;
   return <>
-    <button ref={trigger} type="button" className="button icon-button action-menu-trigger" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} aria-label={name} title={name} onClick={event => { event.stopPropagation(); if (open) close(false); else setOpen(true); }}>
-      <Icon name="more" />
+    <button ref={trigger} type="button" className={children ? "button action-menu-trigger " + triggerClassName : "button icon-button action-menu-trigger"} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} aria-label={name} title={name} onClick={event => { event.stopPropagation(); if (open) close(false); else setOpen(true); }}>
+      {children || <Icon name="more" />}
     </button>
     {open && createPortal(<div ref={menu} id={id} role="menu" aria-label={name} className="action-menu" style={position ? { top: position.top, left: position.left, maxHeight: position.maxHeight } : { visibility: "hidden", top: 0, left: 0 }} onKeyDown={onKeyDown} onClick={event => event.stopPropagation()}>
       {visible.map(item => <button key={item.label} type="button" role="menuitem" className={item.danger ? "danger" : ""} disabled={item.disabled} title={item.help ? t(item.help) : undefined} onClick={() => { close(); item.onClick(); }}>{t(item.label)}</button>)}

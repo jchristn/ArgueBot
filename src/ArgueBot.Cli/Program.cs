@@ -27,7 +27,12 @@ namespace ArgueBot.Cli
                 Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; lifetime.Cancel(); };
                 try { return await ExecuteAsync(args, lifetime.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return 130; }
-                catch (DomainException ex) { Console.Error.WriteLine(ex.Code + (ex.Field.Length > 0 ? " (" + ex.Field + ")" : "") + ": " + ex.Message); return ex.StatusCode == 400 ? 2 : 1; }
+                catch (DomainException ex)
+                {
+                    Console.Error.WriteLine(ex.Code + (ex.Field.Length > 0 ? " (" + ex.Field + ")" : "") + ": " + ex.Message);
+                    if (ex.StatusCode == 401 && ex.Code != "invalid_credentials" && ex.Code != "account_inactive") Console.Error.WriteLine("Sign in with 'login', pass --token, or set ARGUEBOT_TOKEN.");
+                    return ex.StatusCode == 400 ? 2 : 1;
+                }
                 catch (Exception ex) when (ex is IOException || ex is System.Net.Http.HttpRequestException || ex is JsonException || ex is ArgumentException || ex is InvalidOperationException || ex is TimeoutException || ex is FormatException)
                 { Console.Error.WriteLine(ex.Message); return 1; }
             }
@@ -35,15 +40,25 @@ namespace ArgueBot.Cli
         private static async Task<int> ExecuteAsync(string[] args, CancellationToken token)
         {
             List<string> words = new List<string>(); string? home = null; string? server = null; int? port = null; bool autoStart = true;
+            string? bearer = null; string tenantScope = ""; bool allowHttp = false;
             for (int index = 0; index < args.Length; index++)
             {
                 if (args[index] == "--home" && index + 1 < args.Length) home = args[++index];
+                else if (args[index] == "--token" && index + 1 < args.Length) bearer = args[++index];
+                else if (args[index] == "--tenant" && index + 1 < args.Length) tenantScope = args[++index];
+                else if (args[index] == "--allow-http") allowHttp = true;
                 else if (args[index] == "--server" && index + 1 < args.Length) server = args[++index];
                 else if (args[index] == "--port" && index + 1 < args.Length) port = int.Parse(args[++index], System.Globalization.CultureInfo.InvariantCulture);
                 else if (args[index] == "--no-start") autoStart = false;
                 else words.Add(args[index]);
             }
             if (words.Count == 0 || words.Contains("--help") || words[0] == "help") { Help(); return 0; }
+            // 2.1 names for provider secrets; the configuration credentials spelling stays as a deprecated alias.
+            if (words[0] == "secrets") { words[0] = "credentials"; words.Insert(0, "configuration"); }
+            else if (words[0] == "secret-keys") words[0] = "credential-keys";
+            else if (words.Count > 1 && words[0] == "configuration" && words[1] == "credentials") Console.Error.WriteLine("Note: 'configuration credentials' is deprecated; use 'secrets'.");
+            if (words[0] == "login" && bearer != null) { words.Add("--token"); words.Add(bearer); bearer = null; }
+            if (words[0] == "login" && tenantScope.Length > 0) { words.Add("--tenant"); words.Add(tenantScope); tenantScope = ""; }
             bool web = words[0] == "service" && words.Count == 2 && words[1] == "web";
             if (port.HasValue && !web) throw new ArgumentException("--port is supported by service web for starting a local dashboard service.");
             if (words[0] == "service" && words.Count > 1 && words[1] != "start" && !web) autoStart = false;
@@ -52,8 +67,13 @@ namespace ArgueBot.Cli
             try { server = await LocalServiceConnector.ConnectAsync(new ArgueBotPaths(home).Home, server, autoStart, token, port).ConfigureAwait(false); }
             catch (InvalidOperationException exception) when (words.Count > 1 && words[0] == "service" && words[1] == "stop" && exception.Message.StartsWith("The local service is not running.", StringComparison.Ordinal))
             { Console.WriteLine("ArgueBot is already stopped."); return 0; }
-            using (ArgueBotClient client = LocalServiceConnector.CreateClient(server, new ArgueBotPaths(home).Home))
+            string resolvedHome = new ArgueBotPaths(home).Home;
+            if (!allowHttp) allowHttp = ClientSessionStore.Load(resolvedHome) is ClientSession remembered && remembered.AllowInsecureHttp && ClientSessionStore.SameServer(remembered.Server, server);
+            using (ArgueBotClient client = LocalServiceConnector.CreateClient(server, resolvedHome, bearer ?? Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN") ?? "", allowHttp))
             {
+                client.TenantId = tenantScope;
+                if (client.Token.Length == 0 && words[0] != "login") await IdentityCommands.UseRememberedAsync(client, server, resolvedHome, token).ConfigureAwait(false);
+                if (IdentityCommands.Names.Contains(words[0])) return await IdentityCommands.RunAsync(client, words, server, resolvedHome, allowHttp, token).ConfigureAwait(false);
                 if (web)
                 {
                     string dashboard = new Uri(new Uri(server.TrimEnd('/') + "/"), "dashboard").AbsoluteUri;
@@ -122,14 +142,13 @@ namespace ArgueBot.Cli
                 else if (command == "configuration")
                 {
                     Require(words, 3); string resource = words[1]; string action = words[2];
-                    if (resource != "endpoints" && resource != "harnesses" && resource != "models" && resource != "credentials") throw new ArgumentException("Choose endpoints, harnesses, models or credentials.");
+                    if (resource != "endpoints" && resource != "models" && resource != "credentials") throw new ArgumentException("Choose endpoints, models or credentials.");
                     string path = "v2.0/api/configuration/" + resource;
                     if (resource == "models" && action == "checks") { Require(words, 4); Print(await client.ModelChecksAsync(words[3], words.Count > 4 ? int.Parse(words[4], System.Globalization.CultureInfo.InvariantCulture) : 1, token).ConfigureAwait(false)); }
                     else if (resource == "models" && action == "check") { Require(words, 5); ModelCheckRequest request = JsonSerializer.Deserialize<ModelCheckRequest>(await TextAsync(words, 4, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a model-check JSON request."); Print(await client.CheckModelAsync(words[3], request, token).ConfigureAwait(false)); }
                     else if (action == "list")
                     {
                         if (resource == "endpoints") Print(await client.EndpointsAsync(token).ConfigureAwait(false));
-                        else if (resource == "harnesses") Print(await client.HarnessesAsync(token).ConfigureAwait(false));
                         else if (resource == "models") Print(await client.ModelsAsync(token).ConfigureAwait(false));
                         else Print(await client.CredentialsAsync(token).ConfigureAwait(false));
                     }
@@ -249,18 +268,41 @@ namespace ArgueBot.Cli
                 { throw new TimeoutException("ArgueBot accepted shutdown but has not stopped after 15 seconds."); }
             }
         }
-        private static async Task<string> TextAsync(List<string> words, int index, CancellationToken token)
+        internal static async Task<string> TextAsync(List<string> words, int index, CancellationToken token)
         {
             if (words.Count > index && words[index] == "--file") { Require(words, index + 2); return await File.ReadAllTextAsync(words[index + 1], token).ConfigureAwait(false); }
             if (words.Count > index && words[index] != "-") return string.Join(" ", words.Skip(index));
             return await Console.In.ReadToEndAsync(token).ConfigureAwait(false);
         }
-        private static void Require(List<string> words, int count) { if (words.Count < count) throw new ArgumentException("Missing command arguments. Use --help."); }
-        private static void Print(object value) { Console.WriteLine(JsonSerializer.Serialize(value, _Json)); }
+        internal static void Require(List<string> words, int count) { if (words.Count < count) throw new ArgumentException("Missing command arguments. Use --help."); }
+        internal static void Print(object value) { Console.WriteLine(JsonSerializer.Serialize(value, _Json)); }
         private static void Help()
         {
             Console.WriteLine("""
-ArgueBot CLI [--home PATH] [--server URL] [--no-start] COMMAND
+ArgueBot CLI [--home PATH] [--server URL] [--no-start] [--token TOKEN] [--allow-http] COMMAND
+
+Sign-in
+  login [--email E] [--tenant ID] [--password-stdin]   Ask for the password without echo and remember
+                                             the session for this home and server. The sign-in page
+                                             and docs show the default: admin@arguebot / password.
+  login --token TOKEN                        Remember a bearer token instead.
+  logout                                     End the session and forget it.
+  whoami                                     User, tenant and token details.
+  me show|password                           Your profile; change your password.
+  credentials list|create NAME [--days N]|reveal ID|disable ID|enable ID|delete ID [--user ID]
+                                             Bearer tokens. reveal prints one again (audited).
+  sessions list|revoke ID [--user ID]
+
+Administration (tenant administrators; --tenant ID lets system administrators work in another tenant)
+  users list|show ID|add JSON|-|--file PATH|update ID JSON|-|--file PATH|password ID|delete ID
+  audit [--operation TYPE] [--outcome success|failure|denied] [--userId ID] [--pageNumber N]
+  tenants list|add NAME|rename ID NAME|enable ID|disable ID|delete ID NAME   (system administrators)
+
+Sharing
+  shares list CONVERSATION
+  shares create CONVERSATION [--hours N] [--tools]   A read-only public link.
+  shares reveal CONVERSATION SHARE_ID       Print an active link again (audited).
+  shares revoke CONVERSATION SHARE_ID
 
 Service
   service start|status|restart|stop
@@ -313,22 +355,25 @@ Configuration
   participants list
   participants add|update [ID] JSON|-|--file PATH
   participants delete ID
-  configuration endpoints|harnesses|models|credentials list
-  configuration endpoints|harnesses|models|credentials add -|--file PATH
-  configuration endpoints|harnesses|models|credentials update ID -|--file PATH
-  configuration credentials reveal ID          Print a ready credential's decrypted value
-  configuration credentials disable ID REVISION
+  configuration endpoints|models list
+  configuration endpoints|models add -|--file PATH
+  configuration endpoints|models update ID -|--file PATH
+  secrets list|add -|--file PATH|update ID -|--file PATH
+  secrets reveal ID                          Print a ready secret's decrypted value
+  secrets disable ID REVISION                ('configuration credentials ...' still works, deprecated)
   configuration endpoints preview ID         No outbound request or credential resolution.
   configuration endpoints discover ID        Contacts the endpoint; no completion.
   configuration models check ID -|--file PATH   Invokes the model and may incur cost.
   configuration models checks ID [PAGE]
-  credential-keys status
-  credential-keys rotate EXPECTED_KEY_ID
-  credential-keys retire EXPECTED_KEY_ID   Remove earlier keys once no credential uses them.
-                                             Earlier database copies then lose their credentials.
+  secret-keys status                         (system administrators)
+  secret-keys rotate EXPECTED_KEY_ID
+  secret-keys retire EXPECTED_KEY_ID         Remove earlier keys once no secret uses them.
+                                             Earlier database copies then lose their secrets.
 
-The workspace is open: no accounts, sign-in or tokens. Prompts and JSON may be
-supplied on stdin. Credential values are accepted only from stdin or --file.
+Every command except service start/status needs a signed-in user: run 'login', pass
+--token, or set ARGUEBOT_TOKEN. Remote servers need https:// unless you pass
+--allow-http. Prompts and JSON may be supplied on stdin. Secret values are accepted
+only from stdin or --file.
 Local commands start or attach to the service automatically; --no-start requires
 an existing service, and an explicit --server URL attaches without starting one.
 Exit codes: 0 success, 1 operation failure, 2 usage, 130 cancelled.
