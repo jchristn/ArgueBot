@@ -1,6 +1,6 @@
 # ArgueBot v2.0.0: debates with multiple agents
 
-Status: product plan finalized with moderator decisions; technical proposals remain subject to implementation validation. Target: v2.0.0. Branch: `feature/v2.0.0`. Prepared November 3, 2026. Implementation and verification are in progress; the gates below distinguish local evidence from release acceptance.
+Status: product plan finalized with moderator decisions; technical proposals remain subject to implementation validation. Target: v2.0.0. Branch: `feature/v2.0.0`, merged into `main` on November 4, 2026. Prepared November 3, 2026. Implementation and verification are in progress; the gates below distinguish local evidence from release acceptance.
 
 ## 1. Product outcome
 
