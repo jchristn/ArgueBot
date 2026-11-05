@@ -18,7 +18,7 @@ October 20, 2026 product scope override (superseded for 2.1 on November 4, 2026)
 
 ## November 4, 2026 v2.1 identity scope
 
-The user asked for users, bearer-token credentials, a login page, API authentication and multitenancy in 2.1.0, with a default tenant and the default administrator `admin@arguebot` (password `password`, token `arguebotadmin`) created at startup, the login screens always showing the default credentials, and no RBAC. Users are system administrators, tenant administrators or ordinary users. Data is shared within a tenant. Provider credentials are renamed secrets. [IDENTITY.md](IDENTITY.md) describes the result; [USER_AUTH_PLAN.md](../USER_AUTH_PLAN.md) records the work and evidence.
+The user asked for users, bearer-token credentials, a login page, API authentication and multitenancy in 2.1.0, with a default tenant and the default administrator `admin@arguebot` (password `password`, token `arguebotadmin`) created at startup, the login screens always showing the default credentials, and no RBAC. Users are system administrators, tenant administrators or ordinary users. Data is shared within a tenant. Provider credentials are renamed secrets. [IDENTITY.md](IDENTITY.md) describes the result; [archive/USER_AUTH_PLAN.md](../archive/USER_AUTH_PLAN.md) records the work and evidence.
 
 AUTHENTICATION.md was re-read for this scope on November 4, 2026; its hash is unchanged from the manifest. Deviations, each chosen by the user or forced by the no-RBAC decision:
 

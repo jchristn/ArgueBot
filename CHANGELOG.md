@@ -2,7 +2,7 @@
 
 ## Unreleased: v2.1.0
 
-v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [USER_AUTH_PLAN.md](USER_AUTH_PLAN.md).
+v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [archive/USER_AUTH_PLAN.md](archive/USER_AUTH_PLAN.md).
 
 **Breaking change:** every API call except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, `GET /v2.0/api/shares/{token}`, the OpenAPI document and the dashboard files now needs a bearer token (`Authorization: Bearer` or `x-token`). Scripts can use the default token `arguebotadmin` until you create your own. Existing data moves into the protected **Default tenant**, owned by the default administrator.
 

@@ -2,7 +2,7 @@
 
 This is the active backlog for the shared C# service, TUI, CLI and React dashboard. It lists remaining work and acceptance evidence, not a request to reimplement features that already ship. Prioritize individual changes with the user before expanding product scope.
 
-Current scope is defined in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). The [archived improvement plan](archive/IMPROVEMENTS.md) preserves historical analysis; its checkboxes and status claims are not current commitments. Sign-in, users, tenants, bearer-token credentials and the security audit log ship in 2.1 (see [docs/IDENTITY.md](docs/IDENTITY.md) and [USER_AUTH_PLAN.md](USER_AUTH_PLAN.md)). Pairing, roles and permissions (RBAC), backup/restore workflows, external monitoring stacks and retired interfaces must not return through this roadmap. Historical database compatibility and upgrade safeguards remain supported.
+Current scope is defined in [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). The [archived improvement plan](archive/IMPROVEMENTS.md) preserves historical analysis; its checkboxes and status claims are not current commitments. Sign-in, users, tenants, bearer-token credentials and the security audit log ship in 2.1 (see [docs/IDENTITY.md](docs/IDENTITY.md) and [archive/USER_AUTH_PLAN.md](archive/USER_AUTH_PLAN.md)). Pairing, roles and permissions (RBAC), backup/restore workflows, external monitoring stacks and retired interfaces must not return through this roadmap. Historical database compatibility and upgrade safeguards remain supported.
 
 ## Context and generation provenance
 
