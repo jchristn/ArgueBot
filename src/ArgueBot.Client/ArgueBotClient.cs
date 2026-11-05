@@ -20,6 +20,9 @@ namespace ArgueBot.Client
     {
         private readonly HttpClient _Http;
         private volatile string _Token = "";
+        private volatile string _TenantId = "";
+        /// <summary>Tenant sent as x-tenant-id on every request. Leave empty for the token's own tenant; system administrators set it to manage another tenant's users, sessions and audit log.</summary>
+        public string TenantId { get { return _TenantId; } set { ArgumentNullException.ThrowIfNull(value); _TenantId = value.Trim(); } }
         /// <summary>Bearer token (session or credential) sent as Authorization: Bearer on every request and event stream. Empty sends none.</summary>
         public string Token { get { return _Token; } set { ArgumentNullException.ThrowIfNull(value); _Token = value.Trim(); } }
         private readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
@@ -94,14 +97,14 @@ namespace ArgueBot.Client
         /// <summary>Disable a credential with an expected revision.</summary>
         public Task<Acknowledgement> DisableCredentialAsync(string id, long revision, CancellationToken token = default)
         { return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/configuration/credentials/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
-        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler.</summary>
-        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null)
+        /// <summary>Create a client for an explicit server; loopback default is 127.0.0.1:4317. The client owns its HTTP pool and any supplied handler. Remote servers need HTTPS unless <paramref name="allowInsecureRemote"/> is set, because passwords and tokens would otherwise cross the network unencrypted.</summary>
+        public ArgueBotClient(string endpoint = "http://127.0.0.1:4317", HttpMessageHandler? handler = null, bool allowInsecureRemote = false)
         {
             Uri address = new Uri(endpoint.TrimEnd('/') + "/", UriKind.Absolute);
             if ((address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps) || address.UserInfo.Length > 0 || address.Query.Length > 0 || address.Fragment.Length > 0)
                 throw new ArgumentException("Use an HTTP service URL without embedded credentials, query or fragment.", nameof(endpoint));
-            if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps)
-                throw new ArgumentException("Remote service connections require HTTPS.", nameof(endpoint));
+            if (!address.IsLoopback && address.Scheme != Uri.UriSchemeHttps && !allowInsecureRemote)
+                throw new ArgumentException("Remote servers need HTTPS: sign-in would send your password and token unencrypted. Use an https:// URL, or allow plain HTTP explicitly (--allow-http) on a network you trust.", nameof(endpoint));
             _Http = handler == null ? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) : new HttpClient(handler, true);
             _Http.BaseAddress = address; _Http.Timeout = TimeSpan.FromSeconds(30);
             _Http.DefaultRequestHeaders.Add("x-client-id", Guid.NewGuid().ToString("N"));
@@ -246,6 +249,8 @@ namespace ArgueBot.Client
         {
             string current = _Token;
             if (current.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", current);
+            string tenant = _TenantId;
+            if (tenant.Length > 0) request.Headers.Add("x-tenant-id", tenant);
         }
         /// <summary>Read a typed API response and normalize safe domain failures.</summary>
         public async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, CancellationToken token = default)

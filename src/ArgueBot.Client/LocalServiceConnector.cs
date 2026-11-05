@@ -21,9 +21,9 @@ namespace ArgueBot.Client
         { return LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)); }
 
         /// <summary>Create a native client using normal platform TLS validation or an exact owner-home loopback certificate pin. Redirects remain disabled. The bearer token comes from <paramref name="bearerToken"/> or, when that is null, from ARGUEBOT_TOKEN.</summary>
-        public static ArgueBotClient CreateClient(string endpoint, string home, string? bearerToken = null)
+        public static ArgueBotClient CreateClient(string endpoint, string home, string? bearerToken = null, bool allowInsecureRemote = false)
         {
-            ArgueBotClient client = new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)));
+            ArgueBotClient client = new ArgueBotClient(endpoint, LocalTlsTrust.CreateHandler(new ArgueBotPaths(home)), allowInsecureRemote);
             client.Token = bearerToken ?? Environment.GetEnvironmentVariable("ARGUEBOT_TOKEN") ?? "";
             return client;
         }
