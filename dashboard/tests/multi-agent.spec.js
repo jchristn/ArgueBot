@@ -336,8 +336,8 @@ test("post-implementation review covers every web route and new configuration fo
       await page.screenshot({ path: `../.run/screenshots/v2-${route || "home"}-${width}-${theme}.png`, fullPage: true });
     }
     await page.goto("/dashboard/participants");
-    const tabNames = { endpoints: ["HTTP Endpoints", "Add endpoint"], harnesses: ["CLI Harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Secrets", "Add secret"] };
-    for (const kind of ["endpoints", "harnesses", "models", "credentials"]) {
+    const tabNames = { agents: ["Agents", "Add agent"], endpoints: ["HTTP Endpoints", "Add endpoint"], models: ["Models", "Add model"], credentials: ["Secrets", "Add secret"] };
+    for (const kind of ["agents", "endpoints", "models", "credentials"]) {
       await page.getByRole("tab", { name: new RegExp("^" + tabNames[kind][0]) }).click();
       const toolbar = page.locator(".tab-toolbar");
       const [left, right] = await Promise.all([toolbar.locator("p").boundingBox(), toolbar.getByRole("button", { name: tabNames[kind][1], exact: true }).boundingBox()]);
@@ -348,17 +348,17 @@ test("post-implementation review covers every web route and new configuration fo
       await page.getByRole("tabpanel").getByRole("button", { name: tabNames[kind][1], exact: true }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
-      if (kind === "harnesses") {
-        await expect(dialog).toContainText("uses the login of the user running ArgueBot");
-        await expect(dialog.getByRole("combobox", { name: "Stored secret", exact: true }).locator("option")).toHaveCount(1);
-        await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("mux");
-        await expect(dialog.getByRole("combobox", { name: "Stored secret", exact: true })).toHaveCount(0);
+      if (kind === "agents") {
+        await expect(dialog).toContainText("Select a stored secret when running in Docker or to override the credentials used by default by the agent.");
+        await expect(dialog.getByRole("combobox", { name: "Secret (optional)", exact: true }).locator("option").first()).toHaveText("None: use the login on the service machine");
+        await dialog.getByRole("combobox", { name: "Runner type", exact: true }).selectOption("mux");
+        await expect(dialog.getByRole("combobox", { name: "Secret (optional)", exact: true })).toHaveCount(0);
         await expect(dialog).toContainText("has no stored secret");
-        await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("claude");
-        await dialog.getByRole("textbox", { name: "Inherited environment names", exact: true }).fill("GEMINI_API_KEY, FIXTURE_ROUTE");
-        await expect(dialog).toContainText("never values");
-        await dialog.getByRole("textbox", { name: "Inherited environment names", exact: true }).scrollIntoViewIfNeeded();
-        await page.screenshot({ path: `../.run/screenshots/v2-harness-environment-${width}-${theme}.png`, fullPage: true });
+        await dialog.getByRole("combobox", { name: "Runner type", exact: true }).selectOption("claude");
+        await dialog.getByRole("textbox", { name: "Model (optional)", exact: true }).fill("sonnet");
+        await dialog.getByRole("textbox", { name: "Allowed environment names", exact: true }).fill("GEMINI_API_KEY, FIXTURE_ROUTE");
+        await dialog.getByRole("textbox", { name: "Allowed environment names", exact: true }).scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `../.run/screenshots/v2-agent-secret-${width}-${theme}.png`, fullPage: true });
       }
       await dialog.getByRole("button", { name: "Save", exact: true }).scrollIntoViewIfNeeded();
       await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();

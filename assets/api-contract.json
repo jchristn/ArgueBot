@@ -882,6 +882,41 @@
       "access": "Member"
     },
     {
+      "method": "GET",
+      "path": "/v2.0/api/participants/{profileId}/checks",
+      "group": "v2 Participants",
+      "summary": "Read observed checks of an agent",
+      "response": "List<ModelCheck>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "pageNumber"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/participants/{profileId}/checks",
+      "group": "v2 Participants",
+      "summary": "Explicitly run a saved agent once, with its secret and model; potentially billable",
+      "response": "ModelCheck",
+      "request": "ModelCheckRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "idempotencyKey": "{{commandKey}}",
+        "checkTools": false
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
       "method": "DELETE",
       "path": "/v2.0/api/conversations/{conversationId}",
       "group": "v2 Cleanup",
@@ -1161,81 +1196,6 @@
             "value": "example"
           }
         ],
-        "revision": 1
-      },
-      "query": [],
-      "execute": false,
-      "save": null,
-      "access": "Member"
-    },
-    {
-      "method": "GET",
-      "path": "/v2.0/api/configuration/harnesses",
-      "group": "Configuration",
-      "summary": "List harnesses without secret values; bounded pages default to 100 items",
-      "response": "List<HarnessProfile>",
-      "request": null,
-      "status": 200,
-      "public": false,
-      "example": null,
-      "query": [
-        "pageNumber",
-        "pageSize"
-      ],
-      "execute": false,
-      "save": null,
-      "access": "Member"
-    },
-    {
-      "method": "POST",
-      "path": "/v2.0/api/configuration/harnesses",
-      "group": "Configuration",
-      "summary": "Create harnesses configuration",
-      "response": "HarnessProfile",
-      "request": "HarnessProfile",
-      "status": 201,
-      "public": false,
-      "example": {
-        "name": "Claude Code",
-        "provider": "claude",
-        "executable": "claude",
-        "arguments": [
-          "-p",
-          "--verbose",
-          "--output-format",
-          "stream-json",
-          "--dangerously-skip-permissions"
-        ],
-        "credentialId": "{{credentialId}}",
-        "enabled": true
-      },
-      "query": [],
-      "execute": false,
-      "save": "harnessId",
-      "access": "Member"
-    },
-    {
-      "method": "PUT",
-      "path": "/v2.0/api/configuration/harnesses/{id}",
-      "group": "Configuration",
-      "summary": "Replace harnesses configuration with expected revision",
-      "response": "HarnessProfile",
-      "request": "HarnessProfile",
-      "status": 200,
-      "public": false,
-      "example": {
-        "name": "Claude Code",
-        "provider": "claude",
-        "executable": "claude",
-        "arguments": [
-          "-p",
-          "--verbose",
-          "--output-format",
-          "stream-json",
-          "--dangerously-skip-permissions"
-        ],
-        "credentialId": "{{credentialId}}",
-        "enabled": true,
         "revision": 1
       },
       "query": [],

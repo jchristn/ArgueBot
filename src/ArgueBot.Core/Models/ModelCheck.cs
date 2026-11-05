@@ -11,9 +11,9 @@ namespace ArgueBot.Core.Models
         public string ModelId { get; set; } = "";
         /// <summary>Frozen model revision.</summary>
         public long ModelRevision { get; set; }
-        /// <summary>Frozen endpoint or harness identity.</summary>
+        /// <summary>Frozen endpoint identity; empty for an agent check.</summary>
         public string TransportId { get; set; } = "";
-        /// <summary>Frozen endpoint or harness revision.</summary>
+        /// <summary>Frozen endpoint revision; zero for an agent check.</summary>
         public long TransportRevision { get; set; }
         /// <summary>queued, running, completed, failed, cancelled or uncertain.</summary>
         public string State { get; set; } = "queued";

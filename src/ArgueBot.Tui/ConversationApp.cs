@@ -83,7 +83,7 @@ namespace ArgueBot.Tui
             _Actions.Add("Help", () => Launch(HelpAsync)).TooltipText = "Open help topics and keyboard instructions (F1).";
             _Actions.Add("Menu", () => Launch(MenuAsync)).TooltipText = "Browse every action without memorizing shortcuts (F2).";
             _Actions.Add("New", () => Launch(NewAsync)).TooltipText = "Create a debate with guided setup, or create an empty conversation.";
-            _Actions.Add("Agents", () => Launch(ParticipantsAsync)).TooltipText = "Add or edit the CLI harnesses and REST models used as debate speakers.";
+            _Actions.Add("Agents", () => Launch(ParticipantsAsync)).TooltipText = "Add or edit the agents used as debate speakers: CLI programs with an optional secret, or HTTP models.";
             _Actions.Add("Start debate", () => Launch(StartAsync)).TooltipText = "Choose speakers and settings for the selected conversation; review before starting.";
             _Actions.Add("Follow-up", () => Launch(FollowupAsync)).TooltipText = "Ask an agent another question using this conversation history (Ctrl+Y).";
             _Actions.Add("Run controls", () => Launch(ControlsAsync)).TooltipText = "Pause, resume, interrupt, extend or stop a debate.";
@@ -284,15 +284,16 @@ namespace ArgueBot.Tui
         {
             if (_App == null) return;
             List<RunnerProfile> profiles = await _Client.ParticipantsAsync(_Token).ConfigureAwait(false);
-            string[] choices = new[] { "Add agent: CLI harness or REST model" }.Concat(profiles.Select(profile => profile.Name + " [" + profile.Kind + "/" + profile.Provider + "]" + (profile.Enabled ? "" : " disabled"))).Concat(new[] { "Connections, models and credentials" }).ToArray();
+            string[] choices = new[] { "Add agent (CLI program or HTTP model)" }.Concat(profiles.Select(profile => profile.Name + " [" + profile.Kind + "/" + profile.Provider + "]" + (profile.Enabled ? "" : " disabled"))).Concat(new[] { "Connections, models and credentials" }).ToArray();
             int selected = await UiAsync(() => _App.SelectStyledAsync("Agents: choose Add agent, or select an existing agent", choices)).ConfigureAwait(false);
             if (selected < 0) return;
             if (selected == profiles.Count + 1) { await CatalogAsync().ConfigureAwait(false); return; }
             RunnerProfile? profile = selected == 0 ? null : profiles[selected - 1];
             if (profile != null)
             {
-                int action = await UiAsync(() => _App.SelectStyledAsync(profile.Name, "Edit agent", "Delete reusable profile (history remains)")).ConfigureAwait(false);
+                int action = await UiAsync(() => _App.SelectStyledAsync(profile.Name, "Edit agent", "Delete reusable profile (history remains)", "Check agent (runs it once; may incur cost)")).ConfigureAwait(false);
                 if (action < 0) return;
+                if (action == 2) { await ChecksAsync(profile.Id, profile.Name, true).ConfigureAwait(false); return; }
                 if (action == 1)
                 {
                     if (await UiAsync(() => _App.ConfirmStyledAsync("Delete " + profile.Name + "? Historical run snapshots remain readable.")).ConfigureAwait(false))
@@ -308,9 +309,10 @@ namespace ArgueBot.Tui
                 preset = AgentPresets.Create(kind);
             }
             List<ModelProfile> models = await _Client.ModelsAsync(_Token).ConfigureAwait(false);
+            List<CredentialMetadata> secrets = await _Client.CredentialsAsync(_Token).ConfigureAwait(false);
             RunnerProfile? updated = await UiAsync(async () =>
             {
-                ParticipantEditor editor = new ParticipantEditor(profile ?? preset, models);
+                ParticipantEditor editor = new ParticipantEditor(profile ?? preset, models, secrets);
                 FormDialog<RunnerProfile> dialog = new FormDialog<RunnerProfile>(profile == null ? "Add agent" : "Edit agent", editor.Form, editor.Extract, _App, async candidate =>
                 {
                     if (profile == null) await _Client.CreateParticipantAsync(candidate, _Token).ConfigureAwait(false);
@@ -371,9 +373,9 @@ namespace ArgueBot.Tui
         }
         private async Task CatalogAsync()
         {
-            int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "CLI harnesses", "Models", "Secrets (write-only)", "Secret encryption keys")).ConfigureAwait(false);
+            int kind = await UiAsync(() => _App!.SelectStyledAsync("Connections and models", "HTTP endpoints", "Models (on HTTP endpoints)", "Secrets (write-only)", "Secret encryption keys")).ConfigureAwait(false);
             if (kind < 0) return;
-            if (kind == 4)
+            if (kind == 3)
             {
                 CredentialKeyStatus status = await _Client.CredentialKeysAsync(_Token).ConfigureAwait(false);
                 int action = await UiAsync(() => _App!.SelectStyledAsync("Secret encryption: active " + status.ActiveKeyId + ", " + status.RetainedKeyCount + (status.RetainedKeyCount == 1 ? " key" : " keys"), "Rotate master key and reencrypt stored secrets", status.RetainedKeyCount > 1 ? "Retire earlier keys (older backups lose their credentials)" : "Retire earlier keys (none to retire)", "Back")).ConfigureAwait(false);
@@ -417,20 +419,6 @@ namespace ArgueBot.Tui
             }
             else if (kind == 1)
             {
-                List<HarnessProfile> items = await _Client.HarnessesAsync(_Token).ConfigureAwait(false);
-                int selected = await ChooseCatalogAsync(items.Select(item => item.Name + (item.Enabled ? "" : " (disabled)"))).ConfigureAwait(false); if (selected < 0) return;
-                HarnessProfile value;
-                if (selected == 0)
-                {
-                    int preset = await UiAsync(() => _App!.SelectStyledAsync("Choose a CLI preset", "Claude Code", "Codex", "Gemini CLI", "Mux", "Generic CLI")).ConfigureAwait(false); if (preset < 0) return;
-                    RunnerProfile defaults = HarnessDefaults.Create(new[] { "claude", "codex", "gemini", "mux", "plain" }[preset]);
-                    value = new HarnessProfile { Name = defaults.Name, Provider = defaults.Provider, Executable = defaults.Executable, Arguments = defaults.Arguments };
-                }
-                else value = items[selected - 1];
-                await EditCatalogAsync("CLI harness", CatalogForms.Harness(value, credentials), async candidate => { await _Client.SaveHarnessAsync(candidate, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
-            }
-            else if (kind == 2)
-            {
                 List<ModelProfile> items = await _Client.ModelsAsync(_Token).ConfigureAwait(false);
                 int selected = await ChooseCatalogAsync(items.Select(item => item.Name + (item.Enabled ? "" : " (disabled)"))).ConfigureAwait(false); if (selected < 0) return;
                 if (selected > 0)
@@ -439,8 +427,8 @@ namespace ArgueBot.Tui
                     if (action < 0 || action == 2) return;
                     if (action == 1) { await ModelChecksAsync(items[selected - 1]).ConfigureAwait(false); return; }
                 }
-                List<EndpointProfile> endpoints = await _Client.EndpointsAsync(_Token).ConfigureAwait(false); List<HarnessProfile> harnesses = await _Client.HarnessesAsync(_Token).ConfigureAwait(false);
-                await EditCatalogAsync("Reusable model", CatalogForms.Model(selected == 0 ? new ModelProfile() : items[selected - 1], endpoints, harnesses), async value => { await _Client.SaveModelAsync(value, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
+                List<EndpointProfile> endpoints = await _Client.EndpointsAsync(_Token).ConfigureAwait(false);
+                await EditCatalogAsync("Reusable model", CatalogForms.Model(selected == 0 ? new ModelProfile() : items[selected - 1], endpoints), async value => { await _Client.SaveModelAsync(value, _Token).ConfigureAwait(false); }).ConfigureAwait(false);
             }
             else
             {
@@ -462,27 +450,30 @@ namespace ArgueBot.Tui
                 await EditCatalogAsync("Import secret (write-only)", CatalogForms.Credential(item), async value => { await _Client.SaveCredentialAsync(item?.Id ?? "", value, _Token).ConfigureAwait(false); value.SecretValue = ""; }).ConfigureAwait(false);
             }
         }
-        private async Task ModelChecksAsync(ModelProfile model)
+        private Task ModelChecksAsync(ModelProfile model) { return ChecksAsync(model.Id, model.Name, false); }
+        /// <summary>Observed checks of a reusable model, or of a saved agent (which runs with its own secret, model and arguments).</summary>
+        private async Task ChecksAsync(string id, string name, bool agent)
         {
             int page = 1;
             while (true)
             {
-                List<ModelCheck> checks = await _Client.ModelChecksAsync(model.Id, page, _Token).ConfigureAwait(false);
+                List<ModelCheck> checks = await (agent ? _Client.AgentChecksAsync(id, page, _Token) : _Client.ModelChecksAsync(id, page, _Token)).ConfigureAwait(false);
                 List<string> choices = new List<string> { "Test completion (invokes model; may incur cost)", "Test completion and harmless tool round trip (may incur cost)" };
                 choices.AddRange(checks.Select(check => check.State + ": model revision " + check.ModelRevision + ", transport revision " + check.TransportRevision + " / " + check.CreatedUtc.ToString("u", System.Globalization.CultureInfo.InvariantCulture)));
                 int previous = -1; int next = -1;
                 if (page > 1) { previous = choices.Count; choices.Add("Previous checks"); }
                 if (checks.Count == 25) { next = choices.Count; choices.Add("Next checks"); }
                 int back = choices.Count; choices.Add("Back");
-                int selected = await UiAsync(() => _App!.SelectStyledAsync(model.Name + ": observed checks, page " + page, choices.ToArray())).ConfigureAwait(false);
+                int selected = await UiAsync(() => _App!.SelectStyledAsync(name + ": observed checks, page " + page, choices.ToArray())).ConfigureAwait(false);
                 if (selected < 0 || selected == back) return;
                 if (selected == previous) { page--; continue; }
                 if (selected == next) { page++; continue; }
                 ModelCheck result;
                 if (selected < 2)
                 {
-                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Invoke this model? This may incur provider cost. A tool check can require a second completion. CLI checks use the configured harness permissions. Check output is discarded; only safe capability observations are retained.")).ConfigureAwait(false)) continue;
-                    result = await _Client.CheckModelAsync(model.Id, new ModelCheckRequest { CheckTools = selected == 1, IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
+                    if (!await UiAsync(() => _App!.ConfirmStyledAsync("Invoke this model? This may incur provider cost. A tool check can require a second completion. CLI agent checks use the agent's own arguments and permissions. Check output is discarded; only safe capability observations are retained.")).ConfigureAwait(false)) continue;
+                    ModelCheckRequest request = new ModelCheckRequest { CheckTools = selected == 1, IdempotencyKey = Guid.NewGuid().ToString("N") };
+                    result = await (agent ? _Client.CheckAgentAsync(id, request, _Token) : _Client.CheckModelAsync(id, request, _Token)).ConfigureAwait(false);
                 }
                 else result = checks[selected - 2];
                 await ReadPanelAsync("Observed model check", "State: " + result.State + "\n\nCompletion observed: " + result.CompletionVerified + "\n\nTool round trip observed: " + result.ToolsVerified + "\n\nModel revision: " + result.ModelRevision + "\n\nTransport revision: " + result.TransportRevision + "\n\nExecutable version: " + (result.ExecutableVersion.Length == 0 ? "Unverified" : result.ExecutableVersion) + "\n\nSafe error code: " + result.ErrorCode + "\n\nA successful check does not certify debate quality or every model capability.").ConfigureAwait(false);
@@ -503,7 +494,7 @@ namespace ArgueBot.Tui
             if (_App == null) return;
             while (true)
             {
-                int action = await UiAsync(() => _App.SelectStyledAsync("New: what would you like to do?", "Start a debate: guided setup", "Create an empty conversation (start a debate later)", "Set up agents first (CLI harnesses / REST models)")).ConfigureAwait(false);
+                int action = await UiAsync(() => _App.SelectStyledAsync("New: what would you like to do?", "Start a debate: guided setup", "Create an empty conversation (start a debate later)", "Set up agents first (CLI programs or HTTP models)")).ConfigureAwait(false);
                 if (action < 0) return;
                 if (action == 2) { await ParticipantsAsync().ConfigureAwait(false); continue; }
                 if (action == 0) { await ConfigureDebateAsync(null).ConfigureAwait(false); return; }
@@ -548,13 +539,12 @@ namespace ArgueBot.Tui
         private async Task ConfigureDebateAsync(string? conversationId)
         {
             if (_App == null) return;
-            // Seats are models and CLI harnesses, which carry their secrets; see SeatCatalog.
+            // Seats are agents, each carrying its own optional secret; see SeatCatalog.
             List<RunnerProfile> profiles = await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false);
             while (profiles.Count(profile => profile.Enabled) < 2)
             {
-                int action = await UiAsync(() => _App.SelectStyledAsync("Set up seats: " + profiles.Count(profile => profile.Enabled) + " of 2", "Add a CLI harness, HTTP endpoint or model (carries its secret; works in Docker)", "Add an agent preset (uses this machine's own login)", "Cancel debate setup")).ConfigureAwait(false);
-                if (action == 0) await CatalogAsync().ConfigureAwait(false);
-                else if (action == 1) await ParticipantsAsync().ConfigureAwait(false);
+                int action = await UiAsync(() => _App.SelectStyledAsync("Set up agents: " + profiles.Count(profile => profile.Enabled) + " of 2 enabled", "Add or enable an agent (Claude Code, Codex, Gemini, Mux or an HTTP model)", "Cancel debate setup")).ConfigureAwait(false);
+                if (action == 0) await ParticipantsAsync().ConfigureAwait(false);
                 else return;
                 profiles = await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false);
             }
@@ -642,7 +632,7 @@ namespace ArgueBot.Tui
             if (_App == null || _Selected == null) return;
             string conversationId = _Selected;
             List<RunnerProfile> profiles = (await SeatCatalog.LoadAsync(_Client, _Token).ConfigureAwait(false)).Where(profile => profile.Enabled).ToList();
-            if (profiles.Count == 0) throw new InvalidOperationException("Add an enabled model or CLI harness first (Menu > Models, connections and secrets).");
+            if (profiles.Count == 0) throw new InvalidOperationException("Add an enabled agent first (Menu > Agents).");
             int index = await UiAsync(() => _App.SelectStyledAsync("Choose follow-up respondent", profiles.Select(profile => profile.Name + " (" + profile.Kind + ")").ToArray())).ConfigureAwait(false);
             if (index < 0) return;
             string? question = await UiAsync(() => _App.PromptStyledAsync("Follow-up question")).ConfigureAwait(false);

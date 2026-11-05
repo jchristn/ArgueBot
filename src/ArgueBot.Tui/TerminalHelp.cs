@@ -80,11 +80,11 @@ namespace ArgueBot.Tui
 
             Secrets
 
-            Import a secret once and reuse it. Kinds: Claude Code OAuth token (from claude setup-token), Codex login (the auth.json file from a dedicated codex login), bearer token, header key and value, and query string key and value. Values are encrypted on the service. Choosing a secret then Reveal value shows it after you confirm. In Docker or under another account, command-line agents need a stored secret because there is no local sign-in.
+            Import a secret once and reuse it. Kinds: Claude Code OAuth token (from claude setup-token), Codex login (the auth.json file from a dedicated codex login), bearer token, header key and value, and query string key and value. Values are encrypted on the service. Choosing a secret then Reveal value shows it after you confirm. In Docker or under another account, a Claude Code or Codex agent needs a stored secret because there is no local sign-in; on your own machine the secret is optional and overrides the login the program would use.
 
             Connections and models
 
-            An HTTP endpoint is an Ollama or OpenAI-compatible server, with optional authentication bindings that use stored secrets. A CLI harness is a reusable command-line program with its arguments and secret. A model names what an agent runs: a model ID on an endpoint, or a harness. Agents can select a reusable model. Model checks make a real call and can cost money; saving never calls a model.
+            An HTTP endpoint is an Ollama or OpenAI-compatible server, with optional authentication bindings that use stored secrets. A model is a model ID on an endpoint. Agents either run a command-line program (Claude Code, Codex, Gemini, Mux or another program, with an optional stored secret and model) or select a reusable model. Model checks make a real call and can cost money; saving never calls a model.
 
             Encryption keys
 

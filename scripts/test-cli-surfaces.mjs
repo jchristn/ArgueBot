@@ -134,9 +134,11 @@ try {
   const model = command(['configuration','models','add','-'], {name:'CLI reusable model',endpointId:endpoint.id,model:'multi-agent',maxOutputBytes:1048576,generation:{maxOutputTokens:2048,temperature:0.25,topP:0.9}});
   check(model.maxOutputBytes === 1048576 && model.generation.maxOutputTokens === 2048 && model.generation.temperature === 0.25 && model.generation.topP === 0.9, 'CLI generation overrides were not preserved.');
   if (process.env.ARGUEBOT_SIMULATION_URL) { const observed = command(['configuration','models','check',model.id,'-'], {idempotencyKey:'cli-model-check',checkTools:false}); check(observed.completionVerified && observed.state === 'completed', 'CLI explicit model check did not observe a completion.'); check(command(['configuration','models','checks',model.id]).length === 1, 'CLI model-check history was not durable.'); }
-  const harness = command(['configuration','harnesses','add','-'], {name:'CLI reusable harness',provider:'plain',executable:'dotnet',arguments:[fixture,'plain'],environmentVariables:['ARGUEBOT_FIXTURE_ALLOWED']});
-  check(harness.environmentVariables[0] === 'ARGUEBOT_FIXTURE_ALLOWED', 'CLI harness lost its inherited environment names.');
-  for (const [kind,item] of [['endpoints',endpoint],['models',model],['harnesses',harness],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
+  const agent = command(['participants','add','-'], {name:'CLI agent with environment',kind:'cli',provider:'plain',executable:'dotnet',arguments:[fixture,'plain'],restrictEnvironment:true,environmentVariables:['ARGUEBOT_FIXTURE_ALLOWED']});
+  check(agent.restrictEnvironment && agent.environmentVariables[0] === 'ARGUEBOT_FIXTURE_ALLOWED', 'CLI agent lost its allowed environment names.');
+  check(command(['participants','list']).some(value=>value.id===agent.id), 'CLI participants list lost its created agent.');
+  command(['participants','delete',agent.id]);
+  for (const [kind,item] of [['endpoints',endpoint],['models',model],['credentials',credential]]) check(command(['configuration',kind,'list']).some(value=>value.id===item.id), `CLI ${kind} list lost its created item.`);
   const replacement = command(['configuration','credentials','update',credential.id,'-'], {name:credential.name,kind:credential.kind,revision:credential.revision,secretValue:'fictional-cli-rotated'});
   check(replacement.revision > credential.revision, 'CLI credential rotation did not advance its revision.');
   const revealed = command(['configuration','credentials','reveal',credential.id]);

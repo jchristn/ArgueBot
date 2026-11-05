@@ -66,7 +66,7 @@ namespace ArgueBot.Tui
             lines.Add("");
             lines.Add("https://github.com/jchristn/ArgueBot");
             lines.Add("");
-            lines.Add("Ctrl+E: configure agents / harnesses | F1: help");
+            lines.Add("Ctrl+E: configure agents | F1: help");
             int height = Math.Min(lines.Count + 6, maximumHeight);
             int left = (surface.Size.Width - width) / 2;
             int top = (surface.Size.Height - height) / 2;

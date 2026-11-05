@@ -48,46 +48,20 @@ namespace ArgueBot.Tui
             editor.Extract = () => new EndpointProfile { Id = item.Id, Revision = item.Revision, Name = name.Value, Protocol = protocol.SelectedIndex == 0 ? "ollama" : "openai", BaseUrl = url.Value, TimeoutSeconds = int.Parse(timeout.Value, CultureInfo.InvariantCulture), MaxConcurrentInvocations = int.Parse(capacity.Value, CultureInfo.InvariantCulture), Enabled = enabled.Checked, AuthBindings = bindings.Select(extract => extract()).Where(binding => binding.Kind != "removed").ToList() };
             return editor;
         }
-        internal static CatalogEditor<HarnessProfile> Harness(HarnessProfile item, List<CredentialMetadata> credentials)
-        {
-            CatalogEditor<HarnessProfile> editor = new CatalogEditor<HarnessProfile>(); Form form = editor.Form;
-            TextField name = Text(form, "Name", item.Name, "Reusable harness display name.", true);
-            string[] providers = new[] { "plain", "claude", "codex", "gemini", "mux" };
-            Dropdown<string> provider = Choice(form, "Protocol", providers, Array.IndexOf(providers, item.Provider), "Choose a harness before adjusting its executable and arguments.");
-            TextField executable = Text(form, "Executable", item.Executable, "Direct program name or path on the service host.", true);
-            TextField directory = Text(form, "Working directory", item.WorkingDirectory, "Optional directory on the service host.");
-            Dropdown<string> credential = Choice(form, "CLI secret", new[] { "Use existing service-host login" }.Concat(credentials.Select(value => value.Name + " (" + value.Kind + ")")).ToArray(), credentials.FindIndex(value => value.Id == item.CredentialId) + 1, "Claude OAuth token or Codex auth.json. The service injects it for each invocation. In Docker there is no host login, so choose a stored credential.");
-            Checkbox enabled = new Checkbox("Enabled for new runs", item.Enabled); form.Add("", enabled);
-            TextField environment = Text(form, "Inherited environment names", string.Join(", ", item.EnvironmentVariables), "Comma-separated service variable names only. Standard paths, locale, proxy and TLS settings are retained. Other variables require an explicit name here.");
-            List<Func<string?>> arguments = new List<Func<string?>>();
-            Action<string> add = argument =>
-            {
-                Checkbox keep = new Checkbox("Keep argument " + (arguments.Count + 1), true); form.Add("", keep);
-                TextField value = Text(form, "Argument " + (arguments.Count + 1), argument, "One literal argument per row. Uncheck Keep to remove; an empty value remains an empty argument.");
-                arguments.Add(() => keep.Checked ? value.Value : null);
-            };
-            foreach (string argument in item.Arguments) add(argument);
-            form.Add("", new Button("Add argument", () => { if (arguments.Count < 128) add(""); }));
-            editor.Extract = () => new HarnessProfile { Id = item.Id, Revision = item.Revision, Name = name.Value, Provider = providers[provider.SelectedIndex], Executable = executable.Value, WorkingDirectory = directory.Value, CredentialId = credential.SelectedIndex == 0 ? "" : credentials[credential.SelectedIndex - 1].Id, EnvironmentVariables = environment.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), Arguments = arguments.Select(extract => extract()).Where(value => value != null).Select(value => value!).ToList(), Enabled = enabled.Checked };
-            return editor;
-        }
-        internal static CatalogEditor<ModelProfile> Model(ModelProfile item, List<EndpointProfile> endpoints, List<HarnessProfile> harnesses)
+        internal static CatalogEditor<ModelProfile> Model(ModelProfile item, List<EndpointProfile> endpoints)
         {
             CatalogEditor<ModelProfile> editor = new CatalogEditor<ModelProfile>(); Form form = editor.Form;
             TextField name = Text(form, "Name", item.Name, "Reusable model name.", true);
-            Dropdown<string> endpoint = Choice(form, "HTTP endpoint", new[] { "None" }.Concat(endpoints.Select(value => value.Name)).ToArray(), endpoints.FindIndex(value => value.Id == item.EndpointId) + 1, "Choose one endpoint or one harness.");
-            Dropdown<string> harness = Choice(form, "CLI harness", new[] { "None" }.Concat(harnesses.Select(value => value.Name)).ToArray(), harnesses.FindIndex(value => value.Id == item.HarnessId) + 1, "Choose one endpoint or one harness.");
-            endpoint.SelectionChanged += (_, _) => { if (endpoint.SelectedIndex > 0) harness.SelectedIndex = 0; };
-            harness.SelectionChanged += (_, _) => { if (harness.SelectedIndex > 0) endpoint.SelectedIndex = 0; };
-            TextField model = Text(form, "Provider model ID", item.Model, "Required for HTTP; CLI uses --model for Claude, Codex and Gemini, or a {model} argument placeholder.");
+            Dropdown<string> endpoint = Choice(form, "HTTP endpoint", new[] { "None" }.Concat(endpoints.Select(value => value.Name)).ToArray(), endpoints.FindIndex(value => value.Id == item.EndpointId) + 1, "The endpoint this model runs on. Command-line programs are agents, not models.");
+            TextField model = Text(form, "Provider model ID", item.Model, "Exact model ID the endpoint accepts.", true);
             TextField budget = Text(form, "Context character budget", item.ContextMaxCharacters.ToString(CultureInfo.InvariantCulture), "8192 through 16777216; the service applies its own limit too.", true);
             TextField output = Text(form, "Captured output bytes", item.MaxOutputBytes.ToString(CultureInfo.InvariantCulture), "1024 through 67108864 bytes. Independent of the provider's token limit.", true);
-            TextField tokens = Text(form, "HTTP output tokens", item.Generation.MaxOutputTokens?.ToString(CultureInfo.InvariantCulture) ?? "", "Optional: 1 through 1048576. Blank retains the HTTP adapter default of 4096. Leave blank for CLI.");
-            TextField temperature = Text(form, "HTTP temperature", item.Generation.Temperature?.ToString("R", CultureInfo.InvariantCulture) ?? "", "Optional: 0 through 2. Blank uses provider defaults. Leave blank for CLI; its flags belong in the harness.");
+            TextField tokens = Text(form, "HTTP output tokens", item.Generation.MaxOutputTokens?.ToString(CultureInfo.InvariantCulture) ?? "", "Optional: 1 through 1048576. Blank retains the HTTP adapter default of 4096.");
+            TextField temperature = Text(form, "HTTP temperature", item.Generation.Temperature?.ToString("R", CultureInfo.InvariantCulture) ?? "", "Optional: 0 through 2. Blank uses provider defaults.");
             TextField topP = Text(form, "HTTP top-p", item.Generation.TopP?.ToString("R", CultureInfo.InvariantCulture) ?? "", "Optional: 0 through 1. Some models reject sampling settings; verify with an explicit model check.");
             Checkbox tools = new Checkbox("Model supports tools", item.SupportsTools); form.Add("", tools);
             Checkbox enabled = new Checkbox("Enabled for new runs", item.Enabled); form.Add("", enabled);
-            editor.Extract = () => new ModelProfile { Id = item.Id, Revision = item.Revision, Name = name.Value, EndpointId = endpoint.SelectedIndex == 0 ? "" : endpoints[endpoint.SelectedIndex - 1].Id, HarnessId = harness.SelectedIndex == 0 ? "" : harnesses[harness.SelectedIndex - 1].Id, Model = model.Value, ContextMaxCharacters = int.Parse(budget.Value, CultureInfo.InvariantCulture), MaxOutputBytes = int.Parse(output.Value, CultureInfo.InvariantCulture), Generation = new ModelGenerationSettings { MaxOutputTokens = string.IsNullOrWhiteSpace(tokens.Value) ? null : int.Parse(tokens.Value, CultureInfo.InvariantCulture), Temperature = string.IsNullOrWhiteSpace(temperature.Value) ? null : double.Parse(temperature.Value, CultureInfo.InvariantCulture), TopP = string.IsNullOrWhiteSpace(topP.Value) ? null : double.Parse(topP.Value, CultureInfo.InvariantCulture) }, SupportsTools = tools.Checked, Enabled = enabled.Checked };
+            editor.Extract = () => new ModelProfile { Id = item.Id, Revision = item.Revision, Name = name.Value, EndpointId = endpoint.SelectedIndex == 0 ? "" : endpoints[endpoint.SelectedIndex - 1].Id, Model = model.Value, ContextMaxCharacters = int.Parse(budget.Value, CultureInfo.InvariantCulture), MaxOutputBytes = int.Parse(output.Value, CultureInfo.InvariantCulture), Generation = new ModelGenerationSettings { MaxOutputTokens = string.IsNullOrWhiteSpace(tokens.Value) ? null : int.Parse(tokens.Value, CultureInfo.InvariantCulture), Temperature = string.IsNullOrWhiteSpace(temperature.Value) ? null : double.Parse(temperature.Value, CultureInfo.InvariantCulture), TopP = string.IsNullOrWhiteSpace(topP.Value) ? null : double.Parse(topP.Value, CultureInfo.InvariantCulture) }, SupportsTools = tools.Checked, Enabled = enabled.Checked };
             return editor;
         }
         /// <summary>The dedicated Codex login command for the shell of the machine running the TUI.</summary>

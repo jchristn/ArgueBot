@@ -617,6 +617,12 @@ td time {
 .server-details dd {
   margin: 0;
 }
+.record-details .detail-row {
+  display: contents;
+}
+.record-details dd {
+  overflow-wrap: anywhere;
+}
 .login {
   min-height: 100dvh;
   display: grid;

@@ -701,6 +701,36 @@ Success: **200**, response: `DeletionResponse`.
 | --- | --- | --- | --- |
 | profileId | path | true | Participant profile ID. Copy it from the Participants page. |
 
+## GET /v2.0/api/participants/{profileId}/checks
+
+Read observed checks of an agent. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<ModelCheck>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| profileId | path | true | Participant profile ID. Copy it from the Participants page. |
+| pageNumber | query | false | Page to return, starting at 1. |
+
+## POST /v2.0/api/participants/{profileId}/checks
+
+Explicitly run a saved agent once, with its secret and model; potentially billable. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ModelCheck`. Request: `ModelCheckRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| profileId | path | true | Participant profile ID. Copy it from the Participants page. |
+
+Representative request:
+
+```json
+{
+  "idempotencyKey": "{{commandKey}}",
+  "checkTools": false
+}
+```
+
 ## DELETE /v2.0/api/conversations/{conversationId}
 
 v2: Permanently delete a stopped conversation and its retained messages/events. Access: any signed-in user of an active tenant.
@@ -921,72 +951,6 @@ Representative request:
       "value": "example"
     }
   ],
-  "revision": 1
-}
-```
-
-## GET /v2.0/api/configuration/harnesses
-
-List harnesses without secret values; bounded pages default to 100 items. Access: any signed-in user of an active tenant.
-
-Success: **200**, response: `List<HarnessProfile>`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| pageNumber | query | false | Page to return, starting at 1. |
-| pageSize | query | false | Items per page, 1 through 100 unless noted. |
-
-## POST /v2.0/api/configuration/harnesses
-
-Create harnesses configuration. Access: any signed-in user of an active tenant.
-
-Success: **201**, response: `HarnessProfile`. Request: `HarnessProfile`.
-
-Representative request:
-
-```json
-{
-  "name": "Claude Code",
-  "provider": "claude",
-  "executable": "claude",
-  "arguments": [
-    "-p",
-    "--verbose",
-    "--output-format",
-    "stream-json",
-    "--dangerously-skip-permissions"
-  ],
-  "credentialId": "{{credentialId}}",
-  "enabled": true
-}
-```
-
-## PUT /v2.0/api/configuration/harnesses/{id}
-
-Replace harnesses configuration with expected revision. Access: any signed-in user of an active tenant.
-
-Success: **200**, response: `HarnessProfile`. Request: `HarnessProfile`.
-
-| Parameter | Location | Required | Meaning |
-| --- | --- | --- | --- |
-| id | path | true | Resource ID. Copy it from the matching list. |
-
-Representative request:
-
-```json
-{
-  "name": "Claude Code",
-  "provider": "claude",
-  "executable": "claude",
-  "arguments": [
-    "-p",
-    "--verbose",
-    "--output-format",
-    "stream-json",
-    "--dangerously-skip-permissions"
-  ],
-  "credentialId": "{{credentialId}}",
-  "enabled": true,
   "revision": 1
 }
 ```
@@ -2165,7 +2129,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### CreateRunRequest
 
-Seat IDs (participantIds and orchestratorId) may be reusable model IDs (mod_...), CLI harness IDs (har_...) or agent profile IDs; models and harnesses bring their stored secret or endpoint authentication. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
+Seat IDs (participantIds and orchestratorId) are agent IDs (par_...); a CLI agent brings its optional stored secret and model. A reusable HTTP model ID (mod_...) is accepted as a shortcut and runs on its endpoint with no role instructions. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -2437,23 +2401,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | endpointWaitMilliseconds | integer | Elapsed milliseconds waiting for shared endpoint capacity; zero for immediate admission, CLI or older records. |
 | credentialRevisions | array | Credential identities and revisions actually resolved for this invocation; never credential values. |
 
-### HarnessProfile
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Stable harness ID. |
-| name | string | Display name. |
-| provider | string | CLI output protocol. |
-| executable | string | Direct executable or path on the execution host. |
-| workingDirectory | string | Execution directory on the service host. |
-| credentialId | string | Claude OAuth token or Codex auth.json credential reference. |
-| enabled | boolean | Whether new runs may use this harness. |
-| revision | integer | Expected revision when updating. |
-| arguments | array | Literal ordered argument vector; prompts use standard input. |
-| environmentVariables | array | Additional service environment variable names to inherit. Values are never stored or returned. |
-
 ### HealthResponse
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -2584,8 +2531,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | id | string | Stable check identity. |
 | modelId | string | Reusable model identity. |
 | modelRevision | integer | Frozen model revision. |
-| transportId | string | Frozen endpoint or harness identity. |
-| transportRevision | integer | Frozen endpoint or harness revision. |
+| transportId | string | Frozen endpoint identity; empty for an agent check. |
+| transportRevision | integer | Frozen endpoint revision; zero for an agent check. |
 | state | string | queued, running, completed, failed, cancelled or uncertain. |
 | checkTools | boolean | Whether the explicit request included a tool probe. |
 | completionVerified | boolean | A complete nonempty response was observed. This does not certify debate quality. |
@@ -2623,13 +2570,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | --- | --- | --- |
 | id | string | Stable reusable model ID. |
 | name | string | Display name. |
-| endpointId | string | REST endpoint reference, mutually exclusive with harness. |
-| harnessId | string | CLI harness reference, mutually exclusive with endpoint. |
+| endpointId | string | HTTP endpoint the model runs on. |
 | model | string | Provider model identifier. |
 | contextMaxCharacters | integer | Conservative UTF-16 character budget for this model; not a token count. |
-| maxOutputBytes | integer | Service output capture ceiling, 1024 through 67108864 bytes, for CLI and HTTP models. |
-| generation | ModelGenerationSettings | Optional HTTP sampling and generated-token overrides; configure CLI-specific generation flags in the harness instead. |
-| supportsTools | boolean | Whether tools are declared available; supported CLI harnesses use native MCP and others use bounded envelopes. |
+| maxOutputBytes | integer | Service output capture ceiling, 1024 through 67108864 bytes, for HTTP models. |
+| generation | ModelGenerationSettings | Optional HTTP sampling and generated-token overrides. |
+| supportsTools | boolean | Whether the model declares tool support. |
 | enabled | boolean | Whether new runs may use this model. |
 | revision | integer | Expected revision when updating. |
 
@@ -2767,31 +2713,31 @@ Named fields shared by the service and its clients. Nullable fields are optional
 
 ### RunnerProfile
 
-CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
+An agent. CLI protocols are plain, claude, codex, gemini and mux. A CLI agent may name a stored secret in credentialId (a Claude Code token for claude, a Codex login for codex); select one when running in Docker or to override the credentials the program uses by default. model is optional for CLI agents and is passed as --model to Claude Code, Codex and Gemini, or into a literal {model} argument. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | modelProfileId | string | Reusable model reference. Empty retains inline legacy configuration. |
 | roleInstructions | string | Role-specific participant instructions. |
 | authBindings | array | Frozen HTTP bindings containing only nonsecret values and credential references. |
-| credentialId | string | CLI credential reference. |
+| credentialId | string | Optional stored secret that signs in a CLI agent: a Claude Code token for claude or a Codex login for codex. Empty uses the service machine's own login. |
 | contextMaxCharacters | integer | Exact model context character budget. |
 | supportsTools | boolean | Declared tool support. |
 | generation | ModelGenerationSettings | HTTP generation settings frozen with this participant snapshot. |
 | modelRevision | integer | Model revision frozen at admission. |
-| transportId | string | Endpoint or harness identity frozen at admission; endpoint capacity remains a live resource limit. |
-| transportRevision | integer | Endpoint or harness revision frozen at admission. |
-| restrictEnvironment | boolean | Restrict inherited process variables for reusable harness snapshots; legacy inline profiles retain their original behavior. |
+| transportId | string | Endpoint identity frozen at admission; endpoint capacity remains a live resource limit. |
+| transportRevision | integer | Endpoint revision frozen at admission. |
+| restrictEnvironment | boolean | Restrict a CLI agent to standard process variables plus the named environmentVariables; false passes the service environment. |
 | environmentVariables | array | Additional inherited variable names frozen at admission. Values are resolved only when the child starts. |
 | id | string | Stable profile identifier. |
 | name | string | Participant display name. |
 | kind | string | Runner kind: cli or rest. |
 | provider | string | Protocol adapter. |
 | endpoint | string | REST base URI. |
-| model | string | REST model identifier. |
+| model | string | Model identifier: required for HTTP agents; optional for CLI agents, passed as --model to Claude Code, Codex and Gemini or into a literal {model} argument. |
 | executable | string | Direct executable path or name. |
 | arguments | array | Ordered arguments; prompts use standard input. |
-| workingDirectory | string | Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory. |
+| workingDirectory | string | Directory on the execution host for CLI agents and REST local tools; empty uses the service directory. |
 | secretEnvironmentVariable | string | Environment reference to credential; never its value. |
 | timeoutSeconds | integer | Maximum generation seconds. |
 | maxOutputBytes | integer | Maximum captured output bytes; defaults to 64 MiB. |
@@ -3038,7 +2984,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxParticipants | integer | Maximum active participants per debate, 2 through 64. Requires restart. |
 | allowedHosts | array | Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name. |
 | listenAddress | string | Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port. |
-| allowCli | boolean | Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only. |
+| allowCli | boolean | Whether CLI agents and REST local file/process tools may execute. Default true for local mode only. |
 
 ### DatabaseSettings
 

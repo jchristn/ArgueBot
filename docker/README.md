@@ -27,7 +27,7 @@ Open `http://127.0.0.1:4317/dashboard` and sign in. A new data volume starts wit
 3. Use HTTPS. Every request carries a password or token. A TLS-terminating proxy works; forward the original `Host` header and `X-Forwarded-Proto: https`. For example, with Caddy: `arguebot.example.com { reverse_proxy 127.0.0.1:4317 }`.
 4. Sign in from the TUI or CLI with `--server https://arguebot.example.com`. They refuse plain HTTP to a remote server unless you pass `--allow-http`.
 
-To change the published port or pass provider settings, copy `docker/.env.example` to `docker/.env` (untracked) and edit it. Compose reads `ARGUEBOT_PORT` for the loopback port and passes every variable in that file into the service container. A variable reaches an agent only when its harness lists the name under **Inherited environment names**. The example holds no secrets; prefer importing secrets in the dashboard over putting API keys in `.env`.
+To change the published port or pass provider settings, copy `docker/.env.example` to `docker/.env` (untracked) and edit it. Compose reads `ARGUEBOT_PORT` for the loopback port and passes every variable in that file into the service container. A variable reaches an agent only when the agent lists the name under **Allowed environment names**. The example holds no secrets; prefer importing secrets in the dashboard over putting API keys in `.env`.
 
 **Trust model.** When local execution is enabled in Settings, agents and their tools run as the service user inside the container. They can read and write everything that user can, including `/data`, `/work` and the protected `/data/secrets` directory. Secret encryption protects stored values at rest and in backups, not from agents you allow to execute locally. Enable local execution only for agents you trust with the whole workspace, or keep it off so agents can use only the conversation tools.
 
@@ -35,11 +35,11 @@ To change the published port or pass provider settings, copy `docker/.env.exampl
 
 ## Configure models and imported login secrets
 
-Use the Participants page tabs to import secrets, define harnesses/endpoints, define models and create participant/orchestrator profiles. See [the v2 usage guide](../docs/MULTIPLE_AGENTS.md).
+Use the Participants page tabs to import secrets, define endpoints and models, and create the agents that debate. See [the v2 usage guide](../docs/MULTIPLE_AGENTS.md).
 
-A container has no Claude Code or Codex login of its own, so every CLI harness needs a stored secret.
+A container has no Claude Code or Codex login of its own, so every Claude Code or Codex agent needs a stored secret.
 
-- Claude Code: run `claude setup-token` on a trusted machine and paste the token on the Secrets tab. Import it as `claude_oauth`, then select that secret in the Claude harness. The service injects `CLAUDE_CODE_OAUTH_TOKEN` only into its invocation environment.
+- Claude Code: run `claude setup-token` on a trusted machine and paste the token on the Secrets tab. Import it as `claude_oauth`, then select that secret on the Claude Code agent. The service injects `CLAUDE_CODE_OAUTH_TOKEN` only into its invocation environment.
 - Codex: create a dedicated login with `mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login`. Import the complete resulting `auth.json` as `codex_auth_json`. The service owns refresh and writes a per-invocation `CODEX_HOME` containing a sanitized secret copy with an empty `refresh_token` field, preserving Codex parser compatibility without refresh authority. Do not concurrently refresh another copy of this login. Replace the stored document when the status requires reauthentication.
 - HTTP models: import a token as `token`, then bind it to the endpoint's bearer, API-key header, custom header or query-string field. Use secret references, not values embedded in a base URL or static routing header.
 
@@ -76,6 +76,6 @@ The application data, encryption key and execution workspace use separate named 
 
 After building, run `node scripts/test-container.mjs` for an isolated acceptance check. It uses a unique Compose project and loopback port, then deletes only its own test volumes. The fixture exercises four-seat consensus, packaged executables, write-only imports, Claude environment injection, private Codex files, master-key rotation, container replacement and missing-key recovery. Provider responses and secrets are fictional; passing does not certify a live provider login. Evidence and current platform coverage are recorded in the original implementation plan.
 
-For an alternate published port, set `ARGUEBOT_PORT` in `docker/.env` and use the same port in the browser URL; Compose keeps the `127.0.0.1` binding. The service validates the incoming loopback Host header and its matching browser origin, independently of the container's `0.0.0.0` listener. Reusable harnesses receive only standard process settings and explicitly selected inherited environment names. Add service-host variables to that harness's allowlist when using environment-based provider authentication.
+For an alternate published port, set `ARGUEBOT_PORT` in `docker/.env` and use the same port in the browser URL; Compose keeps the `127.0.0.1` binding. The service validates the incoming loopback Host header and its matching browser origin, independently of the container's `0.0.0.0` listener. CLI agents receive only standard process settings and the environment names they explicitly allow. Add service-host variables to the agent's Allowed environment names when using environment-based provider authentication.
 
 Secret master-key rotation is available through the web/TUI secret configuration and `secret-keys rotate EXPECTED_KEY_ID`. Preserve the entire protected secrets directory, including `credential.keys.json` after rotation, separately from database backups. Previous keys are retained for recovery and old backups until you retire them with **Retire earlier keys** or `secret-keys retire EXPECTED_KEY_ID`; after that, older database copies cannot decrypt their secrets. Key rotation does not change secret values or their revisions. See [the multi-agent guide](../docs/MULTIPLE_AGENTS.md).

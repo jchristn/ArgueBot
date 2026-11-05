@@ -14,12 +14,8 @@ namespace ArgueBot.Core.Models
         public string Name { get { return _Name; } set { System.ArgumentNullException.ThrowIfNull(value); _Name = value; } }
 
         private string _EndpointId = "";
-        /// <summary>REST endpoint reference, mutually exclusive with harness.</summary>
+        /// <summary>HTTP endpoint the model runs on.</summary>
         public string EndpointId { get { return _EndpointId; } set { System.ArgumentNullException.ThrowIfNull(value); _EndpointId = value; } }
-
-        private string _HarnessId = "";
-        /// <summary>CLI harness reference, mutually exclusive with endpoint.</summary>
-        public string HarnessId { get { return _HarnessId; } set { System.ArgumentNullException.ThrowIfNull(value); _HarnessId = value; } }
 
         private string _Model = "";
         /// <summary>Provider model identifier.</summary>
@@ -27,13 +23,13 @@ namespace ArgueBot.Core.Models
 
         /// <summary>Conservative UTF-16 character budget for this model; not a token count.</summary>
         public int ContextMaxCharacters { get; set; } = 262144;
-        /// <summary>Service output capture ceiling, 1024 through 67108864 bytes, for CLI and HTTP models.</summary>
+        /// <summary>Service output capture ceiling, 1024 through 67108864 bytes, for HTTP models.</summary>
         public int MaxOutputBytes { get; set; } = 67108864;
         private ModelGenerationSettings _Generation = new ModelGenerationSettings();
-        /// <summary>Optional HTTP sampling and generated-token overrides; configure CLI-specific generation flags in the harness instead.</summary>
+        /// <summary>Optional HTTP sampling and generated-token overrides.</summary>
         public ModelGenerationSettings Generation { get { return _Generation; } set { System.ArgumentNullException.ThrowIfNull(value); _Generation = value; } }
 
-        /// <summary>Whether tools are declared available; supported CLI harnesses use native MCP and others use bounded envelopes.</summary>
+        /// <summary>Whether the model declares tool support.</summary>
         public bool SupportsTools { get; set; } = true;
 
         /// <summary>Whether new runs may use this model.</summary>

@@ -27,10 +27,13 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 
 - Bearer-token credentials and share-link tokens are kept encrypted (AES-256-GCM, `secrets/token.key`) alongside their SHA-256 verifiers (schema 31), so `POST /v2.0/api/me/credentials/{id}/reveal`, `POST /v2.0/api/users/{userId}/credentials/{id}/reveal` and `POST /v2.0/api/conversations/{id}/shares/{shareId}/reveal` can show them again. Owners and tenant administrators reveal tokens; tenant members reveal active links. Every reveal is audited (`CredentialRevealed`, `ShareRevealed`). Tokens created before schema 31 return 409 `not_revealable`, except the public default token. Provider secrets keep their existing reveal. Dashboard (Actions > Reveal, Show link), TUI and CLI (`credentials reveal`, `shares reveal`) support it.
 
-### Debate seats
+### Agents replace CLI harnesses
 
-- Debates choose models and CLI harnesses directly: `participantIds`, `orchestratorId` and roster `profileId` accept `mod_...` and `har_...` IDs as well as agent IDs. Each seat takes its harness's secret or its endpoint's authentication, so container debates no longer fail with "Not logged in" because a directly configured CLI agent had no stored secret.
-- The dashboard and TUI debate setup list models and CLI harnesses first, show what each runs and how it signs in, and flag directly configured CLI agents that rely on the service machine's own login. Agents are optional.
+- **Breaking change:** CLI harnesses are gone; an agent is now the one object that takes a seat. A CLI agent runs Claude Code, Codex, Gemini CLI, Mux or another program, with an optional stored **secret** (a Claude Code token or Codex login; select one when running in Docker or to override the credentials used by default by the agent), an optional model passed as `--model` (or into a literal `{model}` argument), allowed environment names and role instructions. A model agent runs a reusable model on an HTTP endpoint. Models are HTTP-only.
+- Schema 32 folds every harness into agents: an agent that pointed at a harness model becomes a CLI agent with that harness's program, arguments, environment and secret, keeping its ID, name, timeout and role instructions; unused harness models and harnesses become agents of their own. Harness models and their checks are removed, and the harness tables are dropped. Run snapshots are unchanged.
+- `/v2.0/api/configuration/harnesses` and the model `harnessId` field are removed, as is `configuration harnesses` in the CLI. Debate `participantIds`, `orchestratorId` and roster `profileId` take agent IDs; a reusable HTTP model ID (`mod_...`) is still accepted as a shortcut seat.
+- `GET|POST /v2.0/api/participants/{id}/checks` runs a saved agent once, exactly as a debate seat would (including its secret), and lists earlier checks: **Check agent** on the dashboard.
+- Saving an agent checks its secret: it must exist, belong to a Claude Code or Codex agent and match the program.
 
 ### Public share links
 
@@ -43,6 +46,7 @@ v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and 
 - Account menu in the top bar; Account page with profile, password, bearer tokens (with an audited Reveal) and sessions.
 - Administration: Users (including other tenants for system administrators), Tenants and Audit log. Settings, request history and encryption keys are hidden from members.
 - Share dialog in the workspace header and the conversation Actions menu; Participants > Credentials is now Secrets.
+- Clicking a row in any table opens that item's edit dialog, or a read-only details dialog for sessions, audit events and share links (which have nothing to edit). Clicking a tenant now edits it; its users are under Actions > Users. API tokens open their rename dialog.
 
 ### TUI and CLI
 

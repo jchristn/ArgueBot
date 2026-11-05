@@ -172,6 +172,8 @@ export class ApiClient {
   }
   modelChecks(id, page = 1) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks?pageNumber=${page}`); }
   checkModel(id, body) { return this.request(`/v2.0/api/configuration/models/${encodeURIComponent(id)}/checks`, { method: "POST", body }); }
+  agentChecks(id, page = 1) { return this.request(`/v2.0/api/participants/${encodeURIComponent(id)}/checks?pageNumber=${page}`); }
+  checkAgent(id, body) { return this.request(`/v2.0/api/participants/${encodeURIComponent(id)}/checks`, { method: "POST", body }); }
   credentialKeys() { return this.request("/v2.0/api/configuration/secret-keys"); }
   rotateCredentialKey(expectedKeyId) { return this.request("/v2.0/api/configuration/secret-keys/rotate", { method: "POST", body: { expectedKeyId } }); }
   retireCredentialKeys(expectedKeyId) { return this.request("/v2.0/api/configuration/secret-keys/retire", { method: "POST", body: { expectedKeyId } }); }

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import CopyableId from "../components/CopyableId.jsx";
+import DetailsDialog from "../components/DetailsDialog.jsx";
+import ObjectRow from "../components/ObjectRow.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal, Pagination } from "../components/ui.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -17,6 +19,7 @@ export default function Audit() {
   const { data, error, reload } = useData("audit:" + JSON.stringify(filters), () => api.audit(filters));
   const [pruning, setPruning] = useState(null);
   const [failure, setFailure] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const change = value => setFilters({ ...filters, ...value, pageNumber: value.pageNumber || 1 });
   return <>
     <div className="page-heading"><div><h1>{t("audit.title")}</h1><p>{t(session?.user?.isAdmin ? "audit.description.system" : "audit.description")}</p></div></div>
@@ -32,7 +35,7 @@ export default function Audit() {
     {data && data.items.length === 0 && <div className="empty-state">{t("audit.empty")}</div>}
     {data && data.items.length > 0 && <div className="table-scroll"><table className="audit-table">
       <thead><tr><th scope="col">{t("audit.time")}</th><th scope="col">{t("audit.event")}</th><th scope="col">{t("audit.outcome")}</th><th scope="col">{t("audit.who")}</th><th scope="col">{t("audit.request")}</th><th scope="col">{t("audit.reason")}</th><th scope="col">{t("audit.requestId")}</th></tr></thead>
-      <tbody>{data.items.map(item => <tr key={item.id}>
+      <tbody>{data.items.map(item => <ObjectRow key={item.id} inspect onOpen={() => setViewing(item)}>
         <td><time>{formatDate(item.createdUtc)}</time></td>
         <td><strong>{item.operation}</strong>{item.errorCode && <div className="muted"><code>{item.errorCode}</code></div>}</td>
         <td><span className={item.outcome === "success" ? "badge success" : "badge failure"}>{t("audit.outcome." + item.outcome, { defaultValue: item.outcome })}</span>{item.statusCode > 0 && <div className="muted">{item.statusCode}</div>}</td>
@@ -40,9 +43,10 @@ export default function Audit() {
         <td>{item.method && <code>{item.method} {item.path}</code>}{item.sourceIp && <div className="muted"><code>{item.sourceIp}</code></div>}</td>
         <td className="audit-reason">{item.reason}</td>
         <td>{item.correlationId && <CopyableId value={item.correlationId} />}</td>
-      </tr>)}</tbody>
+      </ObjectRow>)}</tbody>
     </table></div>}
     {data && <Pagination page={data} onChange={change} />}
+    {viewing && <DetailsDialog title="audit.details" heading={`${viewing.operation} · ${formatDate(viewing.createdUtc)}`} record={viewing} prefix="audit" onClose={() => setViewing(null)} />}
     {pruning && <Modal title="audit.prune" onClose={() => setPruning(null)}>
       <p>{t("audit.prune.help")}</p>
       <Field label="audit.prune.age">{props => <select {...props} value={pruning} onChange={event => setPruning(Number(event.target.value))}>{retention.map(days => <option key={days} value={days}>{t("audit.prune.days", { days })}</option>)}</select>}</Field>

@@ -26,7 +26,7 @@ export default function Tenants() {
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && <div className="table-scroll"><table>
       <thead><tr><th scope="col">{t("tenants.name")}</th><th scope="col">{t("tenants.id")}</th><th scope="col">{t("tenants.status")}</th><th scope="col">{t("tenants.updated")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
-      <tbody>{data.map(tenant => <ObjectRow key={tenant.id} onOpen={() => navigate("/dashboard/users" + (tenant.id === session.tenant.id ? "" : "?tenant=" + encodeURIComponent(tenant.id)))}>
+      <tbody>{data.map(tenant => <ObjectRow key={tenant.id} onOpen={() => { setFailure(null); setEditing({ ...tenant }); }}>
         <td><strong>{tenant.name}</strong>{tenant.id === session.tenant.id && <> <span className="badge">{t("tenants.yours")}</span></>}{tenant.protected && <> <span className="badge" title={t("tenants.protected.help")}>{t("tenants.protected")}</span></>}</td>
         <td><CopyableId value={tenant.id} /></td>
         <td><span className={tenant.active ? "badge success" : "badge"}>{t(tenant.active ? "tenants.active" : "tenants.disabled")}</span></td>

@@ -58,18 +58,18 @@ namespace ArgueBot.Client
         /// <summary>Create or revision-check a reusable endpoint.</summary>
         public Task<EndpointProfile> SaveEndpointAsync(EndpointProfile value, CancellationToken token = default)
         { return SendAsync<EndpointProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/endpoints" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
-        /// <summary>List reusable harnesses.</summary>
-        public Task<List<HarnessProfile>> HarnessesAsync(CancellationToken token = default)
-        { return ReadConfigurationAsync<HarnessProfile>("harnesses", token); }
-        /// <summary>Create or revision-check a reusable harness.</summary>
-        public Task<HarnessProfile> SaveHarnessAsync(HarnessProfile value, CancellationToken token = default)
-        { return SendAsync<HarnessProfile>(value.Id.Length == 0 ? HttpMethod.Post : HttpMethod.Put, "v2.0/api/configuration/harnesses" + (value.Id.Length == 0 ? "" : "/" + Uri.EscapeDataString(value.Id)), value, token); }
         /// <summary>Read a bounded page of observed checks tied to exact model and transport revisions.</summary>
         public Task<List<ModelCheck>> ModelChecksAsync(string modelId, int pageNumber = 1, CancellationToken token = default)
         { return SendAsync<List<ModelCheck>>(HttpMethod.Get, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks?pageNumber=" + pageNumber, token: token); }
         /// <summary>Explicitly invoke a potentially billable completion and optional harmless tool check.</summary>
         public Task<ModelCheck> CheckModelAsync(string modelId, ModelCheckRequest request, CancellationToken token = default)
         { return SendAsync<ModelCheck>(HttpMethod.Post, "v2.0/api/configuration/models/" + Uri.EscapeDataString(modelId) + "/checks", request, token); }
+        /// <summary>Read a bounded page of observed checks of a saved agent.</summary>
+        public Task<List<ModelCheck>> AgentChecksAsync(string profileId, int pageNumber = 1, CancellationToken token = default)
+        { return SendAsync<List<ModelCheck>>(HttpMethod.Get, "v2.0/api/participants/" + Uri.EscapeDataString(profileId) + "/checks?pageNumber=" + pageNumber, token: token); }
+        /// <summary>Explicitly run a saved agent once, with its secret and model. This can cost money.</summary>
+        public Task<ModelCheck> CheckAgentAsync(string profileId, ModelCheckRequest request, CancellationToken token = default)
+        { return SendAsync<ModelCheck>(HttpMethod.Post, "v2.0/api/participants/" + Uri.EscapeDataString(profileId) + "/checks", request, token); }
         /// <summary>List reusable models.</summary>
         public Task<List<ModelProfile>> ModelsAsync(CancellationToken token = default)
         { return ReadConfigurationAsync<ModelProfile>("models", token); }

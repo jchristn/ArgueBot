@@ -142,14 +142,13 @@ namespace ArgueBot.Cli
                 else if (command == "configuration")
                 {
                     Require(words, 3); string resource = words[1]; string action = words[2];
-                    if (resource != "endpoints" && resource != "harnesses" && resource != "models" && resource != "credentials") throw new ArgumentException("Choose endpoints, harnesses, models or credentials.");
+                    if (resource != "endpoints" && resource != "models" && resource != "credentials") throw new ArgumentException("Choose endpoints, models or credentials.");
                     string path = "v2.0/api/configuration/" + resource;
                     if (resource == "models" && action == "checks") { Require(words, 4); Print(await client.ModelChecksAsync(words[3], words.Count > 4 ? int.Parse(words[4], System.Globalization.CultureInfo.InvariantCulture) : 1, token).ConfigureAwait(false)); }
                     else if (resource == "models" && action == "check") { Require(words, 5); ModelCheckRequest request = JsonSerializer.Deserialize<ModelCheckRequest>(await TextAsync(words, 4, token).ConfigureAwait(false), _Json) ?? throw new ArgumentException("Supply a model-check JSON request."); Print(await client.CheckModelAsync(words[3], request, token).ConfigureAwait(false)); }
                     else if (action == "list")
                     {
                         if (resource == "endpoints") Print(await client.EndpointsAsync(token).ConfigureAwait(false));
-                        else if (resource == "harnesses") Print(await client.HarnessesAsync(token).ConfigureAwait(false));
                         else if (resource == "models") Print(await client.ModelsAsync(token).ConfigureAwait(false));
                         else Print(await client.CredentialsAsync(token).ConfigureAwait(false));
                     }
@@ -356,9 +355,9 @@ Configuration
   participants list
   participants add|update [ID] JSON|-|--file PATH
   participants delete ID
-  configuration endpoints|harnesses|models list
-  configuration endpoints|harnesses|models add -|--file PATH
-  configuration endpoints|harnesses|models update ID -|--file PATH
+  configuration endpoints|models list
+  configuration endpoints|models add -|--file PATH
+  configuration endpoints|models update ID -|--file PATH
   secrets list|add -|--file PATH|update ID -|--file PATH
   secrets reveal ID                          Print a ready secret's decrypted value
   secrets disable ID REVISION                ('configuration credentials ...' still works, deprecated)

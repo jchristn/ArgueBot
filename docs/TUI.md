@@ -41,7 +41,7 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 | Help | Ten task-ordered topics, from a first-debate walkthrough to setup, steering, follow-ups, troubleshooting and a keyboard shortcut reference. |
 | Menu | Every action, grouped under headings: the open conversation, conversations, setup, and view and help. Run controls are grouped the same way: run, steer the debate, inspect and working memory. |
 | New | Starts guided debate setup or creates an empty conversation, asking for its title, an optional opening question and, when custom prompts exist, which prompt each debate step uses. |
-| Agents | Adds or edits the CLI harnesses and REST models that can speak in a debate. |
+| Agents | Adds, edits or checks the agents that can speak in a debate: CLI programs with an optional secret and model, or HTTP models. |
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |
 | Run controls | Pauses, resumes, interrupts, extends or stops a debate. If the conversation has no debate, offers setup. |
 
@@ -52,7 +52,7 @@ The compact footer reserves **F1 Help** and shows keys for the focused control, 
 ## Set up your first debate
 
 1. Choose **New**, then **Start a debate: guided setup**.
-2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, a REST model endpoint, or a custom CLI harness. Review the fields and save. Repeat until two agents are enabled.
+2. If fewer than two agents are enabled, choose **Add or enable an agent**. In Agents, choose **Add agent**, then an installed Claude Code, Codex, Gemini or Mux CLI preset, an HTTP model, or another CLI program. Review the fields, optionally choose a model and a **Secret** (select a stored secret when running in Docker or to override the credentials used by default by the agent), and save. Repeat until two agents are enabled.
 3. In **Question**, enter what you want debated. Enter or the **Next** button advances.
 4. In **Speakers**, check every agent for the panel, up to the service limit, then choose an explicit orchestrator model. Space toggles a checkbox; Enter opens the orchestrator dropdown and arrows select an item.
 5. In **Settings**, set the maximum rounds and the time available to intervene between turns. Optionally enter the checked seat numbers in the opening order you want.
@@ -64,7 +64,7 @@ The opening order rotates each round. The orchestrator asks a question, collects
 
 ## Configure an agent
 
-CLI presets fill in the harness name, executable and protocol. The harness must be installed on the machine running the service. The supported CLI protocols supply their normal arguments when you leave the argument list empty. The **Executable (program only)** field takes `claude`, `codex`, or a full program path. Do not enter a whole command such as `claude --verbose`, and do not wrap a path in quotes. Paths containing spaces are allowed.
+CLI presets fill in the agent name, executable and protocol. The program must be installed on the machine running the service. The supported CLI protocols supply their normal arguments when you leave the argument list empty. The **Executable (program only)** field takes `claude`, `codex`, or a full program path. Do not enter a whole command such as `claude --verbose`, and do not wrap a path in quotes. Paths containing spaces are allowed.
 
 Put each flag or value in its own **Argument** row. For example, `--output-format` goes in one row and `stream-json` in the next. With no rows, ArgueBot uses its built-in protocol arguments. Adding rows replaces the complete default list, so custom arguments must include the protocol's required output options. An empty row is an actual empty argument. The prompt goes to stdin.
 
@@ -133,7 +133,7 @@ See [the usability review](TUI-USABILITY.md) for the comparison with Armada, Arm
 
 For Mux, choose **Agents → Add agent → Mux (installed CLI)**. The default executable is `mux`; change it to the installed executable path if needed. Empty arguments use `print --output-format text --no-stats --no-session-persistence`. Mux reads the debate prompt from stdin and uses its own endpoint configuration and authentication on the service machine. To choose a named endpoint or model, supply the complete argument list, for example `print`, `--output-format`, `text`, `--no-stats`, `--no-session-persistence`, `--endpoint`, `my endpoint`, `--model`, `my-model`, with each value in its own argument field. Keep text output selected; JSON/JSONL output would appear literally in the transcript. ArgueBot retains the conversation history and supplies context on each turn; Mux session persistence is disabled by default. Tool permissions follow Mux configuration unless explicitly overridden in the saved arguments.
 
-Named harness setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex includes `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
+Named CLI program setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex includes `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
 
 Identity administration has been removed. Backup and restore are also removed. Users, roles, security audit and their shortcuts are not product features. Use `stop-web.sh` or `stop-web.bat` to stop the selected service.
 
@@ -141,7 +141,7 @@ A failed turn displays TURN FAILED followed by its cause and recovery guidance i
 
 ## Reusable configuration and debate memory
 
-Choose **Agents → Connections, models and secrets** to manage endpoint, harness, model and secret forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Secret paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a secret, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
+Choose **Agents → Connections, models and secrets** to manage endpoint, model and secret forms. HTTP bindings can combine bearer, API-key, header and query authentication. CLI programs are configured on agents, whose arguments remain literal, including empty arguments. Secret paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a secret, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
 
 Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
 

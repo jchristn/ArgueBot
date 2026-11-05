@@ -6356,6 +6356,260 @@
         }
       }
     },
+    "/v2.0/api/participants/{profileId}/checks": {
+      "get": {
+        "operationId": "get_v2_0_api_participants_profileId_checks",
+        "tags": [
+          "v2 Participants"
+        ],
+        "summary": "Read observed checks of an agent",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Participant profile ID. Copy it from the Participants page."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page to return, starting at 1."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read observed checks of an agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelCheck"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      },
+      "post": {
+        "operationId": "post_v2_0_api_participants_profileId_checks",
+        "tags": [
+          "v2 Participants"
+        ],
+        "summary": "Explicitly run a saved agent once, with its secret and model; potentially billable",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Participant profile ID. Copy it from the Participants page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful explicitly run a saved agent once, with its secret and model; potentially billable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelCheckRequest"
+              },
+              "example": {
+                "idempotencyKey": "{{commandKey}}",
+                "checkTools": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2.0/api/settings/shutdown": {
       "post": {
         "operationId": "post_v2_0_api_settings_shutdown",
@@ -8181,402 +8435,6 @@
                     "value": "example"
                   }
                 ],
-                "revision": 1
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v2.0/api/configuration/harnesses": {
-      "get": {
-        "operationId": "get_v2_0_api_configuration_harnesses",
-        "tags": [
-          "Configuration"
-        ],
-        "summary": "List harnesses without secret values; bounded pages default to 100 items",
-        "description": "Access: any signed-in user of an active tenant. ",
-        "parameters": [
-          {
-            "name": "pageNumber",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
-            },
-            "description": "Page to return, starting at 1."
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 100
-            },
-            "description": "Items per page, 1 through 100 unless noted."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful list harnesses without secret values; bounded pages default to 100 items",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/HarnessProfile"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, expired or revoked bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Host, origin, tenant or execution policy denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthorizationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found in scope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "State, revision or command conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Body too large",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "x-arguebot-access": "Member"
-      },
-      "post": {
-        "operationId": "post_v2_0_api_configuration_harnesses",
-        "tags": [
-          "Configuration"
-        ],
-        "summary": "Create harnesses configuration",
-        "description": "Access: any signed-in user of an active tenant. ",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": "Successful create harnesses configuration",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HarnessProfile"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, expired or revoked bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Host, origin, tenant or execution policy denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthorizationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found in scope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "State, revision or command conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Body too large",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "x-arguebot-access": "Member",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HarnessProfile"
-              },
-              "example": {
-                "name": "Claude Code",
-                "provider": "claude",
-                "executable": "claude",
-                "arguments": [
-                  "-p",
-                  "--verbose",
-                  "--output-format",
-                  "stream-json",
-                  "--dangerously-skip-permissions"
-                ],
-                "credentialId": "{{credentialId}}",
-                "enabled": true
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v2.0/api/configuration/harnesses/{id}": {
-      "put": {
-        "operationId": "put_v2_0_api_configuration_harnesses_id_",
-        "tags": [
-          "Configuration"
-        ],
-        "summary": "Replace harnesses configuration with expected revision",
-        "description": "Access: any signed-in user of an active tenant. ",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Resource ID. Copy it from the matching list."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful replace harnesses configuration with expected revision",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HarnessProfile"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, expired or revoked bearer token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Host, origin, tenant or execution policy denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthorizationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found in scope",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "State, revision or command conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Body too large",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "x-arguebot-access": "Member",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HarnessProfile"
-              },
-              "example": {
-                "name": "Claude Code",
-                "provider": "claude",
-                "executable": "claude",
-                "arguments": [
-                  "-p",
-                  "--verbose",
-                  "--output-format",
-                  "stream-json",
-                  "--dangerously-skip-permissions"
-                ],
-                "credentialId": "{{credentialId}}",
-                "enabled": true,
                 "revision": 1
               }
             }
@@ -17797,7 +17655,7 @@
           "participantIds",
           "idempotencyKey"
         ],
-        "description": "Seat IDs (participantIds and orchestratorId) may be reusable model IDs (mod_...), CLI harness IDs (har_...) or agent profile IDs; models and harnesses bring their stored secret or endpoint authentication. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown."
+        "description": "Seat IDs (participantIds and orchestratorId) are agent IDs (par_...); a CLI agent brings its optional stored secret and model. A reusable HTTP model ID (mod_...) is accepted as a shortcut and runs on its endpoint with no role instructions. Protocol 2 on /v2.0 requires an explicit orchestratorId and 2 through the advertised maximum participant IDs; consensus requires every active seat to agree on one proposal. Protocol 1 retains two or three distinct participant IDs and accepts a question up to 4000 characters; blank uses the conversation title. Followup requires one participant and a nonempty question, and forces one round with no countdown."
       },
       "CredentialKeyStatus": {
         "type": "object",
@@ -18560,58 +18418,6 @@
           }
         }
       },
-      "HarnessProfile": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Stable harness ID."
-          },
-          "name": {
-            "type": "string",
-            "description": "Display name."
-          },
-          "provider": {
-            "type": "string",
-            "description": "CLI output protocol."
-          },
-          "executable": {
-            "type": "string",
-            "description": "Direct executable or path on the execution host."
-          },
-          "workingDirectory": {
-            "type": "string",
-            "description": "Execution directory on the service host."
-          },
-          "credentialId": {
-            "type": "string",
-            "description": "Claude OAuth token or Codex auth.json credential reference."
-          },
-          "enabled": {
-            "type": "boolean",
-            "description": "Whether new runs may use this harness."
-          },
-          "revision": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Expected revision when updating."
-          },
-          "arguments": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Literal ordered argument vector; prompts use standard input."
-          },
-          "environmentVariables": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Additional service environment variable names to inherit. Values are never stored or returned."
-          }
-        }
-      },
       "HealthResponse": {
         "type": "object",
         "properties": {
@@ -18978,12 +18784,12 @@
           },
           "transportId": {
             "type": "string",
-            "description": "Frozen endpoint or harness identity."
+            "description": "Frozen endpoint identity; empty for an agent check."
           },
           "transportRevision": {
             "type": "integer",
             "format": "int64",
-            "description": "Frozen endpoint or harness revision."
+            "description": "Frozen endpoint revision; zero for an agent check."
           },
           "state": {
             "type": "string",
@@ -19081,11 +18887,7 @@
           },
           "endpointId": {
             "type": "string",
-            "description": "REST endpoint reference, mutually exclusive with harness."
-          },
-          "harnessId": {
-            "type": "string",
-            "description": "CLI harness reference, mutually exclusive with endpoint."
+            "description": "HTTP endpoint the model runs on."
           },
           "model": {
             "type": "string",
@@ -19099,18 +18901,18 @@
           "maxOutputBytes": {
             "type": "integer",
             "format": "int32",
-            "description": "Service output capture ceiling, 1024 through 67108864 bytes, for CLI and HTTP models.",
+            "description": "Service output capture ceiling, 1024 through 67108864 bytes, for HTTP models.",
             "minimum": 1024,
             "maximum": 67108864,
             "default": 67108864
           },
           "generation": {
             "$ref": "#/components/schemas/ModelGenerationSettings",
-            "description": "Optional HTTP sampling and generated-token overrides; configure CLI-specific generation flags in the harness instead."
+            "description": "Optional HTTP sampling and generated-token overrides."
           },
           "supportsTools": {
             "type": "boolean",
-            "description": "Whether tools are declared available; supported CLI harnesses use native MCP and others use bounded envelopes."
+            "description": "Whether the model declares tool support."
           },
           "enabled": {
             "type": "boolean",
@@ -19475,7 +19277,7 @@
           },
           "credentialId": {
             "type": "string",
-            "description": "CLI credential reference."
+            "description": "Optional stored secret that signs in a CLI agent: a Claude Code token for claude or a Codex login for codex. Empty uses the service machine's own login."
           },
           "contextMaxCharacters": {
             "type": "integer",
@@ -19497,16 +19299,16 @@
           },
           "transportId": {
             "type": "string",
-            "description": "Endpoint or harness identity frozen at admission; endpoint capacity remains a live resource limit."
+            "description": "Endpoint identity frozen at admission; endpoint capacity remains a live resource limit."
           },
           "transportRevision": {
             "type": "integer",
             "format": "int64",
-            "description": "Endpoint or harness revision frozen at admission."
+            "description": "Endpoint revision frozen at admission."
           },
           "restrictEnvironment": {
             "type": "boolean",
-            "description": "Restrict inherited process variables for reusable harness snapshots; legacy inline profiles retain their original behavior."
+            "description": "Restrict a CLI agent to standard process variables plus the named environmentVariables; false passes the service environment."
           },
           "environmentVariables": {
             "type": "array",
@@ -19541,7 +19343,7 @@
           },
           "model": {
             "type": "string",
-            "description": "REST model identifier."
+            "description": "Model identifier: required for HTTP agents; optional for CLI agents, passed as --model to Claude Code, Codex and Gemini or into a literal {model} argument."
           },
           "executable": {
             "type": "string",
@@ -19556,7 +19358,7 @@
           },
           "workingDirectory": {
             "type": "string",
-            "description": "Directory on the execution host for CLI harnesses and REST local tools; empty uses the service directory."
+            "description": "Directory on the execution host for CLI agents and REST local tools; empty uses the service directory."
           },
           "secretEnvironmentVariable": {
             "type": "string",
@@ -19584,7 +19386,7 @@
           }
         },
         "required": [],
-        "description": "CLI protocols are plain, claude, codex, gemini and mux. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run."
+        "description": "An agent. CLI protocols are plain, claude, codex, gemini and mux. A CLI agent may name a stored secret in credentialId (a Claude Code token for claude, a Codex login for codex); select one when running in Docker or to override the credentials the program uses by default. model is optional for CLI agents and is passed as --model to Claude Code, Codex and Gemini, or into a literal {model} argument. Named CLI providers fill omitted name, executable and empty arguments on create/update from assets/harness-defaults.json. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo. Generic CLI (plain) requires an executable. CLI uses ordered arguments plus stdin. Mux defaults to print --output-format text --no-stats --no-session-persistence; custom arguments replace defaults. REST requires endpoint and model and supports native local tools (read_file, write_file, list_directory, run_process) when allowCli is enabled. workingDirectory applies to both runner kinds; empty uses the service directory. Tool activity is persisted as kind=tool messages, separate from answer text. secretEnvironmentVariable is a reference, never the secret itself. Profiles are frozen into relational snapshots for each run."
       },
       "ServiceCapabilities": {
         "type": "object",
@@ -20246,7 +20048,7 @@
           },
           "allowCli": {
             "type": "boolean",
-            "description": "Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only."
+            "description": "Whether CLI agents and REST local file/process tools may execute. Default true for local mode only."
           }
         }
       },

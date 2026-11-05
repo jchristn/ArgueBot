@@ -3,14 +3,13 @@ namespace ArgueBot.Core.Database.Implementations
     using ArgueBot.Core.Models;
     using ArgueBot.Core.Services;
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
 
     /// <summary>
-    /// Turns a debate seat selection into a runner profile. A seat can be a reusable model (<c>mod_</c>), which carries its
-    /// harness or endpoint and their secrets; a CLI harness (<c>har_</c>), which carries its secret; or a saved agent profile.
+    /// Turns a debate seat selection into a runner profile. A seat is an agent, which carries its own optional secret, or as a
+    /// shortcut a reusable HTTP model (<c>mod_</c>), which carries its endpoint's authentication and has no role instructions.
     /// </summary>
     internal static class SeatSelection
     {
@@ -22,17 +21,6 @@ namespace ArgueBot.Core.Database.Implementations
             {
                 ModelProfile model = (await database.Catalog.ModelsAsync(context, token, id).ConfigureAwait(false)).FirstOrDefault() ?? throw new DomainException(404, "profile_not_found", "A selected model was deleted. Choose another.", field);
                 profile = new RunnerProfile { Name = model.Name, ModelProfileId = model.Id, Enabled = model.Enabled };
-            }
-            else if (id.StartsWith("har_", StringComparison.Ordinal))
-            {
-                HarnessProfile harness = (await database.Catalog.HarnessesAsync(context, token, id).ConfigureAwait(false)).FirstOrDefault() ?? throw new DomainException(404, "profile_not_found", "A selected CLI harness was deleted. Choose another.", field);
-                profile = new RunnerProfile
-                {
-                    Name = harness.Name, Enabled = harness.Enabled, Kind = "cli", Provider = harness.Provider, Executable = harness.Executable,
-                    Arguments = new List<string>(harness.Arguments), WorkingDirectory = harness.WorkingDirectory, CredentialId = harness.CredentialId,
-                    RestrictEnvironment = true, EnvironmentVariables = new List<string>(harness.EnvironmentVariables), TransportId = harness.Id, TransportRevision = harness.Revision
-                };
-                return profile;
             }
             else
             {

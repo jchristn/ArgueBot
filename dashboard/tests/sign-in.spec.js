@@ -117,6 +117,10 @@ test("system administrators create a tenant and its admin; a shared email choose
   await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
   const row = page.getByRole("row").filter({ hasText: tenantName });
   await row.getByText(tenantName, { exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Edit tenant" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await row.getByRole("button", { name: /^Actions for / }).click();
+  await page.getByRole("menuitem", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/users\?tenant=ten_/);
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add user", exact: true }).click();

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu.jsx";
 import CopyButton from "./CopyButton.jsx";
+import ObjectRow from "./ObjectRow.jsx";
 import { useData } from "./useData.js";
 import { Button, ErrorPanel, Field, Modal } from "./ui.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -35,7 +36,7 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
     {data && data.length === 0 && <div className="empty-state">{t("authCredentials.empty")}</div>}
     {data && data.length > 0 && <div className="table-scroll"><table>
       <thead><tr><th scope="col">{t("authCredentials.name")}</th><th scope="col">{t("authCredentials.token")}</th><th scope="col">{t("authCredentials.status")}</th><th scope="col">{t("authCredentials.expires")}</th><th scope="col">{t("authCredentials.lastUsed")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
-      <tbody>{data.map(credential => <tr key={credential.id}>
+      <tbody>{data.map(credential => <ObjectRow key={credential.id} onOpen={() => setRenaming({ ...credential })}>
         <td><strong>{credential.name}</strong>{credential.protected && <> <span className="badge" title={t("authCredentials.protected.help")}>{t("authCredentials.protected")}</span></>}</td>
         <td><code>{"••••" + credential.tokenLast4}</code></td>
         <td><span className={credential.active ? "badge success" : "badge"}>{t(credential.active ? "authCredentials.active" : "authCredentials.disabled")}</span></td>
@@ -47,7 +48,7 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
           { label: credential.active ? "authCredentials.disable" : "authCredentials.enable", hidden: credential.protected, onClick: () => save(credential, { active: !credential.active }) },
           { label: "common.delete", danger: true, hidden: credential.protected, onClick: () => { setFailure(null); setDeleting(credential); } },
         ]} /></td>
-      </tr>)}</tbody>
+      </ObjectRow>)}</tbody>
     </table></div>}
     {creating && <Modal title="authCredentials.add" onClose={() => setCreating(null)}>
       <form onSubmit={async event => {

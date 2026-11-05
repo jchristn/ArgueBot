@@ -4,20 +4,20 @@ ArgueBot implements protocol 2 across the web dashboard, TUI, CLI and native cli
 
 ## Configure a panel
 
-The dashboard's Participants page has a tab for each resource: **Agents**, **Models**, **CLI harnesses**, **HTTP endpoints** and **Secrets**. The TUI uses **Connections, models and secrets** in its Agents menu. Configure resources in this order:
+The dashboard's Participants page has a tab for each resource: **Agents**, **Models**, **HTTP endpoints** and **Secrets**. The TUI uses **Agents** and **Connections, models and secrets** in its menu. Configure resources in this order:
 
-1. Import a secret if needed. HTTP tokens, Claude OAuth tokens and complete Codex `auth.json` documents have separate kinds, and the add dialog shows how to obtain each: `claude setup-token` for Claude Code, `mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login` for a dedicated Codex login (Codex requires the folder to exist; the dialog also shows Linux and Windows PowerShell versions), or an API key from the provider console. Values are encrypted and never appear in lists, request history, logs or model context. The moderator can deliberately show one with **Reveal value** in the secret's Actions menu (after a confirmation), `configuration credentials reveal ID` in the CLI, **Reveal value** in the TUI, or `POST /v2.0/api/configuration/credentials/{id}/reveal`. Only ready secrets can be revealed. Use a safe display name; it appears in configuration lists. A harness without a stored secret uses the login of the user running the service, which does not exist in Docker. Gemini CLI, Mux and generic harnesses take keys through inherited environment names instead.
-2. Define an HTTP endpoint or a CLI harness. Ollama uses its native chat protocol; OpenAI-compatible endpoints use chat completions. Harnesses specify a direct executable and one literal argument per row.
-3. Define a model bound to exactly one endpoint or harness. Enter its provider model ID, context character budget and tool support. These are declarations, not automatic provider capability detection.
-4. Start the debate. Each seat, and the orchestrator, can be a **model** or a **CLI harness** directly; both carry their sign-in (the harness's secret, or the endpoint's authentication bindings), so they work in Docker where there is no local login. **Agents** are optional named seats with role instructions; point them at a model. An agent configured directly as a CLI program has no stored secret and uses the service machine's own login, so it fails with "Not logged in" in a container. The debate setup lists models and harnesses first and flags such agents.
+1. Import a secret if needed. HTTP tokens, Claude OAuth tokens and complete Codex `auth.json` documents have separate kinds, and the add dialog shows how to obtain each: `claude setup-token` for Claude Code, `mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login` for a dedicated Codex login (Codex requires the folder to exist; the dialog also shows Linux and Windows PowerShell versions), or an API key from the provider console. Values are encrypted and never appear in lists, request history, logs or model context. The moderator can deliberately show one with **Reveal value** in the secret's Actions menu (after a confirmation), `configuration credentials reveal ID` in the CLI, **Reveal value** in the TUI, or `POST /v2.0/api/configuration/credentials/{id}/reveal`. Only ready secrets can be revealed. Use a safe display name; it appears in configuration lists. A CLI agent without a stored secret uses the login of the user running the service, which does not exist in Docker. Gemini CLI, Mux and other programs take keys through allowed environment names instead.
+2. For HTTP models, define an endpoint and a model on it. Ollama uses its native chat protocol; OpenAI-compatible endpoints use chat completions. Enter the provider model ID, context character budget and tool support; these are declarations, not automatic provider capability detection.
+3. Add an **agent** for each seat. A CLI agent names its program (Claude Code, Codex, Gemini CLI, Mux or another executable, with one literal argument per row), an optional model passed as `--model` (or into a literal `{model}` argument), and an optional **Secret**: select a stored secret when running in Docker or to override the credentials used by default by the agent. A Claude Code agent takes a Claude Code token and a Codex agent takes a Codex login. A model agent runs a reusable model instead. Either kind can carry role instructions. Use **Check agent** to run it once and confirm it signs in.
+4. Start the debate and choose the agents for each seat and the orchestrator.
 
-For the requested panel, configure Claude Code, Codex and Gemini CLI harnesses, then a DeepSeek model served by Ollama or an OpenAI-compatible endpoint. The model names and executable paths must exist on the service machine. The service owns every model call; browsers and terminals never call providers directly.
+For the requested panel, configure Claude Code, Codex and Gemini CLI agents, then an agent on a DeepSeek model served by Ollama or an OpenAI-compatible endpoint. The model names and executable paths must exist on the service machine. The service owns every model call; browsers and terminals never call providers directly.
 
 HTTP secrets come in three types: **Bearer token** (sent as `Authorization: Bearer`), **Header key and value** and **Query string key and value**. Header and query secrets store their parameter name, which cannot change after creation; an endpoint binding that uses a typed secret takes its type and name from the secret. The older untyped HTTP token still works, with its placement set on the endpoint binding. An endpoint can combine bearer authentication, a named API-key header, custom header pairs and query-string secrets. Secret values refer to imported secrets or service environment variables. Static values are for nonsecret routing headers only. Remote endpoints carrying secrets require HTTPS. Redirects cannot forward secrets to another destination. Base URLs cannot contain secrets or query strings.
 
-Reusable harnesses inherit standard process paths, home-directory locations, locale, proxy and TLS certificate settings. Use **Inherited environment names** in the web or TUI harness editor to add service-host variable names such as `GEMINI_API_KEY`. The API/CLI field is `environmentVariables`, an array of names; never put values in it. Names are frozen with each admitted participant. Values are read when its process starts, and imported secret injection takes precedence. Unlisted application and provider variables are omitted. Historical inline profiles retain their previous inheritance behavior until replaced with a reusable harness. Values of inherited names that look like secrets (containing KEY, TOKEN, SECRET, PASSWORD, PASSWD, CREDENTIAL, AUTH, COOKIE, SESSION or PRIVATE) are redacted from model output and failure diagnostics; other inherited values, such as a region or feature flag, appear as written. This controls process configuration; it does not sandbox local tools or files available to the service user.
+CLI agents inherit standard process paths, home-directory locations, locale, proxy and TLS certificate settings. Use **Allowed environment names** in the web or TUI agent editor to add service-host variable names such as `GEMINI_API_KEY`. The API/CLI field is `environmentVariables`, an array of names; never put values in it. Names are frozen with each admitted participant. Values are read when its process starts, and imported secret injection takes precedence. Unlisted application and provider variables are omitted. Agents created before these settings existed keep passing the service environment until they are edited. Values of inherited names that look like secrets (containing KEY, TOKEN, SECRET, PASSWORD, PASSWD, CREDENTIAL, AUTH, COOKIE, SESSION or PRIVATE) are redacted from model output and failure diagnostics; other inherited values, such as a region or feature flag, appear as written. This controls process configuration; it does not sandbox local tools or files available to the service user.
 
-Editing a reusable resource affects newly admitted runs and replacement seats. Accepted runs retain their nonsecret configuration snapshots. Secret references resolve at invocation time, so rotation can repair a paused run without copying secrets into its history. Disabling a secret prevents subsequent use of that secret; disabling an endpoint, model or harness prevents new admission while existing snapshots retain their accepted configuration.
+Editing a reusable resource affects newly admitted runs and replacement seats. Accepted runs retain their nonsecret configuration snapshots. Secret references resolve at invocation time, so rotation can repair a paused run without copying secrets into its history. Disabling a secret prevents subsequent use of that secret; disabling an endpoint, model or agent prevents new admission while existing snapshots retain their accepted configuration.
 
 ## Start, interject and reach agreement
 
@@ -64,9 +64,9 @@ A blocking request for clarification appears in the workspace. Answer it with an
 The CLI reads configuration and debate JSON from stdin or `--file PATH`. Secret values are refused as literal command-line arguments. All commands below use the same service as the web and TUI:
 
 ```text
-configuration endpoints|harnesses|models list
-configuration endpoints|harnesses|models add -
-configuration endpoints|harnesses|models update ID -
+configuration endpoints|models list
+configuration endpoints|models add -
+configuration endpoints|models update ID -
 secrets list|add -|update ID -
 secrets disable ID REVISION
 capabilities
@@ -78,13 +78,13 @@ debate change-roster CONVERSATION RUN -
 debate resume|rebuild_summary|exclude_summary CONVERSATION RUN
 ```
 
-Protocol 2 start document. `participantIds` and `orchestratorId` accept model IDs (`mod_...`), CLI harness IDs (`har_...`) or agent IDs (`par_...`); roster changes accept the same in `profileId`:
+Protocol 2 start document. `participantIds` and `orchestratorId` are agent IDs (`par_...`); a reusable HTTP model ID (`mod_...`) is also accepted as a shortcut seat with no role instructions. Roster changes accept the same in `profileId`:
 
 ```json
 {
   "protocolVersion": 2,
-  "orchestratorId": "mod_sonnet",
-  "participantIds": ["har_claude", "har_codex", "har_gemini", "mod_deepseek"],
+  "orchestratorId": "par_moderator",
+  "participantIds": ["par_claude", "par_codex", "par_gemini", "par_deepseek"],
   "question": "Which rollout design should we adopt?",
   "maxRounds": 5,
   "interventionSeconds": 10,
@@ -156,7 +156,7 @@ Rotation writes `credential.keys.json` in the protected secrets directory before
 
 ### Explicit model verification
 
-Select **Completion and tool checks** beside a reusable model in the dashboard, or **Observed completion and tool checks** from the TUI model actions. Saving configuration performs no generation. An explicit check invokes the configured model and can incur provider cost; selecting a tool check asks for one harmless probe and may require another completion. CLI checks use the configured harness permissions. Provider response text is discarded.
+Select **Completion and tool checks** beside a reusable model, or **Check agent** beside an agent, in the dashboard, or **Observed completion and tool checks** from the TUI model actions. An agent check runs the saved agent exactly as a debate seat would, with its secret, model and arguments (`POST /v2.0/api/participants/{id}/checks`). Saving configuration performs no generation. An explicit check invokes the configured model and can incur provider cost; selecting a tool check asks for one harmless probe and may require another completion. CLI agent checks use the agent's own arguments and permissions. Provider response text is discarded.
 
 Results distinguish an observed nonempty completion from an observed tool round trip, retain model/transport revisions, and show a reported executable version when a supported CLI returns one. These observations do not certify all model capabilities or debate quality. A changed configuration does not inherit an earlier revision's verification.
 

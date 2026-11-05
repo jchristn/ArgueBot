@@ -196,10 +196,10 @@
       ]
     },
     {
-      "name": "Create harness with explicit environment",
+      "name": "Create agent with explicit environment",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "url": "{{baseUrl}}/v2.0/api/participants",
         "header": [
           {
             "key": "Content-Type",
@@ -208,7 +208,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Postman environment fixture\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"FIXTURE_API_KEY\"\n  ]\n}",
+          "raw": "{\n  \"name\": \"Postman environment fixture\",\n  \"kind\": \"cli\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"restrictEnvironment\": true,\n  \"environmentVariables\": [\n    \"FIXTURE_API_KEY\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -233,7 +233,7 @@
       "name": "Reject environment values in names",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
+        "url": "{{baseUrl}}/v2.0/api/participants",
         "header": [
           {
             "key": "Content-Type",
@@ -242,7 +242,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Invalid environment\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"environmentVariables\": [\n    \"KEY=fictional-value\"\n  ]\n}",
+          "raw": "{\n  \"name\": \"Invalid environment\",\n  \"kind\": \"cli\",\n  \"provider\": \"plain\",\n  \"executable\": \"fixture-not-executed\",\n  \"restrictEnvironment\": true,\n  \"environmentVariables\": [\n    \"KEY=fictional-value\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"

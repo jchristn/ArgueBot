@@ -53,7 +53,7 @@ test("table rows use an Actions menu that stays in the viewport and renames conv
     await expect(dialog).toHaveCount(0);
     await page.getByRole("searchbox").fill(`Renamed ${suffix}`);
     await expect(page.getByRole("row").filter({ hasText: created.at(-1).id })).toContainText(`Renamed ${suffix}`);
-    for (const tab of ["agents", "models", "harnesses", "endpoints", "credentials"]) {
+    for (const tab of ["agents", "models", "endpoints", "credentials"]) {
       await page.goto("/dashboard/participants?tab=" + tab);
       const toolbar = page.locator(".tab-toolbar");
       const primary = toolbar.locator(".button.primary");

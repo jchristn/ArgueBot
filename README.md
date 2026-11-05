@@ -8,7 +8,7 @@
 
 ArgueBot runs structured debates between a configurable panel of agents and supports follow-up questions to individual agents. Its C# TUI and React web dashboard share one persistent service, so you can switch interfaces without losing conversations or stopping accepted work. A scriptable C# CLI uses that same service.
 
-Participants can use Claude Code, Codex, Gemini CLI, Mux, a generic CLI harness, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
+Agents can run Claude Code, Codex, Gemini CLI, Mux, another CLI program, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
 
 ## About v2.0.0
 
@@ -20,7 +20,7 @@ What v2.0.0 does:
 - **You moderate.** Add context for everyone or privately for one agent, either immediately or at the next turn; pin constraints; edit the proposal under vote; add, remove or replace agents between turns; pause, resume, interrupt, extend or stop.
 - **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, check evidence and ask you for clarification. Original turns are never discarded.
 - **Editable prompts.** Each debate step's instructions come from a prompt library. Factory defaults are read-only; duplicate one to change it, using `{parameters}` such as `{question}`, and choose prompts per conversation.
-- **Reusable configuration.** Models, CLI harnesses, HTTP endpoints and encrypted secrets (Claude Code tokens, Codex logins, bearer, header and query API keys) are defined once and reused. Execution budgets, timeouts and output limits are set per run.
+- **Reusable configuration.** Agents, models, HTTP endpoints and encrypted secrets (Claude Code tokens, Codex logins, bearer, header and query API keys) are defined once and reused. Execution budgets, timeouts and output limits are set per run.
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
 - **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
@@ -88,17 +88,17 @@ Add `-f docker/compose.build.yaml` to build from this checkout instead. Maintain
 
 ## Configure participants
 
-Debates choose **models** and **CLI harnesses** directly, and each carries its sign-in: a CLI harness picks a stored secret, and an HTTP endpoint authenticates with its bindings. Set them up on the dashboard's **Participants** page (Secrets, CLI harnesses, HTTP endpoints and Models tabs) or in the TUI under Menu > Models, connections and secrets. **Agents** are optional named seats with role instructions; point them at a model. An agent configured directly as a CLI program has no stored secret and uses the service machine's own login, so it fails with "Not logged in" in Docker; the debate setup flags it.
+Debates seat **agents**. An agent either runs a CLI program (Claude Code, Codex, Gemini CLI, Mux or another program) or runs a reusable model on an HTTP endpoint, and can carry role instructions. A CLI agent has an optional **Secret**: select a stored secret when running in Docker or to override the credentials used by default by the agent. Without one, the program uses the login of the account running the service, which a container does not have. A CLI agent can also name a model, passed to the program as `--model`. Set agents up on the dashboard's **Participants** page (Agents, Models, HTTP Endpoints and Secrets tabs) or in the TUI under Menu > Agents. Each agent's **Check agent** action runs it once to confirm it signs in.
 
 To add an agent, use **Agents** or **Ctrl+E** in the TUI, or **Add agent** on the dashboard's Agents tab.
 
 Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex includes `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
 
-Installed harnesses must be available to the service process and configured with their own provider credentials or sign-in. A working directory selects where the harness or local tools operate. Do not enter a whole shell command in the executable field.
+Installed CLI programs must be available to the service process and signed in, either with a stored secret on the agent or with their own login. A working directory selects where the program or local tools operate. Do not enter a whole shell command in the executable field.
 
 For a REST participant, choose a provider, endpoint and model. Supported provider formats include Ollama, OpenAI-compatible, Anthropic and Gemini. Configure any credential through the named environment variable available to the service process. ArgueBot does not automatically load a project `.env` file. Restart the service when its environment changes.
 
-CLI harnesses and REST local tools execute on the service machine, within the configured local-execution policy. Historical run snapshots retain the participant settings used for that run even if you edit the reusable profile later. See [execution behavior](docs/EXECUTION.md).
+CLI agents and REST local tools execute on the service machine, within the configured local-execution policy. Historical run snapshots retain the participant settings used for that run even if you edit the reusable profile later. See [execution behavior](docs/EXECUTION.md).
 
 ## Terminal interface
 
@@ -124,7 +124,7 @@ The dashboard provides sign-in, conversations, participant configuration, the co
 - **New conversation** asks for a title, shown in the conversation list, and an optional opening question. Starting a debate pre-fills its question from the opening question (or the title when it is blank); you can edit it before the debate starts.
 - Click a conversation row to open its workspace; click another editable row to open its editor. Each table's **Actions** column has a menu (for conversations: open, rename, pin, archive, stop debate, view JSON and delete). Copy buttons remain independent.
 - **Prompts** lists the instructions each debate step sends. Factory defaults are read-only; duplicate one to edit it, with a legend of the `{parameters}` it can use, then choose it per step when creating a conversation or starting a debate. See [docs/PROMPTS.md](docs/PROMPTS.md).
-- Participants has tabs for agents, models, CLI harnesses, HTTP endpoints and secrets. The Secrets tab explains how to obtain each kind of secret, with copyable commands for macOS, Linux and Windows PowerShell, and can reveal a stored value after confirmation.
+- Participants has tabs for agents, models, HTTP endpoints and secrets. Clicking a row in any table opens that item for editing, or shows its details when there is nothing to edit. The Secrets tab explains how to obtain each kind of secret, with copyable commands for macOS, Linux and Windows PowerShell, and can reveal a stored value after confirmation.
 - The account menu in the top bar opens **Account** (profile, password, bearer tokens and sessions) and signs out. Administrators also see **Users**, **Audit log** and, for system administrators, **Tenants** and **Settings**.
 - **Share** in the workspace header, or in a conversation's Actions menu, creates and revokes read-only public links to the transcript.
 - Conversation and participant IDs have dedicated columns, monospace text and copy buttons.

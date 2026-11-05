@@ -54,6 +54,7 @@ namespace ArgueBot.Runners
         private async Task ExecuteAsync(RunnerProfile profile, Func<RunnerProfile, Func<string, CancellationToken, Task>, Func<ToolActivity, CancellationToken, Task>, Task> invoke, Func<string, CancellationToken, Task> onText, Func<ToolActivity, CancellationToken, Task> onTool, CancellationToken token)
         {
             RunnerProfile prepared = JsonSerializer.Deserialize<RunnerProfile>(JsonSerializer.Serialize(profile))!;
+            prepared.Arguments = CliModelArguments.Apply(prepared);
             prepared.RuntimeMcpCommand.AddRange(_McpCommand);
             // Resolve endpoints and secrets inside the invoking run's tenant, never the service's own context.
             RequestContext scope = new RequestContext { TenantId = profile.RuntimeTenantId.Length > 0 ? profile.RuntimeTenantId : _Context.TenantId, UserId = _Context.UserId, IsAuthenticated = true, IsAdmin = _Context.IsAdmin, IsTenantAdmin = true, Role = _Context.Role, PrincipalType = "Service", CorrelationId = _Context.CorrelationId };

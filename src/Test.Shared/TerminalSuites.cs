@@ -176,13 +176,14 @@ namespace Test.Shared
             {
                 List<CredentialMetadata> credentials = new List<CredentialMetadata> { new CredentialMetadata { Id = "credential_fixture", Name = "Local fixture token", Kind = "token" } };
                 await ReviewCatalogAsync("Endpoint", CatalogForms.Endpoint(new EndpointProfile { Name = "Local Ollama", BaseUrl = "http://127.0.0.1:11434", AuthBindings = new List<HttpAuthBinding> { new HttpAuthBinding { Kind = "bearer", CredentialId = "credential_fixture" } } }, credentials), width, theme, token).ConfigureAwait(false);
-                CatalogEditor<HarnessProfile> harness = CatalogForms.Harness(new HarnessProfile { Name = "CLI fixture", Executable = "fixture", EnvironmentVariables = new List<string> { "FIXTURE_API_KEY", "FIXTURE_ROUTE" }, Arguments = new List<string> { "", "--fixture", "Unicode 議論" } }, credentials);
-                if (!harness.Extract().Arguments.SequenceEqual(new[] { "", "--fixture", "Unicode 議論" })) throw new InvalidDataException("Harness form lost literal arguments.");
-                if (!harness.Extract().EnvironmentVariables.SequenceEqual(new[] { "FIXTURE_API_KEY", "FIXTURE_ROUTE" })) throw new InvalidDataException("Harness form lost environment names.");
-                ((Checkbox)harness.Form.GetField(7)).Checked = false;
-                if (harness.Extract().Arguments.Count != 2) throw new InvalidDataException("Harness form could not remove an argument.");
-                await ReviewCatalogAsync("Harness", harness, width, theme, token).ConfigureAwait(false);
-                await ReviewCatalogAsync("Model", CatalogForms.Model(new ModelProfile { Name = "Local model", Model = "fixture", EndpointId = "endpoint_fixture", MaxOutputBytes = 1048576, Generation = new ModelGenerationSettings { MaxOutputTokens = 2048, Temperature = 0.25, TopP = 0.9 } }, new List<EndpointProfile> { new EndpointProfile { Id = "endpoint_fixture", Name = "Local Ollama" } }, new List<HarnessProfile>()), width, theme, token).ConfigureAwait(false);
+                List<CredentialMetadata> secrets = new List<CredentialMetadata> { new CredentialMetadata { Id = "credential_claude", Name = "Fictional Claude token", Kind = "claude_oauth", Status = "ready" }, new CredentialMetadata { Id = "credential_codex", Name = "Fictional Codex login", Kind = "codex_auth_json", Status = "ready" } };
+                RunnerProfile cliAgent = new ParticipantEditor(new RunnerProfile { Name = "CLI fixture", Kind = "cli", Provider = "claude", Executable = "claude", Model = "sonnet", CredentialId = "credential_claude", RestrictEnvironment = true, EnvironmentVariables = new List<string> { "FIXTURE_API_KEY", "FIXTURE_ROUTE" }, Arguments = new List<string> { "", "--fixture", "Unicode 議論" } }, null, secrets).Extract();
+                if (!cliAgent.Arguments.SequenceEqual(new[] { "", "--fixture", "Unicode 議論" })) throw new InvalidDataException("Agent form lost literal arguments.");
+                if (!cliAgent.RestrictEnvironment || !cliAgent.EnvironmentVariables.SequenceEqual(new[] { "FIXTURE_API_KEY", "FIXTURE_ROUTE" })) throw new InvalidDataException("Agent form lost environment names.");
+                if (cliAgent.CredentialId != "credential_claude" || cliAgent.Model != "sonnet") throw new InvalidDataException("Agent form lost its secret or model.");
+                if (new ParticipantEditor(new RunnerProfile { Name = "Wrong kind", Kind = "cli", Provider = "claude", Executable = "claude", CredentialId = "credential_codex" }, null, secrets).Extract().CredentialId.Length != 0) throw new InvalidDataException("A Claude Code agent offered a Codex login.");
+                if (new ParticipantEditor(new RunnerProfile { Name = "Local login", Kind = "cli", Provider = "codex", Executable = "codex" }, null, secrets).Extract().CredentialId.Length != 0) throw new InvalidDataException("A secret must stay optional.");
+                await ReviewCatalogAsync("Model", CatalogForms.Model(new ModelProfile { Name = "Local model", Model = "fixture", EndpointId = "endpoint_fixture", MaxOutputBytes = 1048576, Generation = new ModelGenerationSettings { MaxOutputTokens = 2048, Temperature = 0.25, TopP = 0.9 } }, new List<EndpointProfile> { new EndpointProfile { Id = "endpoint_fixture", Name = "Local Ollama" } }), width, theme, token).ConfigureAwait(false);
                 CatalogEditor<CredentialRequest> credential = CatalogForms.Credential(null);
                 ((TextField)credential.Form.GetField(0)).Value = "Fictional credential";
                 ((TextField)credential.Form.GetField(3)).Value = "fictional-mask-check";
@@ -629,10 +630,10 @@ namespace Test.Shared
                 ClickText(app, backend, "Start a debate: guided setup");
                 for (int agent = 0; agent < 2; agent++)
                 {
-                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Set up seats", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
-                    ClickText(app, backend, "Add an agent preset");
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Set up agents", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                    ClickText(app, backend, "Add or enable an agent");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Agents:", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
-                    ClickText(app, backend, "Add agent: CLI harness or REST model");
+                    ClickText(app, backend, "Add agent (CLI program or HTTP model)");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Add agent: choose how it runs", token).ConfigureAwait(false);
                     ClickText(app, backend, agent == 0 ? "Claude Code (installed CLI)" : "Codex (installed CLI)");
                     await PumpUntilAsync(app, () => app.Modals.Top is FormDialog<RunnerProfile>, token).ConfigureAwait(false);

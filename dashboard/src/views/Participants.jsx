@@ -3,7 +3,11 @@ import CatalogTab, { catalogKinds } from "../components/CatalogTab.jsx";
 import Tabs from "../components/Tabs.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
+import ModelChecksDialog from "../components/ModelChecksDialog.jsx";
 import harnesses from "../../../assets/harness-defaults.json";
+
+/** The stored secret kind that signs in each CLI program; other programs read keys from allowed environment variables. */
+const secretKinds = { claude: "claude_oauth", codex: "codex_auth_json" };
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -22,12 +26,18 @@ function ProfileForm({ onSave, onClose, initial, api }) {
       endpoint: "http://127.0.0.1:11434",
       model: "",
       secretEnvironmentVariable: "",
+      credentialId: "",
+      restrictEnvironment: true,
+      environmentVariables: [],
       timeoutSeconds: 300,
       maxOutputBytes: 67108864,
       enabled: true,
     },
   );
   const { data: models } = useData("models", () => api.configuration("models"));
+  const { data: secrets } = useData("credentials", () => api.configuration("credentials"));
+  const secretKind = profile.kind === "cli" ? secretKinds[profile.provider] || "" : "";
+  const usableSecrets = (secrets || []).filter(item => item.kind === secretKind && (item.status === "ready" || item.id === profile.credentialId));
   const [busy, setBusy] = useState(false);
   const executableIsCommand = profile.kind === "cli" && /^\s*(claude|codex|gemini|mux)(\.exe)?\s+-/i.test(profile.executable);
   const field = (name, label, type = "text", extra = {}) => (
@@ -59,7 +69,15 @@ function ProfileForm({ onSave, onClose, initial, api }) {
           if (executableIsCommand) return;
           setBusy(true);
           try {
-            await onSave(profile);
+            const cli = profile.kind === "cli" && !profile.modelProfileId;
+            const environmentVariables = cli ? (profile.environmentVariables || []).map(name => name.trim()).filter(Boolean) : [];
+            await onSave({
+              ...profile,
+              model: (profile.model || "").trim(),
+              credentialId: cli && secretKind ? profile.credentialId || "" : "",
+              environmentVariables,
+              restrictEnvironment: cli && (!initial?.id || Boolean(initial.restrictEnvironment) || environmentVariables.length > 0),
+            });
           } finally {
             setBusy(false);
           }
@@ -81,7 +99,7 @@ function ProfileForm({ onSave, onClose, initial, api }) {
                   const choice = event.target.value;
                   setProfile((value) => choice === "rest"
                     ? { ...value, kind: "rest", provider: "ollama", arguments: [], executable: "" }
-                    : { ...value, kind: "cli", provider: choice, executable: harnesses[choice].executable, arguments: [...harnesses[choice].arguments], name: !value.name || Object.values(harnesses).some((preset) => preset.name === value.name) ? harnesses[choice].name : value.name });
+                    : { ...value, kind: "cli", provider: choice, credentialId: secretKinds[choice] === secretKinds[value.provider] ? value.credentialId : "", executable: harnesses[choice].executable, arguments: [...harnesses[choice].arguments], name: !value.name || Object.values(harnesses).some((preset) => preset.name === value.name) ? harnesses[choice].name : value.name });
                 }}
               >
                 {Object.entries(harnesses).map(([provider, preset]) => <option key={provider} value={provider}>{preset.name}</option>)}
@@ -154,6 +172,13 @@ function ProfileForm({ onSave, onClose, initial, api }) {
                   }
                 />
               </fieldset>
+              <Field label={["claude", "codex", "gemini"].includes(profile.provider) ? "profile.cliModel" : "profile.cliModel.placeholder"}>{props => <input {...props} value={profile.model || ""} maxLength={1000} placeholder={profile.provider === "claude" ? "sonnet" : profile.provider === "codex" ? "gpt-5.5" : ""} onChange={event => setProfile(value => ({ ...value, model: event.target.value }))} />}</Field>
+              {secretKind ? <div>
+                <Field label="profile.credential">{props => <select {...props} value={profile.credentialId || ""} onChange={event => setProfile(value => ({ ...value, credentialId: event.target.value }))}><option value="">{t("profile.credential.none")}</option>{usableSecrets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</Field>
+                <p className="muted field-note">{t("profile.credential.help")}</p>
+                {usableSecrets.length === 0 && <p className="muted field-note">{t("profile.credential.addFirst", { kind: t(`credential.kind.${secretKind}`) })}</p>}
+              </div> : <p className="muted field-note">{t("profile.credential.unsupported")}</p>}
+              <Field label="catalog.environmentVariables">{props => <input {...props} value={(profile.environmentVariables || []).join(", ")} onChange={event => setProfile(value => ({ ...value, environmentVariables: event.target.value.split(",").map(name => name.trimStart()) }))} />}</Field>
             </>
           ) : (
             <>
@@ -217,6 +242,8 @@ export default function Participants() {
   );
   const catalog = useData("catalog", async () => Object.fromEntries(await Promise.all(catalogKinds.map(async key => [key, await api.configuration(key)]))));
   const [modal, setModal] = useState(null);
+  const secretName = id => catalog.data?.credentials?.find(item => item.id === id)?.name || id;
+  const modelName = id => catalog.data?.models?.find(item => item.id === id)?.name;
   const agents = () => (
     <>
       <div className="tab-toolbar">
@@ -235,6 +262,7 @@ export default function Participants() {
               <th scope="col">{t("common.identifier")}</th>
               <th scope="col">{t("profile.typeColumn")}</th>
               <th scope="col">{t("profile.modelColumn")}</th>
+              <th scope="col">{t("profile.secretColumn")}</th>
               <th scope="col">{t("profile.enabledColumn")}</th>
               <th scope="col" className="actions-cell">{t("common.actions")}</th>
             </tr>
@@ -247,10 +275,13 @@ export default function Participants() {
                 </td>
                 <td><CopyableId value={profile.id} /></td>
                 <td>
-                  {profile.kind} · {profile.provider}
+                  {profile.modelProfileId ? t("profile.runsModel", { name: modelName(profile.modelProfileId) || profile.modelProfileId }) : profile.kind === "rest" ? `HTTP · ${profile.provider}` : harnesses[profile.provider]?.name || profile.executable}
                 </td>
                 <td>
-                  <code>{profile.model || profile.executable}</code>
+                  {profile.model ? <code>{profile.model}</code> : <span className="muted">{t("profile.defaultModel")}</span>}
+                </td>
+                <td>
+                  {profile.credentialId ? secretName(profile.credentialId) : profile.kind === "cli" && !profile.modelProfileId ? <span className="muted">{t("catalog.localLogin")}</span> : <span className="muted">{t("profile.noSecret")}</span>}
                 </td>
                 <td>
                   <span className="badge">
@@ -260,6 +291,7 @@ export default function Participants() {
                 <td className="actions-cell">
                   <ActionMenu context={profile.name} items={[
                     { label: "common.edit", help: "participants.add.help", onClick: () => setModal({ kind: "form", profile }) },
+                    { label: "agentCheck.run", help: "agentCheck.help", disabled: !profile.enabled, onClick: () => setModal({ kind: "check", profile }) },
                     { label: "common.inspect", help: "common.inspect", onClick: () => setModal({ kind: "json", profile }) },
                     { label: "common.delete", help: "profile.delete.help", danger: true, onClick: () => setModal({ kind: "delete", profile }) },
                   ]} />
@@ -276,7 +308,7 @@ export default function Participants() {
   );
   const tabs = [
     { key: "agents", label: "participants.tab.agents", help: "participants.tab.agents.help", count: data?.length, render: agents },
-    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data} error={catalog.error} reload={catalog.reload} systemAdmin={!!session?.user?.isAdmin} /> })),
+    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data && { ...catalog.data, agents: data || [] }} error={catalog.error} reload={catalog.reload} systemAdmin={!!session?.user?.isAdmin} /> })),
   ];
   return (
     <>
@@ -304,6 +336,7 @@ export default function Participants() {
           }}
         />
       )}{" "}
+      {modal?.kind === "check" && <ModelChecksDialog api={api} model={modal.profile} notify={notify} agent onClose={() => setModal(null)} />}
       {modal?.kind === "json" && (
         <Modal title="common.inspect" onClose={() => setModal(null)}>
           <pre>{JSON.stringify(modal.profile, null, 2)}</pre>

@@ -16,7 +16,7 @@ The sign-in pages always show these defaults. Change the default password after 
 
 ## Tenants and users
 
-A **tenant** is a separate workspace. Conversations, runs, messages, agents, models, harnesses, endpoints, secrets, prompts, request history and audit records all carry a tenant ID, and every query filters by it. Another tenant's records read as 404, never 403, so their existence is not revealed.
+A **tenant** is a separate workspace. Conversations, runs, messages, agents, models, endpoints, secrets, prompts, request history and audit records all carry a tenant ID, and every query filters by it. Another tenant's records read as 404, never 403, so their existence is not revealed.
 
 Everyone in a tenant shares its data: any member can open, change and delete the tenant's conversations and configuration. The `user_id` on a conversation records who created it.
 

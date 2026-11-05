@@ -65,7 +65,7 @@ namespace ArgueBot.Core.Configuration
         private List<string> _AllowedHosts = new List<string>();
         /// <summary>Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port.</summary>
         public string ListenAddress { get; set; } = "127.0.0.1";
-        /// <summary>Whether CLI harnesses and REST local file/process tools may execute. Default true for local mode only.</summary>
+        /// <summary>Whether CLI agents and REST local file/process tools may execute. Default true for local mode only.</summary>
         public bool AllowCli { get; set; } = true;
         /// <summary>Load or atomically create service settings.</summary>
         public static async Task<ServiceSettings> LoadAsync(ArgueBotPaths paths, CancellationToken token = default)

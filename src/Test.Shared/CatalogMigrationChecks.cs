@@ -37,7 +37,7 @@ namespace Test.Shared
                     await connection.OpenAsync(token).ConfigureAwait(false);
                     using (SqliteCommand command = connection.CreateCommand())
                     {
-                        command.CommandText = "PRAGMA foreign_keys=OFF; ALTER TABLE debate_state DROP COLUMN compaction_recipient_id; DROP TABLE connection_arguments; DROP TABLE connection_bindings; DROP TABLE connection_profiles; DROP TABLE connection_models; DROP TABLE connection_harnesses; DROP TABLE connection_endpoints; DROP TABLE connection_credentials; DROP TABLE debate_tool_reservations; DROP TABLE debate_attempt_usage; DROP TABLE debate_policies; DELETE FROM schema_migrations WHERE version>=14;";
+                        command.CommandText = "PRAGMA foreign_keys=OFF; ALTER TABLE debate_state DROP COLUMN compaction_recipient_id; DROP TABLE IF EXISTS connection_arguments; DROP TABLE connection_bindings; DROP TABLE connection_profiles; DROP TABLE connection_models; DROP TABLE IF EXISTS connection_harnesses; DROP TABLE connection_endpoints; DROP TABLE connection_credentials; DROP TABLE debate_tool_reservations; DROP TABLE debate_attempt_usage; DROP TABLE debate_policies; DELETE FROM schema_migrations WHERE version>=14;";
                         await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
                     }
                 }
@@ -47,13 +47,13 @@ namespace Test.Shared
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     RunnerProfile cli = await database.Profiles.ReadAsync(context, cliId, token).ConfigureAwait(false);
                     RunnerProfile rest = await database.Profiles.ReadAsync(context, restId, token).ConfigureAwait(false);
-                    if (cli.ModelProfileId.Length == 0 || rest.ModelProfileId.Length == 0) throw new InvalidDataException("Legacy reusable profiles were not linked to the catalog.");
+                    if (cli.ModelProfileId.Length != 0 || cli.Kind != "cli" || cli.Executable != "fixture" || !cli.RestrictEnvironment || rest.ModelProfileId.Length == 0) throw new InvalidDataException("Legacy CLI profiles must end as CLI agents after harnesses fold into agents, and REST profiles must link to the catalog.");
                     await database.Catalog.ResolveAsync(context, cli, token).ConfigureAwait(false);
                     await database.Catalog.ResolveAsync(context, rest, token).ConfigureAwait(false);
                     if (!cli.Arguments.SequenceEqual(new[] { "", "--literal", "Unicode 議論" }) || rest.TimeoutSeconds != 47 || rest.Model != "fixture-model" || rest.AuthBindings.Single().EnvironmentVariable != "ARGUEBOT_FICTIONAL_MIGRATION_KEY") throw new InvalidDataException("Migration changed accepted transport settings or literal arguments.");
                     DebateRun historical = await database.Runs.CreateAsync(context, conversationId, request, token).ConfigureAwait(false);
                     if (historical.Id != runId || historical.Participants.Any(profile => profile.ModelProfileId.Length != 0)) throw new InvalidDataException("Migration rewrote a historical snapshot or invalidated an old command receipt.");
-                    if ((await database.Catalog.ModelsAsync(context, token).ConfigureAwait(false)).Count != 2) throw new InvalidDataException("Repeated initialization duplicated migrated resources.");
+                    if ((await database.Catalog.ModelsAsync(context, token).ConfigureAwait(false)).Count != 1) throw new InvalidDataException("Repeated initialization duplicated migrated resources, or left a CLI model behind.");
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }

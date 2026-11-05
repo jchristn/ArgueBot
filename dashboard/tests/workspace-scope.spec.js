@@ -24,9 +24,9 @@ test('conversation rows open the conversation, agent rows open edit forms, witho
  await page.goBack();await page.getByRole('searchbox').fill(original);await row.focus();await row.press('Enter');await expect(page.getByRole('heading',{name:original+' edited',exact:true})).toBeVisible();
  const profile=await(await page.request.post('/v1.0/api/participants',{data:{name:original,kind:'cli',provider:'claude'}})).json();
  await page.goto('/dashboard/participants');const agent=page.getByRole('row').filter({hasText:profile.id});await agent.getByText(original,{exact:true}).click();
- await expect(page.getByRole('dialog',{name:'Edit participant'})).toBeVisible();await expect(page.getByLabel('Display name',{exact:true})).toHaveValue(original);
+ await expect(page.getByRole('dialog',{name:'Edit agent'})).toBeVisible();await expect(page.getByLabel('Display name',{exact:true})).toHaveValue(original);
  await page.getByLabel('Display name',{exact:true}).fill(original+' agent edited');await page.getByRole('dialog').getByRole('button',{name:'Save',exact:true}).click();await expect(agent).toContainText(original+' agent edited');
- await agent.focus();await agent.press('Space');await expect(page.getByRole('dialog',{name:'Edit participant'})).toBeVisible();await page.keyboard.press('Escape');
+ await agent.focus();await agent.press('Space');await expect(page.getByRole('dialog',{name:'Edit agent'})).toBeVisible();await page.keyboard.press('Escape');
 });
 test('request rows inspect operational data',async({page})=>{
  await page.goto('/dashboard/history');await page.getByRole('row').filter({has:page.getByRole('button',{name:/^Actions for /})}).first().getByRole('cell').first().click();

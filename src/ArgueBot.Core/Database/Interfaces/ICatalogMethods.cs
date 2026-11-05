@@ -13,10 +13,6 @@ namespace ArgueBot.Core.Database.Interfaces
         Task<List<EndpointProfile>> EndpointsAsync(RequestContext context, CancellationToken token = default, string id = "", int pageNumber = 1, int pageSize = 100);
         /// <summary>Create or revision-check an update to a reusable endpoint.</summary>
         Task<EndpointProfile> SaveEndpointAsync(RequestContext context, EndpointProfile item, CancellationToken token = default);
-        /// <summary>List reusable harness configuration, including disabled records.</summary>
-        Task<List<HarnessProfile>> HarnessesAsync(RequestContext context, CancellationToken token = default, string id = "", int pageNumber = 1, int pageSize = 100);
-        /// <summary>Create or revision-check an update to a reusable harness.</summary>
-        Task<HarnessProfile> SaveHarnessAsync(RequestContext context, HarnessProfile item, CancellationToken token = default);
         /// <summary>List reusable model configuration, including disabled records.</summary>
         Task<List<ModelProfile>> ModelsAsync(RequestContext context, CancellationToken token = default, string id = "", int pageNumber = 1, int pageSize = 100);
         /// <summary>Create or revision-check an update to a reusable model.</summary>

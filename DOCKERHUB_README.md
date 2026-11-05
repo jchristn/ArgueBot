@@ -33,7 +33,7 @@ docker run -d --name arguebot \
 ## First steps
 
 1. Sign in, then on the **Participants** page open the **Secrets** tab and add a Claude Code token (`claude setup-token`) or a Codex login. A container has no Claude Code or Codex login of its own, so command-line agents need a stored secret.
-2. Add a CLI harness for each program and pick its secret, or an HTTP endpoint for Ollama or another provider.
+2. Add an agent for each program (Claude Code, Codex, Gemini CLI) and pick its secret, or add an HTTP endpoint and model for Ollama or another provider and an agent on that model.
 3. Add models and agents, then start a debate from **Conversations**.
 
 ## Image details
@@ -56,7 +56,7 @@ Keep the three volumes together across updates. The encryption key on `arguebot-
 | --- | --- |
 | `ARGUEBOT_PORT` | Host port that Compose publishes on `127.0.0.1` (default `4317`). |
 | `ARGUEBOT_ALLOWED_HOSTS` | Extra host names, comma-separated, that browsers and clients may use, such as a reverse proxy name. `*` accepts any name; change the default password first. |
-| Provider variables such as `GEMINI_API_KEY` or `OPENAI_BASE_URL` | Passed to an agent only when its harness lists the name under Inherited environment names. |
+| Provider variables such as `GEMINI_API_KEY` or `OPENAI_BASE_URL` | Passed to an agent only when it lists the name under Allowed environment names. |
 
 ## Signing in
 

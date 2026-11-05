@@ -17,18 +17,16 @@ namespace Test.Shared
     {
         internal static async Task RunAsync(DatabaseDriverBase database, RequestContext context, CancellationToken token)
         {
-            HarnessProfile harness = await database.Catalog.SaveHarnessAsync(context, new HarnessProfile { Name = "Environment fixture", Executable = "dotnet", EnvironmentVariables = new List<string> { "ARGUEBOT_FIXTURE_ALLOWED" } }, token).ConfigureAwait(false);
-            ModelProfile model = await database.Catalog.SaveModelAsync(context, new ModelProfile { Name = "Environment fixture", HarnessId = harness.Id }, token).ConfigureAwait(false);
-            RunnerProfile frozen = await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Frozen environment", ModelProfileId = model.Id }, token).ConfigureAwait(false);
-            harness.EnvironmentVariables = new List<string> { "ARGUEBOT_FIXTURE_OTHER" };
-            await database.Catalog.SaveHarnessAsync(context, harness, token).ConfigureAwait(false);
-            frozen = (await database.Profiles.EnumerateAsync(context, token).ConfigureAwait(false)).Single(profile => profile.Id == frozen.Id);
-            if (!frozen.RestrictEnvironment || !frozen.EnvironmentVariables.SequenceEqual(new[] { "ARGUEBOT_FIXTURE_ALLOWED" })) throw new InvalidDataException("Harness revision changed an admitted environment snapshot.");
-            HarnessProfile loaded = (await database.Catalog.HarnessesAsync(context, token, harness.Id).ConfigureAwait(false)).Single();
-            if (!loaded.EnvironmentVariables.SequenceEqual(harness.EnvironmentVariables)) throw new InvalidDataException("Harness environment names did not survive storage.");
+            RunnerProfile frozen = await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Environment fixture", Kind = "cli", Provider = "plain", Executable = "dotnet", RestrictEnvironment = true, EnvironmentVariables = new List<string> { "ARGUEBOT_FIXTURE_ALLOWED" } }, token).ConfigureAwait(false);
+            RunnerProfile loaded = (await database.Profiles.EnumerateAsync(context, token).ConfigureAwait(false)).Single(profile => profile.Id == frozen.Id);
+            if (!loaded.RestrictEnvironment || !loaded.EnvironmentVariables.SequenceEqual(new[] { "ARGUEBOT_FIXTURE_ALLOWED" })) throw new InvalidDataException("Agent environment names did not survive storage.");
+            loaded.EnvironmentVariables = new List<string> { "ARGUEBOT_FIXTURE_OTHER" };
+            await database.Profiles.UpdateAsync(context, loaded.Id, loaded, token).ConfigureAwait(false);
+            loaded = (await database.Profiles.EnumerateAsync(context, token).ConfigureAwait(false)).Single(profile => profile.Id == frozen.Id);
+            if (!loaded.RestrictEnvironment || !loaded.EnvironmentVariables.SequenceEqual(new[] { "ARGUEBOT_FIXTURE_OTHER" })) throw new InvalidDataException("An agent environment update was not stored.");
             foreach (List<string> invalid in new[] { new List<string> { "NAME=fictional" }, new List<string> { "NAME", "name" }, Enumerable.Range(0, 65).Select(index => "FIXTURE_" + index).ToList() })
             {
-                try { await database.Catalog.SaveHarnessAsync(context, new HarnessProfile { Name = "Invalid environment", Executable = "dotnet", EnvironmentVariables = invalid }, token).ConfigureAwait(false); throw new InvalidDataException("Invalid environment names were accepted."); }
+                try { await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Invalid environment", Kind = "cli", Provider = "plain", Executable = "dotnet", RestrictEnvironment = true, EnvironmentVariables = invalid }, token).ConfigureAwait(false); throw new InvalidDataException("Invalid environment names were accepted."); }
                 catch (DomainException failure) when (failure.Code == "invalid_configuration") { }
             }
             string? fixture = Environment.GetEnvironmentVariable("ARGUEBOT_CLI_FIXTURE");

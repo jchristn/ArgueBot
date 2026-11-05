@@ -23,7 +23,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Create a profile after validating protocol and resource limits.</summary>
         public async Task<RunnerProfile> CreateAsync(RequestContext context, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile);
+            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile); await ValidateSecretAsync(context, profile, token).ConfigureAwait(false);
             profile.Id = Ids.New("par_");
             await _Database.WriteAsync((connection, transaction) => InsertAsync(connection, transaction, context, profile, false, token), token).ConfigureAwait(false);
             return profile;
@@ -61,7 +61,7 @@ namespace ArgueBot.Core.Database.Implementations
         /// <summary>Update a reusable profile. Historical run snapshots are never changed.</summary>
         public async Task<RunnerProfile> UpdateAsync(RequestContext context, string id, RunnerProfile profile, CancellationToken token = default)
         {
-            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile);
+            RequireWrite(context); await _Database.Catalog.ResolveAsync(context, profile, token).ConfigureAwait(false); HarnessDefaults.ApplyMissing(profile); Validate(profile); await ValidateSecretAsync(context, profile, token).ConfigureAwait(false);
             await ReadAsync(context, id, token).ConfigureAwait(false);
             profile.Id = id;
             await _Database.WriteAsync(async (connection, transaction) =>
@@ -85,6 +85,20 @@ namespace ArgueBot.Core.Database.Implementations
             }, token).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// A CLI agent can carry one stored secret that signs in its program: a Claude Code token for Claude Code or a Codex login for
+        /// Codex. Without one, the program uses whatever login the service machine already has.
+        /// </summary>
+        private async Task ValidateSecretAsync(RequestContext context, RunnerProfile profile, CancellationToken token)
+        {
+            if (profile.CredentialId.Length == 0) return;
+            if (profile.Kind != "cli") throw new DomainException(400, "invalid_secret", "Stored secrets sign in CLI agents. HTTP agents authenticate through their model's endpoint.", "credentialId");
+            CredentialMetadata credential = (await _Database.Credentials.EnumerateAsync(context, token, profile.CredentialId).ConfigureAwait(false)).FirstOrDefault(item => item.Id == profile.CredentialId) ?? throw new DomainException(400, "invalid_secret", "The selected secret does not exist. Choose another or none.", "credentialId");
+            string expected = profile.Provider == "claude" ? "claude_oauth" : profile.Provider == "codex" ? "codex_auth_json" : "";
+            if (expected.Length == 0) throw new DomainException(400, "invalid_secret", "Stored secrets sign in Claude Code and Codex agents. Other programs read credentials from the environment variables they are allowed.", "credentialId");
+            if (credential.Kind != expected) throw new DomainException(400, "credential_kind_mismatch", profile.Provider == "claude" ? "Choose a Claude Code token for a Claude Code agent." : "Choose a Codex login for a Codex agent.", "credentialId");
+        }
+
         internal static void Validate(RunnerProfile profile)
         {
             CatalogValidation.Bindings(profile.AuthBindings);
@@ -100,6 +114,8 @@ namespace ArgueBot.Core.Database.Implementations
             if (profile.WorkingDirectory.Length > 0 && !Directory.Exists(profile.WorkingDirectory)) throw new DomainException(400, "invalid_directory", "Working directory does not exist on the server.");
             if (profile.Kind == "cli")
             {
+                if (profile.Arguments.Contains("{model}") && string.IsNullOrWhiteSpace(profile.Model)) throw new DomainException(400, "invalid_model", "This agent's arguments contain {model}. Enter the model to pass.", "model");
+                if (profile.Model.Length > 0 && !CliModelArguments.CanSelect(profile)) throw new DomainException(400, "model_flag_required", "This program needs a literal {model} argument where the model name goes.", "model");
                 if (string.IsNullOrWhiteSpace(profile.Executable)) throw new DomainException(400, "invalid_executable", "A direct executable is required.");
                 if (profile.Executable.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || profile.Executable.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)) throw new DomainException(400, "shell_wrapper", "Configure the underlying executable or script host instead of a shell wrapper.");
 

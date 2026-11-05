@@ -93,8 +93,7 @@ process.stdin.on('end',()=>{
   docker(['cp', harnessFixture, id + ':/work/credentials.cjs']);
   const credentialModels = [];
   for (const [name, imported] of [['claude', claude], ['codex', codex]]) {
-    const harness = await api('/configuration/harnesses', { name: `Container ${name} injection fixture`, provider: name, executable: 'node', arguments: ['/work/credentials.cjs', name], workingDirectory: '/work', credentialId: imported.id, environmentVariables: ['ARGUEBOT_FIXTURE_ALLOWED'] });
-    credentialModels.push(await api('/configuration/models', { name: `Container ${name} injection`, harnessId: harness.id, model: '' }));
+    credentialModels.push(await api('/participants', { name: `Container ${name} injection fixture`, kind: 'cli', provider: name, executable: 'node', arguments: ['/work/credentials.cjs', name], workingDirectory: '/work', credentialId: imported.id, restrictEnvironment: true, environmentVariables: ['ARGUEBOT_FIXTURE_ALLOWED'] }));
   }
   const endpoint = await api('/configuration/endpoints', { name: 'Container loopback fixture', protocol: 'ollama', baseUrl: 'http://127.0.0.1:4491', authBindings: [
     { kind: 'bearer', credentialId: credential.id }, { kind: 'api_key', name: 'X-Api-Key', credentialId: credential.id },
@@ -126,7 +125,7 @@ process.stdin.on('end',()=>{
   check((await api(proposalPath))[0].agreements.length === 4, 'Replacement lost debate history.');
   check((await api('/configuration/secrets')).length === 3, 'Replacement lost imported credentials.');
   for (const configured of credentialModels) {
-    const observation = await api(`/configuration/models/${configured.id}/checks`, { idempotencyKey: 'container-credential-injection', checkTools: false });
+    const observation = await api(`/participants/${configured.id}/checks`, { idempotencyKey: 'container-credential-injection', checkTools: false });
     check(observation.completionVerified, `Persisted CLI credential injection failed: ${observation.errorCode}`);
   }
   const observed = await api(`/configuration/models/${model.id}/checks`, { idempotencyKey: 'container-after-replacement', checkTools: false });

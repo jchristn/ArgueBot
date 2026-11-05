@@ -1593,6 +1593,84 @@
               }
             }
           ]
+        },
+        {
+          "name": "Read observed checks of an agent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}/checks",
+            "description": "Access: any signed-in user of an active tenant.  Read observed checks of an agent"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Explicitly run a saved agent once, with its secret and model; potentially billable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/participants/{{profileId}}/checks",
+            "description": "Access: any signed-in user of an active tenant.  Explicitly run a saved agent once, with its secret and model; potentially billable",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"{{commandKey}}\",\n  \"checkTools\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('profileId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -2572,119 +2650,6 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('simulationEndpoint')) pm.execution.skipRequest();",
-                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();",
-                  "if (!pm.variables.get('id')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "List harnesses without secret values; bounded pages default to 100 items",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
-            "description": "Access: any signed-in user of an active tenant.  List harnesses without secret values; bounded pages default to 100 items"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Create harnesses configuration",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses",
-            "description": "Access: any signed-in user of an active tenant.  Create harnesses configuration",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
-                  "if(pm.response.code===201) pm.collectionVariables.set('harnessId',pm.response.json().id);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Replace harnesses configuration with expected revision",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/v2.0/api/configuration/harnesses/{{id}}",
-            "description": "Access: any signed-in user of an active tenant.  Replace harnesses configuration with expected revision",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Claude Code\",\n  \"provider\": \"claude\",\n  \"executable\": \"claude\",\n  \"arguments\": [\n    \"-p\",\n    \"--verbose\",\n    \"--output-format\",\n    \"stream-json\",\n    \"--dangerously-skip-permissions\"\n  ],\n  \"credentialId\": \"{{credentialId}}\",\n  \"enabled\": true,\n  \"revision\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
                   "if (!pm.variables.get('credentialId')) pm.execution.skipRequest();",
                   "if (!pm.variables.get('id')) pm.execution.skipRequest();"
                 ]

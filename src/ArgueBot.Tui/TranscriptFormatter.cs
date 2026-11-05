@@ -56,7 +56,7 @@ namespace ArgueBot.Tui
                 pane.WriteLine(Text.From(conversationTitle == null ? "Welcome to ArgueBot" : "Your conversation is ready", theme.Accent).Bold());
                 pane.WriteLine();
                 if (conversationTitle != null) { pane.WriteLine(Text.From(conversationTitle, theme.Text)); pane.WriteLine(); }
-                pane.WriteLine("Agents: add at least two CLI harnesses or HTTP models.");
+                pane.WriteLine("Agents: add at least two agents (CLI programs or HTTP models).");
                 pane.WriteLine(conversationTitle == null ? "New, then Start debate: choose a panel and an orchestrator." : "Start debate: choose a panel, orchestrator and limits.");
                 pane.WriteLine("Review the setup before starting your agents.");
                 pane.WriteLine();
