@@ -1,0 +1,9 @@
+# Build ArgueBot from this checkout instead of pulling the published image:
+#   docker compose -f docker/compose.yaml -f docker/compose.build.yaml build
+#   docker compose -f docker/compose.yaml -f docker/compose.build.yaml up -d
+services:
+  arguebot:
+    image: arguebot:local
+    build:
+      context: ..
+      dockerfile: docker/app/Dockerfile

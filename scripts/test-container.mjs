@@ -12,7 +12,8 @@ await fs.mkdir(path.join(root, '.run'), { recursive: true });
 const directory = await fs.mkdtemp(path.join(root, '.run/container-'));
 const override = path.join(directory, 'compose.yaml');
 await fs.writeFile(override, 'services:\n  arguebot:\n    ports: !override\n      - "127.0.0.1::4317"\n    restart: "no"\n    environment:\n      ARGUEBOT_FIXTURE_ALLOWED: fictional-allowed\n      ARGUEBOT_FIXTURE_SECRET: fictional-unrelated-secret\n');
-const composeArgs = ['compose', '-p', project, '-f', path.join(root, 'docker/compose.yaml'), '-f', override];
+// Test the image built from this checkout (docker/compose.build.yaml), not the published one.
+const composeArgs = ['compose', '-p', project, '-f', path.join(root, 'docker/compose.yaml'), '-f', path.join(root, 'docker/compose.build.yaml'), '-f', override];
 let assertions = 0;
 let base;
 function check(condition, message) { assert.ok(condition, message); assertions++; }

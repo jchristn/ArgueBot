@@ -9,7 +9,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "ArgueBot API",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Single open workspace for conversations, agents and execution. No accounts, roles, sessions, pairing or authentication."
   },
   "servers": [

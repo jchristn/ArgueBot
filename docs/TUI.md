@@ -132,6 +132,6 @@ Choose **Agents → Connections, models and credentials** to manage endpoint, ha
 
 Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
 
-The terminal's post-implementation checks render all new forms in dark/light themes at 60, 80 and 120 columns, and panel setup at 4, 16 and 64 seats. Rendering evidence is separate from provider compatibility; see [the implementation plan](../MULTIPLE_AGENTS_PLAN.md).
+The terminal's post-implementation checks render all new forms in dark/light themes at 60, 80 and 120 columns, and panel setup at 4, 16 and 64 seats. Rendering evidence is separate from provider compatibility; see [the implementation plan](../archive/MULTIPLE_AGENTS_PLAN.md).
 
 For a saved HTTP endpoint, choose **Check connection / list models** to contact it with its configured auth bindings without invoking a completion. The result lists advertised IDs only; tool support and context capacity remain declarations until separately verified. The composer uses **Add context**, and every submission to a v2 run presents its own delivery choice.

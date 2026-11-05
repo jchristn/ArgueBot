@@ -1,6 +1,6 @@
 # Multi-agent debates for v2.0.0
 
-The feature branch implements protocol 2 across the web dashboard, TUI, CLI and native client. Release acceptance is tracked separately in [../MULTIPLE_AGENTS_PLAN.md](../MULTIPLE_AGENTS_PLAN.md). Existing protocol 1 conversations remain readable and retain their original completion rules.
+ArgueBot implements protocol 2 across the web dashboard, TUI, CLI and native client. The original implementation plan and its acceptance evidence are archived in [../archive/MULTIPLE_AGENTS_PLAN.md](../archive/MULTIPLE_AGENTS_PLAN.md). Existing protocol 1 conversations remain readable and retain their original completion rules.
 
 ## Configure a panel
 

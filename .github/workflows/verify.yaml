@@ -149,7 +149,7 @@ jobs:
         with:
           node-version: 24
       - name: Build application image
-        run: docker compose -f docker/compose.yaml build
+        run: docker compose -f docker/compose.yaml -f docker/compose.build.yaml build
       - name: Verify packaged surfaces and encrypted credential persistence
         run: node scripts/test-container.mjs
       - uses: actions/upload-artifact@v4

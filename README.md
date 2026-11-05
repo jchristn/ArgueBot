@@ -56,6 +56,16 @@ Conversations, configuration and logs live in `~/.arguebot` by default. Use the 
 
 A port override applies when starting a service. Attaching to an existing service uses its actual listener address. `--server URL` connects to an explicit service. The service owns its home and database exclusively; clients never write the database directly.
 
+## Docker
+
+The published image `jchristn77/arguebot` runs the service and dashboard with pinned Claude Code, Codex and Gemini CLIs:
+
+```sh
+docker compose -f docker/compose.yaml up -d
+```
+
+Add `-f docker/compose.build.yaml` to build from this checkout instead. Maintainers publish images with `build-arguebot.sh <tag>` or `build-arguebot.bat <tag>` (`build-all` runs every image build). See the [Docker guide](docker/README.md) for volumes, environment settings and the trust model.
+
 ## Configure participants
 
 In the TUI, use **Agents** or **Ctrl+E**. In the dashboard, open **Participants** and select **Add agent** on the Agents tab.

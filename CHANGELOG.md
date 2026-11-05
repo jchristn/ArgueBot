@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased: v2.0.0
+## Unreleased: v2.1.0
+
+v2.1.0 adds tenants, users, bearer-token credentials, a login page, authenticated APIs and time-limited public share links. Work follows [USER_AUTH_PLAN.md](USER_AUTH_PLAN.md).
+
+- Set the product version to 2.1.0.
+- Docker: `docker/compose.yaml` runs the published multi-architecture image `jchristn77/arguebot:v2.1.0`; `docker/compose.build.yaml` builds this checkout instead, and the container test and CI use it. `build-arguebot.sh`/`.bat` build and push the image, `build-all.sh`/`.bat` run every image build, and `docker/update.*` pull the published image.
+- Refresh `DOCKERHUB_README.md` for the published image and move the completed multi-agent plan to `archive/`.
+
+## v2.0.0 (on main, not yet published)
 
 v2.0.0 is a complete rewrite of ArgueBot and the successor to its Node.js prototype (0.1.0). It replaces the npm-based CLI, terminal and web interfaces with one C# service that owns all execution and storage, and three clients that share it: a terminal interface (TUI), a React web dashboard and a scriptable CLI. Debates become structured, multi-agent and moderated. This release is still an unpublished preview on `main`.
 

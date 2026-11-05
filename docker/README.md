@@ -1,14 +1,22 @@
 # ArgueBot container workspace
 
-The v2 application image contains the service, built web dashboard, native CLI/TUI, Node.js and pinned Claude Code, Codex and Gemini CLIs. The Docker acceptance gate is tracked in [../MULTIPLE_AGENTS_PLAN.md](../MULTIPLE_AGENTS_PLAN.md); source files alone do not establish a working image.
+The application image `jchristn77/arguebot` contains the service, built web dashboard, native CLI/TUI, Node.js and pinned Claude Code, Codex and Gemini CLIs. It is published for `linux/amd64` and `linux/arm64`.
 
-From the repository root:
+From the repository root, run the published image:
 
 ```sh
-docker compose -f docker/compose.yaml build
 docker compose -f docker/compose.yaml up -d
 docker compose -f docker/compose.yaml ps
 ```
+
+To build and run this checkout instead, add the build override:
+
+```sh
+docker compose -f docker/compose.yaml -f docker/compose.build.yaml build
+docker compose -f docker/compose.yaml -f docker/compose.build.yaml up -d
+```
+
+Maintainers publish a new image with `./build-arguebot.sh v2.1.0` (or `build-arguebot.bat v2.1.0` on Windows). It builds both architectures on the `cloud-jchristn77-jchristn77` buildx builder, pushes `jchristn77/arguebot:<tag>` and `:latest`, then pulls them back. `docker/update.sh` and `docker/update.bat` pull the published image and recreate the stack without deleting volumes.
 
 Open `http://127.0.0.1:4317/dashboard`. The service listens on the container network and Compose publishes it only on host loopback. ArgueBot is an open local workspace without product login. Provider credentials are separate from workspace access.
 
@@ -45,7 +53,7 @@ Use stdin or a local file for credential JSON; avoid putting tokens into shell a
 
 ## Update and recovery
 
-Run `docker/update.sh` on macOS/Linux or `docker\update.bat` on Windows. These scripts build the local image, recreate the service and retain its volumes. There is no published application image to pull yet; `build --pull` updates base images. They never run `down --volumes`.
+Run `docker/update.sh` on macOS/Linux or `docker\update.bat` on Windows. These scripts pull the published image, recreate the service and retain its volumes. There is no published application image to pull yet; `build --pull` updates base images. They never run `down --volumes`.
 
 The health check polls `/health` every ten seconds once the service has started, and every two seconds during a 30-second start period, so a slow first start or schema upgrade is not reported unhealthy. Three consecutive failures mark it unhealthy. The optional Ollama service uses the same timing; its check runs `ollama list`, which calls the Ollama HTTP API, because the Ollama image does not include curl. Check `docker compose -f docker/compose.yaml logs --tail 100` for startup errors. The provider CLIs and model endpoints have separate health and authentication requirements; service health alone does not prove a provider login works. A service restart preserves interrupted attempts and requires explicit moderator recovery. Never automatically resume uncertain agent work as part of deployment.
 
