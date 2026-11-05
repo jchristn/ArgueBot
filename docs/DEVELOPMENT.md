@@ -1,6 +1,6 @@
 # Development and verification
 
-The current runtime is C# with a React/Vite dashboard. It provides one open workspace, service-owned execution, CLI and REST participants, and local tools for REST models. Accounts, pairing, roles, security audit, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
+The current runtime is C# with a React/Vite dashboard. It provides signed-in users in separate tenants (see [IDENTITY.md](IDENTITY.md)), service-owned execution, CLI and REST participants, and local tools for REST models. Roles and permissions (RBAC), pairing, backup/restore workflows and external telemetry services are outside product scope. Historical database tables and upgrade safeguards remain for compatibility.
 
 `go-tui` and `go-web` build and launch the supported interfaces. Node.js and npm are used only for dashboard development and builds. See [ROADMAP.md](../ROADMAP.md) for remaining acceptance work; passing fixture tests does not close all release gates.
 
@@ -40,7 +40,7 @@ dotnet run --project src/ArgueBot.Cli -c Release --no-build -- --home .run/home 
 dotnet run --project src/ArgueBot.Tui -c Release --no-build -- --home .run/home --server http://127.0.0.1:4417
 ```
 
-Clients start or attach to their selected home automatically unless `--no-start` or an explicit `--server` is supplied. No account or token is required. Agent providers may require their own credentials. See [terminal usage](TUI.md), [execution](EXECUTION.md) and [operations](OPERATIONS.md).
+Clients start or attach to their selected home automatically unless `--no-start` or an explicit `--server` is supplied. Every client signs in: the TUI shows a sign-in page, the CLI uses `login`, `--token` or `ARGUEBOT_TOKEN`, and test fixtures use the seeded default token `arguebotadmin`. Agent providers may require their own secrets. See [terminal usage](TUI.md), [execution](EXECUTION.md) and [operations](OPERATIONS.md).
 
 ## Provider fixtures
 

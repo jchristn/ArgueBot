@@ -175,13 +175,15 @@ Evidence (2026-11-04): Terminal suite 21 of 21, including `Terminal / SignIn` ag
 
 ## Phase 7: API artifacts and documentation
 
-- [ ] Regenerate `REST_API.md`, `assets/postman/openapi.json` and the Postman collection. The collection uses collection-level bearer auth with variable `{{token}}` defaulting to `arguebotadmin`, includes a Login request that stores the session token, and marks public requests as no-auth. Update `assets/postman/v2-acceptance.postman_collection.json` and `scripts/test-v2-postman.mjs`.
-- [ ] `MCP_API.md`: state that the model tool server is invocation-scoped, reads only the run's conversation within the run's tenant, needs no bearer token, and never exposes identity, credential, secret or share operations.
-- [ ] README: sign-in, default credentials and the instruction to change them, tenants and users, credentials, share links, remote access with `ARGUEBOT_ALLOWED_HOSTS` and TLS, and the Secrets rename.
-- [ ] CHANGELOG under Unreleased: a 2.1.0 summary, then detailed entries; note the breaking change that every API call now needs a bearer token.
-- [ ] `docs/IDENTITY.md` (rewrite), `docs/REQUIREMENTS.md` (deviations and manifest review), `docs/OPERATIONS.md` (seeding, password recovery by a system admin, audit retention), `docs/TUI.md`, `docs/MULTIPLE_AGENTS.md` (Secrets rename), `docs/PROMPTS.md` (tenant scope), `docker/README.md` and `DOCKERHUB_README.md` (published image, `ARGUEBOT_ALLOWED_HOSTS`, default credentials warning, TLS proxy example).
+- [x] Regenerate `REST_API.md`, `assets/postman/openapi.json` and the Postman collection. The collection uses collection-level bearer auth with variable `{{token}}` defaulting to `arguebotadmin`, includes a Login request that stores the session token, and marks public requests as no-auth. Update `assets/postman/v2-acceptance.postman_collection.json` and `scripts/test-v2-postman.mjs`.
+- [x] `MCP_API.md`: state that the model tool server is invocation-scoped, reads only the run's conversation within the run's tenant, needs no bearer token, and never exposes identity, credential, secret or share operations.
+- [x] README: sign-in, default credentials and the instruction to change them, tenants and users, credentials, share links, remote access with `ARGUEBOT_ALLOWED_HOSTS` and TLS, and the Secrets rename.
+- [x] CHANGELOG under Unreleased: a 2.1.0 summary, then detailed entries; note the breaking change that every API call now needs a bearer token.
+- [x] `docs/IDENTITY.md` (rewrite), `docs/REQUIREMENTS.md` (deviations and manifest review), `docs/OPERATIONS.md` (seeding, password recovery by a system admin, audit retention), `docs/TUI.md`, `docs/MULTIPLE_AGENTS.md` (Secrets rename), `docs/PROMPTS.md` (tenant scope), `docker/README.md` and `DOCKERHUB_README.md` (published image, `ARGUEBOT_ALLOWED_HOSTS`, default credentials warning, TLS proxy example).
 
 Acceptance: no stale references to an open workspace or to "Credentials" meaning provider secrets; no em dashes in new text; generated artifacts match the contract.
+
+Evidence (2026-11-04): `generate-api.mjs` (135 operations) and `generate-v2-workflow.mjs` (68 requests, signing in first) leave no drift. The Postman acceptance workflow passed 144 assertions on 119 requests against a disposable service and the mock provider. README, CHANGELOG, MCP_API, ROADMAP, IDENTITY (rewritten), REQUIREMENTS (2.1 scope and deviations; manifest re-reviewed with unchanged hashes), OPERATIONS, TUI, MULTIPLE_AGENTS, PROMPTS, DEVELOPMENT, EXECUTION, docker/README, docker/.env.example and DOCKERHUB_README are updated; a scan finds no "open workspace" claims outside the historical notes in REQUIREMENTS and no em dashes. The container acceptance script now signs in and checks 401, sign-in and the session key location.
 
 ## Phase 8: Verification and release preparation
 
@@ -201,5 +203,5 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 - [x] Phase 4: dashboard
 - [ ] Phase 5: public share links
 - [x] Phase 6: CLI and TUI
-- [ ] Phase 7: API artifacts and documentation
+- [x] Phase 7: API artifacts and documentation
 - [ ] Phase 8: verification and release preparation

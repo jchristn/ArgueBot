@@ -26,7 +26,17 @@ History compatibility uses attachment protocol 2, independent of database schema
 
 Event retention is enabled by default and does not delete transcript messages or audit records. Settings exposes EventRetentionEnabled, EventRetentionDays (1..3650), EventMaxPerConversation (1..1000000), EventMaintenanceSeconds (5..3600), EventRetentionBatchSize (1..1000) and EventReplayPageSize (1..1000). Save and restart to apply. Disabling maintenance leaves existing events intact. Pruning preserves the latest sequence anchor even when it is older than the age limit. Replay-gap and pruned-event counters use bounded provider labels. Maintenance scans eligible conversation metadata in bounded batches and prunes each conversation in its own writer transaction.
 
-The product has no tenant identities, account administration, pairing or sign-in. See [open workspace scope](IDENTITY.md).
+## Sign-in operations
+
+See [IDENTITY.md](IDENTITY.md) for the model. Operational notes:
+
+- **Defaults.** Every startup creates the Default tenant, the default administrator (`admin@arguebot` / `password`) and the default token (`arguebotadmin`) if they are missing. A changed password, name or tenant name is never reset. Change the default password after the first sign-in.
+- **Forgotten password.** A tenant or system administrator resets it: dashboard Users > Actions > Reset password, TUI Menu > Users, or `users password USER_ID` in the CLI. If every administrator is locked out, sign in with the default token `arguebotadmin` (it cannot be disabled) and reset the password from there.
+- **Sign everyone out.** Stop the service, delete `secrets/session.key` in the application home and start it again. Every session token stops working; credential tokens keep working. To revoke one user's access, disable the user; to revoke a token, disable or delete its credential.
+- **Back up** the `secrets` directory with the database: it holds the secret encryption keys and the session key.
+- **Audit retention.** Audit records are kept until an administrator deletes older ones (dashboard Audit log > Delete old records, or `DELETE /v2.0/api/audit?beforeUtc=...`). Deleting a tenant keeps its audit records.
+- **Rate limits** are kept in memory: 10 failed sign-ins per address or email in 5 minutes, and 120 public share reads per address per minute. A restart clears them.
+- **Remote access.** Add host names to `allowedHosts` in `arguebot.json` or `ARGUEBOT_ALLOWED_HOSTS`, restart, and serve over HTTPS. A request with any other `Host` gets 403 `invalid_host`.
 
 
 Schema-13 initialization accounts for repaired default assignments as `authorization.default_assignment_seed` with the System migration actor and no fabricated user identity. Identity changes use `user.default_assignment_sync` with the authenticated actor. Unchanged defaults produce no extra migration events. Protected assignments cannot be edited through assignment administration.

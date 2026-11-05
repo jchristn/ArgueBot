@@ -30,7 +30,7 @@ Stream callbacks larger than the configured batch size are split before persiste
 
 Conversation and profile storage uses the fixed workspace scope. Historical ownership columns are internal compatibility keys, not product accounts.
 
-Accepted execution is service-owned and does not depend on a client session or active account. The open workspace bypasses legacy identity checks. Stop and interrupt cancel external work; disconnecting a UI does not. Historical authorization-related outcomes remain readable but do not define the current product workflow.
+Accepted execution is service-owned and does not depend on a client session: a debate keeps running after its user signs out or their session expires. Each run resolves endpoints and secrets inside its own tenant. Stop and interrupt cancel external work; disconnecting a UI does not. Historical authorization-related outcomes remain readable but do not define the current product workflow.
 
 ## Agent program configuration
 

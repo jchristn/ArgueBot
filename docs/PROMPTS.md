@@ -1,6 +1,6 @@
 # Debate prompts
 
-Each protocol 2 debate step sends an instruction prompt to one model. The conversation itself (turns, moderator context, summaries) is sent separately as context after these instructions. Prompts are stored in the database and managed from the dashboard's **Prompts** page, the TUI's **Prompts** menu, the CLI and the API.
+Each protocol 2 debate step sends an instruction prompt to one model. The conversation itself (turns, moderator context, summaries) is sent separately as context after these instructions. Prompts are stored in the database and managed from the dashboard's **Prompts** page, the TUI's **Prompts** menu, the CLI and the API. Workspace prompts belong to a tenant: every member of the tenant can use, edit and delete them, and other tenants never see them. Factory defaults are the same read-only set in every tenant.
 
 ## Steps
 

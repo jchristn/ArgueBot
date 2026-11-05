@@ -11,6 +11,19 @@ dotnet run --project src/ArgueBot.Tui -c Release -f net10.0 -- --home .run/home
 
 The home above is an isolated development home. Reuse the same home to see the same saved agents and conversations. The TUI automatically starts or attaches to its service. The splash closes after three seconds or any key.
 
+## Sign in
+
+The TUI starts on a sign-in page whenever it has no valid session. It shows the default administrator (`admin@arguebot` / `password`) and default token (`arguebotadmin`) at the top of the form and beside each field.
+
+- **Server URL** is filled with the local service the TUI started or attached to. To use another ArgueBot service, enter its address, for example `https://arguebot.example.com`, or start with `--server URL`. Plain `http://` to another machine is refused unless you tick **Allow plain HTTP** or start with `--allow-http`, because your password would cross the network unencrypted.
+- Enter an **Email** and **Password** (Ctrl+R shows or hides it), or a **bearer token** instead. Ctrl+S signs in; Esc quits.
+- If your email and password work in several tenants, a list asks which tenant to use.
+- Problems appear at the top of the form and keep what you typed: an invalid URL, a server that does not answer, a host name the server does not allow, a wrong password, a disabled account or tenant, and too many attempts each have their own message.
+
+After signing in, the session (never the password) is remembered for this home in `client-session.json`, readable only by you, and refreshed while the TUI runs, so the next start skips the page. `ARGUEBOT_TOKEN` signs in with a token without saving it. The connection line at the bottom shows who you are and which tenant you are in.
+
+**Menu > Account** shows who you are signed in as, changes your password, manages your bearer tokens (a new one is shown once) and sessions, signs out and switches server. Signing out or a revoked session returns to the sign-in page. Tenant administrators also get **Menu > Users** and **Audit log**; system administrators get **Tenants**, where they can open any tenant's users. With a conversation open, **Menu > Share a read-only link** creates a public link that expires after the time you choose, and lists and revokes earlier links.
+
 ## Appearance
 
 The default dark theme is Quiet Charcoal: workspace `#17191C`, inputs `#25282D`, selection `#303D50`, text `#E3E5E8`, secondary text `#A1A7B0` and muted blue accent `#8AADD8`. Ctrl+T switches between Quiet Charcoal and light mode.
@@ -57,7 +70,7 @@ Put each flag or value in its own **Argument** row. For example, `--output-forma
 
 The form catches common commands with flags in the executable field and explains how to correct them. Profile edits apply only to new debates. Existing debates retain their original agent settings, including incorrect ones: stop the old debate and start a new debate after fixing an agent.
 
-For a REST model, choose its provider and enter its endpoint and model identifier. The credential field takes an environment variable **name**, not the secret value. Its value must be available to the running service. If you change the service environment, restart the service before using the new value.
+For a REST model, choose its provider and enter its endpoint and model identifier. The secret field takes an environment variable **name**, not the secret value. Its value must be available to the running service. If you change the service environment, restart the service before using the new value.
 
 In agent forms, Tab moves to the next field or action. Select **Save**, or use Ctrl+S. Validation and service errors leave the draft open. Escape cancels.
 
@@ -128,7 +141,7 @@ A failed turn displays TURN FAILED followed by its cause and recovery guidance i
 
 ## Reusable configuration and debate memory
 
-Choose **Agents → Connections, models and credentials** to manage endpoint, harness, model and credential forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Credential paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a credential, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
+Choose **Agents → Connections, models and secrets** to manage endpoint, harness, model and secret forms. HTTP bindings can combine bearer, API-key, header and query authentication. Harness arguments remain literal, including empty arguments; uncheck Keep to remove a row. Secret paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a secret, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
 
 Each context submission chooses **Use in next turn** or **Interrupt now**, with pinned variants available. Cancelling that choice preserves the draft. Run controls expose panel membership changes, proposals and explicit positions, interjection receipts, summaries and original sources, clarification answers or skips, and summary exclusion/rebuilding. Long readers and choice lists scroll within the terminal. A paused debate stays paused until you explicitly resume it.
 

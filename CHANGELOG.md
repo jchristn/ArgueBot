@@ -2,9 +2,52 @@
 
 ## Unreleased: v2.1.0
 
-v2.1.0 adds tenants, users, bearer-token credentials, a login page, authenticated APIs and time-limited public share links. Work follows [USER_AUTH_PLAN.md](USER_AUTH_PLAN.md).
+v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [USER_AUTH_PLAN.md](USER_AUTH_PLAN.md).
 
-- Set the product version to 2.1.0.
+**Breaking change:** every API call except `/health`, `GET /v2.0/api/login-info`, `POST /v2.0/api/token`, `GET /v2.0/api/shares/{token}`, the OpenAPI document and the dashboard files now needs a bearer token (`Authorization: Bearer` or `x-token`). Scripts can use the default token `arguebotadmin` until you create your own. Existing data moves into the protected **Default tenant**, owned by the default administrator.
+
+### Sign-in and identity
+
+- Default administrator `admin@arguebot` with password `password` and bearer token `arguebotadmin`, created at startup if missing and never reset once changed. Every sign-in page shows them.
+- `POST /v2.0/api/token` signs in with an email and password (JSON or `x-email`/`x-password` headers) and returns a 60-minute session token (AES-256-GCM, random nonce per token, key in `secrets/session.key`). `POST /token/refresh` renews it, `DELETE /token` signs out, `GET /token/details` describes it. Credential tokens (`abt_...`) authenticate directly.
+- Tenants with separate data; users with system administrator, tenant administrator or member access; protected default records; cascading tenant deletion that keeps the audit log; user deletion that keeps the user's conversations in the tenant.
+- Management API: `/me`, `/me/password`, `/me/credentials`, `/me/sessions`, `/users`, `/sessions`, `/tenants` and `/audit` (search and retention). System administrators can act in another tenant on user, session and audit routes with `x-tenant-id`; the bypass is audited.
+- Access classes (Member, TenantAdmin, SystemAdmin) are enforced before any handler. Denials return an `AuthorizationError` body and are audited, as are sign-ins, failures, sessions, token changes and identity changes.
+- Sign-in rate limit: 10 failures per address or email in 5 minutes, then 429 with `Retry-After`.
+- Host allowlist: `allowedHosts` in the settings and `ARGUEBOT_ALLOWED_HOSTS` add names beyond `127.0.0.1` and `localhost`. Browser origins must match the host.
+- Data is shared within a tenant: conversations and legacy participant profiles are no longer filtered per user. Runs and model checks resolve endpoints and secrets in their own tenant.
+- Request history keeps no bodies for sign-in, token, credential, secret, share, user and password routes, and stores share links as `/v2.0/api/shares/[token]`.
+
+### Secrets
+
+- Provider credentials are now **secrets**: `/v2.0/api/configuration/secrets` and `/configuration/secret-keys`, the Secrets tab, `secrets` and `secret-keys` in the CLI and "secrets" throughout the TUI. The `/configuration/credentials` routes and `configuration credentials` CLI spelling remain as deprecated aliases for 2.1.x.
+- Revealing an unknown, disabled or other-tenant secret returns 404 `credential_not_found`.
+
+### Public share links
+
+- `GET|POST /v2.0/api/conversations/{id}/shares` and `DELETE .../shares/{shareId}` create, list and revoke read-only links that expire after 1 hour to 90 days. `GET /v2.0/api/shares/{token}` returns the transcript without sign-in: title, debates, turns, proposals and votes, with tool calls only when chosen and private directives never. Tokens are 32 random bytes stored as SHA-256. Links stop at expiry, revocation, conversation deletion or tenant disablement. Public reads are limited to 120 per minute per address.
+- The `/share/{token}` page shows the transcript reader in a read-only layout, sends no referrer and asks search engines not to index it.
+
+### Dashboard
+
+- Sign-in page at `/dashboard/login` (email and password, tenant choice, or a bearer token) that always shows the default credentials. Sessions live in `sessionStorage` only, refresh five minutes before expiry, and any 401 returns to sign-in with the page you were on.
+- Account menu in the top bar; Account page with profile, password, bearer tokens (shown once) and sessions.
+- Administration: Users (including other tenants for system administrators), Tenants and Audit log. Settings, request history and encryption keys are hidden from members.
+- Share dialog in the workspace header and the conversation Actions menu; Participants > Credentials is now Secrets.
+
+### TUI and CLI
+
+- TUI: a full-screen sign-in page with the server URL, email and password or a token, a tenant choice and an explicit opt-in for remote plain HTTP; the default credentials are always visible. The session is remembered for the home and refreshed while the TUI runs. Menu gains Account (identity, password, tokens, sessions, sign out, switch server), Administration (users, tenants, audit log) and Share a read-only link.
+- CLI: `login`, `logout`, `whoami`, `me`, `credentials`, `sessions`, `users`, `tenants`, `audit`, `shares`, `secrets` and `secret-keys`; `--token`, `ARGUEBOT_TOKEN`, `--tenant` and `--allow-http`. A remembered session is shared with the TUI in an owner-only `client-session.json` (never the password).
+- The C# client sends a bearer token on every request and event stream, and refuses plain HTTP to a remote server unless allowed.
+
+### API artifacts
+
+- The contract, OpenAPI document, Postman collection and REST reference declare each operation's access class, the `bearerAuth` and `xToken` schemes, 401 responses and deprecated aliases. The Postman collection signs in with a stored `{{token}}`; the v2 acceptance workflow signs in first.
+
+### Housekeeping
+
+- Set the product version to 2.1.0. Schema 30 adds the identity, credential, session, audit and share columns and tables; backups include columns whose names contain digits (`password_sha256`, `token_sha256`), which earlier snapshots silently omitted.
 - Docker: `docker/compose.yaml` runs the published multi-architecture image `jchristn77/arguebot:v2.1.0`; `docker/compose.build.yaml` builds this checkout instead, and the container test and CI use it. `build-arguebot.sh`/`.bat` build and push the image, `build-all.sh`/`.bat` run every image build, and `docker/update.*` pull the published image.
 - Refresh `DOCKERHUB_README.md` for the published image and move the completed multi-agent plan to `archive/`.
 
