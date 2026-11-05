@@ -76,6 +76,10 @@ namespace ArgueBot.Tests.Fixtures
                 Console.WriteLine("{\"type\":\"thread.started\",\"thread_id\":\"fixture-thread\"}");
                 // Codex reports configuration warnings as error items whose message is plain text, not an object.
                 Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_w\",\"type\":\"error\",\"message\":\"Codex is ignoring 1 unrecognized configuration setting.\\n  user (/home/fixture/.codex/config.toml): `hooks.fixture` is ignored.\"}}");
+                // Tool and search items reuse field names with object values; ArgueBot must skip what it does not use.
+                Console.WriteLine("{\"type\":\"item.started\",\"item\":{\"id\":\"item_t\",\"type\":\"mcp_tool_call\",\"server\":\"arguebot\",\"tool\":\"get_debate_state\",\"arguments\":{},\"result\":null,\"error\":null,\"status\":\"in_progress\"}}");
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_t\",\"type\":\"mcp_tool_call\",\"server\":\"arguebot\",\"tool\":\"get_debate_state\",\"arguments\":{},\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true}\"}],\"structured_content\":null},\"error\":null,\"status\":\"completed\"}}");
+                Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_s\",\"type\":\"web_search\",\"query\":\"fixture\",\"action\":{\"type\":\"search\",\"queries\":[\"fixture\"]},\"results\":[{\"type\":\"text_result\",\"title\":\"Fixture\",\"url\":\"https://example.invalid/\"}]}}");
                 Console.WriteLine("{\"type\":\"item.updated\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking\"}}");
                 Console.WriteLine("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Checking the explanation.\"}}");
                 Console.WriteLine(mode == "codex-conflict"
