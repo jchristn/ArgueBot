@@ -2,7 +2,7 @@
 
 ## Unreleased: v2.0.0
 
-v2.0.0 is a complete rewrite of ArgueBot and the successor to its Node.js prototype (0.1.0). It replaces the npm-based CLI, terminal and web interfaces with one C# service that owns all execution and storage, and three clients that share it: a terminal interface (TUI), a React web dashboard and a scriptable CLI. Debates become structured, multi-agent and moderated. This release is still an unpublished preview on the `feature/v2.0.0` branch.
+v2.0.0 is a complete rewrite of ArgueBot and the successor to its Node.js prototype (0.1.0). It replaces the npm-based CLI, terminal and web interfaces with one C# service that owns all execution and storage, and three clients that share it: a terminal interface (TUI), a React web dashboard and a scriptable CLI. Debates become structured, multi-agent and moderated. This release is still an unpublished preview on `main`.
 
 ### Highlights
 

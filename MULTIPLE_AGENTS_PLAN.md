@@ -894,13 +894,13 @@ The structural audit is automated evidence. It does not replace those manual pas
 
 **Credentials** (P1 follow-ups): closed by checkpoint C.
 
-**Scope decisions (November 4, 2026, by the product owner):** the manual screen-reader pass, native Windows and Linux terminal review, non-arm64 container verification, Windows packaging execution, the prior-version upgrade test, Fedora dependency resolution and the live four-provider journey are removed from scope. A live debate without a web search service for Mux and API-endpoint models would not be informative for most topics. The version change to 2.0.0 and publication are authorized; work stays on the feature/v2.0.0 branch.
+**Scope decisions (November 4, 2026, by the product owner):** the manual screen-reader pass, native Windows and Linux terminal review, non-arm64 container verification, Windows packaging execution, the prior-version upgrade test, Fedora dependency resolution and the live four-provider journey are removed from scope. A live debate without a web search service for Mux and API-endpoint models would not be informative for most topics. The version change to 2.0.0 and publication are authorized. The feature/v2.0.0 branch was merged into main and deleted on November 4, 2026.
 
 **P5:** closed by checkpoint D.
 
 **P6:** checkpoint E closed the Docker health and environment items and the simulation scenarios. Open:
 
-- A hosted CI run of the declared workflows on the pushed feature branch.
+- A hosted CI run of the declared workflows on main.
 
 **P7:**
 
