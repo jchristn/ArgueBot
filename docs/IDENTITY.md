@@ -83,3 +83,30 @@ Every request carries a password or token, so reach the service over HTTPS whene
 ## What is not included
 
 There are no roles, permissions or role assignments (RBAC), no separate accounts or administrator tables, no access-key and secret-key signing, and no single sign-on. The three kinds of user above are the whole access model. Historical role tables from earlier versions remain in the database, unused.
+
+## Security review (November 4, 2026)
+
+Reviewed against "Security Best Practices" in AUTHENTICATION.md.
+
+| # | Practice | Status |
+| --- | --- | --- |
+| 1 | Password and secret handling | Met. Passwords are PBKDF2-SHA256 (600,000 iterations, per-user salt); session and credential tokens and share tokens are stored only as SHA-256; comparisons use `CryptographicOperations.FixedTimeEquals`. Request history keeps no bodies for sign-in, token, credential, secret, share, user or password routes, and redacts password and token fields and headers elsewhere. |
+| 2 | Token encryption | Met with AES-256-GCM and a random 96-bit nonce per token (authenticated encryption). |
+| 3 | Key redaction | Met. Credential and share lists show only the last four characters; new tokens appear once. |
+| 4 | Tenant isolation | Met. Every query filters by the tenant from the token; requests without a resolvable tenant are 401. Cross-tenant reads and writes of conversations, runs, messages, secrets, endpoints, prompts and shares return 404 (real-service test). |
+| 5 | Active flags | Met for users, tenants, credentials and sessions on every request. Roles and permissions are not used. |
+| 6 | Protected flags | Met. The default tenant, administrator and token cannot be deleted or disabled, and the administrator cannot lose administrator access. |
+| 7, 8 | Explicit and implicit deny | Not applicable without RBAC. Every route has a fixed access class; anything not permitted by it is denied. |
+| 9 | Admin bypass | Met. The three user types and the `x-tenant-id` bypass are documented above; cross-tenant administrator actions are audited as `AuthorizationBypass`, and identity changes record the acting administrator. |
+| 10 | Request tracing | Met. Audit records and request history carry the request ID; request history also carries the trace ID. |
+| 11 | Least-privilege credentials | Partly met (deviation). Users can create a separate credential per integration with an expiry, but a credential has its user's full access because there are no scopes. |
+| 12 | Admin endpoint hardening | Met. Tenant-admin and system-admin routes are refused before their handlers run, with no member fallback; the real-service test confirms every such route refuses a member with 403. |
+| 13 | Audit denials | Met. Every 401 and 403 from the gate is persisted. |
+| 14 | Constant-time comparisons | Met for passwords and token hashes. |
+| 15 | Rate limiting | Met for sign-in (10 failures per address or email in 5 minutes) and public share reads (120 per address per minute). Limits are per process and reset on restart. |
+| 16 | Client-side checks are UI-only | Met. The dashboard and TUI hide administration from members, and the server enforces every access class regardless. |
+| 17 | Session revocation | Met. Sign-out, password change, user or tenant disablement and credential disablement stop the affected tokens immediately (tested). |
+| 18 | Replay protection for signed requests | Not applicable: there are no signed credential requests. |
+| 19 | Immutable seeded roles | Not applicable: there are no roles. |
+
+Known limits: the default password and token are public by design until changed; anyone who can reach the port can try them, so operators must change the password before exposing the service. Rate-limit state is in memory. Members of a tenant can reveal its stored secrets, as in 2.0.

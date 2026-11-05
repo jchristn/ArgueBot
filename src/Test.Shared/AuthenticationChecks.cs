@@ -173,7 +173,8 @@ namespace Test.Shared
                 SharedTranscript transcript = await anonymous.SendAsync<SharedTranscript>(HttpMethod.Get, "v2.0/api/shares/" + link.Token, token: token).ConfigureAwait(false);
                 Require(transcript.Title == "Renamed by a member" && transcript.Messages.Any(item => item.Content.Contains("moderator note", StringComparison.Ordinal)) && !transcript.IncludeToolCalls, "A public link must return the transcript without sign-in.");
                 using (HttpResponseMessage page = await http.GetAsync("share/" + link.Token, token).ConfigureAwait(false))
-                    Require(page.IsSuccessStatusCode && page.Headers.TryGetValues("Referrer-Policy", out IEnumerable<string>? policy) && policy.Contains("no-referrer"), "The share page must load without sign-in and never send its token as a referrer.");
+                    // 503 means this test build has no dashboard; the page is still public and still sends no referrer.
+                    Require((page.IsSuccessStatusCode || page.StatusCode == HttpStatusCode.ServiceUnavailable) && page.Headers.TryGetValues("Referrer-Policy", out IEnumerable<string>? policy) && policy.Contains("no-referrer"), "The share page must load without sign-in and never send its token as a referrer.");
                 List<ConversationShare> links = await admin.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token).ConfigureAwait(false);
                 Require(links.Count == 1 && links[0].ViewCount == 1 && !JsonSerializer.Serialize(links).Contains(link.Token, StringComparison.Ordinal), "Link lists must count views and never include the token.");
                 await Reject(() => other.SendAsync<List<ConversationShare>>(HttpMethod.Get, "v2.0/api/conversations/" + shared.Id + "/shares", token: token), 404, "").ConfigureAwait(false);

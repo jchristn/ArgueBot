@@ -190,9 +190,13 @@ Evidence (2026-11-04): `generate-api.mjs` (135 operations) and `generate-v2-work
 - [ ] Full console suite, xUnit and NUnit on .NET 8 and 10, PostgreSQL, CLI script, Postman, browser, component and Terminal suites, container acceptance with the bearer token, and hosted CI on the branch.
 - [ ] Investigate the intermittent Chrome `net::ERR_TOO_MANY_RETRIES` on a navigation or reload while the page still has requests in flight (seen in the browser suite since v2.0, before sign-in existed; about 1 in 3 repeats of the sign-in reload step, never with a Chrome net log enabled and never from a Node client). Suspect Watson's handling of aborted TLS connections.
 - [ ] The browser suite shares one address, so its deliberate wrong-password steps count toward the sign-in rate limit (10 per 5 minutes). Keep the count of such steps low or give the e2e service a test-only limit.
-- [ ] Upgrade test: start 2.1.0 on a schema 29 home with existing conversations, sign in as the default admin, and confirm everything is present in the default tenant.
-- [ ] Security review against "Security Best Practices" 1 to 19 (excluding RBAC items), recorded in `docs/IDENTITY.md`.
+- [x] Upgrade test: start 2.1.0 on a schema 29 home with existing conversations, sign in as the default admin, and confirm everything is present in the default tenant.
+- [x] Security review against "Security Best Practices" 1 to 19 (excluding RBAC items), recorded in `docs/IDENTITY.md`.
 - [ ] Build and push `jchristn77/arguebot:v2.1.0` with `build-arguebot.sh v2.1.0` only when the owner asks.
+
+Evidence so far (2026-11-04): console suite 71 of 71 runnable (15 skipped for missing external services); xUnit and NUnit pass on .NET 8 and .NET 10; PostgreSQL 4 of 4; CLI surface 81 assertions; Postman acceptance 144 assertions; component tests 55 of 55; browser suite 43 passed, 1 skipped (apart from the intermittent navigation error below); Terminal 21 of 21; container acceptance 33 assertions with sign-in. Upgrade: v2.0.0 built from `main` in a temporary worktree created a schema 29 home with two conversations and a secret; 2.1.0 then backed it up (`before-schema-29-*.db`), migrated it to schema 30, refused an unauthenticated request with 401, signed in as `admin@arguebot` into the Default tenant, and listed both conversations and the secret. The security review is recorded in `docs/IDENTITY.md`.
+
+Hosted CI on this branch: the dashboard job cannot install Chromium on the Ubuntu 26.04 runner image, and two Windows console tests fail with a locked `arguebot.db`; both also fail on `main` before this branch. Branch-specific failures (packaged CLI without a token, the share page header when CI has no built dashboard) are fixed.
 
 ## Phase checklist
 

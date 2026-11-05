@@ -15,7 +15,7 @@ const extension = process.platform === 'win32' ? '.exe' : '';
 let assertions = 0;
 let started = false;
 function invoke(project, args) {
-  const result = spawnSync(path.join(bundle, 'ArgueBot.' + project + extension), args, { cwd: directory, encoding: 'utf8', timeout: 30000 });
+  const result = spawnSync(path.join(bundle, 'ArgueBot.' + project + extension), args, { cwd: directory, encoding: 'utf8', timeout: 30000, env: { ...process.env, ARGUEBOT_TOKEN: 'arguebotadmin' } });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `${project} ${args.slice(0, 2).join(' ')} failed: ${result.stderr}`);
   return result.stdout.trim();
