@@ -42,6 +42,8 @@ Clone the repository and choose an interface:
 | Web dashboard | `./go-web.sh` | `go-web.bat` |
 | Stop service | `./stop-web.sh` | `stop-web.bat` |
 
+`stop-web` shuts the service down, which needs a system administrator: sign in once with the CLI's `login` (the session is remembered for that home), or set `ARGUEBOT_TOKEN`.
+
 Both launchers build before running. The web launcher installs dashboard dependencies when needed, starts or attaches to the selected service, and prints the URL to open in your browser. The default URL is <http://127.0.0.1:4317/dashboard>. Re-running it reuses the service for that application home.
 
 Every interface asks you to sign in. A new service starts with a default administrator, **`admin@arguebot`** with password **`password`**, and a default bearer token **`arguebotadmin`**. The sign-in pages always show them. Change the password after you first sign in. Docker and external telemetry services are not required.

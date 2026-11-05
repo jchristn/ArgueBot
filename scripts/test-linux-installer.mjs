@@ -37,7 +37,8 @@ function remove() {
   else run('rpm', ['-e', 'arguebot'], true);
   ownsInstall = false;
 }
-function cli(args) { return run(path.join(installed, 'ArgueBot.Cli'), ['--home', home, ...args]); }
+// The installed service seeds the default administrator; sign in with its token.
+function cli(args) { return run(path.join(installed, 'ArgueBot.Cli'), ['--home', home, '--token', 'arguebotadmin', ...args]); }
 async function stop() {
   cli(['service', 'stop']);
   for (let attempt = 0; attempt < 100 && await fs.access(descriptor).then(() => true, () => false); attempt++) await delay(50);

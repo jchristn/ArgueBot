@@ -13,7 +13,12 @@ try{
  const bin=path.join(home,'fake bin');await fs.mkdir(bin);
  const log=path.join(home,'docker.log');
  await fs.writeFile(path.join(bin,'docker'),'#!/bin/sh\nprintf "%s\\n" "$*" >> "$ARGUEBOT_STOP_DOCKER_LOG"\nexit 0\n',{mode:0o755});
- const env={PATH:bin+path.delimiter+process.env.PATH,ARGUEBOT_STOP_DOCKER_LOG:log};
+ const env={PATH:bin+path.delimiter+process.env.PATH,ARGUEBOT_STOP_DOCKER_LOG:log,ARGUEBOT_TOKEN:''};
+ // Stopping needs a system administrator: without a sign-in the script refuses and explains how to sign in.
+ const refused=spawnSync('bash',[path.join(root,'stop-web.sh'),'--home',home],{cwd:root,encoding:'utf8',timeout:30000,env:{...process.env,...env}});
+ if(refused.status===0||!refused.stderr.includes("Sign in with 'login'"))throw new Error('An unsigned stop was not refused with sign-in guidance.');
+ const signedIn=spawnSync('dotnet',[cli,'--home',home,'login','--email','admin@arguebot','--password-stdin'],{cwd:root,encoding:'utf8',timeout:30000,input:'password\n',env:{...process.env,ARGUEBOT_TOKEN:''}});
+ if(signedIn.status!==0)throw new Error('Sign-in before stopping failed: '+signedIn.stderr);
  run('bash',[path.join(root,'stop-web.sh'),'--home',home],env);
  let alive=false;try{await fetch(`http://127.0.0.1:${port}/health`,{signal:AbortSignal.timeout(2000)});alive=true;}catch{}
  if(alive)throw new Error('Stop script left its isolated service running.');
@@ -21,6 +26,6 @@ try{
  if(await fs.stat(log).then(()=>true,()=>false))throw new Error('Stop script unexpectedly invoked Docker.');
  console.log('Stop script verified against a real isolated service; repeated stop succeeds and Docker is never invoked.');
 }finally{
- spawnSync('dotnet',[cli,'--home',home,'service','stop'],{cwd:root,timeout:20000,encoding:'utf8'});
+ spawnSync('dotnet',[cli,'--home',home,'service','stop'],{cwd:root,timeout:20000,encoding:'utf8',env:{...process.env,ARGUEBOT_TOKEN:'arguebotadmin'}});
  await fs.rm(home,{recursive:true,force:true,maxRetries:20,retryDelay:100});
 }
