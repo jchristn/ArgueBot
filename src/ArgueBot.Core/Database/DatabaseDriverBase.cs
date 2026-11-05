@@ -56,6 +56,8 @@ namespace ArgueBot.Core.Database
         public IMemoryMethods Memory { get; }
         /// <summary>Debate prompt library, conversation selections and frozen run prompts.</summary>
         public IPromptMethods Prompts { get; }
+        /// <summary>Tenants, users and bearer-token credentials.</summary>
+        public IIdentityMethods Identity { get; }
         /// <summary>Moderator information requests.</summary>
         public IClarificationMethods Clarifications { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
@@ -81,6 +83,7 @@ namespace ArgueBot.Core.Database
             Rosters = new RosterMethods(this);
             Memory = new MemoryMethods(this);
             Prompts = new PromptMethods(this);
+            Identity = new IdentityMethods(this);
             Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
@@ -161,7 +164,7 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
                         // A restore target stays empty; the restored rows or the next normal start supply the factory prompts.
-                        if (!requireEmpty) await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false);
+                        if (!requireEmpty) { await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false); await IdentitySeed.EnsureAsync(connection, transaction, token).ConfigureAwait(false); }
                         transaction.Commit();
                     }
                 }
@@ -559,8 +562,9 @@ namespace ArgueBot.Core.Database
             RequireAuthenticated(context);
             if (!HasWritePermission(context)) throw new DomainException(403, "forbidden", "This operation requires write permission.");
         }
+        /// <summary>Without RBAC, every signed-in user of an active tenant has full data access within that tenant.</summary>
         internal static bool HasWritePermission(RequestContext context)
-        { return context.IsAdmin || context.IsTenantAdmin || context.Role == "admin" || context.Role == "operator"; }
+        { return context.IsAuthenticated; }
 
         /// <summary>Optionally acquire an exclusive provider session that is retained for all writes until disposal. Default providers use transient connections.</summary>
         protected virtual Task<DbConnection?> AcquireOwnedWriterAsync(CancellationToken token) { return Task.FromResult<DbConnection?>(null); }

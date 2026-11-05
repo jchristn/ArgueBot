@@ -22,7 +22,7 @@ namespace Test.Shared
             string directory = Path.Combine(Path.GetTempPath(), "arguebot-packaging-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
             try
             {
-                await File.WriteAllTextAsync(Path.Combine(directory, "Directory.Build.props"), "<Project><PropertyGroup><Version>2.0.0</Version></PropertyGroup></Project>", token).ConfigureAwait(false);
+                await File.WriteAllTextAsync(Path.Combine(directory, "Directory.Build.props"), "<Project><PropertyGroup><Version>2.1.0</Version></PropertyGroup></Project>", token).ConfigureAwait(false);
                 PublisherManifest manifest = new PublisherManifest { RuntimeIdentifiers = new List<string> { "linux-x64" }, Projects = new List<string> { "ArgueBot.Server", "ArgueBot.Cli", "ArgueBot.Tui" }, Channels = new Dictionary<string, List<string>> { ["archive"] = new List<string> { "windows", "macos", "linux" } } };
                 PackageBuilder builder = new PackageBuilder(directory, manifest); builder.Validate("linux-x64", "archive");
                 if (builder.Version() != "2.1.0") throw new InvalidDataException("Packaging changed the declared version.");

@@ -59,18 +59,23 @@ Acceptance: `dotnet build` with no warnings; the Terminal suite passes with the 
 
 Migration 30 extends the existing tables in place; it must be idempotent and safe on SQLite and PostgreSQL.
 
-- [ ] `tenants`: add `protected`, `revision`. The seeded tenant keeps ID `ten_local` and is renamed "Default tenant" with `protected = 1`. All existing data already belongs to it.
-- [ ] `users`: add `first_name`, `last_name` (copy `name` into `first_name`); keep `email`, password fields, `is_admin`, `is_tenant_admin`, `active`, `protected`, `revision`. Enforce a unique index on `(tenant_id, lower(email))`.
-- [ ] New `auth_credentials` table: `id`, `tenant_id`, `user_id`, `name`, `token_sha256`, `token_last4`, `auth_mode` (`DirectHeader`), `active`, `protected`, `expires_utc`, `last_used_utc`, `revision`, `created_utc`, `updated_utc`. Unique index on `token_sha256`.
-- [ ] `auth_sessions`: add `credential_id`, `principal_type` (`User` or `Credential`), `auth_scheme`, `token_id`, `source_ip`, `user_agent`, `last_used_utc`, `revoked_utc`, `revocation_reason`, `protected`.
-- [ ] `audit_events`: confirm it holds the fields in "Audit Record Fields"; add any missing ones (`principal_type`, `credential_id`, `request_type`, `method`, `path`, `source_ip`, `authentication_result`, `authorization_result`, `reason`, `status_code`).
-- [ ] New `conversation_shares` table for Phase 5: `id`, `tenant_id`, `conversation_id`, `created_by_user_id`, `token_sha256`, `token_last4`, `include_tools`, `expires_utc`, `revoked_utc`, `last_viewed_utc`, `view_count`, `active`, `created_utc`, `updated_utc`.
-- [ ] Seeding (every startup, inside the initialization transaction, skipped for empty restore targets as factory prompts are): ensure `ten_local`; ensure user `usr_local` with email `admin@arguebot`, first name `Default`, last name `Admin`, `is_admin = 1`, `is_tenant_admin = 1`, `protected = 1`, and password `password` only when no password is set; ensure credential `cred_default_admin` named "Default admin token" for that user with the hash of `arguebotadmin`, `protected = 1`, only when it does not exist. Never reactivate or reset a record the user changed.
-- [ ] `BackupSchema`: introduced versions for new tables and columns; update the backup fixture that rewrites old snapshots.
-- [ ] Core models (one type per file, XML docs): `Tenant`, `User` (no password fields in responses), `AuthCredential`, `AuthCredentialCreated` (includes the raw token once), `AuthSession`, `ConversationShare`, `ConversationShareCreated`, plus request types for each.
-- [ ] Method groups behind interfaces, as for prompts: `ITenantMethods`, `IUserMethods`, `IAuthCredentialMethods`, `IAuthSessionMethods`, `IShareMethods`, `IAuditMethods`. Every method takes `RequestContext` and filters by tenant.
+- [x] `tenants`: add `protected`, `revision`. The seeded tenant keeps ID `ten_local` and is renamed "Default tenant" with `protected = 1`. All existing data already belongs to it.
+- [x] `users`: add `first_name`, `last_name` (copy `name` into `first_name`); keep `email`, password fields, `is_admin`, `is_tenant_admin`, `active`, `protected`, `revision`. Enforce a unique index on `(tenant_id, lower(email))`.
+- [x] New `auth_credentials` table: `id`, `tenant_id`, `user_id`, `name`, `token_sha256`, `token_last4`, `auth_mode` (`DirectHeader`), `active`, `protected`, `expires_utc`, `last_used_utc`, `revision`, `created_utc`, `updated_utc`. Unique index on `token_sha256`.
+- [x] `auth_sessions`: add `credential_id`, `principal_type` (`User` or `Credential`), `auth_scheme`, `token_id`, `source_ip`, `user_agent`, `last_used_utc`, `revoked_utc`, `revocation_reason`, `protected`.
+- [x] `audit_events`: confirm it holds the fields in "Audit Record Fields"; add any missing ones (`principal_type`, `credential_id`, `request_type`, `method`, `path`, `source_ip`, `authentication_result`, `authorization_result`, `reason`, `status_code`).
+- [x] New `conversation_shares` table for Phase 5: `id`, `tenant_id`, `conversation_id`, `created_by_user_id`, `token_sha256`, `token_last4`, `include_tools`, `expires_utc`, `revoked_utc`, `last_viewed_utc`, `view_count`, `active`, `created_utc`, `updated_utc`.
+- [x] Seeding (every startup, inside the initialization transaction, skipped for empty restore targets as factory prompts are): ensure `ten_local`; ensure user `usr_local` with email `admin@arguebot`, first name `Default`, last name `Admin`, `is_admin = 1`, `is_tenant_admin = 1`, `protected = 1`, and password `password` only when no password is set; ensure credential `cred_default_admin` named "Default admin token" for that user with the hash of `arguebotadmin`, `protected = 1`, only when it does not exist. Never reactivate or reset a record the user changed.
+- [x] `BackupSchema`: introduced versions for new tables and columns; update the backup fixture that rewrites old snapshots.
+- [x] Core models (one type per file, XML docs): `Tenant`, `TenantRequest`, `User` (no password fields), `UserRequest`, `PasswordChangeRequest`, `AuthCredential`, `AuthCredentialRequest`, `AuthCredentialCreated` (includes the raw token once). `AuthSession` moves to Phase 2 and `ConversationShare`, `ConversationShareCreated` to Phase 5, where they are first used.
+- [x] Tenant, user and credential methods behind one interface, `IIdentityMethods` (`DatabaseDriverBase.Identity`). Every method takes `RequestContext`, filters by tenant and applies the bypass flags. Session methods move to Phase 2, share methods to Phase 5 and audit queries to Phase 3.
+- [x] Without RBAC, `HasWritePermission` is true for every authenticated context; the obsolete viewer-role assertion became an unauthenticated-mutation assertion.
 
-Acceptance: a new console test proves seeding is idempotent, survives a restart and never resets a changed password or a deleted or disabled default credential; migration from schema 29 on SQLite and PostgreSQL keeps existing conversations in `ten_local`.
+Acceptance: a new console test proves seeding is idempotent, survives a restart and never resets a changed password or renamed tenant; protected defaults cannot be deleted or disabled; migration from schema 29 on SQLite and PostgreSQL keeps existing conversations in `ten_local`.
+
+Evidence (2026-11-04): `Runners / Identity` (SQLite, including restart) and `Providers / PostgresqlIdentity` pass. The full console run passes 70 of 70 runnable checks (14 skipped for missing external services), and `scripts/test-postgresql.mjs` passes 4 of 4. The backup suite restores a rewritten schema 4 snapshot. Fixed along the way: backup column discovery skipped names containing digits (`password_sha256`, `token_sha256`, `token_last4`), so those columns were never exported; snapshots before schema 30 are gated accordingly.
+
+
 
 ## Phase 2: Authentication pipeline
 
@@ -81,7 +86,9 @@ Acceptance: a new console test proves seeding is idempotent, survives a restart 
 - [ ] Session tokens carry session ID, principal type, user ID, credential ID, tenant ID, issued and expiry times and a nonce. Validation checks the session row, active and not revoked, the expiry, and that the tenant, user and credential are still active.
 - [ ] Interactive sessions last 60 minutes and slide on use (`POST /v2.0/api/token/refresh`). Credential bearer tokens authenticate directly and update `last_used_utc` at most once a minute.
 - [ ] Tenant resolution: from the token or credential. `x-tenant-id`, if sent, must match, otherwise 403 `tenant_mismatch`. At login, if `x-tenant-id` is absent and the email exists in exactly one tenant, use it; if it exists in several, return 409 `tenant_required` with the tenant names and IDs.
-- [ ] `RequestContext` gains `PrincipalType`, `SessionId`, `CredentialId`, `AuthScheme` and `SourceIp`; `IsAuthenticated`, `IsAdmin` and `IsTenantAdmin` are set from the user.
+- [x] `RequestContext` gains `PrincipalType`, `SessionId`, `CredentialId`, `AuthScheme` and `SourceIp` (added in Phase 1).
+- [ ] The authenticator sets `IsAuthenticated`, `IsAdmin` and `IsTenantAdmin` from the user.
+- [ ] `AuthSession` model and session methods on `IIdentityMethods`: issue, validate, refresh, list own and a user's sessions, and revoke one or all (`RevokeSessionsAsync` already exists for password changes and deletes).
 - [ ] Route classes, in one static map (`Services/RouteAccess.cs`), so every new route must choose a class:
   - **Public:** `/health`, dashboard static files, `/v2.0/api/token` (POST), `/v2.0/api/login-info`, the API contract and OpenAPI documents, `/share/*` pages and `GET /v2.0/api/shares/{token}`.
   - **Member:** all existing conversation, debate, configuration, prompt, history and explorer routes.
@@ -131,6 +138,7 @@ Acceptance: browser tests for login (default credentials visible), wrong passwor
 
 - [ ] API (member access unless stated): `GET /conversations/{id}/shares`, `POST /conversations/{id}/shares` (`expiresInHours` from 1 to 2160, default 168; `includeToolCalls`, default false; returns the URL and raw token once), `DELETE /conversations/{id}/shares/{shareId}` (revoke).
 - [ ] Public read: `GET /v2.0/api/shares/{token}` returns the transcript bundle the reader needs (conversation title and opening question, runs with participants and outcome, messages with complete text, proposals and votes). It never returns provider secrets, prompt bodies, attempts, runner diagnostics or request history, and omits tool messages unless `includeToolCalls` was chosen. Expired, revoked, unknown or disabled-tenant links all return the same 404 `share_not_found`. Requests are rate limited per IP, and each view updates `last_viewed_utc` and `view_count`.
+- [ ] `ConversationShare` and `ConversationShareCreated` models and share methods (list, create, revoke, resolve by token hash), using the schema 30 `conversation_shares` table.
 - [ ] Share tokens are 32 random bytes, base64url, stored as SHA-256. Deleting a conversation deletes its shares; disabling the tenant disables them.
 - [ ] Public page `/share/{token}`: the transcript reader in a read-only public layout (no app shell, no edit controls, a banner with the expiry time and "Shared from ArgueBot"), with Copy as Markdown and Print.
 - [ ] Workspace: a **Share** button in the conversation header opens a dialog to create a link (expiry choices: 1 hour, 1 day, 7 days, 30 days, 90 days; include tool calls), copy it, and list or revoke existing links with their expiry and view counts. The conversation's Actions menu gets "Share" too.
@@ -143,10 +151,12 @@ Acceptance: console tests for expiry, revocation, cross-tenant isolation and red
 
 - [ ] Client: `ArgueBotClient` accepts a bearer token and sends it on every request and event stream; it surfaces 401 as `authentication_required`.
 - [ ] CLI: `--token TOKEN` and `ARGUEBOT_TOKEN`; `login [--email E] [--tenant T]` (prompts for the password without echo and saves a session token to a 0600 file in the application home); `logout`; `whoami`; `me password`; `credentials list|create|disable|delete`; `users ...`, `tenants ...` and `audit` for admins; `secrets ...` replacing `configuration credentials ...` (old spelling kept as an alias with a deprecation note).
-- [ ] TUI: on 401, show a login dialog (email, password, tenant if needed, or token), always showing the default credentials. The header shows the user and tenant. The Menu gets an **Account** section (change password, my credentials, sign out) and, for admins, **Administration** (users, tenants). Help gets an "Accounts and sign-in" topic.
-- [ ] Launch scripts (`go-tui`, `go-web`) keep working: the TUI prompts for login on first use.
+- [ ] TUI login page: a full-screen sign-in page shown at startup whenever the TUI has no valid token (and after a 401 or sign-out). Fields: **Server URL** (defaults to the local service the launcher attaches to, for example `http://127.0.0.1:4317`, and accepts any reachable ArgueBot service such as `https://view.example.com`), **Email**, **Password** (masked), and **Tenant** (shown only after `tenant_required`, as a list of the returned tenants). A **Use a token instead** option replaces email and password with a masked bearer-token field. The page always shows the default credentials (`admin@arguebot`, `password`, token `arguebotadmin`). **Sign in** checks `/health` at the server URL first and reports an unreachable server, wrong credentials, a disabled user or tenant, and rate limiting as distinct inline messages, keeping the typed values.
+- [ ] TUI connection memory: after a successful sign-in, store the server URL and session token per application home in a 0600 file (never the password). Next start reuses them if the session is still valid; otherwise the login page opens with the server URL filled in. `--server URL` and `ARGUEBOT_TOKEN` override the stored values. Sign out revokes the session and returns to the login page; Switch server opens the login page with the URL field focused.
+- [ ] TUI workspace: the header shows the server, user and tenant. The Menu gets an **Account** section (change password, my credentials with the token shown once, my sessions, sign out, switch server) and, for tenant and system admins, **Administration** (users, tenants). Help gets an "Accounts, servers and sign-in" topic. All forms fit 60 by 20 terminals and both themes.
+- [ ] Launch scripts (`go-tui`, `go-web`) keep working: `go-tui` starts or attaches to the local service and opens the login page with its URL filled in; `--server URL` skips the local service and targets the given server.
 
-Acceptance: CLI surface script covers login, token, whoami, credential lifecycle, admin commands and secrets aliases; Terminal suite covers the login dialog at 60 and 120 columns in both themes, the account menu and the share flow.
+Acceptance: CLI surface script covers login, token, whoami, credential lifecycle, admin commands and secrets aliases; Terminal suite covers the TUI login page at 60 and 120 columns in both themes (server URL validation, unreachable server, wrong password, tenant choice, token sign-in, default credentials shown), reuse of a stored session, sign out and switch server, the account and administration menus, and the share flow, against a real service.
 
 ## Phase 7: API artifacts and documentation
 
@@ -168,7 +178,7 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 ## Phase checklist
 
 - [x] Phase 0: branch, housekeeping and images (November 4, 2026: build with no warnings, Terminal suite 20 of 20, Compose resolves the named image and the build override, scripts pass `bash -n`)
-- [ ] Phase 1: schema and identity data
+- [x] Phase 1: schema and identity data
 - [ ] Phase 2: authentication pipeline
 - [ ] Phase 3: management API
 - [ ] Phase 4: dashboard

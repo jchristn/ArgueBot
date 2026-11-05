@@ -22,6 +22,26 @@ namespace ArgueBot.Core.Models
         /// <summary>Authenticated user.</summary>
         public string UserId { get { return _UserId; } set { ArgumentNullException.ThrowIfNull(value); _UserId = value; } }
 
+        private string _SessionId = "";
+        /// <summary>Server-side session behind the presented token; empty for credential bearer tokens and system work.</summary>
+        public string SessionId { get { return _SessionId; } set { ArgumentNullException.ThrowIfNull(value); _SessionId = value; } }
+
+        private string _CredentialId = "";
+        /// <summary>Bearer-token credential that authenticated the request, if any.</summary>
+        public string CredentialId { get { return _CredentialId; } set { ArgumentNullException.ThrowIfNull(value); _CredentialId = value; } }
+
+        private string _PrincipalType = "";
+        /// <summary>User, Credential or System.</summary>
+        public string PrincipalType { get { return _PrincipalType; } set { ArgumentNullException.ThrowIfNull(value); _PrincipalType = value; } }
+
+        private string _AuthScheme = "";
+        /// <summary>BearerToken, XToken or PasswordHeaders.</summary>
+        public string AuthScheme { get { return _AuthScheme; } set { ArgumentNullException.ThrowIfNull(value); _AuthScheme = value; } }
+
+        private string _SourceIp = "";
+        /// <summary>Caller IP address as seen by the service.</summary>
+        public string SourceIp { get { return _SourceIp; } set { ArgumentNullException.ThrowIfNull(value); _SourceIp = value; } }
+
         /// <summary>System administrator flag.</summary>
         public bool IsAdmin { get; set; }
 

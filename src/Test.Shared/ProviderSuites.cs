@@ -31,6 +31,7 @@ namespace Test.Shared
                     cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => RunAsync(provider, variable, token), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlEvidenceTools", "PostgreSQL evidence tools match SQLite paging, filters, literal case-insensitive search and gaps", cancellation => EvidenceAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => OwnershipAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlIdentity", "PostgreSQL identity seeding, tenant isolation, credentials and cascading deletes match SQLite", cancellation => IdentityAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
             }
@@ -45,6 +46,20 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await EvidenceToolChecks.RunAsync(database, home, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
+        private static async Task IdentityAsync(string variable, CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-provider-identity-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(home); HomePermissions.Directory(home);
+            try
+            {
+                using (DatabaseDriverBase database = DatabaseDriverFactory.Create(new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = variable }, home))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    await IdentityChecks.RunAsync(database, token).ConfigureAwait(false);
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }

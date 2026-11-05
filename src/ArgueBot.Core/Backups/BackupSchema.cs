@@ -13,7 +13,7 @@ namespace ArgueBot.Core.Backups
             foreach (Match table in Regex.Matches(SchemaDefinition.Create, @"CREATE TABLE IF NOT EXISTS (\w+)\(([^;\n]+)"))
             {
                 Dictionary<string, bool> columns = new Dictionary<string, bool>(StringComparer.Ordinal);
-                foreach (Match column in Regex.Matches(table.Groups[2].Value, @"(?:^|, )([a-z_]+) (TEXT|INTEGER|BIGINT)\b")) columns.Add(column.Groups[1].Value, column.Groups[2].Value != "TEXT");
+                foreach (Match column in Regex.Matches(table.Groups[2].Value, @"(?:^|, )([a-z_][a-z0-9_]*) (TEXT|INTEGER|BIGINT)\b")) columns.Add(column.Groups[1].Value, column.Groups[2].Value != "TEXT");
                 tables.Add(table.Groups[1].Value, columns);
             }
             return tables;
@@ -26,6 +26,10 @@ namespace ArgueBot.Core.Backups
             if (table == "debate_attempts" && version < 26) columns.Remove("repair");
             if (table == "connection_credentials" && version < 27) columns.Remove("parameter_name");
             if (table == "conversations" && version < 28) columns.Remove("opening_question");
+            if (table == "tenants" && version < 30) { columns.Remove("protected"); columns.Remove("revision"); }
+            if (table == "users" && version < 30) { columns.Remove("first_name"); columns.Remove("last_name"); columns.Remove("password_sha256"); }
+            if (table == "auth_sessions" && version < 30) { columns.Remove("credential_id"); columns.Remove("principal_type"); columns.Remove("auth_scheme"); columns.Remove("token_id"); columns.Remove("source_ip"); columns.Remove("user_agent"); columns.Remove("last_used_utc"); columns.Remove("revoked_utc"); columns.Remove("revocation_reason"); columns.Remove("protected"); }
+            if (table == "audit_events" && version < 30) { columns.Remove("principal_type"); columns.Remove("credential_id"); columns.Remove("request_type"); columns.Remove("method"); columns.Remove("path"); columns.Remove("source_ip"); columns.Remove("authentication_result"); columns.Remove("authorization_result"); columns.Remove("reason"); columns.Remove("status_code"); }
             if (table == "connection_endpoints" && version < 16) columns.Remove("max_concurrent_invocations");
             if (table == "connection_profiles" && version < 16) columns.Remove("transport_id");
             if (table == "authorization_user_assignments" && version < 13) columns.Remove("system_kind");
@@ -39,7 +43,7 @@ namespace ArgueBot.Core.Backups
             return columns;
         }
         internal static int IntroducedVersion(string table)
-        { return table == "prompt_templates" || table == "conversation_prompts" || table == "run_prompts" ? 29 : table == "debate_agreement_revisions" ? 25 : table == "connection_environment_owners" || table == "connection_environment_variables" ? 23 : table == "connection_model_generation" || table == "connection_profile_generation" ? 22 : table == "debate_summary_sections" ? 21 : table == "connection_model_checks" ? 20 : table == "attempt_timing" ? 19 : table == "attempt_credentials" ? 18 : table == "debate_policies" || table == "debate_tool_reservations" || table == "debate_attempt_usage" ? 15 : (table.StartsWith("debate_", StringComparison.Ordinal) || table.StartsWith("connection_", StringComparison.Ordinal)) ? 14 : table.StartsWith("authorization_", StringComparison.Ordinal) ? 12 : table == "generation_attempts" || table == "attempt_context" ? 9 : table.StartsWith("backup_", StringComparison.Ordinal) ? 4 : table.StartsWith("request_history", StringComparison.Ordinal) ? 3 : 1; }
+        { return table == "auth_credentials" || table == "conversation_shares" ? 30 : table == "prompt_templates" || table == "conversation_prompts" || table == "run_prompts" ? 29 : table == "debate_agreement_revisions" ? 25 : table == "connection_environment_owners" || table == "connection_environment_variables" ? 23 : table == "connection_model_generation" || table == "connection_profile_generation" ? 22 : table == "debate_summary_sections" ? 21 : table == "connection_model_checks" ? 20 : table == "attempt_timing" ? 19 : table == "attempt_credentials" ? 18 : table == "debate_policies" || table == "debate_tool_reservations" || table == "debate_attempt_usage" ? 15 : (table.StartsWith("debate_", StringComparison.Ordinal) || table.StartsWith("connection_", StringComparison.Ordinal)) ? 14 : table.StartsWith("authorization_", StringComparison.Ordinal) ? 12 : table == "generation_attempts" || table == "attempt_context" ? 9 : table.StartsWith("backup_", StringComparison.Ordinal) ? 4 : table.StartsWith("request_history", StringComparison.Ordinal) ? 3 : 1; }
         internal static string Normalize(string table, string column)
         { return (table == "messages" || table == "events") && column == "sequence" ? "sequence_number" : column; }
     }
