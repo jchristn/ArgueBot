@@ -151,7 +151,7 @@ Evidence (2026-11-04): `tests/sign-in.spec.js` (default credentials always visib
 - [x] Share tokens are 32 random bytes, base64url, stored as SHA-256. Deleting a conversation deletes its shares; disabling the tenant disables them.
 - [x] Public page `/share/{token}`: the transcript reader in a read-only public layout (no app shell, no edit controls, a banner with the expiry time and "Shared from ArgueBot"), with Copy as Markdown and Print.
 - [x] Workspace: a **Share** button in the conversation header opens a dialog to create a link (expiry choices: 1 hour, 1 day, 7 days, 30 days, 90 days; include tool calls), copy it, and list or revoke existing links with their expiry and view counts. The conversation's Actions menu gets "Share" too.
-- [ ] TUI: run controls or the conversation menu offers Share (create, list, revoke, copy the URL into a panel). CLI: `shares list|create|revoke`.
+- [x] TUI: run controls or the conversation menu offers Share (create, list, revoke, copy the URL into a panel). CLI: `shares list|create|revoke`.
 - [x] Share URLs use the request's allowed host, so links created through `view.example.com` point there.
 
 Acceptance: console tests for expiry, revocation, cross-tenant isolation and redaction (no tool output when excluded; never secrets or attempts); browser tests that create a link, open it in a fresh browser context without signing in, see the reader, then see "not found" after revocation and after expiry (using a clock override).
@@ -205,7 +205,7 @@ Hosted CI on this branch: the dashboard job cannot install Chromium on the Ubunt
 - [x] Phase 2: authentication pipeline
 - [x] Phase 3: management API
 - [x] Phase 4: dashboard
-- [ ] Phase 5: public share links
+- [x] Phase 5: public share links
 - [x] Phase 6: CLI and TUI
 - [x] Phase 7: API artifacts and documentation
 - [ ] Phase 8: verification and release preparation
