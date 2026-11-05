@@ -642,8 +642,18 @@ namespace ArgueBot.Tui
                 return;
             }
             string[] actions = new string[] { "pause", "resume", "interrupt", "continue", "extend", "steer", "stop", "roster", "proposals", "context", "memory", "clarifications", "rebuild_summary", "exclude_summary", "usage", "edit_proposal" };
-            int selected = await UiAsync(() => _App.SelectStyledAsync("Run " + run.State + " | " + run.Outcome + ": choose a command", "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run", "Change agents", "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Answer a clarification", "Rebuild summary (pause first)", "Exclude summary (pause first)", "Inspect execution usage and limits", "Edit the proposal under vote")).ConfigureAwait(false);
-            if (selected < 0) return;
+            string[] commandLabels = new[] { "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run", "Change agents", "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Answer a clarification", "Rebuild summary (pause first)", "Exclude summary (pause first)", "Inspect execution usage and limits", "Edit the proposal under vote" };
+            string[] groupNames = new[] { "Run", "Steer the debate", "Inspect", "Working memory" };
+            int[][] groups = new[] { new[] { 0, 1, 3, 2, 4, 6 }, new[] { 5, 15, 7, 11 }, new[] { 8, 9, 10, 14 }, new[] { 12, 13 }, };
+            List<string> display = new List<string>(); List<int> mapping = new List<int>();
+            for (int group = 0; group < groups.Length; group++)
+            {
+                display.Add(ChoiceDialog.Heading + groupNames[group]); mapping.Add(-1);
+                foreach (int entry in groups[group]) { display.Add(commandLabels[entry]); mapping.Add(entry); }
+            }
+            int chosen = await UiAsync(() => _App.SelectStyledAsync("Run " + run.State + (run.Outcome.Length > 0 ? " | " + run.Outcome : "") + ": choose a command", display.ToArray())).ConfigureAwait(false);
+            if (chosen < 0 || mapping[chosen] < 0) return;
+            int selected = mapping[chosen];
             if (selected >= 7)
             {
                 if (run.ProtocolVersion != 2) throw new InvalidOperationException("These controls require a model-guided debate. Historical runs remain available in history.");
@@ -865,30 +875,35 @@ namespace ArgueBot.Tui
         private async Task MenuAsync()
         {
             if (_App == null) return;
-            List<string> labels = new List<string>(); List<Func<Task>> actions = new List<Func<Task>>();
+            List<string> labels = new List<string>(); List<Func<Task>?> actions = new List<Func<Task>?>();
+            void Section(string title) { labels.Add(ChoiceDialog.Heading + title); actions.Add(null); }
             void Add(string label, Func<Task> action) { labels.Add(label); actions.Add(action); }
-            Add("New debate or conversation (Ctrl+N)", NewAsync);
-            Add("Agents: configure CLI harnesses and REST models (Ctrl+E)", ParticipantsAsync);
-            Add("Connections, models and credentials", CatalogAsync);
-            Add("Prompts: view, duplicate and edit debate prompts", PromptsAsync);
             if (_Selected != null)
             {
-                Add("Start a debate in this conversation (Ctrl+B)", StartAsync);
-                Add("Run controls: pause, resume, interrupt or stop (Ctrl+R)", ControlsAsync);
-                Add("Stop this debate (F8; s in list)", StopAsync);
-                Add("Read full message history (Ctrl+L)", HistoryAsync);
-                Add("Inspect generation attempts (Ctrl+G)", AttemptsAsync);
-                Add("Ask an agent a follow-up question (Ctrl+Y)", FollowupAsync);
-                Add("Delete this conversation (d / Delete in list)", DeleteConversationAsync);
+                string title = (_SelectedTitle ?? "this conversation").Trim();
+                Section("This conversation: " + (title.Length > 40 ? title.Substring(0, 40) + "..." : title));
+                Add("Start a debate here  (Ctrl+B)", StartAsync);
+                Add("Run controls: pause, resume, interrupt, extend or stop  (Ctrl+R)", ControlsAsync);
+                Add("Ask one agent a follow-up question  (Ctrl+Y)", FollowupAsync);
+                Add("Read the full history  (Ctrl+L)", HistoryAsync);
+                Add("Inspect generation attempts  (Ctrl+G)", AttemptsAsync);
+                Add("Delete this conversation  (d in the list)", DeleteConversationAsync);
             }
-            if (_Page > 1) Add("Previous conversation page", () => UiAsync(() => { ChangePage(-1); return Task.FromResult(true); }));
-            if (_Page < _TotalPages) Add("Next conversation page", () => UiAsync(() => { ChangePage(1); return Task.FromResult(true); }));
-            Add("Search conversations and archived history (Ctrl+F)", SearchAsync);
-            Add("Switch light / dark theme", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
-            Add("Help: how to use ArgueBot", HelpAsync);
-            Add("Detach (the service keeps running)", () => { _App.Post(_App.Quit); return Task.CompletedTask; });
-            int selected = await UiAsync(() => _App.SelectStyledAsync("Main menu: choose an action", labels.ToArray())).ConfigureAwait(false);
-            if (selected >= 0) await actions[selected]().ConfigureAwait(false);
+            Section("Conversations");
+            Add("New debate or conversation  (Ctrl+N)", NewAsync);
+            Add("Search conversations, including archived  (Ctrl+F)", SearchAsync);
+            if (_Page > 1) Add("Previous page of conversations  (Alt+Left)", () => UiAsync(() => { ChangePage(-1); return Task.FromResult(true); }));
+            if (_Page < _TotalPages) Add("Next page of conversations  (Alt+Right)", () => UiAsync(() => { ChangePage(1); return Task.FromResult(true); }));
+            Section("Set up");
+            Add("Agents: who can take part in a debate  (Ctrl+E)", ParticipantsAsync);
+            Add("Models, connections and credentials", CatalogAsync);
+            Add("Prompts: the instructions each debate step sends", PromptsAsync);
+            Section("View and help");
+            Add((_App.Theme.Name == "Dark" ? "Switch to the light theme" : "Switch to the dark theme") + "  (Ctrl+T)", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
+            Add("Help  (F1)", HelpAsync);
+            Add("Detach: close the TUI; debates keep running  (Ctrl+Q)", () => { _App.Post(_App.Quit); return Task.CompletedTask; });
+            int selected = await UiAsync(() => _App.SelectStyledAsync("Menu", labels.ToArray())).ConfigureAwait(false);
+            if (selected >= 0 && actions[selected] is Func<Task> action) await action().ConfigureAwait(false);
         }
         private async Task HelpAsync()
         {

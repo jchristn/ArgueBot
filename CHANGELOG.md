@@ -39,6 +39,7 @@ Development of the v2.0.0 preview added and later removed several capabilities. 
 
 The entries below record the preview's development in reverse order, newest first.
 
+- TUI: group the Menu and Run controls under section headings that arrow keys skip, remove the duplicate Stop entry, and rewrite Help as ten task-ordered topics (first debate, navigation, agents, configuration and prompts, starting, steering, after a debate, troubleshooting, shortcuts, and data) with stale account and credential guidance removed.
 - Show orchestrator questions, proposals, votes and summaries as readable text in the TUI and dashboard even when a model wraps its JSON reply in a code fence, and when a long reply arrives as a cut-off preview or is still streaming.
 - Set the product version to 2.0.0.
 - Add a full-page transcript reader for finished and running conversations: contents by debate and round, the final proposal with a per-agent vote table, rounds with the orchestrator question, responses and vote tables, moderator context, per-agent colors with a filter to hide agents, tool calls folded or hidden, foldable turns, full text for long turns, Copy as Markdown and print or save as PDF.

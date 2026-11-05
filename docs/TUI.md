@@ -25,8 +25,8 @@ The top of the workspace has buttons you can click. With the keyboard, use Tab o
 
 | Button | What it does |
 | --- | --- |
-| Help | Explains navigation, agents, debates, history and administration. |
-| Menu | Lists every available action, including search, follow-up questions, history, administration and detaching. |
+| Help | Ten task-ordered topics, from a first-debate walkthrough to setup, steering, follow-ups, troubleshooting and a keyboard shortcut reference. |
+| Menu | Every action, grouped under headings: the open conversation, conversations, setup, and view and help. Run controls are grouped the same way: run, steer the debate, inspect and working memory. |
 | New | Starts guided debate setup or creates an empty conversation, asking for its title, an optional opening question and, when custom prompts exist, which prompt each debate step uses. |
 | Agents | Adds or edits the CLI harnesses and REST models that can speak in a debate. |
 | Start debate | Configures a debate for the selected conversation. With no conversation selected, starts new-debate setup. |

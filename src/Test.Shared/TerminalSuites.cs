@@ -561,7 +561,14 @@ namespace Test.Shared
                     await SaveEvidenceAsync("help-wrapped-" + width, Snapshot.ToText(frame), token).ConfigureAwait(false);
                     ClickText(app, backend, "Troubleshooting");
                     await PumpUntilAsync(app, () => result.IsCompleted, token).ConfigureAwait(false);
-                    if (await result.ConfigureAwait(false) is not int selected || topics[selected] != "Troubleshooting failed or paused debates") throw new InvalidDataException("Wrapped help text selected the wrong topic.");
+                    if (await result.ConfigureAwait(false) is not int selected || topics[selected] != "Troubleshooting") throw new InvalidDataException("Wrapped help text selected the wrong topic.");
+                    ChoiceDialog sections = new ChoiceDialog("Menu", new[] { ChoiceDialog.Heading + "First", "one", ChoiceDialog.Heading + "Second", "two" });
+                    Task<object?> sectioned = app.ShowAsync(sections); app.RenderOnce();
+                    string sectionScreen = Snapshot.ToText(app.CaptureFrame()!);
+                    if (!sectionScreen.Contains("FIRST", StringComparison.Ordinal) || !sectionScreen.Contains("> one", StringComparison.Ordinal) || sectionScreen.Contains("\u0001", StringComparison.Ordinal)) throw new InvalidDataException("Menu sections must render as headings and start on the first selectable option.");
+                    backend.FeedKey("down"); app.PumpInputOnce(); backend.FeedKey("enter"); app.PumpInputOnce();
+                    await PumpUntilAsync(app, () => sectioned.IsCompleted, token).ConfigureAwait(false);
+                    if (await sectioned.ConfigureAwait(false) is not int sectionChoice || sectionChoice != 3) throw new InvalidDataException("Arrow keys must skip section headings.");
                     string[] longList = Enumerable.Range(0, 20).Select(index => "Option " + index + ": this full description needs to remain readable").ToArray();
                     ChoiceDialog scrolling = new ChoiceDialog("Actions", longList);
                     Task<object?> scrollResult = app.ShowAsync(scrolling); app.RenderOnce();
@@ -616,7 +623,7 @@ namespace Test.Shared
                 int menuColumn = rows[1].IndexOf("Menu", StringComparison.Ordinal);
                 if (menuColumn < 0) throw new InvalidDataException("The main menu was not visible.");
                 ClickText(app, backend, "Menu");
-                await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Main menu", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Menu", token).ConfigureAwait(false);
                 ClickText(app, backend, "New debate or conversation");
                 await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("New:", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
                 ClickText(app, backend, "Start a debate: guided setup");
@@ -686,7 +693,7 @@ namespace Test.Shared
                 for (int attempt = 0; attempt < 3; attempt++)
                 {
                     ClickText(app, backend, "Menu");
-                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title?.StartsWith("Main menu", StringComparison.Ordinal) == true, token).ConfigureAwait(false);
+                    await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Menu", token).ConfigureAwait(false);
                     ClickText(app, backend, "Delete this conversation");
                     await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog menu && menu.Title == "Choose an action", token).ConfigureAwait(false);
                     string confirmation = ContentText((DialogModal)app.Modals.Top!, app.CaptureFrame()!);
@@ -840,7 +847,7 @@ namespace Test.Shared
                 for (int index = 0; index < 30 && !app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
                 app.RenderOnce();
                 string helpScreen = Snapshot.ToText(app.CaptureFrame()!);
-                if (!helpScreen.Contains("Configure agents and harnesses", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not open the help topic menu.");
+                if (!helpScreen.Contains("Get started: your first debate", StringComparison.Ordinal) || !helpScreen.Contains("Keyboard shortcuts", StringComparison.Ordinal)) throw new InvalidDataException("F1 did not open the help topic menu.");
                 await SaveEvidenceAsync("help-menu", helpScreen, token).ConfigureAwait(false);
                 backend.FeedKey("escape");
                 for (int index = 0; index < 30 && app.Modals.IsActive; index++) { app.PumpInputOnce(); await Task.Delay(10, token).ConfigureAwait(false); }
