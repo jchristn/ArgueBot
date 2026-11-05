@@ -15,6 +15,8 @@ export default defineConfig({
   use: {
     baseURL: "https://127.0.0.1:4420",
     ignoreHTTPSErrors: true, // Disposable fixture certificate; no system trust changes.
+    // The default administrator token; tests/fixtures.js also signs pages in with it. The sign-in spec clears both.
+    extraHTTPHeaders: { Authorization: "Bearer arguebotadmin" },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

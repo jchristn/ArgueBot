@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 import { startProviderFixture } from "./provider-fixture.js";
 
 async function post(request, path, data) {
@@ -13,15 +13,15 @@ test("four-agent panel, explicit context, proposals and write-only configuration
   try {
     await page.goto("/dashboard/participants");
     const catalog = page.getByRole("tabpanel");
-    await page.getByRole("tab", { name: /^Credentials/ }).click();
+    await page.getByRole("tab", { name: /^Secrets/ }).click();
     await expect(page).toHaveURL(/tab=credentials/);
-    await catalog.getByRole("button", { name: "Add credential", exact: true }).click();
+    await catalog.getByRole("button", { name: "Add secret", exact: true }).click();
     let dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Gateway " + suffix);
-    const guide = dialog.getByRole("region", { name: "How to get this credential" });
+    const guide = dialog.getByRole("region", { name: "How to get this secret" });
     await expect(guide.locator(".command-box code")).toHaveText(["claude setup-token"]);
     await expect(guide.getByRole("button", { name: "Copy command" })).toHaveCount(1);
-    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("codex_auth_json");
+    await dialog.getByRole("combobox", { name: "Secret kind", exact: true }).selectOption("codex_auth_json");
     await guide.getByRole("radio", { name: "macOS" }).click();
     await expect(guide.locator(".command-box code").first()).toHaveText("mkdir -p ~/.codex-arguebot && CODEX_HOME=~/.codex-arguebot codex login");
     await expect(guide).toContainText("Cmd+Shift+.");
@@ -34,12 +34,12 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(guide.locator(".command-box code").last()).toHaveText("xclip -selection clipboard < ~/.codex-arguebot/auth.json");
     await guide.getByRole("radio", { name: "macOS" }).click();
     await page.screenshot({ path: "../.run/screenshots/v2-codex-guide.png", fullPage: true });
-    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_bearer");
+    await dialog.getByRole("combobox", { name: "Secret kind", exact: true }).selectOption("http_bearer");
     await expect(dialog.getByRole("textbox", { name: "Header name", exact: true })).toHaveCount(0);
     await expect(guide).toContainText("Authorization: Bearer");
-    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_query");
+    await dialog.getByRole("combobox", { name: "Secret kind", exact: true }).selectOption("http_query");
     await expect(dialog.getByRole("textbox", { name: "Query parameter name", exact: true })).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Credential kind", exact: true }).selectOption("http_header");
+    await dialog.getByRole("combobox", { name: "Secret kind", exact: true }).selectOption("http_header");
     await dialog.getByRole("textbox", { name: "Header name", exact: true }).fill("x-api-key");
     await page.screenshot({ path: "../.run/screenshots/v2-header-credential.png", fullPage: true });
     const secret = dialog.getByLabel("Value", { exact: true });
@@ -52,7 +52,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const gatewayRow = catalog.getByRole("row").filter({ hasText: "Gateway " + suffix });
     await gatewayRow.getByRole("button", { name: /^Actions for / }).click();
     await page.getByRole("menuitem", { name: "Reveal value", exact: true }).click();
-    const reveal = page.getByRole("dialog", { name: "Reveal credential" });
+    const reveal = page.getByRole("dialog", { name: "Reveal secret" });
     await expect(reveal.getByRole("alert")).toContainText("Anyone who can see this screen");
     await expect(reveal).not.toContainText("fictional-gateway-token");
     await reveal.getByRole("button", { name: "Reveal", exact: true }).click();
@@ -67,7 +67,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     const revealDetail = await (await request.get(`/v1.0/api/request-history/${revealEntry.id}`)).text();
     expect(revealDetail).toContain("[credential body excluded]");
     expect(revealDetail).not.toContain("fictional-gateway-token");
-    await catalog.getByRole("button", { name: "Credential encryption keys", exact: true }).click();
+    await catalog.getByRole("button", { name: "Secret encryption keys", exact: true }).click();
     await expect(page.getByRole("dialog")).toContainText("Earlier keys stay available");
     for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
       await page.setViewportSize({ width, height: 900 });
@@ -101,7 +101,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Endpoint " + suffix);
     await dialog.getByRole("textbox", { name: "Base URL", exact: true }).fill(fixture.endpoint);
     await dialog.getByRole("button", { name: "Add binding", exact: true }).click();
-    await dialog.getByRole("combobox", { name: "Stored credential", exact: true }).selectOption({ label: `Gateway ${suffix} (Header key and value)` });
+    await dialog.getByRole("combobox", { name: "Stored secret", exact: true }).selectOption({ label: `Gateway ${suffix} (Header key and value)` });
     await expect(dialog.getByRole("combobox", { name: "Binding type", exact: true })).toHaveValue("header");
     await expect(dialog.getByRole("combobox", { name: "Binding type", exact: true })).toBeDisabled();
     await expect(dialog.getByRole("textbox", { name: "Header or query name", exact: true })).toHaveValue("x-api-key");
@@ -223,7 +223,7 @@ test("four-agent panel, explicit context, proposals and write-only configuration
     await expect(page.locator(".agreement-list li")).toHaveCount(4);
     await expect(page.locator(".proposal").first()).toContainText("reversible rollout");
     const history = await (await request.get("/v2.0/api/request-history?pageSize=100")).json();
-    const capture = history.items.find(item => item.path === "/v2.0/api/configuration/credentials" && item.method === "POST");
+    const capture = history.items.find(item => item.path === "/v2.0/api/configuration/secrets" && item.method === "POST");
     if (capture) {
       const detail = await (await request.get(`/v2.0/api/request-history/${capture.id}`)).json();
       expect(JSON.stringify(detail)).not.toContain("fictional-gateway-token");
@@ -326,7 +326,7 @@ test("post-implementation review covers every web route and new configuration fo
   for (const width of [390, 768, 1280]) for (const theme of ["light", "dark"]) {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(theme => localStorage.setItem("arguebot.theme", theme), theme);
-    for (const route of ["home", "conversations", "participants", "settings", "history", "explorer"]) {
+    for (const route of ["home", "conversations", "participants", "settings", "history", "explorer", "account", "users", "tenants", "audit"]) {
       await page.goto("/dashboard/" + route);
       await expect(page.locator("main")).toBeVisible();
       if (route === "history") await expect(page.locator(".activity-chart")).toBeVisible();
@@ -336,7 +336,7 @@ test("post-implementation review covers every web route and new configuration fo
       await page.screenshot({ path: `../.run/screenshots/v2-${route || "home"}-${width}-${theme}.png`, fullPage: true });
     }
     await page.goto("/dashboard/participants");
-    const tabNames = { endpoints: ["HTTP Endpoints", "Add endpoint"], harnesses: ["CLI Harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Credentials", "Add credential"] };
+    const tabNames = { endpoints: ["HTTP Endpoints", "Add endpoint"], harnesses: ["CLI Harnesses", "Add harness"], models: ["Models", "Add model"], credentials: ["Secrets", "Add secret"] };
     for (const kind of ["endpoints", "harnesses", "models", "credentials"]) {
       await page.getByRole("tab", { name: new RegExp("^" + tabNames[kind][0]) }).click();
       const toolbar = page.locator(".tab-toolbar");
@@ -350,10 +350,10 @@ test("post-implementation review covers every web route and new configuration fo
       await expect(dialog).toBeVisible();
       if (kind === "harnesses") {
         await expect(dialog).toContainText("uses the login of the user running ArgueBot");
-        await expect(dialog.getByRole("combobox", { name: "Stored credential", exact: true }).locator("option")).toHaveCount(1);
+        await expect(dialog.getByRole("combobox", { name: "Stored secret", exact: true }).locator("option")).toHaveCount(1);
         await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("mux");
-        await expect(dialog.getByRole("combobox", { name: "Stored credential", exact: true })).toHaveCount(0);
-        await expect(dialog).toContainText("has no stored credential");
+        await expect(dialog.getByRole("combobox", { name: "Stored secret", exact: true })).toHaveCount(0);
+        await expect(dialog).toContainText("has no stored secret");
         await dialog.getByRole("combobox", { name: "CLI harness", exact: true }).selectOption("claude");
         await dialog.getByRole("textbox", { name: "Inherited environment names", exact: true }).fill("GEMINI_API_KEY, FIXTURE_ROUTE");
         await expect(dialog).toContainText("never values");

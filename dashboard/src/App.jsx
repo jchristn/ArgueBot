@@ -8,13 +8,19 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
+  useNavigate,
+  useOutletContext,
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "./api/client.js";
 import { connectDashboard, hasDashboardConnection } from "./api/dashboard-connect.js";
-import i18n, { registry } from "./i18n/index.js";
+import { expireSession, signOut, subscribe } from "./api/session.js";
+import ActionMenu from "./components/ActionMenu.jsx";
+import { Language, ThemeControl } from "./components/Chrome.jsx";
 import { Button, ErrorPanel, Icon } from "./components/ui.jsx";
 import Toast from "./components/Toast.jsx";
+import Login, { returnPath } from "./views/Login.jsx";
 const Home = lazy(() => import("./views/Home.jsx"));
 const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
@@ -24,63 +30,51 @@ const TranscriptReader = lazy(() => import("./views/TranscriptReader.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
 const Settings = lazy(() => import("./views/Settings.jsx"));
-function Language() {
-  const { t } = useTranslation();
-  return (
-    <select
-      className="language"
-      aria-label={t("nav.language")}
-      title={t("nav.language")}
-      value={i18n.language}
-      onChange={(event) => i18n.changeLanguage(event.target.value)}
-    >
-      {registry.map((locale) => (
-        <option key={locale.code} value={locale.code}>
-          {locale.nativeName}
-        </option>
-      ))}
-    </select>
-  );
+const Account = lazy(() => import("./views/Account.jsx"));
+const Users = lazy(() => import("./views/Users.jsx"));
+const Tenants = lazy(() => import("./views/Tenants.jsx"));
+const Audit = lazy(() => import("./views/Audit.jsx"));
+/** A user's display name: first and last name, or the email. */
+export function displayName(user) {
+  return [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "";
 }
-function ThemeControl({ theme, toggle }) {
-  const { t } = useTranslation();
-  const label = t("nav.theme", { theme: theme === "dark" ? "light" : "dark" });
-  return (
-    <button
-      className="button icon-button"
-      onClick={toggle}
-      title={label}
-      aria-label={label}
-    >
-      <Icon name={theme === "dark" ? "sun" : "moon"} />
-    </button>
-  );
+/** Navigation for the signed-in user. Administration appears only for administrators. */
+export function navigationGroups(user) {
+  const tenantAdmin = !!(user?.isAdmin || user?.isTenantAdmin);
+  return [
+    { title: "nav.operate", links: [["home", "nav.home", "grid"], ["conversations", "nav.conversations", "chat"]] },
+    { title: "nav.configure", links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"]] },
+    { title: "nav.system", links: [...(tenantAdmin ? [["history", "history.title", "chat"]] : []), ["explorer", "explorer.title", "grid"], ...(user?.isAdmin ? [["settings", "nav.settings", "settings"]] : [])] },
+    ...(tenantAdmin ? [{ title: "nav.administration", links: [["users", "nav.users", "users"], ...(user?.isAdmin ? [["tenants", "nav.tenants", "grid"]] : []), ["audit", "nav.audit", "prompt"]] }] : []),
+  ];
 }
-function Shell({ theme, toggleTheme, notify }) {
+/** Routes that need a signed-in user send everyone else to the sign-in page, remembering where they were going. */
+function RequireSession({ session, expired }) {
+  const location = useLocation();
+  if (!session) return <Navigate to="/dashboard/login" replace state={{ from: location.pathname + location.search, expired }} />;
+  return <Outlet />;
+}
+/** Only administrators reach administration pages; others go home. */
+function RequireRole({ session, role }) {
+  const context = useOutletContext();
+  const allowed = role === "system" ? session?.user?.isAdmin : session?.user?.isAdmin || session?.user?.isTenantAdmin;
+  return allowed ? <Outlet context={context} /> : <Navigate to="/dashboard/home" replace />;
+}
+function AccountMenu({ session }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const name = displayName(session.user);
+  return <ActionMenu label="account.menu" triggerClassName="account-trigger" items={[
+    { label: "account.title", onClick: () => navigate("/dashboard/account") },
+    { label: "account.signOut", onClick: async () => { await signOut(); navigate("/dashboard/login", { replace: true }); } },
+  ]}>
+    <Icon name="users" /><span className="account-name">{name}</span><span className="badge tenant-badge" title={t("account.tenant.help")}>{session.tenant?.name}</span>
+  </ActionMenu>;
+}
+function Shell({ theme, toggleTheme, notify, session }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const groups = [
-    {
-      title: "nav.operate",
-      links: [
-        ["home", "nav.home", "grid"],
-        ["conversations", "nav.conversations", "chat"],
-      ],
-    },
-    {
-      title: "nav.configure",
-      links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"]],
-    },
-    {
-      title: "nav.system",
-      links: [
-        ["history", "history.title", "chat"],
-        ["explorer", "explorer.title", "grid"],
-        ["settings", "nav.settings", "settings"],
-
-      ],
-    },
-  ];
+  const groups = navigationGroups(session.user);
   return (
     <div className="app-shell">
       <aside className={open ? "sidebar open" : "sidebar"}>
@@ -128,7 +122,6 @@ function Shell({ theme, toggleTheme, notify }) {
           />
           <div className="server-context">
             <span className="badge address-badge" title={t("service.address.help")}><code>{location.host}</code></span>
-            <span>{t("nav.localWorkspace")}</span>
           </div>
           <div className="utilities">
             <a
@@ -143,11 +136,11 @@ function Shell({ theme, toggleTheme, notify }) {
             </a>
             <ThemeControl theme={theme} toggle={toggleTheme} />
             <Language />
-
+            <AccountMenu session={session} />
           </div>
         </header>
         <main className="route-content">
-          <Outlet context={{ api, notify }} />
+          <Outlet context={{ api, notify, session }} />
         </main>
       </div>
     </div>
@@ -161,6 +154,8 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [checking, setChecking] = useState(hasDashboardConnection);
   const [connectionError, setConnectionError] = useState(null);
+  const [session, setSession] = useState(null);
+  const [expired, setExpired] = useState(false);
   const [notice, setNotice] = useState(null);
   const [theme, setTheme] = useState(
     () =>
@@ -172,14 +167,14 @@ export default function App() {
     localStorage.setItem("arguebot.theme", theme);
   }, [theme]);
   useEffect(() => {
+    const unsubscribe = subscribe((value) => setSession(value));
+    // A rejected token anywhere signs the dashboard out and returns to the sign-in page.
+    api.onUnauthorized = () => { setExpired(true); expireSession(); };
     connectDashboard()
-      .then(() => setConnected(true))
-      .catch((failure) => {
-        api.token = "";
-        sessionStorage.removeItem("arguebot.session");
-        setConnectionError(failure);
-      })
+      .then((restored) => { setSession(restored); setConnected(true); })
+      .catch((failure) => setConnectionError(failure))
       .finally(() => setChecking(false));
+    return () => { unsubscribe(); api.onUnauthorized = null; };
   }, []);
   const { t } = useTranslation();
   const notify = useCallback((error) => {
@@ -196,38 +191,28 @@ export default function App() {
       >
         {connected ? (
           <Routes>
-            <Route path="/dashboard/conversations/:id/read" element={<TranscriptReader />} />
-            <Route
-              element={
-                <Shell
-                  theme={theme}
-                  toggleTheme={toggleTheme}
-                  notify={notify}
-
-                />
-              }
-            >
-              <Route path="/dashboard/home" element={<Home />} />
-              <Route
-                path="/dashboard/conversations"
-                element={<Conversations />}
-              />
-              <Route
-                path="/dashboard/conversations/:id"
-                element={<Workspace />}
-              />
-              <Route
-                path="/dashboard/participants"
-                element={<Participants />}
-              />
-              <Route path="/dashboard/prompts" element={<Prompts />} />
-              <Route path="/dashboard/history" element={<RequestHistory />} />
-              <Route path="/dashboard/explorer" element={<ApiExplorer />} />
-              <Route path="/dashboard/settings" element={<Settings />} />
-              <Route
-                path="*"
-                element={<Navigate to="/dashboard/home" replace />}
-              />
+            <Route path="/dashboard/login" element={session ? <SignedIn /> : <Login theme={theme} toggleTheme={toggleTheme} onSignedIn={(value) => { setExpired(false); setSession(value); }} />} />
+            <Route element={<RequireSession session={session} expired={expired} />}>
+              <Route path="/dashboard/conversations/:id/read" element={<TranscriptReader />} />
+              <Route element={<Shell theme={theme} toggleTheme={toggleTheme} notify={notify} session={session} />}>
+                <Route path="/dashboard/home" element={<Home />} />
+                <Route path="/dashboard/conversations" element={<Conversations />} />
+                <Route path="/dashboard/conversations/:id" element={<Workspace />} />
+                <Route path="/dashboard/participants" element={<Participants />} />
+                <Route path="/dashboard/prompts" element={<Prompts />} />
+                <Route path="/dashboard/explorer" element={<ApiExplorer />} />
+                <Route path="/dashboard/account" element={<Account />} />
+                <Route element={<RequireRole session={session} role="tenant" />}>
+                  <Route path="/dashboard/history" element={<RequestHistory />} />
+                  <Route path="/dashboard/users" element={<Users />} />
+                  <Route path="/dashboard/audit" element={<Audit />} />
+                </Route>
+                <Route element={<RequireRole session={session} role="system" />}>
+                  <Route path="/dashboard/settings" element={<Settings />} />
+                  <Route path="/dashboard/tenants" element={<Tenants />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/dashboard/home" replace />} />
+              </Route>
             </Route>
           </Routes>
         ) : (
@@ -242,4 +227,9 @@ export default function App() {
       </Suspense>
     </BrowserRouter>
   );
+}
+/** Visiting the sign-in page while signed in continues to the requested page. */
+function SignedIn() {
+  const location = useLocation();
+  return <Navigate to={returnPath(location)} replace />;
 }

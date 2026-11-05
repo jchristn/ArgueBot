@@ -210,7 +210,7 @@ function ProfileForm({ onSave, onClose, initial, api }) {
   );
 }
 export default function Participants() {
-  const { api, notify } = useOutletContext();
+  const { api, notify, session } = useOutletContext();
   const { t } = useTranslation();
   const { data, error, reload } = useData("participants", () =>
     api.participants(),
@@ -276,7 +276,7 @@ export default function Participants() {
   );
   const tabs = [
     { key: "agents", label: "participants.tab.agents", help: "participants.tab.agents.help", count: data?.length, render: agents },
-    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data} error={catalog.error} reload={catalog.reload} /> })),
+    ...catalogKinds.map(kind => ({ key: kind, label: `catalog.${kind}`, help: `catalog.${kind}.help`, count: catalog.data?.[kind]?.length, render: () => <CatalogTab api={api} notify={notify} kind={kind} data={catalog.data} error={catalog.error} reload={catalog.reload} systemAdmin={!!session?.user?.isAdmin} /> })),
   ];
   return (
     <>

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("request activity has exact timeframes, readable axes, status colors and pointer/keyboard details", async ({ page }) => {
   const number = new Intl.NumberFormat("en");

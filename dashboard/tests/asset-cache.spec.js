@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("versioned dashboard assets are reusable while HTML and API data stay fresh", async ({ page }) => {
   const html = await page.goto("/dashboard/history");

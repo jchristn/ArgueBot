@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("new conversation asks for a title and an opening question, and the debate starts from the question", async ({ page, request }) => {
   const title = "Opening flow " + Date.now();

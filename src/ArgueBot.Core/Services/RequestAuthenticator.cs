@@ -25,6 +25,8 @@ namespace ArgueBot.Core.Services
         private readonly SessionProtector _Protector;
         private readonly LoginRateLimiter _Limiter;
         private readonly TimeProvider _Clock;
+        // Last-use updates are throttled in memory so a burst of parallel requests causes one write per principal per minute, not one each.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _Touched = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>(StringComparer.Ordinal);
 
         /// <summary>Create an authenticator over the service database and its session key.</summary>
         public RequestAuthenticator(DatabaseDriverBase database, SessionProtector protector, LoginRateLimiter? limiter = null, TimeProvider? clock = null)
@@ -103,7 +105,7 @@ namespace ArgueBot.Core.Services
                 Role = principal.User.IsAdmin || principal.User.IsTenantAdmin ? "admin" : "member", AuthScheme = scheme,
                 PrincipalType = principal.PrincipalType.Length == 0 ? "User" : principal.PrincipalType, SessionId = principal.PrincipalType == "Credential" && principal.Id == principal.CredentialId ? "" : principal.Id, CredentialId = principal.CredentialId
             };
-            if (principal.LastUsedUtc == null || principal.LastUsedUtc.Value + TouchInterval <= now)
+            if ((principal.LastUsedUtc == null || principal.LastUsedUtc.Value + TouchInterval <= now) && Claim(principal.PrincipalType + ":" + principal.Id, now))
             {
                 if (context.SessionId.Length > 0) await SessionStore.TouchSessionAsync(_Database, context.SessionId, token).ConfigureAwait(false);
                 else
@@ -195,6 +197,22 @@ namespace ArgueBot.Core.Services
         private static AuditEvent Event(RequestContext context, string operation, string outcome, int status, string error, string authentication, string reason, string scheme, User? user)
         {
             return new AuditEvent { TenantId = user?.TenantId ?? context.TenantId, UserId = user?.Id ?? context.UserId, Operation = operation, Outcome = outcome, StatusCode = status, ErrorCode = error, AuthenticationResult = authentication, Reason = reason, AuthScheme = scheme, CorrelationId = context.CorrelationId, SourceIp = context.SourceIp, PrincipalType = "User" };
+        }
+        private bool Claim(string key, DateTime now)
+        {
+            while (true)
+            {
+                if (_Touched.TryGetValue(key, out DateTime last))
+                {
+                    if (last + TouchInterval > now) return false;
+                    if (_Touched.TryUpdate(key, now, last)) return true;
+                }
+                else if (_Touched.TryAdd(key, now))
+                {
+                    if (_Touched.Count > 10000) foreach (KeyValuePair<string, DateTime> stale in _Touched) if (stale.Value + TouchInterval <= now) _Touched.TryRemove(stale.Key, out _);
+                    return true;
+                }
+            }
         }
         private static bool SameHash(string stored, string computed) { return CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(stored), Encoding.ASCII.GetBytes(computed)); }
         private static DomainException Invalid(string code, string message) { return new DomainException(401, code, message); }

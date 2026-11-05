@@ -89,7 +89,14 @@ namespace ArgueBot.Server
                                 });
                                 RequestCapture capture = new RequestCapture(database, settings, paths);
                                 server.Routes.PostRouting = capture.CaptureAsync;
-                                server.Routes.AuthenticateRequest = http => Api.GuardAsync(http, () => RequestGate.AuthenticateAsync(http, authenticator));
+                                server.Routes.AuthenticateRequest = async http =>
+                                {
+                                    await Api.GuardAsync(http, () => RequestGate.AuthenticateAsync(http, authenticator)).ConfigureAwait(false);
+                                    // Fail closed: if authentication neither signed the request in nor answered it (for example the client
+                                    // disconnected mid-check), terminate it so no route handler runs without a signed-in context.
+                                    if (!http.Response.ResponseSent && !(http.Metadata is RequestContext { IsAuthenticated: true }))
+                                        throw new OperationCanceledException("Authentication did not complete.");
+                                };
                                 server.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/health", http => Api.GuardAsync(http, async () =>
                                 {
                                     string challenge = http.Request.RetrieveQueryValue("challenge") ?? "";

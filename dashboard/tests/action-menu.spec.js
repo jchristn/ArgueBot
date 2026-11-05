@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test("table rows use an Actions menu that stays in the viewport and renames conversations", async ({ page, request }) => {
   test.setTimeout(120000);

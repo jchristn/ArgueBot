@@ -201,7 +201,7 @@ function usedBy(data, id) {
 }
 
 /** One reusable configuration kind as a table with its add, edit and inspection actions. */
-export default function CatalogTab({ api, notify, kind, data, error, reload }) {
+export default function CatalogTab({ api, notify, kind, data, error, reload, systemAdmin = false }) {
   const { t } = useTranslation();
   const [modelCheck, setModelCheck] = useState(null);
   const [keys, setKeys] = useState(null);
@@ -223,7 +223,7 @@ export default function CatalogTab({ api, notify, kind, data, error, reload }) {
     <div className="tab-toolbar">
       <p className="muted">{t(`catalog.intro.${kind}`)}</p>
       <div className="toolbar-actions">
-        {kind === "credentials" && <Button label="catalog.keys" onClick={async () => { try { setKeys(await api.credentialKeys()); } catch (failure) { notify(failure); } }} />}
+        {kind === "credentials" && systemAdmin && <Button label="catalog.keys" onClick={async () => { try { setKeys(await api.credentialKeys()); } catch (failure) { notify(failure); } }} />}
         <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
         <Button label={`catalog.add.${kind}`} icon="plus" className="primary" onClick={() => setEditing({})} disabled={!data} />
       </div>

@@ -12,6 +12,7 @@ These decisions come from the product owner and override any conflicting default
 | --- | --- |
 | Multitenancy | Yes. Every record belongs to exactly one tenant. Requests resolve to one tenant before any data access. |
 | RBAC | Not in scope. No roles, permissions or assignments. Authorization uses the `IsAdmin` and `IsTenantAdmin` flags from AUTHENTICATION.md. |
+| User types | Three, from two flags on each user. **System administrator** (`isAdmin`): creates, edits and deletes anything, including tenants, any tenant's users (with `x-tenant-id`), service settings and encryption keys. **Tenant administrator** (`isTenantAdmin`): creates, edits and deletes anything inside their own tenant, including its users, their tokens and sessions, request history and the audit log. **User** (neither flag): uses and changes the tenant's shared conversations and configuration, manages only their own account, tokens and sessions, and has no administration. A system administrator is always also a tenant administrator. Only a system administrator can grant or remove system administration. The dashboard Users page sets both flags; the role column shows the result. |
 | Sharing inside a tenant | Shared. Every user in a tenant sees and edits the tenant's conversations, agents, models, harnesses, endpoints, secrets and prompts. `user_id` on a record means "created by", not "owned by". |
 | Naming | **Credentials** are the new user bearer tokens, matching AUTHENTICATION.md. The existing provider secrets (Claude Code tokens, Codex logins, HTTP API keys) become **Secrets** in the UI, CLI, TUI and API. |
 | Default identity | On every startup, ensure a default tenant, a default user `admin@arguebot` with password `password`, and a credential whose bearer token is `arguebotadmin`. Never overwrite them once a user has changed them. |
@@ -128,15 +129,19 @@ Evidence (2026-11-04): `node scripts/generate-api.mjs` emits 131 operations with
 
 Follow FRONTEND_ARCHITECTURE.md, DASHBOARD_STYLE_AND_USABILITY.md and I18N.md (every string in `assets/i18n/en.json`).
 
-- [ ] Login page at `/dashboard/login`, outside the app shell: email, password, a tenant selector shown only after `tenant_required`, and "Sign in with a token" as an alternative. A panel always shows the default credentials (`admin@arguebot`, `password`, token `arguebotadmin`) with a note to change them after signing in.
-- [ ] Session handling: keep the session token in `sessionStorage` (cleared when the browser closes; never in `localStorage` or cookies), send `Authorization: Bearer` on every request including the event stream, refresh before expiry, and redirect to the login page on 401 with a return path.
-- [ ] Top bar: signed-in user and tenant badge with a menu: Account, Sign out.
-- [ ] Account page: profile, change password, my credentials (create with the token shown once and a copy button, list with last four characters, last used and expiry, rename, disable, delete), my sessions (sign out other sessions).
-- [ ] Administration section (tenant admins and system admins): Users (create, edit, disable, reset password, manage a user's credentials), Audit log. System admins also see Tenants (create, rename, disable, delete with confirmation) and keep Settings; other users no longer see Settings or encryption-key controls.
-- [ ] Participants: rename the Credentials tab to **Secrets**, including dialogs, help text, harness and endpoint pickers, and the encryption-keys dialog.
-- [ ] UX pass at the end of the phase: light and dark themes, 390, 768 and 1280 px widths, keyboard and screen-reader names, right-to-left and expanded pseudo-locales, hover contrast, empty and error states.
+- [x] Login page at `/dashboard/login`, outside the app shell: email, password, a tenant selector shown only after `tenant_required`, and "Sign in with a token" as an alternative. A panel always shows the default credentials (`admin@arguebot`, `password`, token `arguebotadmin`) with a note to change them after signing in.
+- [x] Session handling: keep the session token in `sessionStorage` (cleared when the browser closes; never in `localStorage` or cookies), send `Authorization: Bearer` on every request including the event stream, refresh before expiry, and redirect to the login page on 401 with a return path.
+- [x] Top bar: signed-in user and tenant badge with a menu: Account, Sign out.
+- [x] Account page: profile, change password, my credentials (create with the token shown once and a copy button, list with last four characters, last used and expiry, rename, disable, delete), my sessions (sign out other sessions).
+- [x] Administration section (tenant admins and system admins): Users (create, edit, disable, reset password, manage a user's credentials), Audit log. System admins also see Tenants (create, rename, disable, delete with confirmation) and keep Settings; other users no longer see Settings or encryption-key controls.
+- [x] Participants: rename the Credentials tab to **Secrets**, including dialogs, help text, harness and endpoint pickers, and the encryption-keys dialog.
+- [x] UX pass at the end of the phase: light and dark themes, 390, 768 and 1280 px widths, keyboard and screen-reader names, right-to-left and expanded pseudo-locales, hover contrast, empty and error states.
+
+- [x] System administrators pick any tenant on the Users page (Tenants > open a tenant), which sends `x-tenant-id`; this is how a new tenant gets its first tenant administrator.
 
 Acceptance: browser tests for login (default credentials visible), wrong password, tenant selection, sign in with a token, logout, expiry redirect, account password change, credential shown once, user administration, tenant administration as system admin, 403 handling for members, and the renamed Secrets tab; accessibility and hover-contrast suites pass.
+
+Evidence (2026-11-04): `tests/sign-in.spec.js` (default credentials always visible, wrong password, return to the requested page, reload keeps the session, sign out, bearer-token sign-in, member navigation without administration and a redirect away from Settings, a token created on the Account page shown once and then disabled, user creation, audit rows, tenant creation with its first tenant administrator, tenant choice for a shared email, password change, revoked session returning to sign-in with a reason, and the sign-in page at 390 and 1280 px in both themes and right-to-left). The accessibility, hover-contrast and route review specs now include Account, Users, Tenants and Audit. Component tests cover the session module (sessionStorage only, bearer header, restore, tenant choice, 401 handling, refresh five minutes before expiry, server sign-out), return paths and role navigation: 54 of 54. Full browser suite: 43 passed, 1 skipped, apart from the intermittent navigation error recorded in Phase 8.
 
 ## Phase 5: Public share links
 
@@ -175,6 +180,8 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 ## Phase 8: Verification and release preparation
 
 - [ ] Full console suite, xUnit and NUnit on .NET 8 and 10, PostgreSQL, CLI script, Postman, browser, component and Terminal suites, container acceptance with the bearer token, and hosted CI on the branch.
+- [ ] Investigate the intermittent Chrome `net::ERR_TOO_MANY_RETRIES` on a navigation or reload while the page still has requests in flight (seen in the browser suite since v2.0, before sign-in existed; about 1 in 3 repeats of the sign-in reload step, never with a Chrome net log enabled and never from a Node client). Suspect Watson's handling of aborted TLS connections.
+- [ ] The browser suite shares one address, so its deliberate wrong-password steps count toward the sign-in rate limit (10 per 5 minutes). Keep the count of such steps low or give the e2e service a test-only limit.
 - [ ] Upgrade test: start 2.1.0 on a schema 29 home with existing conversations, sign in as the default admin, and confirm everything is present in the default tenant.
 - [ ] Security review against "Security Best Practices" 1 to 19 (excluding RBAC items), recorded in `docs/IDENTITY.md`.
 - [ ] Build and push `jchristn77/arguebot:v2.1.0` with `build-arguebot.sh v2.1.0` only when the owner asks.
@@ -185,7 +192,7 @@ Acceptance: no stale references to an open workspace or to "Credentials" meaning
 - [x] Phase 1: schema and identity data
 - [x] Phase 2: authentication pipeline
 - [x] Phase 3: management API
-- [ ] Phase 4: dashboard
+- [x] Phase 4: dashboard
 - [ ] Phase 5: public share links
 - [ ] Phase 6: CLI and TUI
 - [ ] Phase 7: API artifacts and documentation
