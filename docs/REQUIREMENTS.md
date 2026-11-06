@@ -16,6 +16,20 @@ On October 20, 2026 the user required REST-connected models to execute local too
 
 October 20, 2026 product scope override (superseded for 2.1 on November 4, 2026): remove user accounts, roles, permissions, security audit, login/pairing and identity-dependent controls from every product surface and public API.
 
+## November 5, 2026 v2.2 resources scope
+
+The user asked for a top-level Resource entity in 2.2.0: named markdown documents that agents can list, read, create and edit through tools during a debate, so prompts can point agents at context to pull in when needed and agents can build their own. The decisions are recorded in [RESOURCES_PLAN.md](../archive/RESOURCES_PLAN.md) and summarized here:
+
+- Resources are database rows in the tenant's shared library, like prompts and agents. The service remains the sole writer, and SQLite and PostgreSQL both store them (schema 33).
+- Each resource has a unique, case-insensitive name within the tenant, a markdown body up to 256 KiB, a title, a one-line description, optional tags, a locked flag and a full revision history. Updates use optimistic concurrency on the revision.
+- Each debate sets resource access to `off`, `read` (the default) or `read_write`, and can narrow which resources it sees by name or tag. Agents never change locked resources. Agent-created resources go straight into the shared library, marked as agent-authored, with history and revert.
+- The agent tools are plain conversation tools (`list_resources`, `search_resources`, `read_resource`, `create_resource`, `update_resource`, `edit_resource`, `append_resource`), not the MCP resources primitive, so they reach Claude Code, Codex, Mux, Gemini, generic CLIs and REST models the same way.
+- Prompts get an opt-in `{resources}` placeholder.
+
+BACKEND_ARCHITECTURE.md, BACKEND_TEST_ARCHITECTURE.md, FRONTEND_ARCHITECTURE.md, DASHBOARD_STYLE_AND_USABILITY.md, I18N.md and CODE_STYLE.md were re-checked on November 5, 2026; their hashes are unchanged from the manifest. Resources follow the existing rules (PrettyId `res_` and `rsr_` IDs, typed contracts, tenant-scoped domain methods, both database providers, audited changes, localized dashboard text). No new deviation is introduced beyond those already recorded for 2.1: there is no RBAC, so any member of a tenant can manage its resources.
+
+The implementation (November 5, 2026) follows these decisions. Its small deviations from the plan's wording (a leading letter-or-digit name rule, one request type for create and update, a larger MCP frame limit, and upgraded debates keeping access off) are listed in the plan's execution record. The user guide is [RESOURCES.md](RESOURCES.md).
+
 ## November 4, 2026 v2.1 identity scope
 
 The user asked for users, bearer-token credentials, a login page, API authentication and multitenancy in 2.1.0, with a default tenant and the default administrator `admin@arguebot` (password `password`, token `arguebotadmin`) created at startup, the login screens always showing the default credentials, and no RBAC. Users are system administrators, tenant administrators or ordinary users. Data is shared within a tenant. Provider credentials are renamed secrets. [IDENTITY.md](IDENTITY.md) describes the result; [archive/USER_AUTH_PLAN.md](../archive/USER_AUTH_PLAN.md) records the work and evidence.

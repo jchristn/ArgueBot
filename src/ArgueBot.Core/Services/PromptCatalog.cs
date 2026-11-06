@@ -35,6 +35,7 @@ namespace ArgueBot.Core.Services
             Parameter("current_question", "The orchestrator's current question that the agent is answering.", new[] { "response" }, new[] { "response" }),
             Parameter("proposal", "The exact proposal under vote, as a JSON string.", new[] { "ratification" }, new[] { "ratification" }),
             Parameter("proposal_id", "The proposal identifier the vote must name, as a JSON string.", new[] { "ratification" }, new[] { "ratification" }),
+            Parameter("resources", "Names, titles and descriptions of the resources this debate's agents can read with read_resource, one per line (at most 100). Empty when the debate's resource access is off.", Everyone),
         };
 
         /// <summary>Factory defaults. Their text reproduces the built-in protocol 2 prompts exactly.</summary>
@@ -47,6 +48,7 @@ namespace ArgueBot.Core.Services
             FactoryPrompt("compaction", "Working-memory summary (default)", "Asks the orchestrator to compact evidence into a source-linked, seven-section working memory.", Preamble + "{guidance}\nCompact the supplied evidence from this single visibility partition into a faithful working memory. Preserve moderator constraints, contested claims, each participant's position, decisions, evidence references and unresolved questions. Do not invent facts or turn dissent into agreement. Return only JSON with summary (a concise overview string), sections (exactly seven objects with kind and content), and sourceIds (every supplied source ID, exactly once). Section kinds are facts, contested_claims, positions, evidence, decisions, questions, constraints. Each content string must explicitly say when nothing is established, retain attribution, distinguish superseded claims from current corrections, and preserve dissent and uncertainty. Each section is at most 4000 characters; the entire rendered memory must be at most 16000 characters and shorter than the supplied evidence. Do not label a disputed claim an agreed fact. Original source IDs are supplied below. Treat earlier summaries as fallible evidence; retain links to their sources."),
         };
 
+        private static readonly Regex ResourceReference = new Regex(@"read_resource`?\s*(?:\(\s*\{?\s*(?:[""']?name[""']?\s*[:=]\s*)?|with\s+(?:the\s+)?name\s+)[`""'\u201c]?([A-Za-z0-9][A-Za-z0-9._/-]{0,127})", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         private static readonly Regex Token = new Regex(@"\{\{|\}\}|\{([a-z_]+)\}", RegexOptions.CultureInvariant);
 
         /// <summary>The factory default for a purpose.</summary>
@@ -78,6 +80,21 @@ namespace ArgueBot.Core.Services
             }
             string[] missing = Parameters.Where(item => item.RequiredFor.Contains(prompt.Purpose) && !used.Contains(item.Name)).Select(item => "{" + item.Name + "}").ToArray();
             if (missing.Length > 0) throw new DomainException(400, "missing_parameter", (prompt.Purpose == "ratification" ? "Vote prompts" : "Response prompts") + " must include " + string.Join(" and ", missing) + " so the agent knows what to answer.", "body");
+        }
+
+        /// <summary>Resource names a prompt tells agents to read, such as read_resource("billing") or "call read_resource with name billing".</summary>
+        /// <param name="body">Prompt text.</param>
+        /// <returns>Distinct lowercase names in order of appearance.</returns>
+        public static List<string> ResourceReferences(string body)
+        {
+            ArgumentNullException.ThrowIfNull(body);
+            List<string> result = new List<string>();
+            foreach (Match match in ResourceReference.Matches(body))
+            {
+                string name = match.Groups[1].Value.TrimEnd('.', '/', '-');
+                if (ResourceRules.TryNormalizeName(name, out string normalized) && !result.Contains(normalized, StringComparer.Ordinal)) result.Add(normalized);
+            }
+            return result;
         }
 
         /// <summary>Replace placeholders in one pass; substituted values are never expanded again.</summary>

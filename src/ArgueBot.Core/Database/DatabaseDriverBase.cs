@@ -56,6 +56,8 @@ namespace ArgueBot.Core.Database
         public IMemoryMethods Memory { get; }
         /// <summary>Debate prompt library, conversation selections and frozen run prompts.</summary>
         public IPromptMethods Prompts { get; }
+        /// <summary>Tenant resource library and revision history.</summary>
+        public IResourceMethods Resources { get; }
         /// <summary>Tenants, users and bearer-token credentials.</summary>
         public IIdentityMethods Identity { get; }
         /// <summary>Public conversation links.</summary>
@@ -87,6 +89,7 @@ namespace ArgueBot.Core.Database
             Rosters = new RosterMethods(this);
             Memory = new MemoryMethods(this);
             Prompts = new PromptMethods(this);
+            Resources = new ResourceMethods(this);
             Identity = new IdentityMethods(this); Shares = new ShareMethods(this);
             Clarifications = new ClarificationMethods(this);
             History = new HistoryMethods(this);

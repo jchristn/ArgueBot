@@ -71,5 +71,8 @@ namespace ArgueBot.Core.Models
         private List<CredentialRevision> _CredentialRevisions = new List<CredentialRevision>();
         /// <summary>Credential identities and revisions actually resolved for this invocation; never credential values.</summary>
         public List<CredentialRevision> CredentialRevisions { get { return _CredentialRevisions; } set { System.ArgumentNullException.ThrowIfNull(value); _CredentialRevisions = value; } }
+        private List<AttemptResource> _Resources = new List<AttemptResource>();
+        /// <summary>Resources this attempt read or wrote through the resource tools, in call order.</summary>
+        public List<AttemptResource> Resources { get { return _Resources; } set { System.ArgumentNullException.ThrowIfNull(value); _Resources = value; } }
     }
 }

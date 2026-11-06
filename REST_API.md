@@ -1234,6 +1234,160 @@ Success: **200**, response: `Acknowledgement`.
 | id | path | true | Resource ID. Copy it from the matching list. |
 | revision | query | false | Expected current revision; the request is refused if the resource changed. |
 
+## GET /v2.0/api/resources
+
+List resources in name order with optional search and tag filters. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ResourcePage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| search | query | false | Case-insensitive text to find in paths or titles. |
+| tag | query | false | Backend filter. |
+| pageNumber | query | false | Page to return, starting at 1. |
+| pageSize | query | false | Items per page, 1 through 100 unless noted. |
+
+## POST /v2.0/api/resources
+
+Create a resource. Access: any signed-in user of an active tenant.
+
+Success: **201**, response: `Resource`. Request: `ResourceRequest`.
+
+Representative request:
+
+```json
+{
+  "name": "billing",
+  "title": "Billing",
+  "description": "How invoices, refunds and credits work.",
+  "tags": [
+    "finance"
+  ],
+  "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver."
+}
+```
+
+## POST /v2.0/api/resources/import
+
+Import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked. Access: any signed-in user of an active tenant.
+
+Success: **201**, response: `ResourceImportResult`. Request: `ResourceImportRequest`.
+
+Representative request:
+
+```json
+{
+  "overwrite": false,
+  "files": [
+    {
+      "fileName": "team-conventions.md",
+      "content": "---\nname: team/conventions\ntitle: Team conventions\ndescription: Code review and naming rules.\ntags: [engineering]\n---\n\nUse descriptive branch names. Every change needs one review."
+    }
+  ]
+}
+```
+
+## GET /v2.0/api/resources/by-name/{resourceName}
+
+Read a resource by name; names may contain slashes. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Resource`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceName | path | true | Resource name, for example billing or team/conventions. Slashes in the name stay as path separators. |
+
+## GET /v2.0/api/resources/{resourceId}
+
+Read a resource. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Resource`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
+## PUT /v2.0/api/resources/{resourceId}
+
+Update, rename, lock or unlock a resource with its expected revision; omitted fields are kept. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Resource`. Request: `ResourceRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
+Representative request:
+
+```json
+{
+  "description": "How invoices, refunds and credits work, including approvals.",
+  "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver. Credits expire after a year.",
+  "revision": 1
+}
+```
+
+## DELETE /v2.0/api/resources/{resourceId}
+
+Delete a resource and its history with its expected revision. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+| revision | query | false | Expected current revision; the request is refused if the resource changed. |
+
+## GET /v2.0/api/resources/{resourceId}/revisions
+
+List a resource's saved revisions newest first, without bodies. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `List<ResourceRevision>`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
+## GET /v2.0/api/resources/{resourceId}/revisions/{revision}
+
+Read one saved revision with its body. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `ResourceRevision`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+| revision | path | true | Revision number, from the resource or its history. |
+
+## POST /v2.0/api/resources/{resourceId}/revert
+
+Restore a saved revision's title, description, tags and body as a new revision. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Resource`. Request: `ResourceRevertRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
+Representative request:
+
+```json
+{
+  "targetRevision": 1,
+  "revision": 2
+}
+```
+
+## GET /v2.0/api/resources/{resourceId}/export
+
+Export a resource as markdown with front matter. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `string`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
 ## POST /v2.0/api/configuration/endpoints/{id}/discover
 
 Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
@@ -1888,6 +2042,20 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
 
+### AttemptResource
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| resourceId | string | Resource ID (res_...). |
+| name | string | Resource name at the time of the call. |
+| revision | integer | Revision read, or the revision a write produced. |
+| access | string | read or write. |
+| tool | string | Tool used: read_resource, create_resource, update_resource, edit_resource or append_resource. |
+| bytes | integer | UTF-8 bytes written; zero for reads. |
+| createdUtc | string | Time of the call in UTC. |
+
 ### AuditEvent
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -2214,6 +2382,12 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxWallClockSeconds | integer | Elapsed deadline from run admission, including queues, intervention windows and pauses. |
 | maxContextCharacters | integer | Per-invocation character ceiling, further restricted by service and model capacity. |
 | maxEstimatedInputTokens | integer | Optional cumulative estimated initial-input token ceiling; zero disables it. This is an estimate, not provider accounting. |
+| resourceAccess | string | What the debate's agents may do with the tenant's resources: off (no resource tools), read (the default: list, search and read) or read_write (also create, update, edit and append). |
+| resourceNames | array | Optional names of the only resources this debate's agents can see, up to 200. With resourceTags, a resource is visible when it matches either list. Both empty means every resource. |
+| resourceTags | array | Optional tags, up to 16; resources with any of them are visible. Resources the agents create are visible to them for the rest of the debate. |
+| maxResourceWritesPerTurn | integer | Most resource writes (create, update, edit and append) in one agent turn, 0 through 100. Default 8. |
+| maxResourceWriteBytesPerTurn | integer | Most UTF-8 bytes of resource text written in one agent turn, 0 through 1048576. Default 65536. |
+| maxResourcesCreated | integer | Most resources the debate's agents may create in total, 0 through 1000. Default 50. |
 | questionInstructions | string | Additional neutral question-selection guidance, up to 4000 characters. |
 | synthesisInstructions | string | Additional proposal presentation guidance, up to 4000 characters. |
 | summaryInstructions | string | Additional evidence-preservation guidance, up to 4000 characters. |
@@ -2296,6 +2470,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | compactionCalls | integer | Reserved compaction calls for this run. |
 | toolCalls | integer | Reserved tool calls for this run. |
 | estimatedInputTokens | integer | Reserved estimated input tokens for this run. |
+| resourcesCreated | integer | Resources this run's agents created. |
 | tokenEstimateMethod | string | Initial prompt UTF-8 bytes plus envelope allowance; not billed provider tokens or continuation accounting. |
 
 ### DeletedCount
@@ -2400,6 +2575,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | rosterRevision | integer | Roster revision frozen before invocation. |
 | endpointWaitMilliseconds | integer | Elapsed milliseconds waiting for shared endpoint capacity; zero for immediate admission, CLI or older records. |
 | credentialRevisions | array | Credential identities and revisions actually resolved for this invocation; never credential values. |
+| resources | array | Resources this attempt read or wrote through the resource tools, in call order. |
 
 ### HealthResponse
 
@@ -2623,6 +2799,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | body | string | Prompt text with {parameter} placeholders. Use {{ and }} for literal braces. Up to 32000 characters. |
 | factory | boolean | True for a factory default, which cannot be edited or deleted. |
 | revision | integer | Optimistic revision. Updates and deletes must supply the current value. |
+| warnings | array | Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored. |
 | createdUtc | string | Creation time in UTC. |
 | updatedUtc | string | Last change time in UTC. |
 
@@ -2647,6 +2824,137 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | traceId | string | Trace correlation ID. |
 | createdUtc | string | Request receipt timestamp. |
 | headers | array | Redacted structured headers. |
+
+### Resource
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable resource identifier (res_...). Names can change; the ID does not. |
+| name | string | Unique name within the tenant, 1 through 128 characters of lowercase letters, digits, hyphen, underscore, period and slash, for example billing or team/conventions. Agents pass it to read_resource. |
+| title | string | Display title, up to 200 characters. Empty uses the name. |
+| description | string | One-line summary, up to 500 characters, shown by list_resources so an agent can decide what to read. |
+| tags | array | Up to 16 lowercase tags, each 1 through 64 characters of letters, digits, hyphen, underscore, period and slash. |
+| body | string | Markdown content, up to 262144 UTF-8 bytes (256 KiB). NUL characters are not allowed. |
+| characters | integer | Body length in UTF-16 characters, the unit read_resource offsets use. |
+| bytes | integer | Body size in UTF-8 bytes. |
+| locked | boolean | When true, agents can read but never change this resource. Users can still edit it. |
+| revision | integer | Optimistic revision, starting at 1 and increasing with every change. Updates, deletes and reverts must supply the current value. |
+| createdByUserId | string | User who created the resource, or the user whose debate created it. |
+| updatedByKind | string | Who made the latest change: user or agent. Agent-written text persists into later debates, so treat it as unreviewed until a user checks it. |
+| updatedById | string | User ID (usr_...) or agent seat ID (par_...) that made the latest change. |
+| updatedByName | string | Display name of the user or agent that made the latest change. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
+
+### ResourceImportFile
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| fileName | string | Original file name. Without a name in the front matter, the name comes from the file name without its .md extension. |
+| content | string | File text, front matter included. |
+
+### ResourceImportRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| files | array | Files to import. |
+| overwrite | boolean | When true, a file whose name already exists replaces that resource's content as a new revision. When false (the default), an existing name fails the import with resource_exists. |
+
+### ResourceImportResult
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Imported resources in file order. |
+| created | integer | Number of new resources. |
+| updated | integer | Number of existing resources replaced. |
+
+### ResourcePage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Resources on this page. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Resources per page, 1 through 200. |
+| totalCount | integer | Resources matching the filter. |
+
+### ResourceRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| name | string (nullable) | Unique name within the tenant: 1 through 128 characters of letters, digits, hyphen, underscore, period and slash. It is stored in lowercase. Required on create; on update, a new value renames the resource. |
+| title | string (nullable) | Display title, up to 200 characters. |
+| description | string (nullable) | One-line summary, up to 500 characters. |
+| tags | array (nullable) | Up to 16 tags, each 1 through 64 characters. Stored in lowercase without duplicates. |
+| body | string (nullable) | Markdown content, up to 262144 UTF-8 bytes. The limit counts bytes, not characters. |
+| locked | boolean (nullable) | Whether agents are prevented from changing the resource. |
+| revision | integer | Expected current revision. Required on update; ignored on create. |
+
+### ResourceRevertRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| targetRevision | integer | Revision to restore. It must still be in the saved history. |
+| revision | integer | Expected current revision of the resource. |
+
+### ResourceRevision
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Revision record identifier (rsr_...). |
+| resourceId | string | Resource this revision belongs to (res_...). |
+| revision | integer | Revision number the change produced. |
+| name | string | Resource name at this revision. |
+| title | string | Title at this revision. |
+| description | string | Description at this revision. |
+| tags | array | Tags at this revision. |
+| body | string | Full markdown body at this revision. Empty in revision lists; read one revision to get it. |
+| characters | integer | Body length in UTF-16 characters. |
+| locked | boolean | Whether the resource was locked at this revision. |
+| change | string | What changed: create, update, rename, lock, unlock, append, revert or import. |
+| authorKind | string | user or agent. |
+| authorId | string | User ID (usr_...) or agent seat ID (par_...) that made the change. |
+| authorName | string | Display name of the author. |
+| runId | string | Debate run whose agent made the change (run_...), empty for user changes. |
+| attemptId | string | Generation attempt that made the change, empty for user changes. |
+| createdUtc | string | Time of the change in UTC. |
+
+### ResourceSummary
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable resource identifier (res_...). Names can change; the ID does not. |
+| name | string | Unique name within the tenant, 1 through 128 characters of lowercase letters, digits, hyphen, underscore, period and slash, for example billing or team/conventions. Agents pass it to read_resource. |
+| title | string | Display title, up to 200 characters. Empty uses the name. |
+| description | string | One-line summary, up to 500 characters, shown by list_resources so an agent can decide what to read. |
+| tags | array | Up to 16 lowercase tags, each 1 through 64 characters of letters, digits, hyphen, underscore, period and slash. |
+| characters | integer | Body length in UTF-16 characters, the unit read_resource offsets use. |
+| bytes | integer | Body size in UTF-8 bytes. |
+| locked | boolean | When true, agents can read but never change this resource. Users can still edit it. |
+| revision | integer | Optimistic revision, starting at 1 and increasing with every change. Updates, deletes and reverts must supply the current value. |
+| createdByUserId | string | User who created the resource, or the user whose debate created it. |
+| updatedByKind | string | Who made the latest change: user or agent. Agent-written text persists into later debates, so treat it as unreviewed until a user checks it. |
+| updatedById | string | User ID (usr_...) or agent seat ID (par_...) that made the latest change. |
+| updatedByName | string | Display name of the user or agent that made the latest change. |
+| createdUtc | string | Creation time in UTC. |
+| updatedUtc | string | Last change time in UTC. |
 
 ### RestartResponse
 

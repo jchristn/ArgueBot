@@ -88,7 +88,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.1.0, )"
+          "ArgueBot.Core": "[2.2.0, )"
         }
       },
       "arguebot.core": {

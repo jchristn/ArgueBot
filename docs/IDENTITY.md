@@ -16,7 +16,7 @@ The sign-in pages always show these defaults. Change the default password after 
 
 ## Tenants and users
 
-A **tenant** is a separate workspace. Conversations, runs, messages, agents, models, endpoints, secrets, prompts, request history and audit records all carry a tenant ID, and every query filters by it. Another tenant's records read as 404, never 403, so their existence is not revealed.
+A **tenant** is a separate workspace. Conversations, runs, messages, agents, models, endpoints, secrets, prompts, [resources](RESOURCES.md), request history and audit records all carry a tenant ID, and every query filters by it. Another tenant's records read as 404, never 403, so their existence is not revealed.
 
 Everyone in a tenant shares its data: any member can open, change and delete the tenant's conversations and configuration. The `user_id` on a conversation records who created it.
 
@@ -26,7 +26,7 @@ Users have two flags, giving three kinds of user:
 | --- | --- | --- |
 | System administrator | `isAdmin` (implies `isTenantAdmin`) | Everything: all tenants, service settings, restart and shutdown, secret encryption keys, and any tenant's users, sessions and audit log (with `x-tenant-id`). |
 | Tenant administrator | `isTenantAdmin` | Everything in their own tenant, including its users, their tokens and sessions, request history and the audit log. |
-| User | neither | The tenant's conversations, debates, agents, secrets and prompts; their own profile, password, tokens and sessions. |
+| User | neither | The tenant's conversations, debates, agents, secrets, prompts and resources; their own profile, password, tokens and sessions. |
 
 Only a system administrator can grant or remove system administration. Nobody can disable themselves or remove their own administrator access. Deleting a user keeps their conversations and agents in the tenant, credited to the administrator who deleted them (or the tenant's oldest other administrator when a system administrator acts from another tenant). Deleting a tenant needs its exact name and removes everything in it except its audit records.
 

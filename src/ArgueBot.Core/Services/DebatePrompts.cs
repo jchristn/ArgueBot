@@ -45,6 +45,7 @@ namespace ArgueBot.Core.Services
                 ["current_question"] = run.CurrentQuestion,
                 ["proposal"] = JsonSerializer.Serialize(run.ProposalText),
                 ["proposal_id"] = JsonSerializer.Serialize(run.ProposalId),
+                ["resources"] = run.ResourceCatalog,
             };
         }
     }

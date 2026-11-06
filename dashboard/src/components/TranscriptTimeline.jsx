@@ -7,6 +7,7 @@ import MessageBody from "./MessageBody.jsx";
 import { Button, Icon, speakerLabel } from "./ui.jsx";
 import { messageContent } from "../utils/message-content.js";
 import { formatDate } from "../i18n/index.js";
+import ResourceToolLink from "./ResourceToolLink.jsx";
 
 /** The step label shown for a message, matching the card view. */
 export function kindLabel(t, message) {
@@ -85,7 +86,7 @@ export default function TranscriptTimeline({ api, conversationId, messages, hues
         </button>
         {open && <div className="timeline-body" id={"timeline-body-" + row.id}>
           {row.type === "tools"
-            ? row.messages.map(item => <details key={item.id} className="tool-evidence"><summary>{item.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{item.content}</pre></details>)
+            ? row.messages.map(item => <details key={item.id} className="tool-evidence"><summary>{item.content.split("\n").slice(0, 2).join(" · ")}</summary><ResourceToolLink content={item.content} /><pre>{item.content}</pre></details>)
             : <>
               <div className="timeline-actions">
                 <span className="muted">{formatDate(message.createdUtc)}</span>

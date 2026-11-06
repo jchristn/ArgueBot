@@ -50,6 +50,51 @@ namespace ArgueBot.Tests.Fixtures
                 finally { bridge.StandardInput.Close(); if (!bridge.HasExited) bridge.Kill(true); await bridge.WaitForExitAsync().ConfigureAwait(false); }
             }
         }
+        internal static async Task<int> ResourcesAsync(string[] args)
+        {
+            string command; List<string> arguments;
+            int config = Array.IndexOf(args, "--mcp-config");
+            if (config >= 0)
+            {
+                using (JsonDocument document = JsonDocument.Parse(args[config + 1]))
+                {
+                    JsonElement server = document.RootElement.GetProperty("mcpServers").GetProperty("arguebot");
+                    command = server.GetProperty("command").GetString()!;
+                    arguments = server.GetProperty("args").EnumerateArray().Select(value => value.GetString()!).ToList();
+                }
+            }
+            else
+            {
+                command = JsonSerializer.Deserialize<string>(args.First(value => value.StartsWith("mcp_servers.arguebot.command=", StringComparison.Ordinal)).Split('=', 2)[1])!;
+                arguments = JsonSerializer.Deserialize<List<string>>(args.First(value => value.StartsWith("mcp_servers.arguebot.args=", StringComparison.Ordinal)).Split('=', 2)[1])!;
+            }
+            ProcessStartInfo start = new ProcessStartInfo(command) { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (string argument in arguments) start.ArgumentList.Add(argument);
+            using (Process bridge = Process.Start(start)!)
+            {
+                try
+                {
+                    await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 1, method = "initialize", @params = new { protocolVersion = "2025-03-26", capabilities = new { }, clientInfo = new { name = "fixture", version = "1" } } }).ConfigureAwait(false);
+                    string list = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 2, method = "tools/list" }).ConfigureAwait(false);
+                    if (!list.Contains("\"read_resource\"", StringComparison.Ordinal) || !list.Contains("\"append_resource\"", StringComparison.Ordinal)) return 41;
+                    string read = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 3, method = "tools/call", @params = new { name = "read_resource", arguments = new { name = "billing" } } }).ConfigureAwait(false);
+                    string readText = ToolText(read);
+                    if (!readText.Contains("Invoices go out on the 1st", StringComparison.Ordinal) || !readText.Contains("議論", StringComparison.Ordinal)) return 42;
+                    string append = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 4, method = "tools/call", @params = new { name = "append_resource", arguments = new { name = "debate-notes", text = "Fixture note via MCP." } } }).ConfigureAwait(false);
+                    using (JsonDocument appended = JsonDocument.Parse(ToolText(append))) { if (!appended.RootElement.GetProperty("success").GetBoolean()) return 43; }
+                    string stale = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 5, method = "tools/call", @params = new { name = "update_resource", arguments = new { name = "billing", revision = 99, body = "Overwrite." } } }).ConfigureAwait(false);
+                    if (!ToolText(stale).Contains("revision_conflict", StringComparison.Ordinal)) return 44;
+                    Console.WriteLine(args[0] == "mcp-resources-claude" ? "{\"type\":\"result\",\"result\":\"MCP resources verified.\"}" : "{\"type\":\"item.completed\",\"item\":{\"id\":\"final\",\"type\":\"agent_message\",\"text\":\"MCP resources verified.\"}}");
+                    return 0;
+                }
+                finally { bridge.StandardInput.Close(); if (!bridge.HasExited) bridge.Kill(true); await bridge.WaitForExitAsync().ConfigureAwait(false); }
+            }
+        }
+        private static string ToolText(string response)
+        {
+            using (JsonDocument document = JsonDocument.Parse(response))
+                return document.RootElement.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString() ?? "";
+        }
         private static async Task<string> ExchangeAsync(Process bridge, object request)
         {
             await bridge.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request)).ConfigureAwait(false);

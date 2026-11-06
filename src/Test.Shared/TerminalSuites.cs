@@ -36,7 +36,7 @@ namespace Test.Shared
         /// <summary>Terminal descriptors run on the executable's .NET 10 target.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
-            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "SignIn", "Sign-in page at 60 and 120 columns, remembered sessions, distinct failures, tenant choice, account, administration and share menus against a real service", TerminalSignInChecks.RunAsync), new TestCaseDescriptor("Terminal", "EndpointPreview", "Saved endpoint request preview keeps destinations readable and all binding values redacted", EndpointPreviewAsync), new TestCaseDescriptor("Terminal", "ModelVerification", "Explicit model checks explain provider cost and display observed capabilities at supported terminal sizes", ModelVerificationAsync), new TestCaseDescriptor("Terminal", "KeyRotation", "Credential key rotation is reviewable and reachable in narrow and wide terminals", KeyRotationAsync), new TestCaseDescriptor("Terminal", "PanelScaleReview", "Large panels preserve selection, orchestrator and opening order with reachable controls at narrow widths", PanelScaleReviewAsync), new TestCaseDescriptor("Terminal", "CatalogReview", "Every connection form fits narrow and wide terminals, supports keyboard recovery and masks credentials in both themes", CatalogReviewAsync), new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript renders Markdown and separates speakers while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
+            get { return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Terminal", "Headless terminal", new List<TestCaseDescriptor> { new TestCaseDescriptor("Terminal", "SignIn", "Sign-in page at 60 and 120 columns, remembered sessions, distinct failures, tenant choice, account, administration and share menus against a real service", TerminalSignInChecks.RunAsync), new TestCaseDescriptor("Terminal", "EndpointPreview", "Saved endpoint request preview keeps destinations readable and all binding values redacted", EndpointPreviewAsync), new TestCaseDescriptor("Terminal", "ModelVerification", "Explicit model checks explain provider cost and display observed capabilities at supported terminal sizes", ModelVerificationAsync), new TestCaseDescriptor("Terminal", "KeyRotation", "Credential key rotation is reviewable and reachable in narrow and wide terminals", KeyRotationAsync), new TestCaseDescriptor("Terminal", "PanelScaleReview", "Large panels preserve selection, orchestrator and opening order with reachable controls at narrow widths", PanelScaleReviewAsync), new TestCaseDescriptor("Terminal", "CatalogReview", "Every connection form fits narrow and wide terminals, supports keyboard recovery and masks credentials in both themes", CatalogReviewAsync), new TestCaseDescriptor("Terminal", "HelpTopics", "Every help topic opens, scrolls to its final instructions and returns to the contents", HelpTopicsAsync), new TestCaseDescriptor("Terminal", "StopDelete", "Real service confirms direct stopping and combined stop/delete for active and paused debates", StopDeleteAsync), new TestCaseDescriptor("Terminal", "Resources", "Resources screen lists, edits in the text editor, locks, diffs and restores revisions against a real service; debate setup sends resource access", TerminalResourceChecks.RunAsync), new TestCaseDescriptor("Terminal", "ContextKeys", "List actions target the highlighted row, preserve text entry and default deletion to cancellation", ContextKeysAsync), new TestCaseDescriptor("Terminal", "Navigation", "Single-click navigation ignores stale history and preserves per-conversation drafts", NavigationAsync), new TestCaseDescriptor("Terminal", "SubmitLifecycle", "Review preserves failed submissions and blocks duplicate starts or dismissal while pending", SubmitLifecycleAsync), new TestCaseDescriptor("Terminal", "MenuWrapping", "Menu labels wrap fully at narrow widths, scroll by option and retain click identity", MenuWrappingAsync), new TestCaseDescriptor("Terminal", "FirstUse", "Visible menu guides a fresh user through agent presets and review before service submission", FirstUseAsync), new TestCaseDescriptor("Terminal", "DebateSetup", "Debate wizard preserves drafts, validates steps and reviews speaker order before submission", DebateSetupAsync), new TestCaseDescriptor("Terminal", "Palette", "Quiet Charcoal uses consistent inputs, padded content and a borderless workspace", PaletteAsync), new TestCaseDescriptor("Terminal", "Transcript", "Transcript renders Markdown and separates speakers while retaining exceptional states", TranscriptAsync), new TestCaseDescriptor("Terminal", "Splash", "Lowercase splash overlays workspace and consumes keys or closes after three seconds", SplashAsync), new TestCaseDescriptor("Terminal", "MessageReader", "Full-message reader is read-only, scrolls long Unicode text and keeps a close action visible", MessageReaderAsync), new TestCaseDescriptor("Terminal", "AttemptDetails", "Attempt inspector preserves ordered sources and scrolls through read-only provenance", AttemptDetailsAsync), new TestCaseDescriptor("Terminal", "ParticipantForms", "Participant forms preserve empty arguments, validate required fields and fit terminal sizes", ParticipantFormsAsync), new TestCaseDescriptor("Terminal", "Shell", "Responsive shell renders, traverses focus and toggles theme", ShellAsync) }) }; }
         }
         private static async Task EndpointPreviewAsync(CancellationToken token)
         {
@@ -368,20 +368,33 @@ namespace Test.Shared
                 await WaitHttpRunStateAsync(client, conversation.Id, run.Id, "completed", token).ConfigureAwait(false);
                 List<DebateProposal> proposals = await client.ProposalsAsync(conversation.Id, run.Id, token).ConfigureAwait(false);
                 if (proposals[0].Agreements.Count != 4 || proposals[0].Agreements.Any(vote => vote.Position != "agree")) throw new InvalidDataException("The terminal resume journey lost unanimous votes.");
-                foreach (int selection in new[] { 8, 9, 10, 11 })
+                // Choose run controls by label: the menu grows as commands are added, so positions are not stable.
+                string[] inspections = new[] { "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Inspect execution usage and limits" };
+                for (int selection = 0; selection < inspections.Length; selection++)
                 {
                     backend.FeedKey("ctrl+r"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
-                    for (int index = 0; index < selection; index++) { backend.FeedKey("down"); app.PumpInputOnce(); }
+                    HighlightChoice(app, backend, inspections[selection]);
                     backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog || app.Modals.Top is ChoiceDialog memory && memory.Title == "Summaries, page 1" || !workspace.IsBusy, token).ConfigureAwait(false);
-                    if (selection == 8 && app.Modals.Top is not MessageDialog) throw new InvalidDataException("Terminal proposals did not open their complete reader.");
+                    if (selection == 0 && app.Modals.Top is not MessageDialog) throw new InvalidDataException("Terminal proposals did not open their complete reader.");
                     await SaveEvidenceAsync("v2-panel-inspect-" + selection, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
-                    if (selection == 10) await ReviewSummaryAsync(client, conversation.Id, run.Id, app, backend, token).ConfigureAwait(false);
+                    if (selection == 2) await ReviewSummaryAsync(client, conversation.Id, run.Id, app, backend, token).ConfigureAwait(false);
                     backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
                 }
                 app.Stop();
             }
             await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + conversation.Id, token: token).ConfigureAwait(false);
             foreach (string id in ids) await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/participants/" + id, token: token).ConfigureAwait(false);
+        }
+        /// <summary>Move the open choice dialog's highlight down to the option with the given label.</summary>
+        private static void HighlightChoice(TuiApplication app, HeadlessBackend backend, string label)
+        {
+            for (int attempt = 0; attempt < 40; attempt++)
+            {
+                app.RenderOnce();
+                if (Snapshot.ToText(app.CaptureFrame()!).Contains("> " + label, StringComparison.Ordinal)) return;
+                backend.FeedKey("down"); app.PumpInputOnce();
+            }
+            throw new InvalidDataException("The choice dialog has no option " + label + ".");
         }
         private static async Task ReviewSummaryAsync(ArgueBotClient client, string conversationId, string runId, TuiApplication app, HeadlessBackend backend, CancellationToken token)
         {
@@ -721,7 +734,7 @@ namespace Test.Shared
                 for (int column = bounds.X; column < bounds.X + bounds.Width; column++) text.Append(frame.Get(column, row).Grapheme);
             return string.Concat(text.ToString().Where(character => !char.IsWhiteSpace(character)));
         }
-        private static void ClickText(TuiApplication app, HeadlessBackend backend, string text)
+        internal static void ClickText(TuiApplication app, HeadlessBackend backend, string text)
         {
             app.RenderOnce(); string[] rows = Snapshot.ToText(app.CaptureFrame()!).Split('\n');
             int row = Array.FindIndex(rows, line => line.Contains(text, StringComparison.Ordinal));
@@ -730,7 +743,7 @@ namespace Test.Shared
             backend.FeedMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, column, row, KeyModifiers.None, 1));
             backend.FeedMouse(new MouseEvent(MouseEventKind.Release, MouseButton.Left, column, row, KeyModifiers.None, 1));
         }
-        private static async Task PumpUntilAsync(TuiApplication app, Func<bool> condition, CancellationToken token)
+        internal static async Task PumpUntilAsync(TuiApplication app, Func<bool> condition, CancellationToken token)
         {
             for (int index = 0; index < 200; index++)
             {
@@ -945,7 +958,7 @@ namespace Test.Shared
                     Task splash = SplashScreen.ShowAsync(app, token);
                     app.RenderOnce();
                     string screen = Snapshot.ToText(app.CaptureFrame()!);
-                    if (!screen.Contains("F1 Help", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal) || !screen.Contains("v2.1.0", StringComparison.Ordinal) || !screen.Contains("2026 Joel Christner", StringComparison.Ordinal) || !screen.Contains("https://github.com/jchristn/ArgueBot", StringComparison.Ordinal) || !screen.Contains("MIT License", StringComparison.Ordinal) || !screen.Contains("Ctrl+E: configure agents", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
+                    if (!screen.Contains("F1 Help", StringComparison.Ordinal) || !screen.Contains("|___/", StringComparison.Ordinal) || !screen.Contains("Press any key", StringComparison.Ordinal) || !screen.Contains("v2.2.0", StringComparison.Ordinal) || !screen.Contains("2026 Joel Christner", StringComparison.Ordinal) || !screen.Contains("https://github.com/jchristn/ArgueBot", StringComparison.Ordinal) || !screen.Contains("MIT License", StringComparison.Ordinal) || !screen.Contains("Ctrl+E: configure agents", StringComparison.Ordinal)) throw new InvalidDataException("Splash did not preserve its lowercase logo and surrounding workspace.");
                     string[] rows = screen.Split('\n');
                     int hintRow = Array.FindIndex(rows, row => row.Contains("Press any key", StringComparison.Ordinal));
                     if (hintRow < 0 || !rows[hintRow + 1].Contains(new string(' ', 62), StringComparison.Ordinal)) throw new InvalidDataException("Splash needs an empty interior row below its final text.");

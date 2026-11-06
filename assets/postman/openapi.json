@@ -9,7 +9,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "ArgueBot API",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "description": "Conversations, agents and execution for signed-in users. Data is shared within a tenant. Sign in with POST /v2.0/api/token or use a credential bearer token. The default administrator is admin@arguebot with password password and bearer token arguebotadmin; change them after the first sign-in."
   },
   "servers": [
@@ -10878,6 +10878,1355 @@
         "x-arguebot-access": "Member"
       }
     },
+    "/v2.0/api/resources": {
+      "get": {
+        "operationId": "get_v2_0_api_resources",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "List resources in name order with optional search and tag filters",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Case-insensitive text to find in paths or titles."
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Backend filter."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page to return, starting at 1."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "Items per page, 1 through 100 unless noted."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list resources in name order with optional search and tag filters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourcePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      },
+      "post": {
+        "operationId": "post_v2_0_api_resources",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Create a resource",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful create a resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceRequest"
+              },
+              "example": {
+                "name": "billing",
+                "title": "Billing",
+                "description": "How invoices, refunds and credits work.",
+                "tags": [
+                  "finance"
+                ],
+                "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/resources/import": {
+      "post": {
+        "operationId": "post_v2_0_api_resources_import",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successful import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceImportRequest"
+              },
+              "example": {
+                "overwrite": false,
+                "files": [
+                  {
+                    "fileName": "team-conventions.md",
+                    "content": "---\nname: team/conventions\ntitle: Team conventions\ndescription: Code review and naming rules.\ntags: [engineering]\n---\n\nUse descriptive branch names. Every change needs one review."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/resources/by-name/{resourceName}": {
+      "get": {
+        "operationId": "get_v2_0_api_resources_by_name_resourceName_",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Read a resource by name; names may contain slashes",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource name, for example billing or team/conventions. Slashes in the name stay as path separators."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a resource by name; names may contain slashes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/resources/{resourceId}": {
+      "get": {
+        "operationId": "get_v2_0_api_resources_resourceId_",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Read a resource",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      },
+      "put": {
+        "operationId": "put_v2_0_api_resources_resourceId_",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Update, rename, lock or unlock a resource with its expected revision; omitted fields are kept",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful update, rename, lock or unlock a resource with its expected revision; omitted fields are kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceRequest"
+              },
+              "example": {
+                "description": "How invoices, refunds and credits work, including approvals.",
+                "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver. Credits expire after a year.",
+                "revision": 1
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v2_0_api_resources_resourceId_",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Delete a resource and its history with its expected revision",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Expected current revision; the request is refused if the resource changed."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful delete a resource and its history with its expected revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/resources/{resourceId}/revisions": {
+      "get": {
+        "operationId": "get_v2_0_api_resources_resourceId_revisions",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "List a resource's saved revisions newest first, without bodies",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list a resource's saved revisions newest first, without bodies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceRevision"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/resources/{resourceId}/revisions/{revision}": {
+      "get": {
+        "operationId": "get_v2_0_api_resources_resourceId_revisions_revision_",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Read one saved revision with its body",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Revision number, from the resource or its history."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read one saved revision with its body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceRevision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/resources/{resourceId}/revert": {
+      "post": {
+        "operationId": "post_v2_0_api_resources_resourceId_revert",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Restore a saved revision's title, description, tags and body as a new revision",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful restore a saved revision's title, description, tags and body as a new revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceRevertRequest"
+              },
+              "example": {
+                "targetRevision": 1,
+                "revision": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/resources/{resourceId}/export": {
+      "get": {
+        "operationId": "get_v2_0_api_resources_resourceId_export",
+        "tags": [
+          "Resources"
+        ],
+        "summary": "Export a resource as markdown with front matter",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful export a resource as markdown with front matter",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "---\nname: billing\ntitle: \"Billing\"\n---\n\n# Billing\n"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
     "/v2.0/api/configuration/endpoints/{id}/discover": {
       "post": {
         "operationId": "post_v2_0_api_configuration_endpoints_id_discover",
@@ -16917,6 +18266,42 @@
           }
         }
       },
+      "AttemptResource": {
+        "type": "object",
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "description": "Resource ID (res_...)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Resource name at the time of the call."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Revision read, or the revision a write produced."
+          },
+          "access": {
+            "type": "string",
+            "description": "read or write."
+          },
+          "tool": {
+            "type": "string",
+            "description": "Tool used: read_resource, create_resource, update_resource, edit_resource or append_resource."
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "UTF-8 bytes written; zero for reads."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time of the call in UTC."
+          }
+        }
+      },
       "AuditEvent": {
         "type": "object",
         "properties": {
@@ -17850,6 +19235,56 @@
             "minimum": 0,
             "maximum": 2147483647
           },
+          "resourceAccess": {
+            "type": "string",
+            "description": "What the debate's agents may do with the tenant's resources: off (no resource tools), read (the default: list, search and read) or read_write (also create, update, edit and append).",
+            "enum": [
+              "off",
+              "read",
+              "read_write"
+            ],
+            "default": "read"
+          },
+          "resourceNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional names of the only resources this debate's agents can see, up to 200. With resourceTags, a resource is visible when it matches either list. Both empty means every resource.",
+            "maxItems": 200
+          },
+          "resourceTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional tags, up to 16; resources with any of them are visible. Resources the agents create are visible to them for the rest of the debate.",
+            "maxItems": 16
+          },
+          "maxResourceWritesPerTurn": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most resource writes (create, update, edit and append) in one agent turn, 0 through 100. Default 8.",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 8
+          },
+          "maxResourceWriteBytesPerTurn": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most UTF-8 bytes of resource text written in one agent turn, 0 through 1048576. Default 65536.",
+            "minimum": 0,
+            "maximum": 1048576,
+            "default": 65536
+          },
+          "maxResourcesCreated": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most resources the debate's agents may create in total, 0 through 1000. Default 50.",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 50
+          },
           "questionInstructions": {
             "type": "string",
             "description": "Additional neutral question-selection guidance, up to 4000 characters.",
@@ -18118,6 +19553,11 @@
             "type": "integer",
             "format": "int64",
             "description": "Reserved estimated input tokens for this run."
+          },
+          "resourcesCreated": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Resources this run's agents created."
           },
           "tokenEstimateMethod": {
             "type": "string",
@@ -18415,6 +19855,13 @@
               "$ref": "#/components/schemas/CredentialRevision"
             },
             "description": "Credential identities and revisions actually resolved for this invocation; never credential values."
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttemptResource"
+            },
+            "description": "Resources this attempt read or wrote through the resource tools, in call order."
           }
         }
       },
@@ -19039,6 +20486,13 @@
             "format": "int64",
             "description": "Optimistic revision. Updates and deletes must supply the current value."
           },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored."
+          },
           "createdUtc": {
             "type": "string",
             "format": "date-time",
@@ -19126,6 +20580,425 @@
               "$ref": "#/components/schemas/CapturedHeader"
             },
             "description": "Redacted structured headers."
+          }
+        }
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable resource identifier (res_...). Names can change; the ID does not.",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Unique name within the tenant, 1 through 128 characters of lowercase letters, digits, hyphen, underscore, period and slash, for example billing or team/conventions. Agents pass it to read_resource."
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title, up to 200 characters. Empty uses the name."
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line summary, up to 500 characters, shown by list_resources so an agent can decide what to read."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to 16 lowercase tags, each 1 through 64 characters of letters, digits, hyphen, underscore, period and slash."
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown content, up to 262144 UTF-8 bytes (256 KiB). NUL characters are not allowed."
+          },
+          "characters": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Body length in UTF-16 characters, the unit read_resource offsets use.",
+            "readOnly": true
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Body size in UTF-8 bytes.",
+            "readOnly": true
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "When true, agents can read but never change this resource. Users can still edit it."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optimistic revision, starting at 1 and increasing with every change. Updates, deletes and reverts must supply the current value."
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User who created the resource, or the user whose debate created it.",
+            "readOnly": true
+          },
+          "updatedByKind": {
+            "type": "string",
+            "description": "Who made the latest change: user or agent. Agent-written text persists into later debates, so treat it as unreviewed until a user checks it.",
+            "enum": [
+              "user",
+              "agent"
+            ],
+            "readOnly": true
+          },
+          "updatedById": {
+            "type": "string",
+            "description": "User ID (usr_...) or agent seat ID (par_...) that made the latest change.",
+            "readOnly": true
+          },
+          "updatedByName": {
+            "type": "string",
+            "description": "Display name of the user or agent that made the latest change.",
+            "readOnly": true
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC.",
+            "readOnly": true
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last change time in UTC.",
+            "readOnly": true
+          }
+        }
+      },
+      "ResourceImportFile": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "description": "Original file name. Without a name in the front matter, the name comes from the file name without its .md extension."
+          },
+          "content": {
+            "type": "string",
+            "description": "File text, front matter included."
+          }
+        }
+      },
+      "ResourceImportRequest": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceImportFile"
+            },
+            "description": "Files to import.",
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "When true, a file whose name already exists replaces that resource's content as a new revision. When false (the default), an existing name fails the import with resource_exists."
+          }
+        },
+        "required": [
+          "files"
+        ]
+      },
+      "ResourceImportResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceSummary"
+            },
+            "description": "Imported resources in file order."
+          },
+          "created": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of new resources."
+          },
+          "updated": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of existing resources replaced."
+          }
+        }
+      },
+      "ResourcePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceSummary"
+            },
+            "description": "Resources on this page."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Resources per page, 1 through 200."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Resources matching the filter."
+          }
+        }
+      },
+      "ResourceRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Unique name within the tenant: 1 through 128 characters of letters, digits, hyphen, underscore, period and slash. It is stored in lowercase. Required on create; on update, a new value renames the resource.",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display title, up to 200 characters.",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "One-line summary, up to 500 characters.",
+            "maxLength": 500
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "Up to 16 tags, each 1 through 64 characters. Stored in lowercase without duplicates.",
+            "maxItems": 16
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown content, up to 262144 UTF-8 bytes. The limit counts bytes, not characters."
+          },
+          "locked": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether agents are prevented from changing the resource."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Expected current revision. Required on update; ignored on create."
+          }
+        }
+      },
+      "ResourceRevertRequest": {
+        "type": "object",
+        "properties": {
+          "targetRevision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Revision to restore. It must still be in the saved history."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Expected current revision of the resource."
+          }
+        },
+        "required": [
+          "targetRevision",
+          "revision"
+        ]
+      },
+      "ResourceRevision": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Revision record identifier (rsr_...)."
+          },
+          "resourceId": {
+            "type": "string",
+            "description": "Resource this revision belongs to (res_...)."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Revision number the change produced."
+          },
+          "name": {
+            "type": "string",
+            "description": "Resource name at this revision."
+          },
+          "title": {
+            "type": "string",
+            "description": "Title at this revision."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description at this revision."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tags at this revision."
+          },
+          "body": {
+            "type": "string",
+            "description": "Full markdown body at this revision. Empty in revision lists; read one revision to get it."
+          },
+          "characters": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Body length in UTF-16 characters."
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "Whether the resource was locked at this revision."
+          },
+          "change": {
+            "type": "string",
+            "description": "What changed: create, update, rename, lock, unlock, append, revert or import.",
+            "enum": [
+              "create",
+              "update",
+              "rename",
+              "lock",
+              "unlock",
+              "append",
+              "revert",
+              "import"
+            ]
+          },
+          "authorKind": {
+            "type": "string",
+            "description": "user or agent.",
+            "enum": [
+              "user",
+              "agent"
+            ]
+          },
+          "authorId": {
+            "type": "string",
+            "description": "User ID (usr_...) or agent seat ID (par_...) that made the change."
+          },
+          "authorName": {
+            "type": "string",
+            "description": "Display name of the author."
+          },
+          "runId": {
+            "type": "string",
+            "description": "Debate run whose agent made the change (run_...), empty for user changes."
+          },
+          "attemptId": {
+            "type": "string",
+            "description": "Generation attempt that made the change, empty for user changes."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time of the change in UTC."
+          }
+        }
+      },
+      "ResourceSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable resource identifier (res_...). Names can change; the ID does not.",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Unique name within the tenant, 1 through 128 characters of lowercase letters, digits, hyphen, underscore, period and slash, for example billing or team/conventions. Agents pass it to read_resource."
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title, up to 200 characters. Empty uses the name."
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line summary, up to 500 characters, shown by list_resources so an agent can decide what to read."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to 16 lowercase tags, each 1 through 64 characters of letters, digits, hyphen, underscore, period and slash."
+          },
+          "characters": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Body length in UTF-16 characters, the unit read_resource offsets use.",
+            "readOnly": true
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Body size in UTF-8 bytes.",
+            "readOnly": true
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "When true, agents can read but never change this resource. Users can still edit it."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optimistic revision, starting at 1 and increasing with every change. Updates, deletes and reverts must supply the current value."
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User who created the resource, or the user whose debate created it.",
+            "readOnly": true
+          },
+          "updatedByKind": {
+            "type": "string",
+            "description": "Who made the latest change: user or agent. Agent-written text persists into later debates, so treat it as unreviewed until a user checks it.",
+            "enum": [
+              "user",
+              "agent"
+            ],
+            "readOnly": true
+          },
+          "updatedById": {
+            "type": "string",
+            "description": "User ID (usr_...) or agent seat ID (par_...) that made the latest change.",
+            "readOnly": true
+          },
+          "updatedByName": {
+            "type": "string",
+            "description": "Display name of the user or agent that made the latest change.",
+            "readOnly": true
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time in UTC.",
+            "readOnly": true
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last change time in UTC.",
+            "readOnly": true
           }
         }
       },

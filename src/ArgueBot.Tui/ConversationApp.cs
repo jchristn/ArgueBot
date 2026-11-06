@@ -55,6 +55,7 @@ namespace ArgueBot.Tui
         internal ConversationApp(ArgueBotClient client, TuiSession? session = null, bool showSplash = true) { _Client = client; _Session = session; _ShowSplash = showSplash; }
         /// <summary>Close the workspace for a reason that returns to the sign-in page.</summary>
         private void EndSession(TuiExit reason) { Exit = reason; _App?.Post(_App.Quit); }
+        private ResourceWorkflow Resources() { return new ResourceWorkflow(_Client, _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
         private AccountWorkflow Account() { return new AccountWorkflow(_Client, _Session ?? throw new InvalidOperationException("Sign in first."), _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
         /// <summary>Refresh a session token when it has less than ten minutes left, so a long-running TUI stays signed in.</summary>
         private async Task KeepSessionAsync(CancellationToken token)
@@ -909,6 +910,7 @@ namespace ArgueBot.Tui
             Add("Agents: who can take part in a debate  (Ctrl+E)", ParticipantsAsync);
             Add("Models, connections and secrets", CatalogAsync);
             Add("Prompts: the instructions each debate step sends", PromptsAsync);
+            Add("Resources: documents agents can read with read_resource", () => Resources().RunAsync());
             if (_Session != null)
             {
                 Section("Account");

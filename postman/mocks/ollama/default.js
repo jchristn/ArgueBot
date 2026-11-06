@@ -110,6 +110,17 @@ const server = http.createServer((req, res) => {
       if (instructions.includes('question (required')) return emit(JSON.stringify({ question: 'Which evidence makes a reversible rollout safe?', rationale: 'Identify the constraint that distinguishes the alternatives.' }));
       if (instructions.includes('proposal (required')) return emit(JSON.stringify({ proposal: 'Adopt a reversible rollout with explicit success criteria and a rollback threshold.' }));
       if (instructions.includes('proposalId:')) return emit(JSON.stringify({ proposalId: instructions.match(/proposalId: "([^"]+)"/)?.[1], position: 'agree', rationale: 'The proposal addresses the shared constraints.' }));
+      if (model === 'multi-agent-resources') {
+        // Read the billing resource, append a note when writing is offered, then answer from what was read.
+        const offered = name => body.tools?.some(tool => tool.function?.name === name);
+        const results = messages.filter(message => message.role === 'tool').map(message => String(message.content));
+        // Role instructions may name the resources: "call read_resource with name X" and "append_resource with name Y".
+        const readName = instructions.match(/read_resource with name ([a-z0-9._\/-]+)/)?.[1] || 'billing';
+        const noteName = instructions.match(/append_resource with name ([a-z0-9._\/-]+)/)?.[1] || 'debate-notes';
+        if (offered('read_resource') && results.length === 0) return emit('', [{ id: 'resource_read', name: 'read_resource', args: { name: readName } }]);
+        if (offered('append_resource') && results.length === 1) return emit('', [{ id: 'resource_note', name: 'append_resource', args: { name: noteName, text: 'REST note.' } }]);
+        return emit(results.some(result => result.includes('Invoices go out on the 1st')) ? 'Billing context read: invoices go out on the 1st.' : 'Billing context unavailable.');
+      }
       if (body.tools?.some(tool => tool.function?.name === 'get_debate_state') && !messages.some(message => message.role === 'tool')) return emit('', [{ id: 'context_state', name: 'get_debate_state', args: {} }]);
       return emit('Use a measured rollout with a clear rollback threshold. WE HAVE CONSENSUS is only prose here.');
     }

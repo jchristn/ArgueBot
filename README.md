@@ -24,7 +24,9 @@ What v2.0.0 does:
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
 - **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
-**v2.1.0 (in development on `feature/v2.1.0`)** adds sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
+**v2.2.0 (in development on `feature/v2.2.0`)** adds resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. A role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
+
+**v2.1.0** added sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
 
 **Status:** v2.0.0 is an implementation preview on `main` and has not been published as a release. Distribution builds are local artifacts: Windows packages are unsigned and macOS bundles are ad-hoc signed and not notarized. Databases from earlier v2 previews upgrade automatically on startup, with a backup first. See the [CHANGELOG](CHANGELOG.md) for details, the [debate guide](docs/MULTIPLE_AGENTS.md), [prompts](docs/PROMPTS.md), the [model tools](MCP_API.md), the [Docker guide](docker/README.md) and [packaging](packaging/README.md).
 
@@ -102,6 +104,24 @@ For a REST participant, choose a provider, endpoint and model. Supported provide
 
 CLI agents and REST local tools execute on the service machine, within the configured local-execution policy. Historical run snapshots retain the participant settings used for that run even if you edit the reusable profile later. See [execution behavior](docs/EXECUTION.md).
 
+## Resources
+
+Resources are named markdown documents in your workspace that agents can read during a debate. Instead of pasting background into every prompt, write it once as a resource and point agents at it in a prompt or role instruction:
+
+```text
+If you need to know more about billing, call read_resource with name billing.
+```
+
+The agent reads the resource only when it needs it. Agents can list and search resources too, and when a debate allows writing they can create resources, edit them and append notes, so later turns and later debates can build on what they found.
+
+- **Names** such as `billing` or `team/conventions` are unique in the tenant. Bodies are markdown up to 256 KiB, with a title, a one-line description and tags.
+- **Every change is a revision** with its author (a user, or an agent with its debate run) and time. Saves need the current revision, so nobody overwrites another change by accident. Compare any revision with the current text and restore it.
+- **Each debate chooses access**: Read (the default) offers `list_resources`, `search_resources` and `read_resource`; Read and write adds `create_resource`, `update_resource`, `edit_resource` and `append_resource`; Off offers none. A debate can also limit its agents to named or tagged resources, and caps writes per turn and resources created.
+- **Locked** resources can be read by agents but never changed by them. Agent-written text is marked as such until a user changes it.
+- **Prompts** can list the debate's resources with the opt-in `{resources}` placeholder.
+
+Manage resources on the dashboard's **Resources** page, in the TUI under Menu > **Resources**, with the CLI's `resources` commands or through `/v2.0/api/resources`. Import and export use `.md` files with front matter. See [resources](docs/RESOURCES.md) and the [tool reference](MCP_API.md#resource-tools).
+
 ## Terminal interface
 
 Use **Start debate** to enter a question, choose speakers and an orchestrator, set debate options and review before submission. The service runs the debate while the TUI displays committed history and current state.
@@ -115,6 +135,7 @@ Useful controls include:
 - **Ctrl+B**: configure a debate; **Ctrl+R**: moderator controls; **Ctrl+Y**: follow-up question.
 - **Ctrl+L**: full message history; **Ctrl+G**: generation attempts; **Ctrl+T**: theme.
 - **Ctrl+Q**: detach. Accepted work continues in the service.
+- **Menu > Resources**: read, edit (in a multi-line editor), lock and export resources, and compare and restore revisions.
 - **Menu > Account**: who you are signed in as, password, bearer tokens, sessions, sign out and switch server. Administrators also get **Users**, **Audit log** and **Tenants**; with a conversation open, **Share a read-only link**.
 
 After consensus, open moderator controls for final instructions or use a follow-up for a specific participant. Detailed workflows, confirmation behavior and failure recovery are explained in [terminal usage](docs/TUI.md) and the built-in help.
@@ -126,6 +147,7 @@ The dashboard provides sign-in, conversations, participant configuration, the co
 - **New conversation** asks for a title, shown in the conversation list, and an optional opening question. Starting a debate pre-fills its question from the opening question (or the title when it is blank); you can edit it before the debate starts.
 - Click a conversation row to open its workspace; click another editable row to open its editor. Each table's **Actions** column has a menu (for conversations: open, rename, pin, archive, stop debate, view JSON and delete). Copy buttons remain independent.
 - **Prompts** lists the instructions each debate step sends. Factory defaults are read-only; duplicate one to edit it, with a legend of the `{parameters}` it can use, then choose it per step when creating a conversation or starting a debate. See [docs/PROMPTS.md](docs/PROMPTS.md).
+- **Resources** lists the markdown documents agents can read, with search and tag filters. Add or import `.md` files, edit with a preview, lock a resource so agents cannot change it, and open its history to compare a revision with the current text and restore it. A debate's execution settings choose its resource access, visible resources and write limits, and resource tool calls in the transcript link to the revision they used. See [docs/RESOURCES.md](docs/RESOURCES.md).
 - Participants has tabs for agents, models, HTTP endpoints and secrets. Clicking a row in any table opens that item for editing, or shows its details when there is nothing to edit. The Secrets tab explains how to obtain each kind of secret, with copyable commands for macOS, Linux and Windows PowerShell, and can reveal a stored value after confirmation.
 - The account menu in the top bar opens **Account** (profile, password, bearer tokens and sessions) and signs out. Administrators also see **Users**, **Audit log** and, for system administrators, **Tenants** and **Settings**.
 - **Share** in the workspace header, or in a conversation's Actions menu, creates and revokes read-only public links to the transcript.
@@ -152,7 +174,7 @@ dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-work
 dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations create "Design choice" --question "Which design should we choose?"
 ```
 
-`login` asks for the password without echoing it and remembers the session for that home and server (in an owner-only `client-session.json`, never the password); `logout` forgets it. Scripts can pass `--token` or set `ARGUEBOT_TOKEN` instead. Commands support sign-in, bearer tokens, users, tenants, the audit log, share links, participant management, notes, debate controls, generation-attempt inspection and transcript export. JSON inputs can come from stdin or `--file PATH`. Conversation export writes complete Markdown; `conversations show ID --jsonl` streams full message records. See [REST_API.md](REST_API.md) for the service contract and generated API artifacts.
+`login` asks for the password without echoing it and remembers the session for that home and server (in an owner-only `client-session.json`, never the password); `logout` forgets it. Scripts can pass `--token` or set `ARGUEBOT_TOKEN` instead. Commands support sign-in, bearer tokens, users, tenants, the audit log, share links, participant management, prompts, resources (`resources list`, `show`, `add`, `update`, `rename`, `lock`, `history`, `revert`, `import`, `export` and `delete`), notes, debate controls, generation-attempt inspection and transcript export. JSON inputs can come from stdin or `--file PATH`. Conversation export writes complete Markdown; `conversations show ID --jsonl` streams full message records. See [REST_API.md](REST_API.md) for the service contract and generated API artifacts.
 
 ## Development
 

@@ -32,6 +32,10 @@ namespace ArgueBot.Core.Models
         /// <summary>Optimistic revision. Updates and deletes must supply the current value.</summary>
         public long Revision { get; set; }
 
+        private List<string> _Warnings = new List<string>();
+        /// <summary>Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored.</summary>
+        public List<string> Warnings { get { return _Warnings; } set { ArgumentNullException.ThrowIfNull(value); _Warnings = value; } }
+
         /// <summary>Creation time in UTC.</summary>
         public DateTime CreatedUtc { get; set; }
 

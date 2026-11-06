@@ -22,6 +22,7 @@ import { seatOptions } from "../utils/seats.js";
 import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
+import ResourceToolLink from "../components/ResourceToolLink.jsx";
 function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
   const { t } = useTranslation();
   const [question, setQuestion] = useState(defaultQuestion);
@@ -548,7 +549,7 @@ function WorkspaceContent({ id }) {
               <Button label="messages.window" icon="external" iconOnly onClick={() => setFullMessage(message.id)} />
             </header>
             {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
-            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
+            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><ResourceToolLink content={message.content} /><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
             {["failed", "interrupted"].includes(message.state) && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsRunId(message.runId)} />}
             </div>}
           </article>;

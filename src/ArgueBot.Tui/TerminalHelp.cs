@@ -8,7 +8,7 @@ namespace ArgueBot.Tui
             "Get started: your first debate",
             "Find your way around",
             "Set up agents",
-            "Models, connections, secrets and prompts",
+            "Models, connections, secrets, prompts and resources",
             "Start a debate",
             "Watch and steer a debate",
             "After a debate: follow-ups and reading",
@@ -65,7 +65,7 @@ namespace ArgueBot.Tui
 
             HTTP models
 
-            Choose the provider, the endpoint and the exact model name. For an API key, either set up a reusable model with a stored secret (see Models, connections, secrets and prompts) or enter the name of an environment variable on the service machine, never the key itself. HTTP agents can read and write files and run programs through the service's local tools, in their working directory.
+            Choose the provider, the endpoint and the exact model name. For an API key, either set up a reusable model with a stored secret (see Models, connections, secrets, prompts and resources) or enter the name of an environment variable on the service machine, never the key itself. HTTP agents can read and write files and run programs through the service's local tools, in their working directory.
 
             Saving
 
@@ -74,9 +74,9 @@ namespace ArgueBot.Tui
             Press Escape to return to the Help contents.
             """,
             """
-            Models, connections, secrets and prompts
+            Models, connections, secrets, prompts and resources
 
-            Menu > Models, connections and secrets manages reusable configuration. Menu > Prompts manages the instructions each debate step sends.
+            Menu > Models, connections and secrets manages reusable configuration. Menu > Prompts manages the instructions each debate step sends. Menu > Resources manages documents agents can read.
 
             Secrets
 
@@ -93,6 +93,10 @@ namespace ArgueBot.Tui
             Prompts
 
             Each debate step (orchestrator question, agent response, proposal, vote, working-memory summary) uses a prompt. Factory prompts are read-only; choose one and Duplicate to make an editable copy. View shows the text and the parameters a step supports, such as {question} or {current_question}. Edit changes a copy's name and description and can load new text from a file. When you create a conversation with New, you can choose a prompt for each step.
+
+            Resources
+
+            Menu > Resources holds named markdown documents agents can read during a debate with the read_resource tool. Tell an agent in a prompt or role instruction, for example: if you need to know more about billing, call read_resource with name billing. Choose a resource to read it, edit its text (Ctrl+S saves), rename or tag it, lock it so agents cannot change it, or open its history to compare a revision with the current text and restore it. Debate setup chooses whether agents can read resources (the default), also write them, or not use them at all.
 
             Press Escape to return to the Help contents.
             """,

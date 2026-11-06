@@ -63,6 +63,7 @@ try {
     check(await status(`http://127.0.0.1:${port}/v1.0/api/${suffix}`, {method, headers:{authorization:'Bearer arguebotadmin'}})===404, `Removed archive operation ${method} ${suffix} is still exposed.`);
   }
   check(!/backups|restore/i.test(invoke(['--help'])), 'CLI help still advertises archive workflows.');
+  check(invoke(['--help']).includes('resources import PATH...'), 'CLI help must describe the resources commands.');
   const server = path.join(root,'src/ArgueBot.Server/bin/Release/net10.0/ArgueBot.Server.dll');
   for (const flag of ['--export-snapshot','--restore-snapshot','--verify-snapshot']) {
     const result = spawnSync('dotnet',[server,flag,path.join(home,'unused.snapshot')],{encoding:'utf8'});
@@ -99,6 +100,38 @@ try {
   try { invoke(['prompts','update',promptCopy.id,'-'], {name:'Bad',body:'Answer {context}.',revision:promptEdited.revision}); } catch (error) { promptRejected = error.message; }
   check(promptRejected.includes('unknown_parameter (body)'), 'CLI prompts update must report an unknown parameter and its field.');
   command(['prompts','delete',promptCopy.id,String(promptEdited.revision)]);
+  // Resources: add from stdin and files, show by name, update with a revision, conflict, lock, history, revert, import, export, delete.
+  const added = command(['resources','add','-','--name','Team/CLI-Notes'], '---\ntitle: CLI notes\ndescription: Notes kept from the CLI.\ntags: [cli]\n---\n\nFirst line.');
+  check(added.name === 'team/cli-notes' && added.title === 'CLI notes' && added.body === 'First line.' && added.revision === 1, 'CLI resources add must read front matter from stdin.');
+  check(command(['resources','show','team/CLI-NOTES']).id === added.id, 'CLI resources show must find a resource by name.');
+  check(command(['resources','list','--tag','cli']).map(item => item.name).join() === 'team/cli-notes', 'CLI resources list must filter by tag.');
+  const resourceFile = path.join(home, 'resource update.md');
+  await fs.writeFile(resourceFile, 'Second line.');
+  const updatedResource = command(['resources','update','team/cli-notes','--revision','1','--file',resourceFile]);
+  check(updatedResource.revision === 2 && updatedResource.body === 'Second line.' && updatedResource.title === 'CLI notes', 'CLI resources update must replace the text and keep the title.');
+  let staleResource = '';
+  try { invoke(['resources','update','team/cli-notes','--revision','1','--file',resourceFile]); } catch (error) { staleResource = error.message; }
+  check(staleResource.includes('revision_conflict'), 'CLI resources update must report a stale revision.');
+  check(command(['resources','lock','team/cli-notes']).locked === true, 'CLI resources lock must lock the resource.');
+  check(command(['resources','rename','team/cli-notes','team/cli-journal']).name === 'team/cli-journal', 'CLI resources rename must rename.');
+  const resourceHistory = command(['resources','history','team/cli-journal']);
+  check(resourceHistory.map(item => item.revision).join() === '4,3,2,1' && resourceHistory[0].change === 'rename', 'CLI resources history must list revisions newest first.');
+  check(command(['resources','show',added.id,'--revision','1']).body === 'First line.', 'CLI resources show --revision must print a saved revision.');
+  const revertedResource = command(['resources','revert','team/cli-journal','1']);
+  check(revertedResource.body === 'First line.' && revertedResource.revision === 5, 'CLI resources revert must restore a revision as a new one.');
+  const exported = invoke(['resources','export','team/cli-journal']);
+  check(exported.startsWith('---\nname: team/cli-journal\ntitle: "CLI notes"\n') && exported.includes('locked: true') && exported.endsWith('First line.'), 'CLI resources export must print markdown with front matter.');
+  const importA = path.join(home, 'Release Notes.md'), importB = path.join(home, 'billing.md');
+  await fs.writeFile(importA, 'Version 2.2 adds resources.');
+  await fs.writeFile(importB, '---\nname: finance/billing\n---\nInvoices go out on the 1st.');
+  const imported = command(['resources','import',importA,importB]);
+  check(imported.created === 2 && imported.items.map(item => item.name).join() === 'release-notes,finance/billing', 'CLI resources import must name files from front matter or file names.');
+  let importConflict = '';
+  try { invoke(['resources','import',importB]); } catch (error) { importConflict = error.message; }
+  check(importConflict.includes('resource_exists'), 'CLI resources import must refuse existing names without --overwrite.');
+  check(command(['resources','import',importB,'--overwrite']).updated === 1, 'CLI resources import --overwrite must replace existing resources.');
+  for (const name of ['team/cli-journal','release-notes','finance/billing']) command(['resources','delete',name]);
+  check(command(['resources','list']).length === 0, 'CLI resources delete must remove resources.');
   const titled = command(['conversations','create','CLI titled fixture','--question','Which fixture question should the debate use?']);
   check(titled.title === 'CLI titled fixture' && titled.openingQuestion === 'Which fixture question should the debate use?', 'CLI create must store the title and --question opening question separately.');
 

@@ -3,7 +3,7 @@ setlocal
 
 if "%~1"=="" (
     echo Usage: build-all.bat ^<tag^>
-    echo Example: build-all.bat v2.1.0
+    echo Example: build-all.bat v2.2.0
     endlocal
     exit /b 1
 )

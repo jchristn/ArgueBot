@@ -38,7 +38,22 @@ namespace ArgueBot.Core.Database.Implementations
         {
             RequireAuthenticated(context);
             using (DbConnection connection = await _Database.OpenAsync(token).ConfigureAwait(false))
-                return await ReadAsync(connection, null, context, id, token).ConfigureAwait(false) ?? throw NotFound();
+            {
+                PromptTemplate prompt = await ReadAsync(connection, null, context, id, token).ConfigureAwait(false) ?? throw NotFound();
+                await WarnAsync(connection, context, prompt, token).ConfigureAwait(false);
+                return prompt;
+            }
+        }
+
+        /// <summary>Report read_resource references to resources that do not exist in the tenant. These are warnings: the prompt still saves.</summary>
+        private static async Task WarnAsync(DbConnection connection, RequestContext context, PromptTemplate prompt, CancellationToken token)
+        {
+            prompt.Warnings.Clear();
+            foreach (string name in PromptCatalog.ResourceReferences(prompt.Body))
+            {
+                if (await ScalarAsync(connection, null, "SELECT id FROM resources WHERE tenant_id=@tenant AND name_key=@name", token, P("tenant", context.TenantId, "name", name)).ConfigureAwait(false) == null)
+                    prompt.Warnings.Add("This prompt refers to the resource " + name + " with read_resource, but no resource has that name. Create it on the Resources page, or fix the name.");
+            }
         }
 
         /// <inheritdoc />

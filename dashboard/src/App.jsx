@@ -26,6 +26,7 @@ const Conversations = lazy(() => import("./views/Conversations.jsx"));
 const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
 const Prompts = lazy(() => import("./views/Prompts.jsx"));
+const Resources = lazy(() => import("./views/Resources.jsx"));
 const TranscriptReader = lazy(() => import("./views/TranscriptReader.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
@@ -43,7 +44,7 @@ export function navigationGroups(user) {
   const tenantAdmin = !!(user?.isAdmin || user?.isTenantAdmin);
   return [
     { title: "nav.operate", links: [["home", "nav.home", "grid"], ["conversations", "nav.conversations", "chat"]] },
-    { title: "nav.configure", links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"]] },
+    { title: "nav.configure", links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"], ["resources", "nav.resources", "book"]] },
     { title: "nav.system", links: [...(tenantAdmin ? [["history", "history.title", "chat"]] : []), ["explorer", "explorer.title", "grid"], ...(user?.isAdmin ? [["settings", "nav.settings", "settings"]] : [])] },
     ...(tenantAdmin ? [{ title: "nav.administration", links: [["users", "nav.users", "users"], ...(user?.isAdmin ? [["tenants", "nav.tenants", "grid"]] : []), ["audit", "nav.audit", "prompt"]] }] : []),
   ];
@@ -107,7 +108,7 @@ function Shell({ theme, toggleTheme, notify, session }) {
         <div className="sidebar-footer">
           <span className="status-dot" />
           <span>{t("common.connected")}</span>
-          <code>2.1.0</code>
+          <code>2.2.0</code>
         </div>
       </aside>
       <div className="app-main">
@@ -201,6 +202,7 @@ export default function App() {
                 <Route path="/dashboard/conversations/:id" element={<Workspace />} />
                 <Route path="/dashboard/participants" element={<Participants />} />
                 <Route path="/dashboard/prompts" element={<Prompts />} />
+                <Route path="/dashboard/resources" element={<Resources />} />
                 <Route path="/dashboard/explorer" element={<ApiExplorer />} />
                 <Route path="/dashboard/account" element={<Account />} />
                 <Route element={<RequireRole session={session} role="tenant" />}>

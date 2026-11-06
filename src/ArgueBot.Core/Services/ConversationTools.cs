@@ -23,9 +23,22 @@ namespace ArgueBot.Core.Services
         private readonly long _Through;
         private readonly string _AttemptId;
         private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        /// <summary>Create a tool scope for an accepted invocation and source boundary.</summary>
+        private readonly ResourceTools _Resources;
+        /// <summary>Create a tool scope for an accepted invocation and source boundary. Resource tools follow the run's policy and attribute writes to the speaking agent.</summary>
         public ConversationTools(DatabaseDriverBase database, RequestContext context, DebateRun run, string participantId, long through, string attemptId)
-        { _Database = database; _Context = context; _Run = run; _ParticipantId = participantId; _Through = through; _AttemptId = attemptId; }
+        {
+            ArgumentNullException.ThrowIfNull(run);
+            _Database = database; _Context = context; _Run = run; _ParticipantId = participantId; _Through = through; _AttemptId = attemptId;
+            RunnerProfile? speaker = run.ExecutionProfile ?? run.Participants.FirstOrDefault(seat => seat.Id == participantId) ?? (run.Orchestrator?.Id == participantId ? run.Orchestrator : null);
+            _Resources = new ResourceTools(database, context, run, speaker?.Id ?? participantId, speaker?.Name ?? participantId, attemptId);
+        }
+        /// <summary>Evidence tools plus the resource tools the run's policy offers.</summary>
+        public static List<ConversationToolDefinition> Definitions(DebatePolicy policy)
+        {
+            List<ConversationToolDefinition> result = Definitions();
+            result.AddRange(ResourceTools.Definitions(policy));
+            return result;
+        }
         /// <summary>Shared typed catalogue for all supported runner transports.</summary>
         public static List<ConversationToolDefinition> Definitions()
         {
@@ -44,6 +57,7 @@ namespace ArgueBot.Core.Services
         /// <summary>Validate and execute one bounded tool call, returning safe structured results.</summary>
         public async Task<string> ExecuteAsync(ConversationToolCall call, CancellationToken token = default)
         {
+            if (ResourceTools.IsResourceTool(call.Name)) return await _Resources.ExecuteAsync(call, token).ConfigureAwait(false);
             try
             {
                 if (call.ArgumentsJson.Length > 16384) throw new DomainException(400, "invalid_tool_arguments", "Tool arguments exceed the limit.");

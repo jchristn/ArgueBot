@@ -1,6 +1,44 @@
 # Changelog
 
-## Unreleased: v2.1.0
+## Unreleased: v2.2.0 (image published November 6, 2026)
+
+v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. A prompt or role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Work follows [archive/RESOURCES_PLAN.md](archive/RESOURCES_PLAN.md); see [docs/RESOURCES.md](docs/RESOURCES.md).
+
+There are no breaking changes. New debates default to read access to resources; debates started before 2.2 keep resource access off.
+
+### Resources
+
+- A shared resource library per tenant. Each resource has a unique, case-insensitive name (letters, digits, `-`, `_`, `.` and `/`, up to 128 characters, stored in lowercase), a title, a one-line description, up to 16 tags, a markdown body up to 256 KiB and a locked flag.
+- Every change saves a revision with the full text, the author (user, or agent with its seat, run and attempt) and the time; the latest 100 are kept. Changes need the current revision (`revision_conflict` otherwise). Reverting saves an earlier revision's title, description, tags and body as a new revision.
+- Import and export of markdown files with front matter (name, title, description, tags, locked). Imports of up to 50 files are all-or-nothing, with an overwrite option.
+- Creating, updating, renaming, locking, unlocking, deleting, reverting and importing resources are audited. Deleting a tenant deletes its resources.
+
+### Agent tools
+
+- `list_resources`, `search_resources` and `read_resource` for debates with `read` access (the new default), plus `create_resource`, `update_resource`, `edit_resource` and `append_resource` for `read_write`. `off` offers none. The tools have their own argument schemas and reach Claude Code and Codex over MCP, Mux, Gemini CLI and generic CLIs through the JSON envelope, and REST models as native functions.
+- Debate policy fields `resourceAccess`, `resourceNames`, `resourceTags`, `maxResourceWritesPerTurn` (default 8), `maxResourceWriteBytesPerTurn` (default 65,536) and `maxResourcesCreated` (default 50). Hidden resources behave as if they did not exist; resources a debate's agents create stay visible to it.
+- Agents never change locked resources (`resource_locked`) and cannot lock, unlock or rename resources. `edit_resource` replaces exactly one occurrence. Reads of agent-written resources are marked as agent-authored data.
+- Generation attempts record the resources they read and wrote, with revisions (`resources` on the attempts route).
+- Prompts gain the opt-in `{resources}` placeholder. Reading or saving a prompt that calls `read_resource` with a name that does not exist returns a warning (`warnings` on the prompt) without blocking the save.
+- The MCP frame limit rises from 128 KiB to 1 MiB so a full resource page fits after JSON escaping.
+
+### API
+
+- `/v2.0/api/resources`: list (search, tag, paging), create, read by ID, read by name (`/by-name/{name}`, slashes allowed), update (rename, lock and unlock through `PUT`), delete, revisions, one revision, revert, import and export (`text/markdown`).
+- Request history keeps a short note instead of resource bodies larger than its body limit.
+- `assets/api-contract.json`, the OpenAPI document, `REST_API.md`, `MCP_API.md` and both Postman collections are updated; the v2 acceptance workflow has a resource journey.
+
+### Dashboard, TUI and CLI
+
+- Dashboard: a **Resources** page (search, tag filter, import by file picker or drag and drop), an editor with markdown preview, conflict handling, history with agent authorship, line diffs and restore, and export. Debate execution settings gain resource access, visibility and write limits. Resource tool calls in the transcript link to the revision they used.
+- TUI: Menu > **Resources** to read, add, import, edit text in a multi-line editor (Ctrl+S saves), rename, tag, lock, compare revisions in a diff view, restore, export and delete. The debate wizard's settings step gains resource access, visibility and write limits.
+- CLI: `resources list`, `show`, `add`, `update`, `rename`, `lock`, `unlock`, `delete`, `history`, `revert`, `import` and `export`.
+
+### Storage
+
+- Schema 33 adds `resources`, `resource_revisions` and `attempt_resources`, and resource access columns on debate policies. Existing databases upgrade on startup after the usual backup. SQLite and PostgreSQL are both covered by the tests.
+
+## v2.1.0 (on main, image published November 5, 2026)
 
 v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [archive/USER_AUTH_PLAN.md](archive/USER_AUTH_PLAN.md).
 
