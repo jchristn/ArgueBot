@@ -27,6 +27,16 @@ namespace ArgueBot.Tests.Fixtures
                 Console.WriteLine(input.Contains("connection_probe", StringComparison.Ordinal) && !input.Contains("ArgueBot tool", StringComparison.Ordinal) ? "{\"contextTool\":{\"name\":\"connection_probe\",\"argumentsJson\":\"{\\\"value\\\":4}\"}}" : "ARGUEBOT_CONNECTION_OK"); return 0;
             }
             if (mode == "mcp-claude" || mode == "mcp-codex") return await McpClientFixture.RunAsync(args).ConfigureAwait(false);
+            if (mode == "mcp-resources-claude" || mode == "mcp-resources-codex") return await McpClientFixture.ResourcesAsync(args).ConfigureAwait(false);
+            if (mode == "envelope-resources")
+            {
+                // A generic CLI that uses the JSON tool envelope: read a resource, append a note, then answer with what it read.
+                if (input.Contains("append_resource: {", StringComparison.Ordinal)) Console.WriteLine("Envelope resources verified: " + (input.Contains("Invoices go out on the 1st", StringComparison.Ordinal) ? "read billing" : "billing missing") + (input.Contains("\"success\":true", StringComparison.Ordinal) ? ", note saved." : ", note failed."));
+                else if (input.Contains("read_resource: {", StringComparison.Ordinal)) Console.WriteLine("{\"contextTool\":{\"name\":\"append_resource\",\"argumentsJson\":\"{\\\"name\\\":\\\"debate-notes\\\",\\\"text\\\":\\\"Fixture note via envelope.\\\"}\"}}");
+                else if (input.Contains("\"read_resource\"", StringComparison.Ordinal)) Console.WriteLine("{\"contextTool\":{\"name\":\"read_resource\",\"argumentsJson\":\"{\\\"name\\\":\\\"billing\\\"}\"}}");
+                else Console.WriteLine("No resource tools offered.");
+                return 0;
+            }
             if (mode == "claude-tool-replay")
             {
                 byte[] replay = await File.ReadAllBytesAsync(args[1]).ConfigureAwait(false);

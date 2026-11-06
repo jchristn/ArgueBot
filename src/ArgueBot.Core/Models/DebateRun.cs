@@ -83,6 +83,7 @@ namespace ArgueBot.Core.Models
         /// <summary>Phase resumed after successful context compaction.</summary>
         public string ResumePhase { get; set; } = "";
         internal RunnerProfile? ExecutionProfile { get; set; }
+        internal string ResourceCatalog { get; set; } = "";
 
         private string _CompactionRecipientId = "";
         /// <summary>Private recipient partition for compaction; empty means shared evidence.</summary>

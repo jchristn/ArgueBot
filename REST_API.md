@@ -2042,6 +2042,20 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | pageSize | integer | Page size. |
 | totalCount | integer | Total matching records. |
 
+### AttemptResource
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| resourceId | string | Resource ID (res_...). |
+| name | string | Resource name at the time of the call. |
+| revision | integer | Revision read, or the revision a write produced. |
+| access | string | read or write. |
+| tool | string | Tool used: read_resource, create_resource, update_resource, edit_resource or append_resource. |
+| bytes | integer | UTF-8 bytes written; zero for reads. |
+| createdUtc | string | Time of the call in UTC. |
+
 ### AuditEvent
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -2561,6 +2575,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | rosterRevision | integer | Roster revision frozen before invocation. |
 | endpointWaitMilliseconds | integer | Elapsed milliseconds waiting for shared endpoint capacity; zero for immediate admission, CLI or older records. |
 | credentialRevisions | array | Credential identities and revisions actually resolved for this invocation; never credential values. |
+| resources | array | Resources this attempt read or wrote through the resource tools, in call order. |
 
 ### HealthResponse
 
@@ -2784,6 +2799,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | body | string | Prompt text with {parameter} placeholders. Use {{ and }} for literal braces. Up to 32000 characters. |
 | factory | boolean | True for a factory default, which cannot be edited or deleted. |
 | revision | integer | Optimistic revision. Updates and deletes must supply the current value. |
+| warnings | array | Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored. |
 | createdUtc | string | Creation time in UTC. |
 | updatedUtc | string | Last change time in UTC. |
 

@@ -14,7 +14,7 @@ namespace ArgueBot.Runners.Mcp
             while (await reader.ReadAsync(character.AsMemory(), token).ConfigureAwait(false) != 0)
             {
                 if (character[0] == '\n') return value.ToString();
-                if (value.Length >= 131072) throw new InvalidDataException("MCP frame exceeds the invocation limit.");
+                if (value.Length >= 1048576) throw new InvalidDataException("MCP frame exceeds the invocation limit.");
                 if (character[0] != '\r') value.Append(character[0]);
             }
             return value.Length == 0 ? null : throw new InvalidDataException("MCP frame ended before its delimiter.");

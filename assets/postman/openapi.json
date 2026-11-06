@@ -18266,6 +18266,42 @@
           }
         }
       },
+      "AttemptResource": {
+        "type": "object",
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "description": "Resource ID (res_...)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Resource name at the time of the call."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Revision read, or the revision a write produced."
+          },
+          "access": {
+            "type": "string",
+            "description": "read or write."
+          },
+          "tool": {
+            "type": "string",
+            "description": "Tool used: read_resource, create_resource, update_resource, edit_resource or append_resource."
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "UTF-8 bytes written; zero for reads."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time of the call in UTC."
+          }
+        }
+      },
       "AuditEvent": {
         "type": "object",
         "properties": {
@@ -19819,6 +19855,13 @@
               "$ref": "#/components/schemas/CredentialRevision"
             },
             "description": "Credential identities and revisions actually resolved for this invocation; never credential values."
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttemptResource"
+            },
+            "description": "Resources this attempt read or wrote through the resource tools, in call order."
           }
         }
       },
@@ -20442,6 +20485,13 @@
             "type": "integer",
             "format": "int64",
             "description": "Optimistic revision. Updates and deletes must supply the current value."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored."
           },
           "createdUtc": {
             "type": "string",
