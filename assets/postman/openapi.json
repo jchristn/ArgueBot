@@ -20165,6 +20165,12 @@
             "type": "string",
             "format": "date-time",
             "description": "Creation time in UTC."
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Debate round in which this message was generated, from its generation attempt. Null for moderator messages, tool records and single-message reads."
           }
         }
       },

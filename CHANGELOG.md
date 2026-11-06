@@ -42,6 +42,7 @@ There are no breaking changes. New debates default to read access to resources; 
 
 - Debates no longer end as consensus after agreeing only on a sub-question. The factory question, proposal and vote prompts now tie each round to the original question: the orchestrator's proposal must answer it (with stated confidence and conditions when evidence is incomplete), and agents agree only to a final answer, choosing `disagree` or `needs_information` when a proposal settles only a method, a sub-question or an interim position. Factory prompts refresh on startup; debates that already started keep their copy, and custom prompts are unchanged.
 - A follow-up question now completes with the outcome `answered` ("Follow-up answered.") instead of `max_rounds`, so asking a follow-up after a debate no longer shows "Round limit reached."
+- The workspace **Timeline** and the transcript reader now label rounds with the service's round number. They used to count orchestrator questions on the loaded page, so a later page restarted at Round 1, and a page held at an older boundary stopped at an earlier round while the header showed the live one. Message pages gain `round` on each generated message (from its generation attempt; null for moderator messages, tool records and single-message reads). Changing the page size while viewing the latest messages keeps following new ones instead of freezing the page.
 
 ## v2.1.0 (on main, image published November 5, 2026)
 

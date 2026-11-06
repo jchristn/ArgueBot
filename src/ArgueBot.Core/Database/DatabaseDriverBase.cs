@@ -313,6 +313,7 @@ namespace ArgueBot.Core.Database
                         page.Items.Add(message);
                     }
                 }
+                await FillRoundsAsync(connection, context, page.Items, token).ConfigureAwait(false);
             }
             return page;
         }
@@ -358,6 +359,22 @@ namespace ArgueBot.Core.Database
         }
         private static DomainException ContextBudgetExceeded()
         { return new DomainException(409, "context_budget_exceeded", "The selected conversation context exceeds the configured budget. No model was invoked and no transcript text was dropped."); }
+        /// <summary>Set each generated message's round from its generation attempts. The lookup is bounded by the runs on the page and uses the run index.</summary>
+        private static async Task FillRoundsAsync(DbConnection connection, RequestContext context, List<Message> messages, CancellationToken token)
+        {
+            List<string> runs = messages.Where(message => message.RunId != null).Select(message => message.RunId!).Distinct(StringComparer.Ordinal).ToList();
+            if (runs.Count == 0) return;
+            Dictionary<string, object?> values = P("tenant", context.TenantId);
+            List<string> names = new List<string>();
+            for (int index = 0; index < runs.Count; index++) { names.Add("@run" + index.ToString(CultureInfo.InvariantCulture)); values.Add("run" + index.ToString(CultureInfo.InvariantCulture), runs[index]); }
+            Dictionary<string, int> rounds = new Dictionary<string, int>(StringComparer.Ordinal);
+            using (DbCommand command = Command(connection, null, "SELECT message_id,MAX(round) AS round FROM generation_attempts WHERE tenant_id=@tenant AND run_id IN (" + string.Join(",", names) + ") GROUP BY message_id", values))
+            using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(token).ConfigureAwait(false)) rounds[S(reader, "message_id")] = Convert.ToInt32(reader["round"], CultureInfo.InvariantCulture);
+            }
+            foreach (Message message in messages) if (rounds.TryGetValue(message.Id, out int round)) message.Round = round;
+        }
         private static Message ReadMessage(DbDataReader reader, string conversationId)
         { return new Message { Id = S(reader, "id"), ConversationId = conversationId, RunId = N(reader, "run_id"), Sequence = Convert.ToInt64(reader["sequence_number"], CultureInfo.InvariantCulture), Speaker = S(reader, "speaker"), Kind = S(reader, "kind"), Content = S(reader, "content"), RecipientId = N(reader, "recipient_id"), State = S(reader, "state"), CreatedUtc = DateTime.Parse(S(reader, "created_utc"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind) }; }
 

@@ -8,6 +8,11 @@ describe("transcript reader grouping", () => {
     const rounds = readerRounds([m("1", "user", "note"), m("2", "Orc", "question"), m("3", "A", "response"), m("4", "Orc", "question"), m("5", "B", "response")]);
     expect(rounds.map(round => [round.round, round.items.map(item => item.id)])).toEqual([[0, ["1"]], [1, ["2", "3"]], [2, ["4", "5"]]]);
   });
+  it("uses the service's round and keeps a repeated question in the same round", () => {
+    const r = (id, kind, round) => ({ ...m(id, "Orc", kind), round });
+    const rounds = readerRounds([r("1", "question", 1), r("2", "response", 1), r("3", "question", 2), r("4", "question", 2), r("5", "response", 2)]);
+    expect(rounds.map(round => [round.round, round.items.map(item => item.id)])).toEqual([[1, ["1", "2"]], [2, ["3", "4", "5"]]]);
+  });
   it("folds one speaker's consecutive tool calls and a run of votes into single blocks", () => {
     const blocks = readerBlocks([m("1", "A", "tool"), m("2", "A", "tool"), m("3", "B", "tool"), m("4", "A", "response"), m("5", "A", "ratification"), m("6", "B", "ratification"), m("7", "C", "ratification")]);
     expect(blocks.map(block => [block.type, (block.messages || [block.message]).map(item => item.id)])).toEqual([["tools", ["1", "2"]], ["tools", ["3"]], ["turn", ["4"]], ["votes", ["5", "6", "7"]]]);

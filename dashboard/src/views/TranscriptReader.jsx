@@ -28,7 +28,8 @@ export function readerRounds(messages) {
   const rounds = [];
   let current = { round: 0, items: [] };
   for (const message of messages) {
-    if (message.kind === "question" && message.speaker !== "user") { if (current.items.length || current.round) rounds.push(current); current = { round: rounds.filter(item => item.round > 0).length + 1, items: [] }; }
+    // The service's round wins when present; a repeated question in the same round (a repair or roster change) stays in that round.
+    if (message.kind === "question" && message.speaker !== "user" && !(Number.isInteger(message.round) && message.round === current.round)) { if (current.items.length || current.round) rounds.push(current); current = { round: Number.isInteger(message.round) ? message.round : Math.max(0, ...rounds.map(item => item.round)) + 1, items: [] }; }
     current.items.push(message);
   }
   if (current.items.length || current.round) rounds.push(current);

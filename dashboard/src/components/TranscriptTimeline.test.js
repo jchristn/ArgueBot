@@ -19,6 +19,20 @@ describe("timelineRows", () => {
     expect(rows[3].messages.map(item => item.id)).toEqual(["m3", "m4"]);
     expect(rows[5].messages.map(item => item.id)).toEqual(["m6"]);
   });
+  it("labels rounds with the service's round so a later page shows the real round, and skips follow-up runs", () => {
+    const at = (item, runId, round) => ({ ...item, runId, round });
+    const rows = timelineRows([
+      at(message("m1", "Codex", "response"), "run_d", 5),
+      at(message("m2", "Codex", "tool", "Conversation tool: get_debate_state"), "run_d", undefined),
+      at(message("m3", "Orchestrator", "ratification", "{}"), "run_d", 5),
+      at(message("m4", "Orchestrator", "question", '{"question":"Next?"}'), "run_d", 6),
+      at(message("m5", "Claude", "response"), "run_d", 6),
+      at(message("m6", "user", "question", "Did you agree?"), "run_f", undefined),
+      at(message("m7", "Claude", "final"), "run_f", 1),
+    ], new Set(["run_f"]));
+    expect(rows.filter(row => row.type === "round").map(row => row.round)).toEqual([5, 6]);
+    expect(rows.map(row => row.type)).toEqual(["round", "turn", "tools", "turn", "round", "turn", "turn", "turn", "turn"]);
+  });
   it("shows the newest text of a streaming turn", () => {
     const preview = rowPreview(message("s", "Codex", "response", "start " + "word ".repeat(100) + "NEWEST", "streaming"));
     expect(preview.startsWith("\u2026")).toBe(true);

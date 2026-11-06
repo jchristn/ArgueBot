@@ -44,15 +44,24 @@ export function rowPreview(message) {
 
 /**
  * Group the transcript for compact monitoring: consecutive tool records from one speaker become one row,
- * and each orchestrator question starts a numbered round.
+ * and a heading marks where each debate round starts. Rounds come from the service (`round` on each generated
+ * message), so a page that starts mid-debate shows the real round. Follow-up runs get no round headings.
+ * Messages without a round fall back to counting orchestrator questions.
  */
-export function timelineRows(messages) {
+export function timelineRows(messages, followupRunIds = new Set()) {
   const rows = [];
   let round = 0;
+  let heading = "";
   for (const message of messages) {
     const last = rows.at(-1);
     if (message.kind === "tool" && last?.type === "tools" && last.speaker === message.speaker) { last.messages.push(message); continue; }
-    if (message.kind === "question" && message.speaker !== "user") rows.push({ type: "round", key: "round-" + message.id, round: ++round });
+    if (!followupRunIds.has(message.runId)) {
+      if (Number.isInteger(message.round)) {
+        const key = (message.runId || "") + ":" + message.round;
+        if (key !== heading) { heading = key; round = message.round; rows.push({ type: "round", key: "round-" + message.id, round }); }
+      }
+      else if (message.kind === "question" && message.speaker !== "user") { heading = ""; rows.push({ type: "round", key: "round-" + message.id, round: ++round }); }
+    }
     if (message.kind === "tool") rows.push({ type: "tools", key: "tools-" + message.id, id: message.id, speaker: message.speaker, messages: [message] });
     else rows.push({ type: "turn", key: message.id, id: message.id, message });
   }
@@ -60,9 +69,9 @@ export function timelineRows(messages) {
 }
 
 /** A compact, expandable timeline of debate turns for watching a debate unfold. */
-export default function TranscriptTimeline({ api, conversationId, messages, hues, expanded, onToggle, jumpTarget, onFull, onInspect }) {
+export default function TranscriptTimeline({ api, conversationId, messages, followupRunIds, hues, expanded, onToggle, jumpTarget, onFull, onInspect }) {
   const { t } = useTranslation();
-  const rows = timelineRows(messages);
+  const rows = timelineRows(messages, followupRunIds);
   return <ol className="timeline">
     {rows.map(row => {
       if (row.type === "round") return <li key={row.key} className="timeline-round" aria-hidden="true"><span>{t("timeline.round", { round: row.round })}</span></li>;

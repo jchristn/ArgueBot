@@ -2684,6 +2684,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | recipientId | string (nullable) | Private directive recipient, if present. |
 | state | string | Generation lifecycle state. |
 | createdUtc | string | Creation time in UTC. |
+| round | integer (nullable) | Debate round in which this message was generated, from its generation attempt. Null for moderator messages, tool records and single-message reads. |
 
 ### MessagePage
 

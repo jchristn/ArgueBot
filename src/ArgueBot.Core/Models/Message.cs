@@ -50,5 +50,8 @@ namespace ArgueBot.Core.Models
         /// <summary>Creation time in UTC.</summary>
         public DateTime CreatedUtc { get; set; }
 
+        /// <summary>Debate round in which this message was generated, from its generation attempt. Null for moderator messages, tool records and single-message reads.</summary>
+        public int? Round { get; set; }
+
     }
 }

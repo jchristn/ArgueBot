@@ -101,7 +101,7 @@ namespace Test.Shared
                         await engine.ApplyAsync(owner, conversation.Id, run.Id, new CommandRequest { Action = "pause", IdempotencyKey = "late-pause" }, "fixture", token).ConfigureAwait(false);
                         runner.Complete(); await WaitForAsync(database, owner, run, "completed", token).ConfigureAwait(false);
                         run = await database.Runs.ReadAsync(owner, conversation.Id, run.Id, token).ConfigureAwait(false);
-                        if (run.Outcome != "max_rounds" || run.Round != 2) throw new InvalidDataException("A late pause stranded an exhausted run.");
+                        if (run.Outcome != "answered" || run.Round != 2) throw new InvalidDataException("A late pause stranded an exhausted follow-up run: " + run.Outcome);
                         run.State = "paused"; await database.Runs.SaveAsync(owner, run, token).ConfigureAwait(false);
                         await engine.ApplyAsync(owner, conversation.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "legacy-exhausted-resume" }, "fixture", token).ConfigureAwait(false);
                         await WaitForAsync(database, owner, run, "completed", token).ConfigureAwait(false);

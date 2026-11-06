@@ -73,6 +73,9 @@ namespace Test.Shared
                         List<DebateProposal> extended = await database.Debates.ReadProposalsAsync(context, dissent.Id, run.Id, token).ConfigureAwait(false);
                         Require(run.State == "completed" && run.Outcome == "consensus" && run.Round == 2 && extended.Count == 2, "Extending a debate that reached its round limit must open a new question round: " + run.State + "/" + run.Outcome + "/" + run.Round + "/" + extended.Count);
                         Require(extended.Count(proposal => proposal.Agreements.Any(agreement => agreement.Position == "disagree")) == 1, "The earlier dissent must remain recorded after an extension.");
+                        MessagePage tailPage = await database.ReadMessagePageAsync(context, dissent.Id, 1, 3, tail: true, token: token).ConfigureAwait(false);
+                        List<int?> questionRounds = (await database.ReadMessagePageAsync(context, dissent.Id, 1, 100, token: token).ConfigureAwait(false)).Items.Where(item => item.Kind == "question").Select(item => item.Round).ToList();
+                        Require(questionRounds.SequenceEqual(new int?[] { 1, 2 }) && tailPage.PageNumber > 1 && tailPage.Items.Where(item => item.Kind == "ratification").All(item => item.Round == 2), "Message pages must carry each generated message's debate round, including on later pages: " + string.Join(",", questionRounds));
                     }
                     Conversation validation = await database.CreateConversationAsync(context, "Delivery validation", token).ConfigureAwait(false);
                     await using (ConversationEngine engine = new ConversationEngine(database, new MultiAgentFixtureRunner { HoldResponse = true }))

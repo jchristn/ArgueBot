@@ -486,7 +486,11 @@ function WorkspaceContent({ id }) {
       </div>
       <RunActivity run={run} messages={data.messages} connection={connection} />
       <div className="history-navigation">
-        <Pagination page={data.messagePage} onChange={(changes) => { scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence })); }} />
+        <Pagination page={data.messagePage} onChange={(changes) => {
+          // Changing the page size while following the latest messages keeps following them; only paging freezes the membership boundary.
+          if (historyView.tail && changes.pageSize !== undefined) { setHistoryView({ pageNumber: 1, pageSize: changes.pageSize, tail: true }); return; }
+          scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence }));
+        }} />
         {(!historyView.tail || data.messagePage.latestSequence > data.messagePage.throughSequence) && <Button label={data.messagePage.latestSequence > data.messagePage.throughSequence ? "messages.newer" : "messages.latest"} onClick={latest} />}
         {data.messages.length > 0 && <div className="feed-toolbar" role="toolbar" aria-label={t("messages.navigation")}>
         <div className="segmented" role="radiogroup" aria-label={t("timeline.view")}>{["timeline", "cards"].map(item => <button key={item} type="button" role="radio" aria-checked={view === item} className={view === item ? "active" : ""} title={t(`timeline.view.${item}.help`)} onClick={() => chooseView(item)}>{t(`timeline.view.${item}`)}</button>)}</div>
@@ -523,7 +527,7 @@ function WorkspaceContent({ id }) {
             />
           </div>
         )}
-        {view === "timeline" && <TranscriptTimeline api={api} conversationId={id} messages={mergeToolActivity(data.messages)} hues={hues} expanded={expanded} onToggle={toggleExpanded} jumpTarget={jumpTarget} onFull={setFullMessage} onInspect={setAttemptsRunId} />}
+        {view === "timeline" && <TranscriptTimeline api={api} conversationId={id} messages={mergeToolActivity(data.messages)} followupRunIds={new Set(data.runs.filter(item => item.mode === "followup").map(item => item.id))} hues={hues} expanded={expanded} onToggle={toggleExpanded} jumpTarget={jumpTarget} onFull={setFullMessage} onInspect={setAttemptsRunId} />}
         {view === "cards" && mergeToolActivity(data.messages).map((message) => {
           const folded = collapsed.has(message.id);
           return <article
