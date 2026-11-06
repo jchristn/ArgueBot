@@ -86,9 +86,9 @@ namespace Test.Shared
             string suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
 
             // Names are lowercased, unique without regard to case and follow the path-like rules.
-            Resource billing = await database.Resources.CreateAsync(system, new ResourceRequest { Name = "Billing-" + suffix, Title = "Billing", Description = "How invoices work.", Tags = new List<string> { "Finance", "finance", "core" }, Body = "# Billing\nInvoices go out on the 1st." }, token: token).ConfigureAwait(false);
+            Resource billing = await database.Resources.CreateAsync(system, new ResourceRequest { Name = "Billing-" + suffix, Title = "Billing", Description = "How invoices work.", Tags = new List<string> { "Finance-" + suffix, "finance-" + suffix, "core" }, Body = "# Billing\nInvoices go out on the 1st, batch " + suffix + "." }, token: token).ConfigureAwait(false);
             Require(billing.Name == "billing-" + suffix && billing.Revision == 1 && billing.Id.StartsWith("res_", StringComparison.Ordinal), "A new resource must be stored with a lowercase name at revision 1.");
-            Require(billing.Tags.SequenceEqual(new[] { "finance", "core" }) && billing.UpdatedByKind == "user" && billing.UpdatedById == "usr_local" && billing.Bytes == billing.Body.Length, "Tags must be lowercase without duplicates, and the creator must be recorded.");
+            Require(billing.Tags.SequenceEqual(new[] { "finance-" + suffix, "core" }) && billing.UpdatedByKind == "user" && billing.UpdatedById == "usr_local" && billing.Bytes == billing.Body.Length, "Tags must be lowercase without duplicates, and the creator must be recorded.");
             Require((await database.Resources.ReadByNameAsync(system, "BILLING-" + suffix, token).ConfigureAwait(false)).Id == billing.Id, "Names must be read case-insensitively.");
             await Reject(() => database.Resources.CreateAsync(system, new ResourceRequest { Name = "billing-" + suffix.ToUpperInvariant() }, token: token), "resource_exists", "Names must be unique without regard to case.").ConfigureAwait(false);
             foreach (string name in new[] { "", " ", "/billing", "billing/", "a//b", "a/../b", "a/./b", ".hidden", "-dash", "has space", "emoji☃", new string('a', 129) })
@@ -146,13 +146,13 @@ namespace Test.Shared
             Require(capped.Count == ResourceRules.MaxRevisionsKept && capped[0].Revision == log.Revision && capped[capped.Count - 1].Revision == log.Revision - ResourceRules.MaxRevisionsKept + 1, "History must keep exactly the newest " + ResourceRules.MaxRevisionsKept + " revisions.");
 
             // Listing, filters and search.
-            ResourcePage page = await database.Resources.EnumerateAsync(system, tag: "FINANCE", token: token).ConfigureAwait(false);
+            ResourcePage page = await database.Resources.EnumerateAsync(system, tag: "FINANCE-" + suffix.ToUpperInvariant(), token: token).ConfigureAwait(false);
             Require(page.TotalCount == 1 && page.Items[0].Id == billing.Id, "Tag filters must match without regard to case.");
             ResourcePage searched = await database.Resources.EnumerateAsync(system, search: "invoices WORK", token: token).ConfigureAwait(false);
             Require(searched.Items.Any(item => item.Id == billing.Id), "List search must match descriptions without regard to case.");
             ResourcePage paged = await database.Resources.EnumerateAsync(system, pageNumber: 2, pageSize: 1, token: token).ConfigureAwait(false);
             Require(paged.Items.Count == 1 && paged.TotalCount >= 5 && paged.PageNumber == 2, "Lists must page.");
-            List<ResourceSearchHit> hits = await database.Resources.SearchAsync(system, "INVOICES GO", token: token).ConfigureAwait(false);
+            List<ResourceSearchHit> hits = await database.Resources.SearchAsync(system, "INVOICES GO OUT ON THE 1ST, BATCH " + suffix.ToUpperInvariant(), token: token).ConfigureAwait(false);
             Require(hits.Count == 1 && hits[0].Field == "body" && hits[0].MatchOffset == 10 && hits[0].Snippet.Contains("Invoices go out", StringComparison.Ordinal), "Body search must be literal and case-insensitive with a snippet.");
             Require((await database.Resources.SearchAsync(system, "invoices", new List<string> { conventions.Id }, token: token).ConfigureAwait(false)).Count == 0, "Search must honor the visible resource list.");
             Require((await database.Resources.SearchAsync(system, "%", token: token).ConfigureAwait(false)).Count == 0, "Search must treat wildcard characters literally.");

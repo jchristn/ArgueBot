@@ -152,7 +152,7 @@ Implemented November 5, 2026 on `feature/v2.2.0`:
 | 3. Agent tools | 0c5841b |
 | 4. Dashboard | 55e6ebb |
 | 5. TUI and CLI | 2908b66 |
-| 6. Documentation | the documentation commit that follows |
+| 6. Documentation | d39bb6e |
 
 Deviations from the plan, each small:
 
