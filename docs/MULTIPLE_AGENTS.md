@@ -130,6 +130,20 @@ The context ceiling is further restricted by the configured service and model ca
 
 Additional question-selection, proposal and memory guidance can be supplied independently. These instructions never grant a model authority to change budgets, membership or unanimous agreement. CLI and REST run requests supply these fields in `policy`; omitted fields use the defaults from `/v2.0/api/capabilities`.
 
+### Resource access
+
+The same settings choose what the debate's agents can do with the tenant's [resources](RESOURCES.md), named markdown documents they read through tools:
+
+| Policy field | Default | Meaning |
+| --- | --- | --- |
+| `resourceAccess` | `read` | `off` offers no resource tools; `read` offers `list_resources`, `search_resources` and `read_resource`; `read_write` also offers `create_resource`, `update_resource`, `edit_resource` and `append_resource` |
+| `resourceNames`, `resourceTags` | empty | When either is set, agents see only resources named in `resourceNames` or tagged with one of `resourceTags`, plus resources they create during the debate |
+| `maxResourceWritesPerTurn` | 8 | Resource writes one agent turn may make (0 to 100) |
+| `maxResourceWriteBytesPerTurn` | 65,536 | UTF-8 bytes of resource text one agent turn may write (0 to 1,048,576) |
+| `maxResourcesCreated` | 50 | Resources the debate's agents may create in total (0 to 1,000) |
+
+On the dashboard these are in the **Resources** box of the execution settings; in the TUI wizard they are on the settings step. Debates created before v2.2.0 have access `off`. Resource calls count against the tool-call budget, and **Generation attempts** lists the resources each attempt read and wrote, with their revisions.
+
 
 ### Endpoint capacity and private memory
 

@@ -35,6 +35,49 @@ namespace Test.Shared
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+            await UpgradeAsync(token).ConfigureAwait(false);
+        }
+
+        /// <summary>A schema 32 database upgrades to 33: resource tables appear, and debates that already exist keep resource access off.</summary>
+        private static async Task UpgradeAsync(CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-resources-upgrade-" + Guid.NewGuid().ToString("N"));
+            ArgueBotPaths paths = new ArgueBotPaths(home);
+            RequestContext context = System();
+            try
+            {
+                string conversationId, runId;
+                using (SqliteDatabaseDriver database = new SqliteDatabaseDriver(paths))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    List<string> seats = new List<string>();
+                    for (int index = 0; index < 3; index++) seats.Add((await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Upgrade agent " + index, Executable = "fictional", WorkingDirectory = home }, token).ConfigureAwait(false)).Id);
+                    Conversation conversation = await database.CreateConversationAsync(context, "Before resources", token).ConfigureAwait(false);
+                    DebateRun run = await database.Runs.CreateAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = seats[0], ParticipantIds = seats.Skip(1).ToList(), Question = "Upgrade?", MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "upgrade" }, token).ConfigureAwait(false);
+                    conversationId = conversation.Id; runId = run.Id;
+                    Require(run.Policy.ResourceAccess == "read", "New debates must default to read access.");
+                }
+                // Turn the database back into schema 32.
+                using (Microsoft.Data.Sqlite.SqliteConnection connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + paths.DatabaseFile))
+                {
+                    await connection.OpenAsync(token).ConfigureAwait(false);
+                    using (Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = "DROP TABLE attempt_resources; DROP TABLE resource_revisions; DROP TABLE resources; " + string.Concat(new[] { "resource_access", "resource_names_json", "resource_tags_json", "max_resource_writes_per_turn", "max_resource_write_bytes_per_turn", "max_resources_created", "resources_created" }.Select(column => "ALTER TABLE debate_policies DROP COLUMN " + column + "; ")) + "DELETE FROM schema_migrations WHERE version>=33;";
+                        await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
+                    }
+                }
+                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                using (SqliteDatabaseDriver upgraded = new SqliteDatabaseDriver(paths))
+                {
+                    await upgraded.InitializeAsync(token).ConfigureAwait(false);
+                    DebateRun existing = await upgraded.Runs.ReadAsync(context, conversationId, runId, token).ConfigureAwait(false);
+                    Require(existing.Policy.ResourceAccess == "off" && existing.Policy.MaxResourceWritesPerTurn == 8, "A debate created before schema 33 must keep resource access off after the upgrade.");
+                    Resource created = await upgraded.Resources.CreateAsync(context, new ResourceRequest { Name = "after-upgrade", Body = "Works." }, token: token).ConfigureAwait(false);
+                    Require(created.Revision == 1 && (await upgraded.Resources.RevisionsAsync(context, created.Id, token).ConfigureAwait(false)).Count == 1, "Resources must work after the upgrade.");
+                }
+            }
+            finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
 
         internal static async Task RunAsync(DatabaseDriverBase database, CancellationToken token)

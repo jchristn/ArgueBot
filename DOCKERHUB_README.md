@@ -48,6 +48,8 @@ docker run -d --name arguebot \
 | Health | `GET /health`; Compose waits up to 30 seconds for startup |
 | Database | SQLite in `/data` by default; PostgreSQL through the service settings |
 
+Resources (v2.2.0), the markdown documents agents read during debates, are stored in the database, so they need no extra configuration or volume.
+
 Keep the three volumes together across updates. The encryption key on `arguebot-keys` is what makes stored secrets readable; a database backup without it cannot recover them.
 
 ## Environment

@@ -28,6 +28,8 @@ The user asked for a top-level Resource entity in 2.2.0: named markdown document
 
 BACKEND_ARCHITECTURE.md, BACKEND_TEST_ARCHITECTURE.md, FRONTEND_ARCHITECTURE.md, DASHBOARD_STYLE_AND_USABILITY.md, I18N.md and CODE_STYLE.md were re-checked on November 5, 2026; their hashes are unchanged from the manifest. Resources follow the existing rules (PrettyId `res_` and `rsr_` IDs, typed contracts, tenant-scoped domain methods, both database providers, audited changes, localized dashboard text). No new deviation is introduced beyond those already recorded for 2.1: there is no RBAC, so any member of a tenant can manage its resources.
 
+The implementation (November 5, 2026) follows these decisions. Its small deviations from the plan's wording (a leading letter-or-digit name rule, one request type for create and update, a larger MCP frame limit, and upgraded debates keeping access off) are listed in the plan's execution record. The user guide is [RESOURCES.md](RESOURCES.md).
+
 ## November 4, 2026 v2.1 identity scope
 
 The user asked for users, bearer-token credentials, a login page, API authentication and multitenancy in 2.1.0, with a default tenant and the default administrator `admin@arguebot` (password `password`, token `arguebotadmin`) created at startup, the login screens always showing the default credentials, and no RBAC. Users are system administrators, tenant administrators or ordinary users. Data is shared within a tenant. Provider credentials are renamed secrets. [IDENTITY.md](IDENTITY.md) describes the result; [archive/USER_AUTH_PLAN.md](../archive/USER_AUTH_PLAN.md) records the work and evidence.

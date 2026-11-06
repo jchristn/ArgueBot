@@ -31,7 +31,7 @@ To change the published port or pass provider settings, copy `docker/.env.exampl
 
 **Trust model.** When local execution is enabled in Settings, agents and their tools run as the service user inside the container. They can read and write everything that user can, including `/data`, `/work` and the protected `/data/secrets` directory. Secret encryption protects stored values at rest and in backups, not from agents you allow to execute locally. Enable local execution only for agents you trust with the whole workspace, or keep it off so agents can use only the conversation tools.
 
-`arguebot-data` holds the application home, database, metadata and logs; `arguebot-keys` holds the secret encryption keys, the session key (deleting `session.key` signs everyone out) and the token key that lets tokens be revealed; `arguebot-work` holds files used by agents. Keep these volumes together across updates. The process runs as an unprivileged user. Bind mounts, if substituted, must be writable by UID 10001. Do not mount a host login directory as a writable shared home for multiple agent processes.
+`arguebot-data` holds the application home, database (including [resources](../docs/RESOURCES.md), which need no extra configuration or volume), metadata and logs; `arguebot-keys` holds the secret encryption keys, the session key (deleting `session.key` signs everyone out) and the token key that lets tokens be revealed; `arguebot-work` holds files used by agents. Keep these volumes together across updates. The process runs as an unprivileged user. Bind mounts, if substituted, must be writable by UID 10001. Do not mount a host login directory as a writable shared home for multiple agent processes.
 
 ## Configure models and imported login secrets
 

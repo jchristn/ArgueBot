@@ -35,8 +35,15 @@ Write a parameter as `{name}`. Write `{{` and `}}` for literal braces. Values ar
 | `{guidance}` | question, synthesis, compaction | The matching orchestration guidance from the debate's execution settings |
 | `{current_question}` | response (required) | The orchestrator's current question |
 | `{proposal}`, `{proposal_id}` | ratification (both required) | The exact proposal and its ID, as JSON strings |
+| `{resources}` | all (opt-in) | One line per [resource](RESOURCES.md) the debate's agents can read: name, title and description, at most 100 lines and 8,000 characters. Empty when the debate's resource access is off. The factory prompts do not use it |
 
 `GET /v2.0/api/prompt-parameters` and `prompts parameters` in the CLI return the same list.
+
+## Referring to resources
+
+A prompt can tell agents where to find more context instead of including it, for example "if you need to know more about billing, call `read_resource` with name `billing`". The agent reads the [resource](RESOURCES.md) only when it needs it, provided the debate's resource access is Read or Read and write. Agents' role instructions work the same way. Add `{resources}` to list every resource the debate can see.
+
+When a prompt names a resource with `read_resource` (for example `read_resource("billing")` or "call read_resource with name billing") and no resource has that name in your tenant, reading or saving the prompt returns a warning in `warnings`, and the dashboard editor shows it. The prompt still saves, so you can write the prompt before the resource.
 
 ## Choosing prompts
 
@@ -45,6 +52,6 @@ Write a parameter as `{name}`. Write `{{` and `}}` for literal braces. Values ar
 ## Interfaces
 
 - Dashboard: **Prompts** page (view, duplicate, edit, delete), plus the pickers in **New conversation** and **Start debate**.
-- TUI: **Prompts** in the main menu views text and parameters, duplicates and deletes, and edits a custom prompt's name and description; new prompt text loads from a file because the terminal has no multi-line editor. New conversation offers factory defaults or a choice per step.
+- TUI: **Prompts** in the main menu views text and parameters, duplicates and deletes, and edits a custom prompt's name and description; new prompt text loads from a file. New conversation offers factory defaults or a choice per step.
 - CLI: `prompts list [PURPOSE]`, `show ID`, `parameters`, `add`, `update ID`, `duplicate ID`, `delete ID REVISION`.
 - API: `/v2.0/api/prompts` and `/v2.0/api/prompt-parameters`; see [REST_API.md](../REST_API.md).

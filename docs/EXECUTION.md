@@ -46,6 +46,21 @@ The `Runners/CodexMessages` shared descriptor drives a real fixture subprocess t
 
 Named harness setup uses the shared `assets/harness-defaults.json` catalog in the web, TUI, service and execution fallback. Selecting Claude Code, Codex, Gemini CLI or Mux fills executable and arguments. Claude Code includes `--dangerously-skip-permissions` and Codex and Mux include `--yolo` to run debate turns unattended. Generic CLI remains manually configured. The service fills omitted values for API/CLI create and update too, and returns the persisted defaults. Explicit custom arguments are preserved and replace the full list. Existing run snapshots are not rewritten.
 
+## Resource tools
+
+Protocol 2 debates offer [resource](RESOURCES.md) tools beside the conversation evidence tools, according to the debate's `policy.resourceAccess`: none for `off`, `list_resources`, `search_resources` and `read_resource` for `read` (the default), and also `create_resource`, `update_resource`, `edit_resource` and `append_resource` for `read_write`. They reach every agent type: Claude Code and Codex through the per-invocation MCP bridge, Mux, Gemini CLI and generic CLIs through the JSON tool envelope, and REST models as native functions. See [MCP_API.md](../MCP_API.md#resource-tools) for arguments, results and error codes.
+
+Budgets:
+
+- Every resource call counts against the run's tool-call budget and the transport's per-turn limits (32 MCP calls per connection, sixteen envelope continuations, 32 REST calls and 16 rounds).
+- Writes are limited per turn (`maxResourceWritesPerTurn`, default 8, and `maxResourceWriteBytesPerTurn`, default 65,536 bytes) and per debate (`maxResourcesCreated`, default 50). A refused write returns `resource_write_limit` or `resource_create_limit` to the agent; the turn continues.
+- `read_resource` returns at most 32,768 characters per call (8,192 by default) with `nextOffset`, and results are capped at 256 KiB, so large resources are read in pages. Returned text also counts against the invocation's context budget, like evidence.
+- Writes need the revision the agent read, except `append_resource`. A stale revision returns `revision_conflict` without changing anything. Locked resources return `resource_locked`.
+
+Every resource call is recorded as a tool message in the transcript. Each attempt records the resources it read and wrote, with revisions, in its provenance (`resources` on `GET .../runs/{runId}/attempts`). Agent writes are attributed to the seat, run and attempt and audited.
+
+Live check, November 5, 2026: a disposable service on a loopback port with an isolated home ran a one-round protocol 2 debate with access `read_write`. The orchestrator and one participant were Claude Code (`claude`, over MCP) and the other participant was Mux (`mux`, over the JSON envelope), each using its own existing sign-in. The response prompt told agents to call `read_resource` with name `billing` and `append_resource` on `debate-notes`. Both participants and the orchestrator called `read_resource` (revision 1), both participants appended a note (the notes resource reached revision 3, agent-authored), each quoted the resource's threshold and code word correctly, and the debate reached consensus. This shows the two CLIs can use the tools; it does not cover every CLI version.
+
 ## REST local tools
 
 REST participants use native tool calling through PolyPrompt for Ollama, OpenAI-compatible, Anthropic and Gemini models. The service advertises `read_file`, `write_file`, `list_directory` and `run_process`, executes requested operations and sends results back to the model until it answers. The model must support native tools. Working directory applies to both CLI and REST profiles; empty uses the service directory. Relative paths resolve there. This is a working directory, not a filesystem sandbox: operations have the service account's permissions. Container deployments operate inside the container and its explicit mounts.

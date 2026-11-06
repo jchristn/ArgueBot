@@ -139,6 +139,21 @@ Identity administration has been removed. Backup and restore are also removed. U
 
 A failed turn displays TURN FAILED followed by its cause and recovery guidance in the transcript. Ctrl+G opens the matching generation-attempt history for inspection. After correcting an agent output limit, stop the old run and use b to start another with the original question and current agent settings. Ctrl+N starts a separate conversation with a blank question.
 
+## Resources
+
+Choose **Menu > Resources** to manage [resources](RESOURCES.md), the named markdown documents agents can read with `read_resource`. The list shows each resource's name and title, `[locked]` for locked resources and `[agent: NAME]` when an agent wrote the latest revision. **Add a resource** asks for a name, title and description, then opens the text editor. **Import markdown files** takes one or more paths separated by `;`; front matter can set the name, title, description, tags and locked flag.
+
+Choose a resource to:
+
+- **Read** it, with its title, description, tags, revision and author.
+- **Edit text** in a multi-line editor. Type or paste, then press **Ctrl+S** (or choose **Save**) to save; **Escape** cancels. If someone changed the resource since you opened it, the save is refused and nothing is overwritten.
+- **Edit name, title, description and tags**.
+- **Lock** it so agents can read but not change it, or **Unlock** it.
+- Open **History, changes and revert**: choose a revision to see a line diff against the current text (`-` removed since that revision, `+` added), then **Restore revision N** to save its text as a new revision.
+- **Export** it to a markdown file, or **Delete** it with its history.
+
+The debate wizard's settings step sets **Resource access** (Read by default, Read and write, or Off), optional lists of visible resource names and tags, and the write limits. The review step summarizes them.
+
 ## Reusable configuration and debate memory
 
 Choose **Agents → Connections, models and secrets** to manage endpoint, model and secret forms. HTTP bindings can combine bearer, API-key, header and query authentication. CLI programs are configured on agents, whose arguments remain literal, including empty arguments. Secret paste fields are masked and can read a local file. Values never appear in configuration lists. Choose a secret, then **Reveal value** and confirm to show its decrypted value in a panel. See [the v2 guide](MULTIPLE_AGENTS.md) for the resource order and imported Claude/Codex login behavior.
