@@ -7,6 +7,8 @@ namespace ArgueBot.Core.Database.Implementations
     using System;
     using System.Data.Common;
     using System.Globalization;
+    using System.Linq;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
@@ -27,6 +29,13 @@ namespace ArgueBot.Core.Database.Implementations
             if (policy.MaxEstimatedInputTokens < 0) throw new DomainException(400, "invalid_policy", "Estimated input tokens cannot be negative. Use 0 for no estimate limit.", "policy.maxEstimatedInputTokens");
             if (policy.QuestionInstructions.Length > 4000) throw new DomainException(400, "invalid_policy", "Question instructions must fit 4000 characters.", "policy.questionInstructions");
             if (policy.SynthesisInstructions.Length > 4000) throw new DomainException(400, "invalid_policy", "Proposal instructions must fit 4000 characters.", "policy.synthesisInstructions");
+            if (policy.ResourceAccess != "off" && policy.ResourceAccess != "read" && policy.ResourceAccess != "read_write") throw new DomainException(400, "invalid_policy", "Resource access is off, read or read_write.", "policy.resourceAccess");
+            Range(policy.MaxResourceWritesPerTurn, 0, 100, "maxResourceWritesPerTurn", "resource writes per turn");
+            Range(policy.MaxResourceWriteBytesPerTurn, 0, 1048576, "maxResourceWriteBytesPerTurn", "resource bytes written per turn");
+            Range(policy.MaxResourcesCreated, 0, 1000, "maxResourcesCreated", "resources created");
+            if (policy.ResourceNames.Count > 200) throw new DomainException(400, "invalid_policy", "Name at most 200 visible resources.", "policy.resourceNames");
+            policy.ResourceNames = policy.ResourceNames.Select(name => ResourceRules.NormalizeName(name, "policy.resourceNames")).Distinct(StringComparer.Ordinal).ToList();
+            policy.ResourceTags = ResourceRules.NormalizeTags(policy.ResourceTags);
             if (policy.SummaryInstructions.Length > 4000) throw new DomainException(400, "invalid_policy", "Summary instructions must fit 4000 characters.", "policy.summaryInstructions");
         }
         private static void Range(long value, long minimum, long maximum, string field, string label)
@@ -34,7 +43,7 @@ namespace ArgueBot.Core.Database.Implementations
             if (value < minimum || value > maximum) throw new DomainException(400, "invalid_policy", string.Format(CultureInfo.InvariantCulture, "Use {0:N0} through {1:N0} {2}.", minimum, maximum, label), "policy." + field);
         }
         internal static Task<int> CreateAsync(DbConnection connection, DbTransaction transaction, RequestContext context, string runId, DebatePolicy policy, CancellationToken token)
-        { return ExecuteAsync(connection, transaction, "INSERT INTO debate_policies(id,tenant_id,max_participant_turns,max_orchestration_calls,max_compaction_calls,max_tool_calls,max_wall_clock_seconds,max_context_characters,max_estimated_input_tokens,question_instructions,synthesis_instructions,summary_instructions,created_utc,updated_utc) VALUES(@id,@tenant,@max_participant_turns,@max_orchestration_calls,@max_compaction_calls,@max_tool_calls,@max_wall_clock_seconds,@max_context_characters,@max_estimated_input_tokens,@question_instructions,@synthesis_instructions,@summary_instructions,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "max_participant_turns", policy.MaxParticipantTurns, "max_orchestration_calls", policy.MaxOrchestrationCalls, "max_compaction_calls", policy.MaxCompactionCalls, "max_tool_calls", policy.MaxToolCalls, "max_wall_clock_seconds", policy.MaxWallClockSeconds, "max_context_characters", policy.MaxContextCharacters, "max_estimated_input_tokens", policy.MaxEstimatedInputTokens, "question_instructions", policy.QuestionInstructions, "synthesis_instructions", policy.SynthesisInstructions, "summary_instructions", policy.SummaryInstructions)); }
+        { return ExecuteAsync(connection, transaction, "INSERT INTO debate_policies(id,tenant_id,max_participant_turns,max_orchestration_calls,max_compaction_calls,max_tool_calls,max_wall_clock_seconds,max_context_characters,max_estimated_input_tokens,question_instructions,synthesis_instructions,summary_instructions,resource_access,resource_names_json,resource_tags_json,max_resource_writes_per_turn,max_resource_write_bytes_per_turn,max_resources_created,created_utc,updated_utc) VALUES(@id,@tenant,@max_participant_turns,@max_orchestration_calls,@max_compaction_calls,@max_tool_calls,@max_wall_clock_seconds,@max_context_characters,@max_estimated_input_tokens,@question_instructions,@synthesis_instructions,@summary_instructions,@resource_access,@resource_names_json,@resource_tags_json,@max_resource_writes_per_turn,@max_resource_write_bytes_per_turn,@max_resources_created,@now,@now)", token, P("id", runId, "tenant", context.TenantId, "max_participant_turns", policy.MaxParticipantTurns, "max_orchestration_calls", policy.MaxOrchestrationCalls, "max_compaction_calls", policy.MaxCompactionCalls, "max_tool_calls", policy.MaxToolCalls, "max_wall_clock_seconds", policy.MaxWallClockSeconds, "max_context_characters", policy.MaxContextCharacters, "max_estimated_input_tokens", policy.MaxEstimatedInputTokens, "question_instructions", policy.QuestionInstructions, "synthesis_instructions", policy.SynthesisInstructions, "summary_instructions", policy.SummaryInstructions, "resource_access", policy.ResourceAccess, "resource_names_json", JsonSerializer.Serialize(policy.ResourceNames), "resource_tags_json", JsonSerializer.Serialize(policy.ResourceTags), "max_resource_writes_per_turn", policy.MaxResourceWritesPerTurn, "max_resource_write_bytes_per_turn", policy.MaxResourceWriteBytesPerTurn, "max_resources_created", policy.MaxResourcesCreated)); }
         internal static async Task LoadAsync(DbConnection connection, RequestContext context, DebateRun run, CancellationToken token)
         {
             using (DbCommand command = Command(connection, null, "SELECT * FROM debate_policies WHERE tenant_id=@tenant AND id=@id", P("tenant", context.TenantId, "id", run.Id)))
@@ -51,6 +60,13 @@ namespace ArgueBot.Core.Database.Implementations
                 run.Policy.QuestionInstructions = S(reader, "question_instructions");
                 run.Policy.SynthesisInstructions = S(reader, "synthesis_instructions");
                 run.Policy.SummaryInstructions = S(reader, "summary_instructions");
+                run.Policy.ResourceAccess = S(reader, "resource_access");
+                run.Policy.ResourceNames = JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(S(reader, "resource_names_json")) ?? new System.Collections.Generic.List<string>();
+                run.Policy.ResourceTags = JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(S(reader, "resource_tags_json")) ?? new System.Collections.Generic.List<string>();
+                run.Policy.MaxResourceWritesPerTurn = Convert.ToInt32(reader["max_resource_writes_per_turn"], CultureInfo.InvariantCulture);
+                run.Policy.MaxResourceWriteBytesPerTurn = Convert.ToInt32(reader["max_resource_write_bytes_per_turn"], CultureInfo.InvariantCulture);
+                run.Policy.MaxResourcesCreated = Convert.ToInt32(reader["max_resources_created"], CultureInfo.InvariantCulture);
+                run.Usage.ResourcesCreated = Convert.ToInt64(reader["resources_created"], CultureInfo.InvariantCulture);
                 run.Usage.ParticipantTurns = Convert.ToInt64(reader["participant_turns"], CultureInfo.InvariantCulture);
                 run.Usage.OrchestrationCalls = Convert.ToInt64(reader["orchestration_calls"], CultureInfo.InvariantCulture);
                 run.Usage.CompactionCalls = Convert.ToInt64(reader["compaction_calls"], CultureInfo.InvariantCulture);

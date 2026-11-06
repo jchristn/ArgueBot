@@ -39,6 +39,7 @@ namespace Test.Shared
                     new TestCaseDescriptor("Runners", "Catalog", "Reusable snapshots, encrypted credentials, CAS rotation and serialized Codex refresh", CatalogChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "Identity", "Default identity seeding, tenant isolation, bypass-flag authorization, credentials and cascading deletes", IdentityChecks.SqliteAsync),
                     new TestCaseDescriptor("Runners", "Prompts", "Prompt library factory defaults, placeholders, conversation choices and frozen debate prompts", PromptChecks.RunAsync),
+                    new TestCaseDescriptor("Runners", "Resources", "Resource names, sizes, revisions, agent restrictions, history cap, import, search, tenant isolation and cascading deletes", ResourceChecks.SqliteAsync),
                     new TestCaseDescriptor("Runners", "OpeningQuestion", "Conversation titles stay separate from the opening question debates default to", OpeningQuestionChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "TypedCredentials", "Bearer, header and query credentials carry their placement and endpoints follow it", TypedCredentialChecks.RunAsync),
                     new TestCaseDescriptor("Runners", "CompactionInterruption", "Interrupt-now and next-turn context prevent old-epoch summaries from activating", ContextChecks.InterruptCompactionAsync),

@@ -13,6 +13,8 @@ namespace ArgueBot.Core.Models
         public long ToolCalls { get; set; }
         /// <summary>Reserved estimated input tokens for this run.</summary>
         public long EstimatedInputTokens { get; set; }
+        /// <summary>Resources this run's agents created.</summary>
+        public long ResourcesCreated { get; set; }
         /// <summary>Initial prompt UTF-8 bytes plus envelope allowance; not billed provider tokens or continuation accounting.</summary>
         public string TokenEstimateMethod { get; set; } = "initial-input-utf8-bytes-plus-envelope";
     }

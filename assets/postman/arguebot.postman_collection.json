@@ -96,6 +96,10 @@
       "value": "false"
     },
     {
+      "key": "resourceId",
+      "value": ""
+    },
+    {
       "key": "resourceRevision",
       "value": ""
     },
@@ -150,6 +154,14 @@
     {
       "key": "simulationEndpoint",
       "value": "http://127.0.0.1:4491/ollama"
+    },
+    {
+      "key": "resourceName",
+      "value": "billing"
+    },
+    {
+      "key": "revision",
+      "value": "1"
     },
     {
       "key": "bucketMinutes",
@@ -3771,6 +3783,397 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "description": "Lifecycle operations for resources. Variables, ownership and validation requirements are described by each request.",
+      "item": [
+        {
+          "name": "List resources in name order with optional search and tag filters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources",
+            "description": "Access: any signed-in user of an active tenant.  List resources in name order with optional search and tag filters"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a resource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources",
+            "description": "Access: any signed-in user of an active tenant.  Create a resource",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"billing\",\n  \"title\": \"Billing\",\n  \"description\": \"How invoices, refunds and credits work.\",\n  \"tags\": [\n    \"finance\"\n  ],\n  \"body\": \"# Billing\\n\\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));",
+                  "if(pm.response.code===201) pm.collectionVariables.set('resourceId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/import",
+            "description": "Access: any signed-in user of an active tenant.  Import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"overwrite\": false,\n  \"files\": [\n    {\n      \"fileName\": \"team-conventions.md\",\n      \"content\": \"---\\nname: team/conventions\\ntitle: Team conventions\\ndescription: Code review and naming rules.\\ntags: [engineering]\\n---\\n\\nUse descriptive branch names. Every change needs one review.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 expected', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a resource by name; names may contain slashes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/by-name/{{resourceName}}",
+            "description": "Access: any signed-in user of an active tenant.  Read a resource by name; names may contain slashes"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceName')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a resource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}",
+            "description": "Access: any signed-in user of an active tenant.  Read a resource"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update, rename, lock or unlock a resource with its expected revision; omitted fields are kept",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}",
+            "description": "Access: any signed-in user of an active tenant.  Update, rename, lock or unlock a resource with its expected revision; omitted fields are kept",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"How invoices, refunds and credits work, including approvals.\",\n  \"body\": \"# Billing\\n\\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver. Credits expire after a year.\",\n  \"revision\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete a resource and its history with its expected revision",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}?revision={{resourceRevision}}",
+            "description": "Access: any signed-in user of an active tenant.  Delete a resource and its history with its expected revision"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List a resource's saved revisions newest first, without bodies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revisions",
+            "description": "Access: any signed-in user of an active tenant.  List a resource's saved revisions newest first, without bodies"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read one saved revision with its body",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revisions/{{revision}}",
+            "description": "Access: any signed-in user of an active tenant.  Read one saved revision with its body"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('revision')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore a saved revision's title, description, tags and body as a new revision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revert",
+            "description": "Access: any signed-in user of an active tenant.  Restore a saved revision's title, description, tags and body as a new revision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRevision\": 1,\n  \"revision\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Export a resource as markdown with front matter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/export",
+            "description": "Access: any signed-in user of an active tenant.  Export a resource as markdown with front matter"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('resourceId')) pm.execution.skipRequest();"
                 ]
               }
             },

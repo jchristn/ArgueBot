@@ -763,6 +763,326 @@
       ]
     },
     {
+      "name": "Create resource",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/resources",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman/Billing\",\n  \"title\": \"Billing\",\n  \"description\": \"How invoices work.\",\n  \"tags\": [\n    \"finance\"\n  ],\n  \"body\": \"# Billing\\n\\nInvoices go out on the 1st.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('resourceId',pm.response.json().id);",
+              "pm.test('Lowercase name at revision 1',()=>{const v=pm.response.json();pm.expect(v.name).to.equal('postman/billing');pm.expect(v.revision).to.equal(1);pm.expect(v.updatedByKind).to.equal('user');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject duplicate resource name",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/resources",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"postman/BILLING\",\n  \"body\": \"Again.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));",
+              "pm.test('Names are unique without regard to case',()=>pm.expect(pm.response.json().code).to.equal('resource_exists'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read resource by name",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/resources/by-name/postman/billing",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Name lookup keeps slashes',()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('resourceId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update resource with its revision",
+      "request": {
+        "method": "PUT",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"body\": \"# Billing\\n\\nInvoices go out on the 2nd.\",\n  \"revision\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Revision advanced and title kept',()=>{const v=pm.response.json();pm.expect(v.revision).to.equal(2);pm.expect(v.title).to.equal('Billing');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject stale resource revision",
+      "request": {
+        "method": "PUT",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"body\": \"Stale write.\",\n  \"revision\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));",
+              "pm.test('Stale writes conflict',()=>pm.expect(pm.response.json().code).to.equal('revision_conflict'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List resource history",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revisions",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('History is newest first without bodies',()=>{const rows=pm.response.json();pm.expect(rows.map(x=>x.revision)).to.deep.equal([2,1]);rows.forEach(x=>pm.expect(x.body).to.equal(''));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read first resource revision",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revisions/1",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Saved revision keeps its body',()=>pm.expect(pm.response.json().body).to.include('1st'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Revert resource",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/revert",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"targetRevision\": 1,\n  \"revision\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Revert is a new revision with the old body',()=>{const v=pm.response.json();pm.expect(v.revision).to.equal(3);pm.expect(v.body).to.include('1st');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Export resource",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}/export",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Markdown with front matter',()=>{pm.expect(pm.response.headers.get('Content-Type')).to.include('text/markdown');pm.expect(pm.response.text().startsWith('---\\nname: postman/billing\\n')).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete resource",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}?revision=3",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Confirm resource deleted",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/resources/{{resourceId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404',()=>pm.response.to.have.status(404));",
+              "pm.test('Deleted resources are gone',()=>pm.expect(pm.response.json().code).to.equal('resource_not_found'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Create conversation",
       "request": {
         "method": "POST",

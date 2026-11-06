@@ -1571,6 +1571,201 @@
       "access": "Member"
     },
     {
+      "method": "GET",
+      "path": "/v2.0/api/resources",
+      "group": "Resources",
+      "summary": "List resources in name order with optional search and tag filters",
+      "response": "ResourcePage",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "search",
+        "tag",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/resources",
+      "group": "Resources",
+      "summary": "Create a resource",
+      "response": "Resource",
+      "request": "ResourceRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "name": "billing",
+        "title": "Billing",
+        "description": "How invoices, refunds and credits work.",
+        "tags": [
+          "finance"
+        ],
+        "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver."
+      },
+      "query": [],
+      "execute": false,
+      "save": "resourceId",
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/resources/import",
+      "group": "Resources",
+      "summary": "Import 1 to 50 markdown files; front matter supplies name, title, description, tags and locked",
+      "response": "ResourceImportResult",
+      "request": "ResourceImportRequest",
+      "status": 201,
+      "public": false,
+      "example": {
+        "overwrite": false,
+        "files": [
+          {
+            "fileName": "team-conventions.md",
+            "content": "---\nname: team/conventions\ntitle: Team conventions\ndescription: Code review and naming rules.\ntags: [engineering]\n---\n\nUse descriptive branch names. Every change needs one review."
+          }
+        ]
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/resources/by-name/{resourceName}",
+      "group": "Resources",
+      "summary": "Read a resource by name; names may contain slashes",
+      "response": "Resource",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/resources/{resourceId}",
+      "group": "Resources",
+      "summary": "Read a resource",
+      "response": "Resource",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "PUT",
+      "path": "/v2.0/api/resources/{resourceId}",
+      "group": "Resources",
+      "summary": "Update, rename, lock or unlock a resource with its expected revision; omitted fields are kept",
+      "response": "Resource",
+      "request": "ResourceRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "description": "How invoices, refunds and credits work, including approvals.",
+        "body": "# Billing\n\nInvoices are issued on the first business day of each month. Refunds over 500 USD need a second approver. Credits expire after a year.",
+        "revision": 1
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v2.0/api/resources/{resourceId}",
+      "group": "Resources",
+      "summary": "Delete a resource and its history with its expected revision",
+      "response": "Acknowledgement",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [
+        "revision"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/resources/{resourceId}/revisions",
+      "group": "Resources",
+      "summary": "List a resource's saved revisions newest first, without bodies",
+      "response": "List<ResourceRevision>",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/resources/{resourceId}/revisions/{revision}",
+      "group": "Resources",
+      "summary": "Read one saved revision with its body",
+      "response": "ResourceRevision",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "POST",
+      "path": "/v2.0/api/resources/{resourceId}/revert",
+      "group": "Resources",
+      "summary": "Restore a saved revision's title, description, tags and body as a new revision",
+      "response": "Resource",
+      "request": "ResourceRevertRequest",
+      "status": 200,
+      "public": false,
+      "example": {
+        "targetRevision": 1,
+        "revision": 2
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
+      "method": "GET",
+      "path": "/v2.0/api/resources/{resourceId}/export",
+      "group": "Resources",
+      "summary": "Export a resource as markdown with front matter",
+      "response": "string",
+      "request": null,
+      "status": 200,
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member"
+    },
+    {
       "method": "POST",
       "path": "/v2.0/api/configuration/endpoints/{id}/discover",
       "group": "Configuration",

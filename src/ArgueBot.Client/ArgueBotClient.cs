@@ -6,6 +6,7 @@ namespace ArgueBot.Client
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
@@ -136,6 +137,67 @@ namespace ArgueBot.Client
         /// <summary>List prompt placeholders and where each has a value.</summary>
         public Task<List<PromptParameter>> PromptParametersAsync(CancellationToken token = default)
         { return SendAsync<List<PromptParameter>>(HttpMethod.Get, "v2.0/api/prompt-parameters", token: token); }
+        /// <summary>Page the tenant's resources by name, optionally filtered by search text and tag.</summary>
+        public Task<ResourcePage> ResourcesAsync(string search = "", string tag = "", int pageNumber = 1, int pageSize = 50, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(search); ArgumentNullException.ThrowIfNull(tag);
+            string query = "?pageNumber=" + pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&pageSize=" + pageSize.ToString(System.Globalization.CultureInfo.InvariantCulture) + (search.Length == 0 ? "" : "&search=" + Uri.EscapeDataString(search)) + (tag.Length == 0 ? "" : "&tag=" + Uri.EscapeDataString(tag));
+            return SendAsync<ResourcePage>(HttpMethod.Get, "v2.0/api/resources" + query, token: token);
+        }
+        /// <summary>Every resource summary, reading all pages.</summary>
+        public async Task<List<ResourceSummary>> AllResourcesAsync(string search = "", string tag = "", CancellationToken token = default)
+        {
+            List<ResourceSummary> result = new List<ResourceSummary>();
+            for (int page = 1; ; page++)
+            {
+                ResourcePage current = await ResourcesAsync(search, tag, page, 200, token).ConfigureAwait(false);
+                result.AddRange(current.Items);
+                if (current.Items.Count == 0 || result.Count >= current.TotalCount) return result;
+            }
+        }
+        /// <summary>Read a resource by ID (res_...) or, for anything else, by name.</summary>
+        public Task<Resource> ResourceAsync(string idOrName, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(idOrName); return SendAsync<Resource>(HttpMethod.Get, ResourcePath(idOrName), token: token); }
+        /// <summary>Create a resource.</summary>
+        public Task<Resource> CreateResourceAsync(ResourceRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(request); return SendAsync<Resource>(HttpMethod.Post, "v2.0/api/resources", request, token); }
+        /// <summary>Change a resource by ID with its expected revision in <paramref name="request"/>. Null fields keep their values.</summary>
+        public Task<Resource> UpdateResourceAsync(string id, ResourceRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(id); ArgumentNullException.ThrowIfNull(request); return SendAsync<Resource>(HttpMethod.Put, "v2.0/api/resources/" + Uri.EscapeDataString(id), request, token); }
+        /// <summary>Delete a resource and its history by ID with its expected revision.</summary>
+        public Task<Acknowledgement> DeleteResourceAsync(string id, long revision, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(id); return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/resources/" + Uri.EscapeDataString(id) + "?revision=" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
+        /// <summary>A resource's saved revisions, newest first, without bodies.</summary>
+        public Task<List<ResourceRevision>> ResourceRevisionsAsync(string id, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(id); return SendAsync<List<ResourceRevision>>(HttpMethod.Get, "v2.0/api/resources/" + Uri.EscapeDataString(id) + "/revisions", token: token); }
+        /// <summary>One saved revision with its body.</summary>
+        public Task<ResourceRevision> ResourceRevisionAsync(string id, long revision, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(id); return SendAsync<ResourceRevision>(HttpMethod.Get, "v2.0/api/resources/" + Uri.EscapeDataString(id) + "/revisions/" + revision.ToString(System.Globalization.CultureInfo.InvariantCulture), token: token); }
+        /// <summary>Restore a saved revision as a new revision.</summary>
+        public Task<Resource> RevertResourceAsync(string id, ResourceRevertRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(id); ArgumentNullException.ThrowIfNull(request); return SendAsync<Resource>(HttpMethod.Post, "v2.0/api/resources/" + Uri.EscapeDataString(id) + "/revert", request, token); }
+        /// <summary>Import markdown files as resources in one transaction.</summary>
+        public Task<ResourceImportResult> ImportResourcesAsync(ResourceImportRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(request); return SendAsync<ResourceImportResult>(HttpMethod.Post, "v2.0/api/resources/import", request, token); }
+        /// <summary>Export a resource by ID as markdown with front matter.</summary>
+        public async Task<string> ExportResourceAsync(string id, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(id);
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, "v2.0/api/resources/" + Uri.EscapeDataString(id) + "/export"))
+            {
+                Authorize(request);
+                using (HttpResponseMessage response = await _Http.SendAsync(request, token).ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode) await FailAsync(response, token).ConfigureAwait(false);
+                    return await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                }
+            }
+        }
+        private static string ResourcePath(string idOrName)
+        {
+            if (idOrName.StartsWith("res_", StringComparison.Ordinal)) return "v2.0/api/resources/" + Uri.EscapeDataString(idOrName);
+            return "v2.0/api/resources/by-name/" + string.Join("/", idOrName.Trim().Split('/').Select(Uri.EscapeDataString));
+        }
         /// <summary>Read a conversation.</summary>
         public Task<Conversation> ConversationAsync(string id, CancellationToken token = default)
         { return SendAsync<Conversation>(HttpMethod.Get, Root(id), null, token); }
@@ -263,23 +325,24 @@ namespace ArgueBot.Client
                 Authorize(request);
                 using (HttpResponseMessage response = await _Http.SendAsync(request, token).ConfigureAwait(false))
                 {
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
-                        string text = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-                        ApiError? error = null;
-                        try { error = text.Length == 0 ? null : JsonSerializer.Deserialize<ApiError>(text, _Json); }
-                        catch (JsonException) { }
-                        if (error?.Code == "tenant_required")
-                        {
-                            TenantRequiredError? choice = JsonSerializer.Deserialize<TenantRequiredError>(text, _Json);
-                            throw new TenantRequiredException(choice?.Tenants ?? new List<TenantChoice>());
-                        }
-                        throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.", error?.Field ?? "");
-                    }
+                    if (!response.IsSuccessStatusCode) await FailAsync(response, token).ConfigureAwait(false);
                     return await response.Content.ReadFromJsonAsync<T>(_Json, token).ConfigureAwait(false) ?? throw new InvalidDataException("Server returned an empty response.");
                 }
             }
+        }
+        private async Task FailAsync(HttpResponseMessage response, CancellationToken token)
+        {
+            if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400) throw new DomainException((int)response.StatusCode, "redirect_refused", "Configure the final service URL explicitly; API redirects require a direct endpoint.");
+            string text = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+            ApiError? error = null;
+            try { error = text.Length == 0 ? null : JsonSerializer.Deserialize<ApiError>(text, _Json); }
+            catch (JsonException) { }
+            if (error?.Code == "tenant_required")
+            {
+                TenantRequiredError? choice = JsonSerializer.Deserialize<TenantRequiredError>(text, _Json);
+                throw new TenantRequiredException(choice?.Tenants ?? new List<TenantChoice>());
+            }
+            throw new DomainException((int)response.StatusCode, error?.Code ?? "http_error", error?.Message ?? response.ReasonPhrase ?? "Request failed.", error?.Field ?? "");
         }
         /// <summary>Public sign-in page information, including the default credentials. Needs no token.</summary>
         public Task<LoginInfo> LoginInfoAsync(CancellationToken token = default)

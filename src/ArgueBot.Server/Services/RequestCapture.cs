@@ -36,6 +36,12 @@ namespace ArgueBot.Server.Services
                     try { string raw = http.Response.DataAsString ?? ""; responseBytes = Encoding.UTF8.GetByteCount(raw); response = credentialBody ? "[credential body excluded]" : CaptureRedactor.Body(raw, http.Response.ContentType ?? ""); }
                     catch (ObjectDisposedException) { response = "[streamed response omitted]"; }
                 }
+                // Resource bodies can be large; above the history limit keep a note instead of a partial document.
+                bool resourcePath = capturedPath == "/v2.0/api/resources" || capturedPath.StartsWith("/v2.0/api/resources/", StringComparison.Ordinal);
+                bool requestOmitted = resourcePath && Encoding.UTF8.GetByteCount(request) > limit;
+                bool responseOmitted = resourcePath && Encoding.UTF8.GetByteCount(response) > limit;
+                if (requestOmitted) request = "[resource body over the request history limit omitted]";
+                if (responseOmitted) response = "[resource body over the request history limit omitted]";
                 RequestHistoryEntry entry = new RequestHistoryEntry
                 {
                     TenantId = context.IsAuthenticated ? context.TenantId : null,
@@ -50,8 +56,8 @@ namespace ArgueBot.Server.Services
                     ResponseBytes = responseBytes,
                     RawRequestBody = Prefix(request, limit),
                     RawResponseBody = Prefix(response, limit),
-                    RequestTruncated = Encoding.UTF8.GetByteCount(request) > limit,
-                    ResponseTruncated = http.Response.ServerSentEvents || Encoding.UTF8.GetByteCount(response) > limit,
+                    RequestTruncated = requestOmitted || Encoding.UTF8.GetByteCount(request) > limit,
+                    ResponseTruncated = responseOmitted || http.Response.ServerSentEvents || Encoding.UTF8.GetByteCount(response) > limit,
                     CorrelationId = context.CorrelationId,
                     TraceId = Activity.Current?.TraceId.ToString() ?? "",
                     CreatedUtc = context.ReceivedUtc
