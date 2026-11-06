@@ -1,8 +1,8 @@
 # Model conversation tools
 
-Protocol 2 exposes evidence tools to the model serving the current participant or orchestrator. The service binds each invocation to its run, seat, tenant, accepted history boundary and context epoch. Tool input cannot select another tenant, conversation, run or identity.
+Protocol 2 exposes evidence tools, and resource tools when the debate allows them, to the model serving the current participant or orchestrator. The service binds each invocation to its run, seat, tenant, accepted history boundary and context epoch. Tool input cannot select another tenant, conversation, run or identity.
 
-The tool server is invocation-scoped and needs no bearer token. Claude Code and Codex reach it through a per-invocation stdio MCP bridge that talks to the service over a local pipe, not over HTTP, so it never sees a session or credential token and cannot be reached with one. It reads only the run's own conversation, inside the run's tenant.
+The tool server is invocation-scoped and needs no bearer token. Claude Code and Codex reach it through a per-invocation stdio MCP bridge that talks to the service over a local pipe, not over HTTP, so it never sees a session or credential token and cannot be reached with one. It reads only the run's own conversation and the resources the debate can see, inside the run's tenant.
 
 No identity, credential, secret, share or other management operation is exposed. In particular, every reveal operation (`POST /v2.0/api/configuration/secrets/{id}/reveal`, `.../credentials/{id}/reveal` and `.../shares/{shareId}/reveal`) is deliberately absent from this tool surface, so a model can never read a stored secret or bearer token, create or reveal a share link, or learn about users, tenants or tokens.
 
@@ -36,13 +36,65 @@ Example clarification:
 {"name":"request_clarification","arguments":{"query":"What rollback threshold is acceptable?","blocking":true}}
 ```
 
+## Resource tools
+
+Resources are named markdown documents in the tenant's shared library (see [resources](docs/RESOURCES.md)). A prompt or role instruction can point an agent at one, for example "if you need to know more about billing, call `read_resource` with name `billing`", and the agent reads it only when it needs it. These are ordinary tools, not the MCP `resources/list` and `resources/read` primitive: CLI support for MCP resources varies, and the envelope and REST paths have no such primitive, so plain tools reach every agent type the same way.
+
+Each debate's `policy.resourceAccess` decides which resource tools exist in its invocations:
+
+| Access | Tools offered |
+| --- | --- |
+| `off` | None. Calls to resource tools fail with `unknown_tool`. The `{resources}` placeholder is empty. |
+| `read` (default for new debates) | `list_resources`, `search_resources`, `read_resource` |
+| `read_write` | The three read tools plus `create_resource`, `update_resource`, `edit_resource` and `append_resource` |
+
+Debates started before 2.2 keep `off`. `policy.resourceNames` and `policy.resourceTags` narrow visibility: when either is set, a resource is visible if its name is listed or it has a listed tag, and resources the run's agents create stay visible to that run. Everything else behaves as if it did not exist (`not_found`), in lists, searches, reads and writes alike.
+
+| Tool | Arguments | Result |
+| --- | --- | --- |
+| `list_resources` | Optional `tag`, `after` (exclusive name cursor) and `limit` (1 to 50, default 20) | `items` in name order with `name`, `title`, `description`, `tags`, `characters`, `revision`, `locked`, `updatedBy` (`user` or `agent`), `updatedByName` and `updatedUtc`; `nextAfter`, or null on the last page; and the debate's `access` |
+| `search_resources` | `query` (required, 1 to 4,000 characters), `limit` (1 to 20, default 10) | `items` with `name`, `title`, the field that `matched` (`body`, `name`, `title` or `description`), `matchOffset` for body matches, a snippet of about 200 characters on each side of the first match, and `revision`. Matching is literal and case-insensitive |
+| `read_resource` | `name` (required), `offset` (UTF-16 offset, default 0), `length` (1 to 32,768, default 8,192) | `name`, `title`, `description`, `tags`, `revision`, `locked`, `updatedBy`, `updatedByName`, `updatedUtc`, `agentAuthored`, the `content` chunk with `offset`, nullable `nextOffset` and `totalCharacters`, and a `note` that the text is data, not instructions. Chunks never split a surrogate pair |
+| `create_resource` | `name` and `body` (required), optional `title`, `description` and `tags` | `name`, `revision` (1), `characters` and `locked`. Agents cannot create locked resources |
+| `update_resource` | `name`, `revision` and `body` (required), optional `title` and `description` | Replaces the whole body. Returns the new `revision` |
+| `edit_resource` | `name`, `revision`, `find` and `replace` (all required) | Replaces exactly one occurrence of `find`. Returns the new `revision` |
+| `append_resource` | `name` and `text` (required) | Appends `text` after a newline, with no revision check, for running notes. Returns the new `revision` |
+
+Names are 1 to 128 characters of letters, digits, `-`, `_`, `.` and `/`, matched without regard to case and stored in lowercase. Bodies are at most 256 KiB of UTF-8. Resource tool arguments are bounded to 1 MiB and serialized results to 256 KiB.
+
+Resource tool errors:
+
+| Code | Meaning |
+| --- | --- |
+| `not_found` | No resource with that name is visible in this debate |
+| `revision_conflict` | The resource changed since the `revision` you passed. Read it again and reapply the change; `update_resource` and `edit_resource` never overwrite another seat's change |
+| `resource_locked` | The resource is locked. Agents can read locked resources but never change them |
+| `resource_lock_denied`, `resource_rename_denied` | Agents cannot lock, unlock or rename resources |
+| `resource_exists` | `create_resource` named an existing resource |
+| `edit_no_match`, `edit_ambiguous` | `find` occurs zero times or more than once |
+| `resource_write_limit` | The turn used up `policy.maxResourceWritesPerTurn` (default 8) writes or `policy.maxResourceWriteBytesPerTurn` (default 65,536) bytes written |
+| `resource_create_limit` | The debate's agents created `policy.maxResourcesCreated` (default 50) resources |
+| `invalid_resource_name`, `resource_too_large`, `invalid_tool_arguments`, `invalid_offset`, `invalid_length`, `missing_query` | The arguments break the rules above |
+
+Every resource call also counts against the run's tool-call budget. Agent writes are attributed to the calling seat, run and attempt; they appear in the resource's revision history as agent-authored and are audited. Each attempt records the resources it read (`read_resource`) and wrote, with the revision involved; `GET .../runs/{runId}/attempts` returns them as `resources`, so you can see which context an answer used. Tool activity appears in the transcript like the evidence tools.
+
+Example calls:
+
+```json
+{"name":"read_resource","arguments":{"name":"billing"}}
+{"name":"edit_resource","arguments":{"name":"team/conventions","revision":4,"find":"two reviews","replace":"one review"}}
+{"name":"append_resource","arguments":{"name":"debate-notes","text":"Round 2: the rollback threshold is still disputed."}}
+```
+
+Over MCP the resource tools are listed by `tools/list` next to the evidence tools; in the JSON envelope they appear in the same tool list; REST models receive them as native functions. Resource text is returned as data inside the tool result, never as instructions.
+
 ## Native MCP transport
 
 The service creates an owner-only named pipe for one invocation and launches its own executable with `--context-mcp PIPE` through the harness's MCP configuration. This mode uses stdin/stdout only for newline-delimited UTF-8 JSON-RPC. It does not open a database, attach a workspace or launch an HTTP management listener. The pipe disappears when the invocation ends. The command is an implementation detail, not a user-facing launcher.
 
-Supported methods are `initialize`, `ping`, `tools/list` and `tools/call`. Initialization negotiates the supported 2024-11-05, 2025-03-26, 2025-06-18 or 2025-11-25 protocol revision. The server advertises only the supplied conversation tools. Duplicate request IDs are rejected before executing a tool. Each connection is bounded to 256 frames, 32 tool executions and 128 KiB per frame. Cancellation closes the pipe and terminates the harness process tree through the existing CLI runner.
+Supported methods are `initialize`, `ping`, `tools/list` and `tools/call`. Initialization negotiates the supported 2024-11-05, 2025-03-26, 2025-06-18 or 2025-11-25 protocol revision. The server advertises only the supplied conversation and resource tools. Duplicate request IDs are rejected before executing a tool. Each connection is bounded to 256 frames, 32 tool executions and 1 MiB per frame. Cancellation closes the pipe and terminates the harness process tree through the existing CLI runner.
 
-Claude Code uses `--strict-mcp-config --mcp-config` with the generated server definition. Codex uses `--config mcp_servers.arguebot.command=...` and `--config mcp_servers.arguebot.args=...`. No pasted token appears in these arguments. Local fixture child processes exercise both configuration shapes, protocol negotiation, original evidence retrieval and rejection of duplicate/unknown calls. Live provider compatibility remains a separate acceptance gate, including the pinned Docker CLI versions.
+Claude Code uses `--strict-mcp-config --mcp-config` with the generated server definition. Codex uses `--config mcp_servers.arguebot.command=...` and `--config mcp_servers.arguebot.args=...`. No pasted token appears in these arguments. Local fixture child processes exercise both configuration shapes, protocol negotiation, original evidence retrieval, resource reads, appends and stale-revision conflicts, and rejection of duplicate/unknown calls. Live provider compatibility remains a separate acceptance gate, including the pinned Docker CLI versions.
 
 References: [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) and [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 

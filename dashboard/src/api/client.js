@@ -205,6 +205,27 @@ export class ApiClient {
   duplicatePrompt(id) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "/duplicate", { method: "POST" }); }
   deletePrompt(id, revision) { return this.request("/v2.0/api/prompts/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   promptParameters() { return this.request("/v2.0/api/prompt-parameters"); }
+  resources({ search = "", tag = "", pageNumber = 1, pageSize = 200 } = {}) {
+    const query = new URLSearchParams({ pageNumber: String(pageNumber), pageSize: String(pageSize) });
+    if (search) query.set("search", search);
+    if (tag) query.set("tag", tag);
+    return this.request("/v2.0/api/resources?" + query);
+  }
+  resource(id) { return this.request("/v2.0/api/resources/" + encodeURIComponent(id)); }
+  resourceByName(name) { return this.request("/v2.0/api/resources/by-name/" + name.split("/").map(encodeURIComponent).join("/")); }
+  saveResource(resource) {
+    return this.request("/v2.0/api/resources" + (resource.id ? "/" + encodeURIComponent(resource.id) : ""), { method: resource.id ? "PUT" : "POST", body: resource });
+  }
+  deleteResource(id, revision) { return this.request("/v2.0/api/resources/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
+  resourceRevisions(id) { return this.request("/v2.0/api/resources/" + encodeURIComponent(id) + "/revisions"); }
+  resourceRevision(id, revision) { return this.request("/v2.0/api/resources/" + encodeURIComponent(id) + "/revisions/" + revision); }
+  revertResource(id, targetRevision, revision) { return this.request("/v2.0/api/resources/" + encodeURIComponent(id) + "/revert", { method: "POST", body: { targetRevision, revision } }); }
+  importResources(files, overwrite = false) { return this.request("/v2.0/api/resources/import", { method: "POST", body: { files, overwrite } }); }
+  async exportResource(id) {
+    const response = await fetch("/v2.0/api/resources/" + encodeURIComponent(id) + "/export", { headers: { "Accept-Language": i18n.language, "x-client-id": this.clientId, ...this.authorization() } });
+    if (!response.ok) throw this.failed(response.status, await response.json().catch(() => ({})));
+    return response.text();
+  }
   revealCredential(id) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "/reveal", { method: "POST" }); }
   disableCredential(id, revision) { return this.request("/v2.0/api/configuration/secrets/" + encodeURIComponent(id) + "?revision=" + revision, { method: "DELETE" }); }
   capabilities() { return this.request("/v2.0/api/capabilities"); }

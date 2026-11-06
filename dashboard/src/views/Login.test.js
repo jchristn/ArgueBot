@@ -13,6 +13,7 @@ it("shows administration only to administrators", () => {
   expect(links({ isAdmin: false, isTenantAdmin: false })).not.toEqual(expect.arrayContaining(["users"]));
   expect(links({ isAdmin: false, isTenantAdmin: false })).not.toContain("settings");
   expect(links({ isAdmin: false, isTenantAdmin: false })).not.toContain("history");
+  expect(links({ isAdmin: false, isTenantAdmin: false })).toEqual(expect.arrayContaining(["prompts", "resources"]));
   expect(links({ isAdmin: false, isTenantAdmin: true })).toEqual(expect.arrayContaining(["users", "audit", "history"]));
   expect(links({ isAdmin: false, isTenantAdmin: true })).not.toContain("tenants");
   expect(links({ isAdmin: true, isTenantAdmin: true })).toEqual(expect.arrayContaining(["users", "audit", "tenants", "settings"]));

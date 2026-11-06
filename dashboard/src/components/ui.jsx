@@ -24,6 +24,7 @@ export function Icon({ name }) {
     search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",
     chevron: "m6 9 6 6 6-6",
     prompt: "M5 4h14v16H5zM9 9h6M9 13h6M9 17h3",
+    book: "M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h8M8 11h6",
     more: "M6 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0M13 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0M20 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0",
   };
   return (
