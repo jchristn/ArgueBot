@@ -17,6 +17,8 @@ namespace ArgueBot.Core.Services
         internal static string Build(DebateRun run, RunnerProfile profile)
         {
             string prompt = BuildPhase(run, profile);
+            // Seats see their own earlier votes, each naming that round's proposal, and sometimes copy the newest ID they can see. Restate the open one last.
+            if (run.Phase == "ratification" && !run.RepairPending) prompt += "\nProposal IDs in earlier messages belong to closed proposals. This vote's proposalId is " + JsonSerializer.Serialize(run.ProposalId) + ".";
             if (run.RepairPending && run.Phase == "compaction") prompt += "\nYour previous summary was rejected by validation. Reply again with only the JSON object: every supplied source ID exactly once, all seven sections, each pinned constraint's source ID named in the constraints section, and the size limits. " + RepairLimit(run, "summary pauses the debate and keeps the previous memory.");
             else if (run.RepairPending && run.Phase != "response")
             {

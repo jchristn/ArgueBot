@@ -39,6 +39,8 @@ Write a parameter as `{name}`. Write `{{` and `}}` for literal braces. Values ar
 
 `GET /v2.0/api/prompt-parameters` and `prompts parameters` in the CLI return the same list.
 
+ArgueBot appends one line to every vote prompt, after your text: "Proposal IDs in earlier messages belong to closed proposals. This vote's proposalId is ..." with the open proposal's ID. It also appends a correction request when a structured reply is rejected. Neither can be edited.
+
 ## Referring to resources
 
 A prompt can tell agents where to find more context instead of including it, for example "if you need to know more about billing, call `read_resource` with name `billing`". The agent reads the [resource](RESOURCES.md) only when it needs it, provided the debate's resource access is Read or Read and write. Agents' role instructions work the same way. Add `{resources}` to list every resource the debate can see.

@@ -139,6 +139,7 @@ namespace Test.Shared
                 string newest = proposals.OrderByDescending(item => item.Id, StringComparer.Ordinal).First().Id;
                 Require(run.Outcome == "max_rounds" && attempts.Items.Count(item => item.ErrorCode == "invalid_orchestration_output") == 1 && attempts.Items.Any(item => item.Purpose == "ratification" && item.RepairNumber == 1 && item.State == "completed"), "A vote naming an earlier proposal of the run must be repaired: " + run.State + "/" + run.Outcome);
                 Require(earlier.Prompts.Any(prompt => prompt.StartsWith("Agent 2\n", StringComparison.Ordinal) && prompt.Contains("Set proposalId to exactly \"" + newest + "\"", StringComparison.Ordinal)), "The vote correction request must restate the exact proposal ID.");
+                Require(earlier.Prompts.Any(prompt => prompt.StartsWith("Agent 2\n", StringComparison.Ordinal) && prompt.Contains("Proposal IDs in earlier messages belong to closed proposals. This vote's proposalId is \"" + newest + "\".", StringComparison.Ordinal)), "Every vote prompt must restate the open proposal ID after the frozen prompt.");
             }
             Conversation transient = await database.CreateConversationAsync(context, "Intermittent agent failure", token).ConfigureAwait(false);
             MultiAgentFixtureRunner flaky = new MultiAgentFixtureRunner();
