@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: v2.2.0
+## Unreleased: v2.2.0 (image published November 6, 2026)
 
 v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. A prompt or role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Work follows [archive/RESOURCES_PLAN.md](archive/RESOURCES_PLAN.md); see [docs/RESOURCES.md](docs/RESOURCES.md).
 

@@ -1,6 +1,6 @@
 # Resources plan
 
-Status: implemented on `feature/v2.2.0` on November 5, 2026 (see [Execution record](#execution-record)); the image build and push wait for the merge. Decisions were confirmed by the product owner on November 5, 2026, and the numeric limits marked "proposal" were adopted as proposed. Target version: 2.2.0 (version change requested by the product owner on November 5, 2026), on a `feature/v2.2.0` branch from `main`. Prepared November 5, 2026.
+Status: implemented on `feature/v2.2.0` on November 5, 2026 (see [Execution record](#execution-record)); the v2.2.0 image was built and pushed on November 6, 2026. Decisions were confirmed by the product owner on November 5, 2026, and the numeric limits marked "proposal" were adopted as proposed. Target version: 2.2.0 (version change requested by the product owner on November 5, 2026), on a `feature/v2.2.0` branch from `main`. Prepared November 5, 2026.
 
 This plan adds **Resources**: named markdown documents stored in a tenant's workspace. Agents can list, search, read, create and edit them through tools during a debate. A prompt or role instruction can then say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Agents can also write their own resources, so they can record findings and build context that later turns and later debates reuse.
 
@@ -130,7 +130,7 @@ Evidence: commit 2908b66. `Terminal.Resources` passes against a real service (22
 - [x] Postman: confirm both collections and the OpenAPI document are regenerated from the final contract and the acceptance workflow passes.
 - [x] Other docs: `docs/PROMPTS.md` (referencing resources, the `{resources}` placeholder), `docs/EXECUTION.md` (tool budgets, write limits, live checks), `docs/MULTIPLE_AGENTS.md` (debate resource access settings), `docs/TUI.md` (Resources screen), `docs/DEVELOPMENT.md` (new tests), `docs/IDENTITY.md` (resources are tenant-scoped and shared like prompts), `docs/REQUIREMENTS.md`, `docker/README.md` and `DOCKERHUB_README.md` (nothing new to configure, image tag v2.2.0).
 - [x] CHANGELOG: complete the `Unreleased: v2.2.0` section (resources, tools, API, dashboard, TUI, CLI, schema 33, breaking changes if any).
-- [ ] Build and push the image with `./build-all.sh v2.2.0` once the branch is merged, and update `docker/compose.yaml` only if the tag changes.
+- [x] Build and push the image with `./build-all.sh v2.2.0`, and update `docker/compose.yaml` only if the tag changes. Evidence: built from `feature/v2.2.0` on November 6, 2026 at the request of the product owner, before the merge; `jchristn77/arguebot:v2.2.0` and `:latest` are index `sha256:495ebe1194f2162b22675d97e793473c43ff4544bb94552b56c3df159fba887c` for linux/amd64 and linux/arm64. The pulled image started on a loopback port reported `"schema":33`, and `/v2.0/api/resources` answered 401 without credentials. The tag did not change, so `docker/compose.yaml` keeps `v2.2.0`.
 
 Acceptance: every doc link resolves; a search finds no stale references to 2.1.0 as the current version; CHANGELOG lists every user-visible change; the image `jchristn77/arguebot:v2.2.0` is on Docker Hub and `docker compose -f docker/compose.yaml up` starts it.
 
