@@ -1,16 +1,16 @@
 # Resources plan
 
-Status: draft for product owner review. Target version: 2.2.0 (version change requested by the product owner on November 5, 2026), on a `feature/v2.2.0` branch from `main`. Prepared November 5, 2026.
+Status: decisions confirmed by the product owner on November 5, 2026. Numeric limits marked "proposal" in the phases can be tuned during execution. Target version: 2.2.0 (version change requested by the product owner on November 5, 2026), on a `feature/v2.2.0` branch from `main`. Prepared November 5, 2026.
 
 This plan adds **Resources**: named markdown documents stored in a tenant's workspace. Agents can list, search, read, create and edit them through tools during a debate. A prompt or role instruction can then say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Agents can also write their own resources, so they can record findings and build context that later turns and later debates reuse.
 
 Each phase lists its tasks, the files involved and the evidence required before its box is checked. Do not check a box without that evidence. Every phase that changes behavior updates its code, tests, API artifacts (`assets/api-contract.json`, `REST_API.md`, `MCP_API.md`, the OpenAPI document and the Postman collections) and documentation together.
 
-## Decisions to confirm
+## Decisions
 
-These are proposals. The product owner confirms or changes each one before Phase 1 starts.
+These decisions come from the product owner and override any conflicting default in the requirements.
 
-| Topic | Proposal |
+| Topic | Decision |
 | --- | --- |
 | Storage | Resources are database rows, not files on disk. The service stays the sole writer, tenant isolation, SQLite and PostgreSQL support come for free, and no agent needs file access. Import and export of `.md` files cover the "it's a markdown file" workflow. |
 | Scope | One library per tenant, shared by every user in the tenant, like prompts and agents. Each debate can narrow which resources its agents see (Phase 3). |
@@ -22,11 +22,11 @@ These are proposals. The product owner confirms or changes each one before Phase
 | Transport | The tools join the existing conversation tool catalogue (`ConversationTools`), which already reaches every agent type: MCP for Claude Code and Codex, the JSON tool envelope for Mux, Gemini and generic CLIs, and native tool calling for REST models. They are plain tools, not the MCP "resources" primitive. CLI support for MCP resources varies and the envelope and REST paths have no such primitive. |
 | Trust | Resource text is returned as data, like conversation evidence. Agent-written revisions are marked as agent-authored in tool results and in the UI, because an agent's note persists into later debates. |
 
-Open questions for the product owner:
+The three questions left open in the first draft were answered on November 5, 2026:
 
-1. Should agent-created resources go into the shared library, or into a per-conversation area that a user promotes into the library? The proposal is the shared library, with author marking and history.
-2. Is `read` the right default for new debates, or should `read_write` be the default?
-3. Should a prompt placeholder `{resources}` exist that expands to the list of names and descriptions visible to the debate? It saves a tool call but spends context on every turn. The proposal is yes, opt-in per prompt.
+1. Agent-created resources go straight into the tenant's shared library, marked as agent-authored, with revision history and revert.
+2. New debates default to `read` resource access; `read_write` is turned on per debate.
+3. Prompts get an opt-in `{resources}` placeholder that expands to the names and descriptions of the resources the debate can see.
 
 ## Requirements compliance
 
@@ -88,7 +88,7 @@ Acceptance: API tests for every route, including 401 without a token, 404 across
 - [ ] Provenance: record each resource read and write (name, revision) on the attempt, so `debate attempts` shows which context an answer used.
 - [ ] Wire the definitions into `ConversationEngine` so all three transports offer them (MCP bridge, context envelope, REST tools). Tool activity appears in the transcript like the existing conversation tools.
 - [ ] `MCP_API.md`: add every resource tool to the tools table with its arguments, results, error codes (`revision_conflict`, `resource_locked`, `not_found`, write limits), the access modes and which tools each mode offers, and the transport notes (MCP bridge, JSON envelope, REST functions). Update the paragraph that lists what the tool server exposes.
-- [ ] Prompt support: a `{resources}` placeholder in `PromptCatalog` (if approved), and prompt validation that warns when a prompt names `read_resource` with a resource that does not exist in the tenant.
+- [ ] Prompt support: an opt-in `{resources}` placeholder in `PromptCatalog`, and prompt validation that warns when a prompt names `read_resource` with a resource that does not exist in the tenant.
 
 Acceptance: fixture tests for each tool through each transport, using the Test.Fixtures CLI with MCP and envelope modes and a REST fixture. Covers visibility narrowing, locked resources, revision conflicts between two seats, write limits, provenance on the attempt and that `off` offers no resource tools. One live check per CLI (Claude Code and Mux) on an isolated home and a 127.0.0.1 port, recorded in `docs/EXECUTION.md`.
 
