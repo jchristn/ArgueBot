@@ -19285,6 +19285,11 @@
             "maximum": 1000,
             "default": 50
           },
+          "maxStepRetries": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work."
+          },
           "questionInstructions": {
             "type": "string",
             "description": "Additional neutral question-selection guidance, up to 4000 characters.",
@@ -19489,7 +19494,7 @@
           },
           "repairPending": {
             "type": "boolean",
-            "description": "True when the previous orchestration step returned invalid structured output and the next attempt is its single repair request."
+            "description": "True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit."
           }
         }
       },
@@ -19832,7 +19837,12 @@
           },
           "repair": {
             "type": "boolean",
-            "description": "True when this attempt repeated a question, proposal or vote after invalid structured output. At most one repair follows each invalid answer."
+            "description": "True when this attempt repeated a question, proposal, vote or summary after invalid structured output. The debate's step retry limit bounds the repairs."
+          },
+          "repairNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Correction request number for this step: 0 for the first try, then 1, 2 and so on up to the debate's step retry limit."
           },
           "contextEpoch": {
             "type": "integer",

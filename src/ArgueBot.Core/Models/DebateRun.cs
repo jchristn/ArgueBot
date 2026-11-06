@@ -91,7 +91,10 @@ namespace ArgueBot.Core.Models
         /// <summary>True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates.</summary>
         public bool RebuildFromOriginals { get; set; }
 
-        /// <summary>True when the previous orchestration step returned invalid structured output and the next attempt is its single repair request.</summary>
+        /// <summary>True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit.</summary>
         public bool RepairPending { get; set; }
+
+        /// <summary>Number of the pending correction request, starting at 1.</summary>
+        internal int RepairNumber { get; set; }
     }
 }

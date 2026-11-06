@@ -51,8 +51,12 @@ namespace ArgueBot.Core.Database.Implementations
             using (DbCommand command = Command(connection, null, "SELECT d.purpose,d.repair,a.error_code FROM debate_attempts d JOIN generation_attempts a ON a.tenant_id=d.tenant_id AND a.id=d.attempt_id WHERE a.tenant_id=@tenant AND a.run_id=@run ORDER BY a.number DESC LIMIT 1", P("tenant", context.TenantId, "run", run.Id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
-                // The latest attempt returned invalid structured output and was not itself a repair: the next attempt for the same step asks once for a corrected reply.
-                if (await reader.ReadAsync(token).ConfigureAwait(false)) run.RepairPending = (S(reader, "error_code") == "invalid_orchestration_output" || S(reader, "error_code") == "summary_validation_failed") && Convert.ToInt64(reader["repair"], CultureInfo.InvariantCulture) == 0 && S(reader, "purpose") == run.Phase;
+                // The latest attempt for this step returned invalid structured output: the next attempt asks for a corrected reply until the step retry limit is used.
+                if (await reader.ReadAsync(token).ConfigureAwait(false) && (S(reader, "error_code") == "invalid_orchestration_output" || S(reader, "error_code") == "summary_validation_failed") && S(reader, "purpose") == run.Phase)
+                {
+                    run.RepairNumber = Convert.ToInt32(reader["repair"], CultureInfo.InvariantCulture) + 1;
+                    run.RepairPending = run.RepairNumber <= run.Policy.MaxStepRetries;
+                }
             }
             run.Participants.Clear();
             using (DbCommand command = Command(connection, null, "SELECT p.* FROM profiles p JOIN debate_members m ON p.tenant_id=m.tenant_id AND p.id=m.profile_id WHERE m.tenant_id=@tenant AND m.run_id=@run AND m.active=1 ORDER BY m.position,m.id", P("tenant", context.TenantId, "run", run.Id)))
@@ -71,8 +75,8 @@ namespace ArgueBot.Core.Database.Implementations
         internal static async Task BeginAsync(DbConnection connection, DbTransaction transaction, RequestContext context, DebateRun run, GenerationAttempt attempt, CancellationToken token)
         {
             await BudgetMethods.ReserveAsync(connection, transaction, context, run, attempt, token).ConfigureAwait(false);
-            attempt.Purpose = run.Phase; attempt.ContextEpoch = run.ContextEpoch; attempt.RosterRevision = run.RosterRevision; attempt.Repair = run.RepairPending;
-            await ExecuteAsync(connection, transaction, "INSERT INTO debate_attempts(id,attempt_id,tenant_id,purpose,context_epoch,roster_revision,proposal_id,repair,created_utc,updated_utc) VALUES(@id,@id,@tenant,@purpose,@epoch,@roster,@proposal,@repair,@now,@now)", token, P("id", attempt.Id, "tenant", context.TenantId, "purpose", run.Phase, "epoch", run.ContextEpoch, "roster", run.RosterRevision, "proposal", run.ProposalId, "repair", attempt.Repair ? 1 : 0)).ConfigureAwait(false);
+            attempt.Purpose = run.Phase; attempt.ContextEpoch = run.ContextEpoch; attempt.RosterRevision = run.RosterRevision; attempt.RepairNumber = run.RepairPending ? run.RepairNumber : 0;
+            await ExecuteAsync(connection, transaction, "INSERT INTO debate_attempts(id,attempt_id,tenant_id,purpose,context_epoch,roster_revision,proposal_id,repair,created_utc,updated_utc) VALUES(@id,@id,@tenant,@purpose,@epoch,@roster,@proposal,@repair,@now,@now)", token, P("id", attempt.Id, "tenant", context.TenantId, "purpose", run.Phase, "epoch", run.ContextEpoch, "roster", run.RosterRevision, "proposal", run.ProposalId, "repair", attempt.RepairNumber)).ConfigureAwait(false);
             int changed = await ExecuteAsync(connection, transaction, "UPDATE debate_state SET invocations=invocations+1 WHERE tenant_id=@tenant AND run_id=@run AND invocations<100000", token, P("tenant", context.TenantId, "run", run.Id)).ConfigureAwait(false);
             if (changed != 1) throw new DomainException(409, "generation_limit", "The run reached its invocation limit. Start a continuation with reviewed limits.");
         }
@@ -85,7 +89,7 @@ namespace ArgueBot.Core.Database.Implementations
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) return;
                 attempt.EstimatedInputTokens = Convert.ToInt64(reader["estimate"], CultureInfo.InvariantCulture);
                 attempt.Purpose = S(reader, "purpose"); attempt.ContextEpoch = Convert.ToInt64(reader["context_epoch"], CultureInfo.InvariantCulture); attempt.RosterRevision = Convert.ToInt64(reader["roster_revision"], CultureInfo.InvariantCulture);
-                attempt.Repair = Convert.ToInt64(reader["repair"], CultureInfo.InvariantCulture) != 0;
+                attempt.RepairNumber = Convert.ToInt32(reader["repair"], CultureInfo.InvariantCulture);
             }
         }
 
@@ -152,8 +156,8 @@ namespace ArgueBot.Core.Database.Implementations
             catch (Exception exception) when (exception is JsonException || exception is DomainException || exception is ArgumentException || exception is NullReferenceException)
             {
                 answer.State = "failed"; attempt.ErrorCode = exception is DomainException domain ? domain.Code : "invalid_orchestration_output";
-                // One bounded repair: the same step runs once more with a correction request. A repair that also fails, or any other failure, pauses for the moderator.
-                if ((attempt.ErrorCode == "invalid_orchestration_output" || attempt.ErrorCode == "summary_validation_failed") && !attempt.Repair) { run.RepairPending = true; return; }
+                // Bounded repairs: the same step runs again with a correction request until the debate's step retry limit is used. Then, or after any other failure, it pauses for the moderator.
+                if ((attempt.ErrorCode == "invalid_orchestration_output" || attempt.ErrorCode == "summary_validation_failed") && attempt.RepairNumber < run.Policy.MaxStepRetries) { run.RepairPending = true; return; }
                 run.State = "paused"; run.Outcome = attempt.ErrorCode;
             }
         }

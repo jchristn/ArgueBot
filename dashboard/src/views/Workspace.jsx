@@ -23,6 +23,7 @@ import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
 import ResourceToolLink from "../components/ResourceToolLink.jsx";
+import { savedPageSize } from "../utils/page-size.js";
 function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
   const { t } = useTranslation();
   const [question, setQuestion] = useState(defaultQuestion);
@@ -204,7 +205,7 @@ function WorkspaceContent({ id }) {
     requestAnimationFrame(() => { const target = document.getElementById("message-" + messageId); target?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); target?.querySelector(".message-toggle")?.focus({ preventScroll: true }); });
     setTimeout(() => setJumpTarget(current => current === messageId ? "" : current), 1600);
   };
-  const [historyView, setHistoryView] = useState({ pageNumber: 1, pageSize: 25, tail: true });
+  const [historyView, setHistoryView] = useState(() => ({ pageNumber: 1, pageSize: savedPageSize("messages", 25), tail: true }));
   const [panelOpen, setPanelOpen] = useState(() => { const saved = localStorage.getItem("arguebot.debatePanel"); return saved ? saved === "open" : window.innerWidth >= 1200; });
   const togglePanel = () => setPanelOpen(current => { localStorage.setItem("arguebot.debatePanel", current ? "closed" : "open"); return !current; });
   const [busy, setBusy] = useState(false);
@@ -486,7 +487,7 @@ function WorkspaceContent({ id }) {
       </div>
       <RunActivity run={run} messages={data.messages} connection={connection} />
       <div className="history-navigation">
-        <Pagination page={data.messagePage} onChange={(changes) => {
+        <Pagination page={data.messagePage} table="messages" onChange={(changes) => {
           // Changing the page size while following the latest messages keeps following them; only paging freezes the membership boundary.
           if (historyView.tail && changes.pageSize !== undefined) { setHistoryView({ pageNumber: 1, pageSize: changes.pageSize, tail: true }); return; }
           scrollPageTop.current = true; tail.current = false; setHistoryView((current) => ({ ...current, ...changes, tail: false, throughSequence: data.messagePage.throughSequence }));

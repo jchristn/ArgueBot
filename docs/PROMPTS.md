@@ -12,7 +12,7 @@ Each protocol 2 debate step sends an instruction prompt to one model. The conver
 | `ratification` | Each agent | JSON with `proposalId`, `position` and `rationale` |
 | `compaction` | Orchestrator | JSON working memory with `summary`, seven `sections` and `sourceIds` |
 
-ArgueBot validates structured replies. When a reply does not have the required shape, it asks the model once for a corrected reply, then pauses the debate. Keep the reply instructions from the factory prompt when you write your own.
+ArgueBot validates structured replies. When a reply does not have the required shape, it asks the model for a corrected reply up to the debate's step retry limit (`maxStepRetries`, default 3), then pauses the debate. Keep the reply instructions from the factory prompt when you write your own.
 
 ## Factory defaults and custom prompts
 

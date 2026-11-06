@@ -17,6 +17,8 @@ namespace Test.Shared
         internal Dictionary<string, string> Positions { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
         internal Dictionary<string, string> RawRatification { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
         internal System.Collections.Concurrent.ConcurrentDictionary<string, string> RawOnce { get; } = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>Failure codes thrown once for a step key (same keys as RawOnce), as a working agent that fails intermittently would.</summary>
+        internal System.Collections.Concurrent.ConcurrentDictionary<string, string> FailOnce { get; } = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         internal System.Collections.Concurrent.ConcurrentQueue<string> Prompts { get; } = new System.Collections.Concurrent.ConcurrentQueue<string>();
         internal bool HoldResponse { get; set; }
         internal TaskCompletionSource<bool> Started { get; } = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -45,7 +47,9 @@ namespace Test.Shared
                 { Started.TrySetResult(true); await Release.Task.WaitAsync(token).ConfigureAwait(false); }
                 output = "WE HAVE CONSENSUS\nThis phrase alone must not finish a protocol 2 debate.";
             }
-            if (RawOnce.TryRemove(phase == "ratification" || phase == "response" ? profile.Name + ":" + phase : phase, out string? once)) output = once;
+            string key = phase == "ratification" || phase == "response" ? profile.Name + ":" + phase : phase;
+            if (FailOnce.TryRemove(key, out string? code)) throw new ArgueBot.Core.Services.DomainException(503, code, "Fictional intermittent failure.");
+            if (RawOnce.TryRemove(key, out string? once)) output = once;
             await onText(output, token).ConfigureAwait(false);
         }
     }

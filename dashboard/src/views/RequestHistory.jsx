@@ -8,16 +8,17 @@ import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Modal, Pagination } from "../components/ui.jsx";
 import ActivityChart from "../components/ActivityChart.jsx";
 import { formatDate } from "../i18n/index.js";
+import { savedPageSize } from "../utils/page-size.js";
 export default function RequestHistory() {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
-  const [filter, setFilter] = useState({
+  const [filter, setFilter] = useState(() => ({
     search: "",
     method: "",
     status: "",
     pageNumber: 1,
-    pageSize: 25,
-  });
+    pageSize: savedPageSize("requests", 25),
+  }));
   const [detail, setDetail] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const { data, error, reload } = useData(JSON.stringify(filter), () =>
@@ -118,7 +119,7 @@ export default function RequestHistory() {
       {error && <ErrorPanel error={error} retry={reload} />}{" "}
       {data && (
         <>
-          <Pagination page={data} onChange={update} />
+          <Pagination page={data} table="requests" onChange={update} />
           <div className="table-scroll">
             <table>
               <thead>

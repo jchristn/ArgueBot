@@ -1,6 +1,7 @@
 import CopyableId from "./CopyableId.jsx";
 import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { PAGE_SIZES, savePageSize } from "../utils/page-size.js";
 export function Icon({ name }) {
   const paths = {
     copy: "M9 9h12v12H9zM15 9V3H3v12h6",
@@ -145,7 +146,8 @@ export function ErrorPanel({ error, retry }) {
     </div>
   );
 }
-export function Pagination({ page, onChange }) {
+/** Page controls. With `table`, a rows-per-page choice is saved and reused on later visits (see utils/page-size.js). */
+export function Pagination({ page, onChange, table }) {
   const { t } = useTranslation();
   const pages = Math.max(1, Math.ceil(page.totalCount / page.pageSize));
   return (
@@ -204,10 +206,13 @@ export function Pagination({ page, onChange }) {
           aria-label={t("common.pageSize")}
           value={page.pageSize}
           onChange={(event) =>
-            onChange({ pageSize: Number(event.target.value), pageNumber: 1 })
-          }
+          {
+            const size = Number(event.target.value);
+            savePageSize(table, size);
+            onChange({ pageSize: size, pageNumber: 1 });
+          }}
         >
-          {[10, 25, 50, 100].map((size) => (
+          {PAGE_SIZES.map((size) => (
             <option key={size} value={size}>
               {size}
             </option>

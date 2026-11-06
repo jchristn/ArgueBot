@@ -15,7 +15,7 @@ export default function DebatePolicyEditor({ value, maximum, onChange }) {
   const { t } = useTranslation();
   const change = (key, next) => onChange({ ...value, [key]: next });
   return <details className="debate-policy"><summary>{t("policy.title")}</summary><p className="muted">{t("policy.help")}</p>
-    <div className="form-grid">{["maxParticipantTurns", "maxOrchestrationCalls", "maxCompactionCalls", "maxToolCalls", "maxWallClockSeconds", "maxContextCharacters", "maxEstimatedInputTokens"].map(key => <Field key={key} label={`policy.${key}`}>{props => <input {...props} type="number" required min={key === "maxEstimatedInputTokens" ? 0 : key === "maxContextCharacters" ? 8192 : 1} max={maximum[key]} value={value[key]} onChange={event => change(key, Number(event.target.value))} />}</Field>)}</div>
+    <div className="form-grid">{["maxParticipantTurns", "maxOrchestrationCalls", "maxCompactionCalls", "maxToolCalls", "maxWallClockSeconds", "maxContextCharacters", "maxEstimatedInputTokens", "maxStepRetries"].map(key => <Field key={key} label={`policy.${key}`}>{props => <input {...props} type="number" required min={key === "maxEstimatedInputTokens" || key === "maxStepRetries" ? 0 : key === "maxContextCharacters" ? 8192 : 1} max={maximum[key]} value={value[key]} onChange={event => change(key, Number(event.target.value))} />}</Field>)}</div>
     <p className="muted">{t("policy.estimateHelp")}</p>
     <fieldset className="resource-policy">
       <legend>{t("policy.resources")}</legend>

@@ -10,6 +10,7 @@ import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Modal, Pagination } from "../components/ui.jsx";
 import ConversationForm from "../components/ConversationForm.jsx";
 import { formatDate } from "../i18n/index.js";
+import { savedPageSize } from "../utils/page-size.js";
 const unfinished = run => Boolean(run) && !["completed", "cancelled", "failed"].includes(run.state);
 
 /** Ask the service to stop a debate, then wait until it reports a finished state. */
@@ -89,12 +90,12 @@ export default function Conversations() {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState({
+  const [filter, setFilter] = useState(() => ({
     search: "",
     archived: false,
     pageNumber: 1,
-    pageSize: 25,
-  });
+    pageSize: savedPageSize("conversations", 25),
+  }));
   const [modal, setModal] = useState(null);
   const { data, error, reload: reloadList } = useData(JSON.stringify(filter), () =>
     api.conversations(filter),
@@ -161,7 +162,7 @@ export default function Conversations() {
       {error && <ErrorPanel error={error} retry={reload} />}{" "}
       {data && (
         <>
-          <Pagination page={data} onChange={change} />
+          <Pagination page={data} table="conversations" onChange={change} />
           <div className="table-scroll">
             <table>
               <thead>

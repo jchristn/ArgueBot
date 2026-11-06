@@ -127,8 +127,8 @@ namespace ArgueBot.Runners
         internal static DomainException ProviderFailure(int status, int? retryAfterSeconds)
         {
             if (status == 401 || status == 403) return new DomainException(502, "provider_unauthorized", "The provider refused the credentials with status " + status + ". Check the credential or API key bound to this endpoint, and that it may use this model, then resume.");
-            if (status == 429) return new DomainException(502, "provider_rate_limited", "The provider is rate limiting requests (status 429)." + (retryAfterSeconds.HasValue ? " It asked to wait " + retryAfterSeconds.Value + (retryAfterSeconds.Value == 1 ? " second" : " seconds") + " before retrying." : " Wait before retrying.") + " Resume after that; ArgueBot does not retry automatically.");
-            if (status >= 500) return new DomainException(502, "provider_unavailable", "The provider failed with status " + status + ". It may be overloaded or restarting. Resume later; ArgueBot does not retry automatically.");
+            if (status == 429) return new DomainException(502, "provider_rate_limited", "The provider is rate limiting requests (status 429)." + (retryAfterSeconds.HasValue ? " It asked to wait " + retryAfterSeconds.Value + (retryAfterSeconds.Value == 1 ? " second" : " seconds") + " before retrying." : " Wait before retrying.") + " A debate retries automatically within its step retry limit; resume after that if it paused.");
+            if (status >= 500) return new DomainException(502, "provider_unavailable", "The provider failed with status " + status + ". It may be overloaded or restarting. A debate retries automatically within its step retry limit; resume later if it paused.");
             return new DomainException(502, "provider_error", "Provider rejected the request with status " + status + ". Check endpoint, model and credentials.");
         }
         private static ToolChatRequest BuildRequest(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, IReadOnlyList<ConversationToolDefinition> tools, bool allowLocalTools)

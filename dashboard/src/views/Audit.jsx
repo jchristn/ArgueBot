@@ -7,6 +7,7 @@ import ObjectRow from "../components/ObjectRow.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal, Pagination } from "../components/ui.jsx";
 import { formatDate } from "../i18n/index.js";
+import { savedPageSize } from "../utils/page-size.js";
 
 export const auditOperations = ["AuthSuccess", "AuthFailure", "SessionIssued", "SessionRefreshed", "SessionRevoked", "CredentialUsed", "CredentialCreated", "CredentialUpdated", "CredentialDisabled", "CredentialDeleted", "AuthorizationDenied", "AuthorizationBypass", "PasswordChanged", "UserCreated", "UserUpdated", "UserDeleted", "TenantCreated", "TenantUpdated", "TenantDeleted", "AuditPruned"];
 const retention = [30, 90, 365];
@@ -15,7 +16,7 @@ const retention = [30, 90, 365];
 export default function Audit() {
   const { api, notify, session } = useOutletContext();
   const { t } = useTranslation();
-  const [filters, setFilters] = useState({ operation: "", outcome: "", pageNumber: 1, pageSize: 50 });
+  const [filters, setFilters] = useState(() => ({ operation: "", outcome: "", pageNumber: 1, pageSize: savedPageSize("audit", 50) }));
   const { data, error, reload } = useData("audit:" + JSON.stringify(filters), () => api.audit(filters));
   const [pruning, setPruning] = useState(null);
   const [failure, setFailure] = useState(null);
@@ -45,7 +46,7 @@ export default function Audit() {
         <td>{item.correlationId && <CopyableId value={item.correlationId} />}</td>
       </ObjectRow>)}</tbody>
     </table></div>}
-    {data && <Pagination page={data} onChange={change} />}
+    {data && <Pagination page={data} table="audit" onChange={change} />}
     {viewing && <DetailsDialog title="audit.details" heading={`${viewing.operation} · ${formatDate(viewing.createdUtc)}`} record={viewing} prefix="audit" onClose={() => setViewing(null)} />}
     {pruning && <Modal title="audit.prune" onClose={() => setPruning(null)}>
       <p>{t("audit.prune.help")}</p>

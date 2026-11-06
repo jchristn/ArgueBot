@@ -2388,6 +2388,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxResourceWritesPerTurn | integer | Most resource writes (create, update, edit and append) in one agent turn, 0 through 100. Default 8. |
 | maxResourceWriteBytesPerTurn | integer | Most UTF-8 bytes of resource text written in one agent turn, 0 through 1048576. Default 65536. |
 | maxResourcesCreated | integer | Most resources the debate's agents may create in total, 0 through 1000. Default 50. |
+| maxStepRetries | integer | Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work. |
 | questionInstructions | string | Additional neutral question-selection guidance, up to 4000 characters. |
 | synthesisInstructions | string | Additional proposal presentation guidance, up to 4000 characters. |
 | summaryInstructions | string | Additional evidence-preservation guidance, up to 4000 characters. |
@@ -2444,7 +2445,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | resumePhase | string | Phase resumed after successful context compaction. |
 | compactionRecipientId | string | Private recipient partition for compaction; empty means shared evidence. |
 | rebuildFromOriginals | boolean | True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates. |
-| repairPending | boolean | True when the previous orchestration step returned invalid structured output and the next attempt is its single repair request. |
+| repairPending | boolean | True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit. |
 
 ### DebateSeat
 
@@ -2570,7 +2571,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | updatedUtc | string | Last lifecycle change in UTC. |
 | contextMessageIds | array | Exact ordered source messages selected for this attempt, including any one-recipient directives. |
 | purpose | string | response, question, synthesis, ratification or compaction. |
-| repair | boolean | True when this attempt repeated a question, proposal or vote after invalid structured output. At most one repair follows each invalid answer. |
+| repair | boolean | True when this attempt repeated a question, proposal, vote or summary after invalid structured output. The debate's step retry limit bounds the repairs. |
+| repairNumber | integer | Correction request number for this step: 0 for the first try, then 1, 2 and so on up to the debate's step retry limit. |
 | contextEpoch | integer | Moderator context frozen before invocation. |
 | rosterRevision | integer | Roster revision frozen before invocation. |
 | endpointWaitMilliseconds | integer | Elapsed milliseconds waiting for shared endpoint capacity; zero for immediate admission, CLI or older records. |

@@ -63,7 +63,7 @@ namespace Test.Shared
                     await connection.OpenAsync(token).ConfigureAwait(false);
                     using (Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand())
                     {
-                        command.CommandText = "DROP TABLE attempt_resources; DROP TABLE resource_revisions; DROP TABLE resources; " + string.Concat(new[] { "resource_access", "resource_names_json", "resource_tags_json", "max_resource_writes_per_turn", "max_resource_write_bytes_per_turn", "max_resources_created", "resources_created" }.Select(column => "ALTER TABLE debate_policies DROP COLUMN " + column + "; ")) + "DELETE FROM schema_migrations WHERE version>=33;";
+                        command.CommandText = "DROP TABLE attempt_resources; DROP TABLE resource_revisions; DROP TABLE resources; " + string.Concat(new[] { "resource_access", "resource_names_json", "resource_tags_json", "max_resource_writes_per_turn", "max_resource_write_bytes_per_turn", "max_resources_created", "resources_created", "max_step_retries" }.Select(column => "ALTER TABLE debate_policies DROP COLUMN " + column + "; ")) + "DELETE FROM schema_migrations WHERE version>=33;";
                         await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
                     }
                 }
@@ -72,7 +72,7 @@ namespace Test.Shared
                 {
                     await upgraded.InitializeAsync(token).ConfigureAwait(false);
                     DebateRun existing = await upgraded.Runs.ReadAsync(context, conversationId, runId, token).ConfigureAwait(false);
-                    Require(existing.Policy.ResourceAccess == "off" && existing.Policy.MaxResourceWritesPerTurn == 8, "A debate created before schema 33 must keep resource access off after the upgrade.");
+                    Require(existing.Policy.ResourceAccess == "off" && existing.Policy.MaxResourceWritesPerTurn == 8 && existing.Policy.MaxStepRetries == 1, "A debate created before schema 33 must keep resource access off, and its single correction request, after the upgrade.");
                     Resource created = await upgraded.Resources.CreateAsync(context, new ResourceRequest { Name = "after-upgrade", Body = "Works." }, token: token).ConfigureAwait(false);
                     Require(created.Revision == 1 && (await upgraded.Resources.RevisionsAsync(context, created.Id, token).ConfigureAwait(false)).Count == 1, "Resources must work after the upgrade.");
                 }

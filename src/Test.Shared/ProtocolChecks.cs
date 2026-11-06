@@ -88,7 +88,7 @@ namespace Test.Shared
                 List<GenerationAttempt> votes = attempts.Items.Where(item => item.ParticipantId == seat && item.Purpose == "ratification").OrderBy(item => item.Number).ToList();
                 Require(votes.Count == 2 && votes[0].State == "failed" && votes[0].ErrorCode == "invalid_orchestration_output" && !votes[0].Repair && votes[1].State == "completed" && votes[1].Repair, "The invalid vote must be kept as failed and followed by exactly one repair attempt.");
                 Require(attempts.Items.Count(item => item.Repair) == 1, "Only the invalid step is repaired.");
-                Require(once.Prompts.Count(prompt => prompt.Contains("only correction request", StringComparison.Ordinal)) == 1, "The repair prompt must ask once for the required JSON.");
+                Require(once.Prompts.Count(prompt => prompt.Contains("correction request 1 of 3", StringComparison.Ordinal)) == 1, "The repair prompt must ask for the required JSON and count the correction requests.");
                 List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, repaired.Id, run.Id, token).ConfigureAwait(false);
                 Require(proposals.Single().Agreements.Count == 4, "The invalid answer must not be recorded as a vote.");
             }
@@ -101,12 +101,50 @@ namespace Test.Shared
                 Require(run.State == "paused" && run.Outcome == "invalid_orchestration_output", "A failed repair must pause for the moderator: " + run.State + "/" + run.Outcome);
                 AttemptPage attempts = await database.Attempts.EnumerateAsync(context, persistent.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
                 List<GenerationAttempt> failed = attempts.Items.Where(item => item.State == "failed").OrderBy(item => item.Number).ToList();
-                Require(failed.Count == 2 && !failed[0].Repair && failed[1].Repair, "Exactly one repair may follow invalid output before pausing.");
+                Require(failed.Count == 4 && failed.Select(item => item.RepairNumber).SequenceEqual(new[] { 0, 1, 2, 3 }), "Repairs follow invalid output up to the step retry limit (3) before pausing: " + string.Join(",", failed.Select(item => item.RepairNumber)));
+                Require(always.Prompts.Count(prompt => prompt.Contains("correction request 3 of 3; another invalid reply pauses", StringComparison.Ordinal)) == 1, "The last correction request must say that another invalid reply pauses.");
                 always.RawRatification.Clear();
                 await engine.ApplyAsync(context, persistent.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "resume-after-repair" }, "fixture", token).ConfigureAwait(false);
                 run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
                 attempts = await database.Attempts.EnumerateAsync(context, persistent.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
                 Require(run.Outcome == "consensus" && !attempts.Items.OrderBy(item => item.Number).Last(item => item.Purpose == "ratification").Repair, "A moderator retry after a failed repair is an ordinary attempt: " + run.Outcome);
+            }
+            Conversation garbled = await database.CreateConversationAsync(context, "Miscopied proposal ID", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner miscopy = new MultiAgentFixtureRunner();
+            miscopy.RawOnce["Agent 2:ratification"] = "{\"proposalId\":\"prp_garbled_copy\",\"position\":\"agree\",\"rationale\":\"Agreed.\"}";
+            await using (ConversationEngine engine = new ConversationEngine(database, miscopy))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, garbled.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, garbled.Id, run.Id, token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus", "A vote naming a miscopied proposal ID must be repaired, not pause the debate: " + run.State + "/" + run.Outcome);
+                Require(miscopy.Prompts.Any(prompt => prompt.StartsWith("Agent 2\n", StringComparison.Ordinal) && prompt.Contains("Set proposalId to exactly \"" + proposals.Single().Id + "\"", StringComparison.Ordinal)), "The vote correction request must restate the exact proposal ID.");
+            }
+            Conversation transient = await database.CreateConversationAsync(context, "Intermittent agent failure", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner flaky = new MultiAgentFixtureRunner();
+            flaky.FailOnce["Agent 2:response"] = "provider_unavailable";
+            await using (ConversationEngine engine = new ConversationEngine(database, flaky))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, transient.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, transient.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                string seat = run.Participants.Single(participant => participant.Name == "Agent 2").Id;
+                List<GenerationAttempt> turns = attempts.Items.Where(item => item.ParticipantId == seat && item.Purpose == "response").OrderBy(item => item.Number).ToList();
+                Require(run.Outcome == "consensus" && turns.Count == 2 && turns[0].ErrorCode == "provider_unavailable" && turns[1].State == "completed", "A transient failure must be retried automatically and the debate must continue: " + run.State + "/" + run.Outcome + "/" + turns.Count);
+            }
+            Conversation noRetry = await database.CreateConversationAsync(context, "Retries turned off", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner off = new MultiAgentFixtureRunner();
+            off.FailOnce["Agent 2:response"] = "provider_unavailable";
+            await using (ConversationEngine engine = new ConversationEngine(database, off))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, noRetry.Id, With(Request(profiles, 4), request => request.Policy.MaxStepRetries = 0), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                Require(run.State == "paused" && run.Outcome == "provider_unavailable", "With retries off, a transient failure must pause at once: " + run.State + "/" + run.Outcome);
+            }
+            Conversation lasting = await database.CreateConversationAsync(context, "Credential failure", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner refused = new MultiAgentFixtureRunner();
+            refused.FailOnce["Agent 2:response"] = "provider_unauthorized";
+            await using (ConversationEngine engine = new ConversationEngine(database, refused))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, lasting.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                Require(run.State == "paused" && run.Outcome == "provider_unauthorized", "A credential failure is not transient and must pause without a retry: " + run.State + "/" + run.Outcome);
             }
             Conversation proposal = await database.CreateConversationAsync(context, "Repaired proposal", token).ConfigureAwait(false);
             MultiAgentFixtureRunner synthesis = new MultiAgentFixtureRunner();

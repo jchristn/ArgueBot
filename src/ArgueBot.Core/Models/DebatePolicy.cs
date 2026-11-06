@@ -35,6 +35,8 @@ namespace ArgueBot.Core.Models
         public int MaxResourceWriteBytesPerTurn { get; set; } = 65536;
         /// <summary>Most resources the debate's agents may create in total, 0 through 1000. Default 50.</summary>
         public int MaxResourcesCreated { get; set; } = 50;
+        /// <summary>Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work.</summary>
+        public int MaxStepRetries { get; set; } = 3;
         private string _QuestionInstructions = "";
         /// <summary>Additional neutral question-selection guidance, up to 4000 characters.</summary>
         public string QuestionInstructions { get { return _QuestionInstructions; } set { ArgumentNullException.ThrowIfNull(value); _QuestionInstructions = value; } }

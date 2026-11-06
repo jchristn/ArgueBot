@@ -7,12 +7,13 @@ import { useTranslation } from "react-i18next";
 import { useData } from "./useData.js";
 import { Button, ErrorPanel, Field, Modal, Pagination } from "./ui.jsx";
 import { formatDate } from "../i18n/index.js";
+import { savedPageSize } from "../utils/page-size.js";
 
 export default function AttemptDialog({ conversationId, runs, messages, initialRunId, onClose }) {
   const { api } = useOutletContext();
   const { t } = useTranslation();
   const [runId, setRunId] = useState(initialRunId || runs.at(-1)?.id || "");
-  const [paging, setPaging] = useState({ pageNumber: 1, pageSize: 25 });
+  const [paging, setPaging] = useState(() => ({ pageNumber: 1, pageSize: savedPageSize("attempts", 25) }));
   const [detail, setDetail] = useState(null);
   const [sources, setSources] = useState({});
   const [sourceError, setSourceError] = useState(null);
@@ -34,7 +35,7 @@ export default function AttemptDialog({ conversationId, runs, messages, initialR
     {error && <ErrorPanel error={error} retry={reload} />}
     {loading && <p role="status">{t("common.loading")}</p>}
     {data && <>
-      <Pagination page={data} onChange={(changes) => setPaging((current) => ({ ...current, ...changes }))} />
+      <Pagination page={data} table="attempts" onChange={(changes) => setPaging((current) => ({ ...current, ...changes }))} />
       <div className="table-scroll"><table>
         <thead><tr>{["attempts.number", "attempts.state", "attempts.participant", "common.actions"].map((key) => <th key={key} scope="col" title={t(key)} className={key === "common.actions" ? "actions-cell" : undefined}>{t(key)}</th>)}</tr></thead>
         <tbody>{data.items.map((entry) => <ObjectRow key={entry.id} inspect onOpen={() => setDetail(entry)}>

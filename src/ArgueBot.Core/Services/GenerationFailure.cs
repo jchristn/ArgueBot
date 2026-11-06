@@ -30,6 +30,18 @@ namespace ArgueBot.Core.Services
             return exception.GetType().Name;
         }
 
+        /// <summary>Whether a failure is usually intermittent, so a debate can repeat the step automatically within its step retry limit. Credential, configuration, budget and storage failures are not.</summary>
+        public static bool Transient(string code)
+        {
+            ArgumentNullException.ThrowIfNull(code);
+            switch (code)
+            {
+                case "provider_rate_limited": case "provider_unavailable": case "provider_disconnected": case "provider_unreachable": case "refresh_unavailable":
+                case "agent_exit": case "io_pipe_closed": case "InvalidDataException": case "generation_timeout": return true;
+                default: return false;
+            }
+        }
+
         /// <summary>Recognize only exact application-generated capture errors in historical diagnostics.</summary>
         public static string CaptureCode(string detail)
         {
@@ -48,10 +60,10 @@ namespace ArgueBot.Core.Services
             switch (code)
             {
                 case "context_budget_exceeded": return "The prompt or tool results exceed the accepted context budget. No evidence was silently dropped. Inspect summaries and pinned/private sources; use a larger-context model in a new run if the current snapshot cannot fit them.";
-                case "invalid_orchestration_output": return "The model did not return the required question, proposal or explicit vote. ArgueBot asks once for a corrected reply; when that also fails, the debate pauses here. Inspect the original response and resume to retry, or replace the seat or orchestrator if the model cannot follow this protocol.";
+                case "invalid_orchestration_output": return "The model did not return the required question, proposal or explicit vote, or named the wrong proposal. ArgueBot asks for a corrected reply up to the debate's step retry limit (default 3); when those also fail, the debate pauses here. Inspect the original response and resume to retry, or replace the seat or orchestrator if the model cannot follow this protocol.";
                 case "provider_unauthorized": return "The provider refused the credentials (401 or 403). Check the credential or API key bound to the endpoint, and that it is allowed to use this model, then resume.";
-                case "provider_rate_limited": return "The provider is rate limiting requests (429). Wait before resuming; providers usually ask for a few seconds to a few minutes, and your plan's quota may need to reset. ArgueBot does not retry automatically, so no work is repeated without your choice.";
-                case "provider_unavailable": return "The provider failed with a server error (5xx). It may be overloaded or restarting. Resume later; ArgueBot does not retry automatically.";
+                case "provider_rate_limited": return "The provider is rate limiting requests (429). ArgueBot retried the step automatically up to the debate's step retry limit, waiting longer each time. Wait before resuming; providers usually ask for a few seconds to a few minutes, and your plan's quota may need to reset.";
+                case "provider_unavailable": return "The provider failed with a server error (5xx). It may be overloaded or restarting. ArgueBot retried the step automatically up to the debate's step retry limit; resume later.";
                 case "provider_disconnected": return "The provider closed the connection in the middle of the answer. Text received before the drop is kept on the failed turn. Resume to retry the turn; it may repeat work the provider already did.";
                 case "provider_unreachable": return "ArgueBot could not connect to the provider endpoint. Check that the endpoint is running and its base URL is correct, then resume.";
                 case "provider_error": return "The provider rejected the request. Check the endpoint, model name and credentials in Connections and models, then resume.";

@@ -38,11 +38,19 @@ There are no breaking changes. New debates default to read access to resources; 
 
 - Schema 33 adds `resources`, `resource_revisions` and `attempt_resources`, and resource access columns on debate policies. Existing databases upgrade on startup after the usual backup. SQLite and PostgreSQL are both covered by the tests.
 
+### Automatic retries
+
+- Debates repeat a step automatically when a working agent or provider fails intermittently, instead of pausing at once. New debate policy field `maxStepRetries` (default 3, 0 to 10; **Automatic retries per step** on the dashboard and in the TUI wizard) bounds both kinds of retry for one step.
+- Invalid structured replies get up to that many correction requests (previously one). A vote's correction request restates the exact proposal ID, since models sometimes miscopy it; a miscopied ID paused a debate with `invalid_orchestration_output`.
+- Transient failures (`provider_rate_limited`, `provider_unavailable`, `provider_disconnected`, `provider_unreachable`, `refresh_unavailable`, `agent_exit`, `io_pipe_closed`, `InvalidDataException`, `generation_timeout`) repeat the step after 5, 15, 45 seconds and so on, at most two minutes. Credential, configuration, budget, storage and output-limit failures still pause at once. Failed attempts stay in the transcript and attempt history, and a repeated turn can repeat external work.
+- Schema 34 adds `max_step_retries` to debate policies. Debates created earlier get 1, which keeps their single correction request. Attempt `repair` now records the correction request number.
+
 ### Fixes
 
 - Debates no longer end as consensus after agreeing only on a sub-question. The factory question, proposal and vote prompts now tie each round to the original question: the orchestrator's proposal must answer it (with stated confidence and conditions when evidence is incomplete), and agents agree only to a final answer, choosing `disagree` or `needs_information` when a proposal settles only a method, a sub-question or an interim position. Factory prompts refresh on startup; debates that already started keep their copy, and custom prompts are unchanged.
 - A follow-up question now completes with the outcome `answered` ("Follow-up answered.") instead of `max_rounds`, so asking a follow-up after a debate no longer shows "Round limit reached."
 - The workspace **Timeline** and the transcript reader now label rounds with the service's round number. They used to count orchestrator questions on the loaded page, so a later page restarted at Round 1, and a page held at an older boundary stopped at an earlier round while the header showed the live one. Message pages gain `round` on each generated message (from its generation attempt; null for moderator messages, tool records and single-message reads). Changing the page size while viewing the latest messages keeps following new ones instead of freezing the page.
+- Dashboard tables (conversations, transcript messages, attempts, request history and audit) remember the rows-per-page choice in the browser, per table, and reuse it on later visits.
 
 ## v2.1.0 (on main, image published November 5, 2026)
 

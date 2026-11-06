@@ -59,8 +59,10 @@ namespace ArgueBot.Core.Models
         /// <summary>response, question, synthesis, ratification or compaction.</summary>
         public string Purpose { get; set; } = "response";
 
-        /// <summary>True when this attempt repeated a question, proposal or vote after invalid structured output. At most one repair follows each invalid answer.</summary>
-        public bool Repair { get; set; }
+        /// <summary>True when this attempt repeated a question, proposal, vote or summary after invalid structured output. The debate's step retry limit bounds the repairs.</summary>
+        public bool Repair { get { return RepairNumber > 0; } set { RepairNumber = value ? Math.Max(1, RepairNumber) : 0; } }
+        /// <summary>Correction request number for this step: 0 for the first try, then 1, 2 and so on up to the debate's step retry limit.</summary>
+        public int RepairNumber { get; set; }
         /// <summary>Moderator context frozen before invocation.</summary>
         public long ContextEpoch { get; set; }
         /// <summary>Roster revision frozen before invocation.</summary>

@@ -130,6 +130,15 @@ The context ceiling is further restricted by the configured service and model ca
 
 Additional question-selection, proposal and memory guidance can be supplied independently. These instructions never grant a model authority to change budgets, membership or unanimous agreement. CLI and REST run requests supply these fields in `policy`; omitted fields use the defaults from `/v2.0/api/capabilities`.
 
+### Automatic retries
+
+`maxStepRetries` (default 3, 0 to 10; **Automatic retries per step** in both setup screens) bounds how often one step is repeated before the debate pauses:
+
+- **Invalid structured replies.** When a question, proposal, vote or summary is not the required JSON, or a vote names the wrong proposal, the same step runs again with a correction request ("correction request 1 of 3"). A vote's correction request restates the exact proposal ID, because models sometimes miscopy long identifiers.
+- **Transient failures.** `provider_rate_limited`, `provider_unavailable`, `provider_disconnected`, `provider_unreachable`, `refresh_unavailable`, `agent_exit`, `io_pipe_closed`, `InvalidDataException` and `generation_timeout` repeat the same step after 5, 15, 45 seconds and so on (at most two minutes). A completed turn resets the count. Stop and pause work during the wait. Credential, configuration, budget, storage and output-limit failures never retry automatically.
+
+Each failed attempt stays in the transcript and attempt history. A repeated turn can repeat external work, such as file writes by a CLI agent, and every attempt counts toward the debate's budgets. Set 0 to pause at the first failure. Debates created before schema 34 get a limit of 1: their single correction request is kept, and they also retry a transient failure once. After the limit is used, the debate pauses as before; resume to retry, which starts a fresh count.
+
 ### Resource access
 
 The same settings choose what the debate's agents can do with the tenant's [resources](RESOURCES.md), named markdown documents they read through tools:

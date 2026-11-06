@@ -242,6 +242,9 @@ namespace ArgueBot.Core.Services
                 try
                 {
                     await _Capacity.WaitAsync(token).ConfigureAwait(false); entered = true;
+                    // Consecutive transient failures of the current step; any completed turn resets it.
+                    int transientRetries = 0;
+                    TimeSpan retryDelay = TimeSpan.Zero;
                     while (true)
                     {
                         SemaphoreSlim gate = Gate(run.ConversationId); await gate.WaitAsync(token).ConfigureAwait(false);
@@ -356,13 +359,32 @@ namespace ArgueBot.Core.Services
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; }
                             else if (answer.State == "completed" && run.ProtocolVersion == 1 && run.Mode == "debate" && Regex.IsMatch(answer.Content, @"^\s*WE HAVE CONSENSUS\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)) { run.State = "completed"; run.Outcome = "consensus"; }
                             else if (answer.State == "completed" && run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = run.Mode == "followup" ? "answered" : "max_rounds"; }
+                            else if (failure != null && run.ProtocolVersion == 2 && GenerationFailure.Transient(failure) && transientRetries < run.Policy.MaxStepRetries)
+                            {
+                                // A working agent or provider failed intermittently: repeat the same step after a growing wait instead of pausing.
+                                transientRetries++; retryDelay = RetryDelay(transientRetries); run.State = "window";
+                                _Logger.LogWarning("Generation retry scheduled {RunId} {Outcome} {AttemptId} {Retry} {MaxRetries} {DelaySeconds}", run.Id, failure, attempt.Id, transientRetries, run.Policy.MaxStepRetries, retryDelay.TotalSeconds);
+                            }
                             else if (failure != null) { run.State = "paused"; run.Outcome = failure; }
                             else if (token.IsCancellationRequested || worker.PauseAfterTurn || answer.State == "interrupted") { run.State = "paused"; run.Outcome = answer.State == "interrupted" ? "interrupted" : "paused"; }
                             else run.State = "window";
                             await _Database.Attempts.CompleteAsync(context, run, attempt, answer, CancellationToken.None).ConfigureAwait(false);
+                            if (answer.State == "completed") transientRetries = 0;
                             if (run.State != "window") return;
                         }
                         finally { gate.Release(); }
+                        if (retryDelay > TimeSpan.Zero)
+                        {
+                            long retryStarted = _Clock.GetTimestamp();
+                            while (!worker.StopRequested && !worker.PauseAfterTurn && _Clock.GetElapsedTime(retryStarted) < retryDelay)
+                            {
+                                await Task.Delay(TimeSpan.FromMilliseconds(100), _Clock, token).ConfigureAwait(false);
+                                DebateRun latest = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
+                                if (latest.State == "paused" || worker.PauseAfterTurn) return;
+                            }
+                            retryDelay = TimeSpan.Zero;
+                            continue;
+                        }
                         long windowStarted = _Clock.GetTimestamp();
                         while (!worker.SkipWindow && !worker.StopRequested && !worker.PauseAfterTurn)
                         {
@@ -393,6 +415,8 @@ namespace ArgueBot.Core.Services
                 finally { if (entered) _Capacity.Release(); _Logger.LogInformation("Worker detached {RunId}", run.Id); }
             }
         }
+        /// <summary>Wait before automatic retry number <paramref name="retry"/>: 5, 15, 45 seconds and so on, at most two minutes.</summary>
+        private static TimeSpan RetryDelay(int retry) { return TimeSpan.FromSeconds(Math.Min(120, 5 * Math.Pow(3, retry - 1))); }
         private SemaphoreSlim Gate(string conversationId) { return _Gates.GetOrAdd(conversationId, _ => new SemaphoreSlim(1, 1)); }
         private static DomainException Conflict() { return new DomainException(409, "invalid_state", "That action is not available in the current run state."); }
 

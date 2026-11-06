@@ -17,9 +17,20 @@ namespace ArgueBot.Core.Services
         internal static string Build(DebateRun run, RunnerProfile profile)
         {
             string prompt = BuildPhase(run, profile);
-            if (run.RepairPending && run.Phase == "compaction") prompt += "\nYour previous summary was rejected by validation. Reply again with only the JSON object: every supplied source ID exactly once, all seven sections, each pinned constraint's source ID named in the constraints section, and the size limits. This is the only correction request; another invalid summary pauses the debate and keeps the previous memory.";
-            else if (run.RepairPending && run.Phase != "response") prompt += "\nYour previous reply for this step was rejected because it was not the required JSON object or named the wrong proposal. Reply again with only that JSON object and no other text. This is the only correction request; another invalid reply pauses the debate for the moderator.";
+            if (run.RepairPending && run.Phase == "compaction") prompt += "\nYour previous summary was rejected by validation. Reply again with only the JSON object: every supplied source ID exactly once, all seven sections, each pinned constraint's source ID named in the constraints section, and the size limits. " + RepairLimit(run, "summary pauses the debate and keeps the previous memory.");
+            else if (run.RepairPending && run.Phase != "response")
+            {
+                prompt += "\nYour previous reply for this step was rejected because it was not the required JSON object or named the wrong proposal. Reply again with only that JSON object and no other text.";
+                // Models sometimes miscopy long identifiers; restate the exact one the vote must carry.
+                if (run.Phase == "ratification") prompt += " Set proposalId to exactly " + JsonSerializer.Serialize(run.ProposalId) + ", copied character for character.";
+                prompt += " " + RepairLimit(run, "reply pauses the debate for the moderator.");
+            }
             return prompt;
+        }
+        private static string RepairLimit(DebateRun run, string consequence)
+        {
+            string count = string.Format(CultureInfo.InvariantCulture, "This is correction request {0} of {1}", run.RepairNumber, run.Policy.MaxStepRetries);
+            return run.RepairNumber >= run.Policy.MaxStepRetries ? count + "; another invalid " + consequence : count + ".";
         }
         private static string BuildPhase(DebateRun run, RunnerProfile profile)
         {

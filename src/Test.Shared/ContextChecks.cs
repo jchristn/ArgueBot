@@ -204,7 +204,7 @@ namespace Test.Shared
                 AttemptPage attempts = await database.Attempts.EnumerateAsync(context, constrained.Id, run.Id, token: token).ConfigureAwait(false);
                 Require(run.State == "paused" && run.Outcome == "summary_validation_failed" && summaries.Count == 0 && attempts.Items.Any(attempt => attempt.ErrorCode == "summary_validation_failed"), "A summary that does not attribute a supplied pinned constraint must be rejected: " + run.State + "/" + run.Outcome);
                 List<GenerationAttempt> compactions = attempts.Items.Where(attempt => attempt.Purpose == "compaction").OrderBy(attempt => attempt.Number).ToList();
-                Require(compactions.Count == 2 && !compactions[0].Repair && compactions[1].Repair && compactions.All(attempt => attempt.ErrorCode == "summary_validation_failed"), "An invalid summary must get exactly one correction request before pausing.");
+                Require(compactions.Count == 4 && compactions.Select(attempt => attempt.RepairNumber).SequenceEqual(new[] { 0, 1, 2, 3 }) && compactions.All(attempt => attempt.ErrorCode == "summary_validation_failed"), "An invalid summary must get correction requests up to the step retry limit (3) before pausing: " + compactions.Count);
                 attributing.InvalidSummary = "";
                 await engine.ApplyAsync(context, constrained.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "pinned-attribution-resume" }, "fixture", token).ConfigureAwait(false);
                 run = await WaitAsync(database, context, run, token).ConfigureAwait(false);

@@ -31,7 +31,7 @@ The parser now treats indexed result records as distinct stable result identitie
 | Per-turn deadline includes all tool work | A long repository audit legitimately takes longer than the default five minutes. Live output does not reset the hard deadline. | Documented; monitored rerun uses explicit 3600-second participant snapshots |
 | Request activity conflates acceptance with execution | A `202` response means accepted work, not completed generation. SSE heartbeats mean transport connectivity. | Documented; retain separate run/attempt outcomes and add built-in outcome summaries in future |
 | Rebuilt UI and stale service can disagree | The original service process predated the failure-guidance build and omitted `errorMessage`. Reloading the browser did not replace its loaded assemblies. After confirming no active runs, the default service was shut down and started with the rebuilt runtime; historical attempt guidance is now returned. | Operationally corrected; Settings restart reloads configuration, not assemblies |
-| No automatic retry of uncertain external work | Repeating an audit may duplicate file writes, model charges or other effects. | Preserved: explicit retry only, no automatic replay |
+| No automatic retry of uncertain external work | Repeating an audit may duplicate file writes, model charges or other effects. | Changed in 2.2.0 at the user's request: interrupted or uncertain attempts after a restart still need an explicit resume, but a debate repeats a step automatically after an invalid structured reply or a transient failure, up to `maxStepRetries` (default 3, 0 turns it off). See [automatic retries](MULTIPLE_AGENTS.md#automatic-retries) |
 
 ## Verification and monitoring
 
