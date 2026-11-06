@@ -24,7 +24,9 @@ What v2.0.0 does:
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
 - **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
-**v2.1.0 (in development on `feature/v2.1.0`)** adds sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
+**v2.2.0 (in development on `feature/v2.2.0`)** adds resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. A role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
+
+**v2.1.0** added sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
 
 **Status:** v2.0.0 is an implementation preview on `main` and has not been published as a release. Distribution builds are local artifacts: Windows packages are unsigned and macOS bundles are ad-hoc signed and not notarized. Databases from earlier v2 previews upgrade automatically on startup, with a backup first. See the [CHANGELOG](CHANGELOG.md) for details, the [debate guide](docs/MULTIPLE_AGENTS.md), [prompts](docs/PROMPTS.md), the [model tools](MCP_API.md), the [Docker guide](docker/README.md) and [packaging](packaging/README.md).
 

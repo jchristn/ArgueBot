@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased: v2.1.0
+## Unreleased: v2.2.0
+
+v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. Work follows [RESOURCES_PLAN.md](RESOURCES_PLAN.md).
+
+## v2.1.0 (on main, image published November 5, 2026)
 
 v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [archive/USER_AUTH_PLAN.md](archive/USER_AUTH_PLAN.md).
 

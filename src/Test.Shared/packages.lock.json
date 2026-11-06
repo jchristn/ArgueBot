@@ -109,7 +109,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.1.0, )"
+          "ArgueBot.Core": "[2.2.0, )"
         }
       },
       "arguebot.core": {
@@ -127,14 +127,14 @@
       "arguebot.runners": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.1.0, )",
+          "ArgueBot.Core": "[2.2.0, )",
           "PolyPrompt": "[3.4.0, )"
         }
       },
       "arguebot.tui": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[2.1.0, )",
+          "ArgueBot.Client": "[2.2.0, )",
           "TUIKit": "[1.10.0, )"
         }
       }
@@ -269,7 +269,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.1.0, )"
+          "ArgueBot.Core": "[2.2.0, )"
         }
       },
       "arguebot.core": {
@@ -287,7 +287,7 @@
       "arguebot.runners": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.1.0, )",
+          "ArgueBot.Core": "[2.2.0, )",
           "PolyPrompt": "[3.4.0, )"
         }
       }
