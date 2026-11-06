@@ -368,20 +368,33 @@ namespace Test.Shared
                 await WaitHttpRunStateAsync(client, conversation.Id, run.Id, "completed", token).ConfigureAwait(false);
                 List<DebateProposal> proposals = await client.ProposalsAsync(conversation.Id, run.Id, token).ConfigureAwait(false);
                 if (proposals[0].Agreements.Count != 4 || proposals[0].Agreements.Any(vote => vote.Position != "agree")) throw new InvalidDataException("The terminal resume journey lost unanimous votes.");
-                foreach (int selection in new[] { 8, 9, 10, 11 })
+                // Choose run controls by label: the menu grows as commands are added, so positions are not stable.
+                string[] inspections = new[] { "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Inspect execution usage and limits" };
+                for (int selection = 0; selection < inspections.Length; selection++)
                 {
                     backend.FeedKey("ctrl+r"); await PumpUntilAsync(app, () => app.Modals.Top is ChoiceDialog, token).ConfigureAwait(false);
-                    for (int index = 0; index < selection; index++) { backend.FeedKey("down"); app.PumpInputOnce(); }
+                    HighlightChoice(app, backend, inspections[selection]);
                     backend.FeedKey("enter"); await PumpUntilAsync(app, () => app.Modals.Top is MessageDialog || app.Modals.Top is ChoiceDialog memory && memory.Title == "Summaries, page 1" || !workspace.IsBusy, token).ConfigureAwait(false);
-                    if (selection == 8 && app.Modals.Top is not MessageDialog) throw new InvalidDataException("Terminal proposals did not open their complete reader.");
+                    if (selection == 0 && app.Modals.Top is not MessageDialog) throw new InvalidDataException("Terminal proposals did not open their complete reader.");
                     await SaveEvidenceAsync("v2-panel-inspect-" + selection, Snapshot.ToText(app.CaptureFrame()!), token).ConfigureAwait(false);
-                    if (selection == 10) await ReviewSummaryAsync(client, conversation.Id, run.Id, app, backend, token).ConfigureAwait(false);
+                    if (selection == 2) await ReviewSummaryAsync(client, conversation.Id, run.Id, app, backend, token).ConfigureAwait(false);
                     backend.FeedKey("escape"); await PumpUntilAsync(app, () => !workspace.IsBusy, token).ConfigureAwait(false);
                 }
                 app.Stop();
             }
             await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/conversations/" + conversation.Id, token: token).ConfigureAwait(false);
             foreach (string id in ids) await client.SendAsync<DeletionResponse>(HttpMethod.Delete, "v1.0/api/participants/" + id, token: token).ConfigureAwait(false);
+        }
+        /// <summary>Move the open choice dialog's highlight down to the option with the given label.</summary>
+        private static void HighlightChoice(TuiApplication app, HeadlessBackend backend, string label)
+        {
+            for (int attempt = 0; attempt < 40; attempt++)
+            {
+                app.RenderOnce();
+                if (Snapshot.ToText(app.CaptureFrame()!).Contains("> " + label, StringComparison.Ordinal)) return;
+                backend.FeedKey("down"); app.PumpInputOnce();
+            }
+            throw new InvalidDataException("The choice dialog has no option " + label + ".");
         }
         private static async Task ReviewSummaryAsync(ArgueBotClient client, string conversationId, string runId, TuiApplication app, HeadlessBackend backend, CancellationToken token)
         {

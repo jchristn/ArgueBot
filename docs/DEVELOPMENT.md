@@ -46,7 +46,7 @@ Clients start or attach to their selected home automatically unless `--no-start`
 
 ## Provider fixtures
 
-Disposable PostgreSQL fixtures are defined separately in `docker/providers/compose.yaml`. Never point integration tests at an existing database. Set `ARGUEBOT_TEST_POSTGRESQL` to an explicitly provisioned loopback fixture connection. Shared lifecycle tests preserve one exclusive database writer.
+Disposable PostgreSQL fixtures are defined separately in `docker/providers/compose.yaml`. Never point integration tests at an existing database. Set `ARGUEBOT_TEST_POSTGRESQL` to an explicitly provisioned loopback fixture connection. Each PostgreSQL provider check drops the tables it owns in that database before it starts, so the same database can serve repeated runs and both target frameworks. Shared lifecycle tests preserve one exclusive database writer.
 
 The committed Postman simulation runs provider-native success and failure cases, including REST models calling real local file/process tools:
 

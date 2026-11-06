@@ -28,14 +28,34 @@ namespace Test.Shared
                 {
                     string variable = "ARGUEBOT_TEST_" + provider.ToString().ToUpperInvariant();
                     bool missing = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(variable));
-                    cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => RunAsync(provider, variable, token), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
-                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlEvidenceTools", "PostgreSQL evidence tools match SQLite paging, filters, literal case-insensitive search and gaps", cancellation => EvidenceAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
-                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => OwnershipAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
-                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlResources", "PostgreSQL resource storage matches SQLite: names, revisions, history cap, import, search, tenant isolation and cascading deletes", cancellation => ResourcesAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
-                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlIdentity", "PostgreSQL identity seeding, tenant isolation, credentials and cascading deletes match SQLite", cancellation => IdentityAsync(variable, cancellation), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", provider.ToString(), provider + " relational lifecycle and ownership", token => FreshAsync(variable, token, () => RunAsync(provider, variable, token)), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlEvidenceTools", "PostgreSQL evidence tools match SQLite paging, filters, literal case-insensitive search and gaps", cancellation => FreshAsync(variable, cancellation, () => EvidenceAsync(variable, cancellation)), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => FreshAsync(variable, cancellation, () => OwnershipAsync(variable, cancellation)), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlResources", "PostgreSQL resource storage matches SQLite: names, revisions, history cap, import, search, tenant isolation and cascading deletes", cancellation => FreshAsync(variable, cancellation, () => ResourcesAsync(variable, cancellation)), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlIdentity", "PostgreSQL identity seeding, tenant isolation, credentials and cascading deletes match SQLite", cancellation => FreshAsync(variable, cancellation, () => IdentityAsync(variable, cancellation)), skip: missing, skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
             }
+        }
+        /// <summary>Run a check against an empty schema. The variable names a disposable database, and the checks seed fixed accounts and protected credentials whose keys live in per-run homes, so tables left by an earlier run (another target framework or test adapter) would not match.</summary>
+        private static async Task FreshAsync(string variable, CancellationToken token, Func<Task> check)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(Environment.GetEnvironmentVariable(variable)))
+            {
+                await connection.OpenAsync(token).ConfigureAwait(false);
+                List<string> tables = new List<string>();
+                using (NpgsqlCommand list = new NpgsqlCommand("SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tableowner=current_user", connection))
+                using (NpgsqlDataReader reader = await list.ExecuteReaderAsync(token).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(token).ConfigureAwait(false)) tables.Add(reader.GetString(0));
+                }
+                if (tables.Count > 0)
+                {
+                    using (NpgsqlCommand drop = new NpgsqlCommand("DROP TABLE IF EXISTS " + string.Join(", ", tables.Select(table => "\"" + table.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"")) + " CASCADE", connection))
+                    { await drop.ExecuteNonQueryAsync(token).ConfigureAwait(false); }
+                }
+            }
+            await check().ConfigureAwait(false);
         }
         private static async Task EvidenceAsync(string variable, CancellationToken token)
         {

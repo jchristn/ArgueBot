@@ -6,7 +6,7 @@ A resource is a named markdown document stored in your tenant's workspace. Agent
 
 Agents can also keep their own notes in resources, so later turns and later debates can build on what earlier ones found.
 
-Resources arrived in v2.2.0. The design and its decisions are recorded in [RESOURCES_PLAN.md](../RESOURCES_PLAN.md).
+Resources arrived in v2.2.0. The design and its decisions are recorded in [RESOURCES_PLAN.md](../archive/RESOURCES_PLAN.md).
 
 ## What a resource holds
 

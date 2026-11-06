@@ -2,7 +2,7 @@
 
 ## Unreleased: v2.2.0
 
-v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. A prompt or role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Work follows [RESOURCES_PLAN.md](RESOURCES_PLAN.md); see [docs/RESOURCES.md](docs/RESOURCES.md).
+v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. A prompt or role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Work follows [archive/RESOURCES_PLAN.md](archive/RESOURCES_PLAN.md); see [docs/RESOURCES.md](docs/RESOURCES.md).
 
 There are no breaking changes. New debates default to read access to resources; debates started before 2.2 keep resource access off.
 

@@ -153,6 +153,7 @@ Implemented November 5, 2026 on `feature/v2.2.0`:
 | 4. Dashboard | 55e6ebb |
 | 5. TUI and CLI | 2908b66 |
 | 6. Documentation | d39bb6e |
+| Test fixes and archive | see below |
 
 Deviations from the plan, each small:
 
@@ -162,3 +163,10 @@ Deviations from the plan, each small:
 - The MCP frame limit rose from 128 KiB to 1 MiB so a 32,768-character `read_resource` page fits after JSON escaping.
 - Agents get `resource_lock_denied` or `resource_rename_denied` (403) when they try to lock, unlock or rename, distinct from `resource_locked` (409) for changing a locked resource.
 - Debates created before schema 33 are upgraded with access `off`, so existing debates behave as before; new debates default to `read`.
+
+Two test failures that predated this work were fixed on November 6, 2026, before release:
+
+- `Terminal.StopDelete` with `ARGUEBOT_SIMULATION_URL` chose run-control commands by menu position. "Edit the proposal under vote" and "Change agents" had since moved the Inspect commands down two places, so the journey opened "Change the panel" instead of the proposal reader. It now chooses each command by its label.
+- The PostgreSQL provider checks assumed an empty database. The xUnit and NUnit adapters run the .NET 8 and .NET 10 builds against the same `ARGUEBOT_TEST_POSTGRESQL` database, and the second run found the first run's seeded accounts and credentials, encrypted under a key from another home. Each PostgreSQL check now drops the tables it owns in the current schema before it starts, which the variable's "disposable test database" contract allows.
+
+After these fixes, with PostgreSQL, the CLI fixture and the simulation: `Test.Automated` 94/94, and the xUnit and NUnit adapters pass on net8.0 and net10.0 against one database. The plan moved to `archive/` the same day.

@@ -18,7 +18,7 @@ October 20, 2026 product scope override (superseded for 2.1 on November 4, 2026)
 
 ## November 5, 2026 v2.2 resources scope
 
-The user asked for a top-level Resource entity in 2.2.0: named markdown documents that agents can list, read, create and edit through tools during a debate, so prompts can point agents at context to pull in when needed and agents can build their own. The decisions are recorded in [RESOURCES_PLAN.md](../RESOURCES_PLAN.md) and summarized here:
+The user asked for a top-level Resource entity in 2.2.0: named markdown documents that agents can list, read, create and edit through tools during a debate, so prompts can point agents at context to pull in when needed and agents can build their own. The decisions are recorded in [RESOURCES_PLAN.md](../archive/RESOURCES_PLAN.md) and summarized here:
 
 - Resources are database rows in the tenant's shared library, like prompts and agents. The service remains the sole writer, and SQLite and PostgreSQL both store them (schema 33).
 - Each resource has a unique, case-insensitive name within the tenant, a markdown body up to 256 KiB, a title, a one-line description, optional tags, a locked flag and a full revision history. Updates use optimistic concurrency on the revision.
