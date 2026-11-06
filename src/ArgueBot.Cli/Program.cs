@@ -82,6 +82,7 @@ namespace ArgueBot.Cli
                     return 0;
                 }
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
+                if (command == "resources") return await ResourceCommands.RunAsync(client, words, token).ConfigureAwait(false);
                 if (command == "service")
                 {
                     if (operation == "status" || operation == "start") Print(await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: token).ConfigureAwait(false));
@@ -350,6 +351,21 @@ Prompts
   prompts update ID JSON|-|--file PATH      Include the current "revision". Factory prompts are read-only.
   prompts duplicate ID                      Editable copy, including of a factory default.
   prompts delete ID REVISION
+
+Resources (named markdown documents agents read with read_resource)
+  resources list [SEARCH] [--tag T]         Names, titles, descriptions, sizes and authors.
+  resources show NAME|ID [--revision N]     A resource, or one saved revision, with its body.
+  resources add --file PATH|- [--name NAME] Markdown; front matter between --- lines may set
+                                            name, title, description, tags and locked.
+  resources update NAME|ID --revision N --file PATH|-
+                                            Replace the text. N is the current revision.
+  resources rename NAME|ID NEW_NAME
+  resources lock|unlock NAME|ID             Agents can read locked resources but not change them.
+  resources delete NAME|ID [--revision N]
+  resources history NAME|ID                 Revisions newest first, with user or agent authors.
+  resources revert NAME|ID REVISION         Revert to a revision's text, saved as a new revision.
+  resources import PATH... [--overwrite]    Up to 50 .md files in one transaction.
+  resources export NAME|ID [--output PATH]  Markdown with front matter.
 
 Configuration
   participants list

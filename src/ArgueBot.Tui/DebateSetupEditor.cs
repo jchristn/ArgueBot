@@ -1,6 +1,7 @@
 namespace ArgueBot.Tui
 {
     using ArgueBot.Core.Models;
+    using ArgueBot.Core.Services;
     using System;
     using System.Collections.Generic;
     using System.Globalization;
@@ -28,6 +29,13 @@ namespace ArgueBot.Tui
         private readonly TextField _QuestionInstructions = new TextField { Value = "" };
         private readonly TextField _SynthesisInstructions = new TextField { Value = "" };
         private readonly TextField _SummaryInstructions = new TextField { Value = "" };
+        private static readonly string[] _AccessModes = { "read", "read_write", "off" };
+        private readonly Dropdown<string> _ResourceAccess = new Dropdown<string>(new[] { "Read: list, search and read resources", "Read and write: also create, update and append", "Off: no resource tools" }) { SelectedIndex = 0 };
+        private readonly TextField _ResourceNames = new TextField { Value = "" };
+        private readonly TextField _ResourceTags = new TextField { Value = "" };
+        private readonly TextField _ResourceWrites = new TextField { Value = "8" };
+        private readonly TextField _ResourceBytes = new TextField { Value = "65536" };
+        private readonly TextField _ResourcesCreated = new TextField { Value = "50" };
         internal bool ExistingConversation { get; }
         internal Form QuestionForm { get; } = new Form();
         internal Form SpeakersForm { get; } = new Form();
@@ -64,6 +72,14 @@ namespace ArgueBot.Tui
             SettingsForm.Add("Additional question guidance", _QuestionInstructions, () => _QuestionInstructions.Value.Length <= 4000 ? null : "Use up to 4000 characters.");
             SettingsForm.Add("Additional proposal guidance", _SynthesisInstructions, () => _SynthesisInstructions.Value.Length <= 4000 ? null : "Use up to 4000 characters.");
             SettingsForm.Add("Additional memory guidance", _SummaryInstructions, () => _SummaryInstructions.Value.Length <= 4000 ? null : "Use up to 4000 characters.");
+            SettingsForm.Add("Resource access", _ResourceAccess);
+            SettingsForm.Add("Only these resources (optional)", _ResourceNames, () => List(_ResourceNames.Value).All(name => ResourceRules.TryNormalizeName(name, out _)) ? null : "List resource names separated by commas, for example billing, team/conventions.");
+            SettingsForm.Add("Or resources tagged (optional)", _ResourceTags, () => List(_ResourceTags.Value).Count <= 16 ? null : "Use at most 16 tags.");
+            SettingsForm.Add("Resource writes per turn", _ResourceWrites, () => int.TryParse(_ResourceWrites.Value, out int value) && value >= 0 && value <= 100 ? null : "Use 0 through 100.");
+            SettingsForm.Add("Resource bytes written per turn", _ResourceBytes, () => int.TryParse(_ResourceBytes.Value, out int value) && value >= 0 && value <= 1048576 ? null : "Use 0 through 1048576.");
+            SettingsForm.Add("Resources created per debate", _ResourcesCreated, () => int.TryParse(_ResourcesCreated.Value, out int value) && value >= 0 && value <= 1000 ? null : "Use 0 through 1000.");
+            SettingsForm.SetFieldHint(13, "What agents may do with this tenant's resources (named markdown documents). Write limits apply only to Read and write.");
+            SettingsForm.SetFieldHint(14, "Leave both lists empty to let agents see every resource. Resources they create stay visible to them.");
             SettingsForm.SetFieldHint(7, "Elapsed time includes queues and pauses. Retries do not reset any budget.");
             SettingsForm.SetFieldHint(9, "Initial-input UTF-8 estimate, not billed tokens; excludes continuations/output. Provider pricing is unavailable.");
         }
@@ -109,13 +125,20 @@ namespace ArgueBot.Tui
                 QuestionInstructions = _QuestionInstructions.Value,
                 SynthesisInstructions = _SynthesisInstructions.Value,
                 SummaryInstructions = _SummaryInstructions.Value,
+                ResourceAccess = _AccessModes[Math.Max(0, _ResourceAccess.SelectedIndex)],
+                ResourceNames = List(_ResourceNames.Value),
+                ResourceTags = List(_ResourceTags.Value),
+                MaxResourceWritesPerTurn = int.Parse(_ResourceWrites.Value, CultureInfo.InvariantCulture),
+                MaxResourceWriteBytesPerTurn = int.Parse(_ResourceBytes.Value, CultureInfo.InvariantCulture),
+                MaxResourcesCreated = int.Parse(_ResourcesCreated.Value, CultureInfo.InvariantCulture),
             };
         }
+        private static List<string> List(string text) { return text.Split(',').Select(item => item.Trim().ToLowerInvariant()).Where(item => item.Length > 0).Distinct(StringComparer.Ordinal).ToList(); }
         internal string Review()
         {
             List<string> names = Ordered().Select(profile => profile.Name).ToList();
             string orchestrator = _Orchestrator.SelectedIndex > 0 ? _Profiles[_Orchestrator.SelectedIndex - 1].Name : "Choose an orchestrator";
-            return "Question\n" + _Question.Value + "\n\nPanel (" + names.Count + "): " + string.Join(", ", names) + "\nOrchestrator: " + orchestrator + "\nEvery active agent must explicitly agree.\nOpening order rotates each round.\n\nLimit: " + _Rounds.Value + " rounds.\nIntervention window: " + _Seconds.Value + " seconds.\nEach context submission offers Interrupt now or Use in next turn.\n\nBudgets: " + _ParticipantTurns.Value + " participant calls, " + _OrchestrationCalls.Value + " orchestration, " + _CompactionCalls.Value + " compaction, " + _ToolCalls.Value + " tools.\nElapsed deadline: " + _WallClockSeconds.Value + " seconds including pauses.\nContext ceiling: " + _ContextCharacters.Value + " characters. Estimated initial-input cap: " + _EstimatedInputTokens.Value + " (0 disables). No currency cap.\n\nChoose Back to change anything.\nChoose Start debate to run the selected agents.";
+            return "Question\n" + _Question.Value + "\n\nPanel (" + names.Count + "): " + string.Join(", ", names) + "\nOrchestrator: " + orchestrator + "\nEvery active agent must explicitly agree.\nOpening order rotates each round.\n\nLimit: " + _Rounds.Value + " rounds.\nIntervention window: " + _Seconds.Value + " seconds.\nEach context submission offers Interrupt now or Use in next turn.\n\nBudgets: " + _ParticipantTurns.Value + " participant calls, " + _OrchestrationCalls.Value + " orchestration, " + _CompactionCalls.Value + " compaction, " + _ToolCalls.Value + " tools.\nElapsed deadline: " + _WallClockSeconds.Value + " seconds including pauses.\nContext ceiling: " + _ContextCharacters.Value + " characters. Estimated initial-input cap: " + _EstimatedInputTokens.Value + " (0 disables). No currency cap.\nResources: " + _AccessModes[Math.Max(0, _ResourceAccess.SelectedIndex)] + (List(_ResourceNames.Value).Count + List(_ResourceTags.Value).Count == 0 ? ", every resource" : ", only " + string.Join(", ", List(_ResourceNames.Value).Concat(List(_ResourceTags.Value).Select(tag => "tag " + tag)))) + ".\n\nChoose Back to change anything.\nChoose Start debate to run the selected agents.";
         }
     }
 }
