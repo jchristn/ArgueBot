@@ -34,15 +34,20 @@ namespace Test.Shared
             string? previousAllowed = Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED");
             string? previousSecret = Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET");
             string? previousToken = Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN");
+            string? previousGitBash = Environment.GetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH");
+            string? previousOneDrive = Environment.GetEnvironmentVariable("OneDriveCommercial");
             try
             {
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED", "fictional-allowed");
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET", "fictional-unrelated-secret");
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN", "fictional-access-token-value");
+                // Platform and harness locator variables (Windows folders, Git Bash for Claude Code) pass through without being selected.
+                Environment.SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", "fictional-git-bash");
+                Environment.SetEnvironmentVariable("OneDriveCommercial", "fictional-onedrive");
                 frozen.Arguments = new List<string> { fixture, "environment" };
                 StringBuilder answer = new StringBuilder();
                 await new CliRunner().GenerateAsync(frozen, "Check inherited environment.", new List<Message>(), (text, _) => { answer.Append(text); return Task.CompletedTask; }, token).ConfigureAwait(false);
-                if (answer.ToString().Trim() != "Allowed environment verified.") throw new InvalidDataException("Harness inherited an unrelated service variable or lost its selected name.");
+                if (answer.ToString().Trim() != "Allowed environment verified.") throw new InvalidDataException("Harness inherited an unrelated service variable, lost its selected name or dropped a platform variable.");
                 string temporary = Path.Combine(Path.GetTempPath(), "arguebot-environment-" + Guid.NewGuid().ToString("N"));
                 try
                 {
@@ -62,6 +67,8 @@ namespace Test.Shared
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED", previousAllowed);
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET", previousSecret);
                 Environment.SetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN", previousToken);
+                Environment.SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", previousGitBash);
+                Environment.SetEnvironmentVariable("OneDriveCommercial", previousOneDrive);
             }
         }
     }

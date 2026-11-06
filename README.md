@@ -94,7 +94,7 @@ Debates seat **agents**. An agent either runs a CLI program (Claude Code, Codex,
 
 To add an agent, use **Agents** or **Ctrl+E** in the TUI, or **Add agent** on the dashboard's Agents tab.
 
-Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex includes `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
+Choose a named runner type to populate its executable and arguments. Claude Code includes `--dangerously-skip-permissions`; Codex and Mux include `--yolo` so accepted debate turns can run unattended. You can edit the argument rows. Generic CLI requires an executable and any arguments its protocol needs. Each argument row is one literal flag or value, without shell quoting.
 
 Installed CLI programs must be available to the service process and signed in, either with a stored secret on the agent or with their own login. A working directory selects where the program or local tools operate. Do not enter a whole shell command in the executable field.
 

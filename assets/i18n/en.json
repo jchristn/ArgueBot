@@ -219,7 +219,7 @@
   "profile.executable": "Executable (program only)",
   "profile.executable.help": "Enter only the program name, such as claude or codex, or its full path on the service machine. Do not add flags or quote the path. Put flags in the argument rows below.",
   "profile.arguments": "Arguments (one flag or value per row)",
-  "profile.arguments.help": "Selecting Claude Code, Codex, Gemini CLI or Mux fills in the executable and complete arguments. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo, so debate turns run without permission prompts. You can edit each argument separately. Custom arguments replace the complete default list; no rows restores the selected program's defaults when saved. Generic CLI requires your own configuration. Do not add shell quotes.",
+  "profile.arguments.help": "Selecting Claude Code, Codex, Gemini CLI or Mux fills in the executable and complete arguments. Claude Code includes --dangerously-skip-permissions; Codex and Mux include --yolo, so debate turns run without permission prompts. You can edit each argument separately. Custom arguments replace the complete default list; no rows restores the selected program's defaults when saved. Generic CLI requires your own configuration. Do not add shell quotes.",
   "profile.directory": "Working directory",
   "profile.directory.help": "Existing directory on the service machine for CLI agents and REST local tools. Empty uses the service working directory. Tools can change files as the service account.",
   "profile.endpoint": "Endpoint URL",

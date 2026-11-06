@@ -19,7 +19,7 @@ namespace ArgueBot.Tests.Fixtures
             string input = await Console.In.ReadToEndAsync().ConfigureAwait(false);
             if (mode == "environment" || mode == "environment-echo")
             {
-                if (Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") != "fictional-allowed" || Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET") != null || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PATH"))) return 3;
+                if (Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") != "fictional-allowed" || Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_SECRET") != null || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PATH")) || Environment.GetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH") != "fictional-git-bash" || Environment.GetEnvironmentVariable("OneDriveCommercial") != "fictional-onedrive") return 3;
                 Console.WriteLine(mode == "environment-echo" ? "allowed=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ALLOWED") + ";token=" + Environment.GetEnvironmentVariable("ARGUEBOT_FIXTURE_ACCESS_TOKEN") : "Allowed environment verified."); return 0;
             }
             if (mode == "model-check")

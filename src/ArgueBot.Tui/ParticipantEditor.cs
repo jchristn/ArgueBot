@@ -91,7 +91,7 @@ namespace ArgueBot.Tui
                     _Form.Add("", new Button("Remove argument " + (index + 1), () => { _Arguments.RemoveAt(argument); Rebuild(); }));
                 }
                 _Form.Add("", new Button("Add argument", () => { if (_Arguments.Count < 128) { _Arguments.Add(new TextField()); Rebuild(); _Form.SetFocusedField(5 + (_Arguments.Count - 1) * 2); } }));
-                _Form.SetFieldHint(_Form.FieldCount - 1, "Choosing a program fills all arguments. Claude Code includes --dangerously-skip-permissions; Codex includes --yolo for unattended turns. Custom rows replace the full list; no rows restores defaults when saved. Each row is one flag or value.");
+                _Form.SetFieldHint(_Form.FieldCount - 1, "Choosing a program fills all arguments. Claude Code includes --dangerously-skip-permissions; Codex and Mux include --yolo for unattended turns. Custom rows replace the full list; no rows restores defaults when saved. Each row is one flag or value.");
                 string provider = Providers()[Math.Max(0, _Provider.SelectedIndex)];
                 Add("Model (optional)", _Model, provider == "claude" || provider == "codex" || provider == "gemini" ? "Passed to the program as --model. Blank uses the program's default model." : "Put a literal {model} argument where the program expects the model name. Blank uses the program's default.");
                 string kind = provider == "claude" ? "claude_oauth" : provider == "codex" ? "codex_auth_json" : "";
