@@ -380,6 +380,7 @@
   "attempts.charactersValue": "{count, number}",
   "debate.outcome.help": "The durable reason for completion or pause. Inspect generation attempts for individual failures and selected source context.",
   "outcome.max_rounds": "Round limit reached.",
+  "outcome.answered": "Follow-up answered.",
   "outcome.consensus": "An agent declared consensus under the legacy rule. It is a recorded claim, not verified agreement.",
   "outcome.v2.consensus": "Unanimous: every active seat agreed to the same proposal.",
   "outcome.v2.max_rounds": "Round limit reached without unanimous agreement. Recorded dissent is kept with each proposal.",

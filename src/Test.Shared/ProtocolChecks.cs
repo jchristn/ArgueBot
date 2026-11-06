@@ -70,7 +70,7 @@ namespace Test.Shared
                 Require(runs.Count == 0, "A rejected admission must not create a run.");
                 DebateRun followup = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { Mode = "followup", Question = "Summarize the trade-offs.", ParticipantIds = new List<string> { profiles[1] }, IdempotencyKey = "single-followup" }, token).ConfigureAwait(false);
                 followup = await WaitAsync(database, context, followup, token).ConfigureAwait(false);
-                Require(followup.State == "completed", "A single-seat follow-up must still run after rejected debates: " + followup.State + "/" + followup.Outcome);
+                Require(followup.State == "completed" && followup.Outcome == "answered", "A single-seat follow-up must still run after rejected debates and complete as answered: " + followup.State + "/" + followup.Outcome);
             }
         }
 

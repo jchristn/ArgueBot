@@ -255,7 +255,7 @@ namespace ArgueBot.Core.Services
                             run = await _Database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             if (worker.PauseAfterTurn || run.State == "paused" || run.State == "completed" || run.State == "cancelled" || run.State == "failed") return;
-                            if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
+                            if (run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = run.Mode == "followup" ? "answered" : "max_rounds"; await _Database.Runs.SaveAsync(context, run, token).ConfigureAwait(false); return; }
                             if (run.ProtocolVersion == 2)
                             {
                                 await _Database.Rosters.ApplyPendingAsync(context, run, token).ConfigureAwait(false);
@@ -355,7 +355,7 @@ namespace ArgueBot.Core.Services
                             }
                             if (worker.StopRequested) { run.State = "cancelled"; run.Outcome = "stopped"; }
                             else if (answer.State == "completed" && run.ProtocolVersion == 1 && run.Mode == "debate" && Regex.IsMatch(answer.Content, @"^\s*WE HAVE CONSENSUS\b", RegexOptions.Multiline | RegexOptions.IgnoreCase)) { run.State = "completed"; run.Outcome = "consensus"; }
-                            else if (answer.State == "completed" && run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = "max_rounds"; }
+                            else if (answer.State == "completed" && run.Round > run.MaxRounds) { run.State = "completed"; run.Outcome = run.Mode == "followup" ? "answered" : "max_rounds"; }
                             else if (failure != null) { run.State = "paused"; run.Outcome = failure; }
                             else if (token.IsCancellationRequested || worker.PauseAfterTurn || answer.State == "interrupted") { run.State = "paused"; run.Outcome = answer.State == "interrupted" ? "interrupted" : "paused"; }
                             else run.State = "window";

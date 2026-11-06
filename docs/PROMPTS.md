@@ -16,7 +16,7 @@ ArgueBot validates structured replies. When a reply does not have the required s
 
 ## Factory defaults and custom prompts
 
-Every workspace has one factory prompt per step (IDs `pmt_factory_question`, `pmt_factory_response` and so on). Their text is exactly what ArgueBot sent before prompts were editable. Factory prompts are read-only: they cannot be edited or deleted, and each release refreshes them on startup. To change one, duplicate it; the copy is a custom prompt you can rename, describe and edit. A prompt's step is fixed when it is created.
+Every workspace has one factory prompt per step (IDs `pmt_factory_question`, `pmt_factory_response` and so on). Their text is the built-in protocol 2 text. The proposal step must answer the original question, and agents agree only to a final answer to it, because unanimous agreement ends the debate; agreeing on a method or sub-question continues to the next round. Factory prompts are read-only: they cannot be edited or deleted, and each release refreshes them on startup. To change one, duplicate it; the copy is a custom prompt you can rename, describe and edit. A prompt's step is fixed when it is created.
 
 Deleting a custom prompt returns any conversation that chose it to the factory default. Debates that already started keep their copy.
 

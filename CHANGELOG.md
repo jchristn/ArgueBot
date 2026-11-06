@@ -38,6 +38,11 @@ There are no breaking changes. New debates default to read access to resources; 
 
 - Schema 33 adds `resources`, `resource_revisions` and `attempt_resources`, and resource access columns on debate policies. Existing databases upgrade on startup after the usual backup. SQLite and PostgreSQL are both covered by the tests.
 
+### Fixes
+
+- Debates no longer end as consensus after agreeing only on a sub-question. The factory question, proposal and vote prompts now tie each round to the original question: the orchestrator's proposal must answer it (with stated confidence and conditions when evidence is incomplete), and agents agree only to a final answer, choosing `disagree` or `needs_information` when a proposal settles only a method, a sub-question or an interim position. Factory prompts refresh on startup; debates that already started keep their copy, and custom prompts are unchanged.
+- A follow-up question now completes with the outcome `answered` ("Follow-up answered.") instead of `max_rounds`, so asking a follow-up after a debate no longer shows "Round limit reached."
+
 ## v2.1.0 (on main, image published November 5, 2026)
 
 v2.1.0 adds sign-in, tenants, users, bearer-token credentials, an audit log and time-limited public share links to every interface. Work follows [archive/USER_AUTH_PLAN.md](archive/USER_AUTH_PLAN.md).
