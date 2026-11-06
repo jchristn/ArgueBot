@@ -116,8 +116,29 @@ namespace Test.Shared
             {
                 DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, garbled.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
                 List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, garbled.Id, run.Id, token).ConfigureAwait(false);
-                Require(run.Outcome == "consensus", "A vote naming a miscopied proposal ID must be repaired, not pause the debate: " + run.State + "/" + run.Outcome);
-                Require(miscopy.Prompts.Any(prompt => prompt.StartsWith("Agent 2\n", StringComparison.Ordinal) && prompt.Contains("Set proposalId to exactly \"" + proposals.Single().Id + "\"", StringComparison.Ordinal)), "The vote correction request must restate the exact proposal ID.");
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, garbled.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus" && attempts.Items.All(item => item.State == "completed") && proposals.Single().Agreements.Count == run.Participants.Count, "A vote whose proposal ID is miscopied (names no proposal of the run) must count for the open proposal: " + run.State + "/" + run.Outcome);
+            }
+            Conversation trailing = await database.CreateConversationAsync(context, "Text after the vote", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner remark = new MultiAgentFixtureRunner();
+            remark.RawOnce["Agent 2:ratification"] = "{\"proposalId\":\"\",\"position\":\"agree\",\"rationale\":\"Agreed.\"}\n\nWait, one more thing.\n\n{\"proposalId\":\"x\",\"position\":\"agree\",\"rationale\":\"placeholder\"}";
+            await using (ConversationEngine engine = new ConversationEngine(database, remark))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, trailing.Id, Request(profiles, 4), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, trailing.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(run.Outcome == "consensus" && attempts.Items.All(item => item.State == "completed"), "A vote followed by extra text must be read from its leading JSON object: " + run.State + "/" + run.Outcome);
+            }
+            Conversation stale = await database.CreateConversationAsync(context, "Vote on an earlier proposal", token).ConfigureAwait(false);
+            MultiAgentFixtureRunner earlier = new MultiAgentFixtureRunner { Disagree = true };
+            earlier.StaleOnce.Add("Agent 2:ratification");
+            await using (ConversationEngine engine = new ConversationEngine(database, earlier))
+            {
+                DebateRun run = await WaitAsync(database, context, await engine.StartAsync(context, stale.Id, With(Request(profiles, 4), request => request.MaxRounds = 2), token).ConfigureAwait(false), token).ConfigureAwait(false);
+                List<DebateProposal> proposals = await database.Debates.ReadProposalsAsync(context, stale.Id, run.Id, token).ConfigureAwait(false);
+                AttemptPage attempts = await database.Attempts.EnumerateAsync(context, stale.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                string newest = proposals.OrderByDescending(item => item.Id, StringComparer.Ordinal).First().Id;
+                Require(run.Outcome == "max_rounds" && attempts.Items.Count(item => item.ErrorCode == "invalid_orchestration_output") == 1 && attempts.Items.Any(item => item.Purpose == "ratification" && item.RepairNumber == 1 && item.State == "completed"), "A vote naming an earlier proposal of the run must be repaired: " + run.State + "/" + run.Outcome);
+                Require(earlier.Prompts.Any(prompt => prompt.StartsWith("Agent 2\n", StringComparison.Ordinal) && prompt.Contains("Set proposalId to exactly \"" + newest + "\"", StringComparison.Ordinal)), "The vote correction request must restate the exact proposal ID.");
             }
             Conversation transient = await database.CreateConversationAsync(context, "Intermittent agent failure", token).ConfigureAwait(false);
             MultiAgentFixtureRunner flaky = new MultiAgentFixtureRunner();

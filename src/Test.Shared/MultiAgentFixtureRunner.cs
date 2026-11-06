@@ -19,6 +19,9 @@ namespace Test.Shared
         internal System.Collections.Concurrent.ConcurrentDictionary<string, string> RawOnce { get; } = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         /// <summary>Failure codes thrown once for a step key (same keys as RawOnce), as a working agent that fails intermittently would.</summary>
         internal System.Collections.Concurrent.ConcurrentDictionary<string, string> FailOnce { get; } = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>Step keys whose next vote on a later proposal names the first proposal instead, as a stale vote would.</summary>
+        internal HashSet<string> StaleOnce { get; } = new HashSet<string>(StringComparer.Ordinal);
+        private string _FirstProposal = "";
         internal System.Collections.Concurrent.ConcurrentQueue<string> Prompts { get; } = new System.Collections.Concurrent.ConcurrentQueue<string>();
         internal bool HoldResponse { get; set; }
         internal TaskCompletionSource<bool> Started { get; } = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -38,6 +41,11 @@ namespace Test.Shared
             else if (instructions.Contains("proposalId:", StringComparison.Ordinal))
             {
                 string proposal = Regex.Match(instructions, "proposalId: \"([^\"]+)\"").Groups[1].Value;
+                lock (StaleOnce)
+                {
+                    if (_FirstProposal.Length == 0) _FirstProposal = proposal;
+                    else if (proposal != _FirstProposal && StaleOnce.Remove(profile.Name + ":ratification")) proposal = _FirstProposal;
+                }
                 string position = Positions.TryGetValue(profile.Name, out string? configured) ? configured : Disagree && profile.Name == "Agent 1" ? "disagree" : "agree";
                 output = RawRatification.TryGetValue(profile.Name, out string? raw) ? raw : JsonSerializer.Serialize(new { proposalId = proposal, position, rationale = "Fictional test position." });
             }

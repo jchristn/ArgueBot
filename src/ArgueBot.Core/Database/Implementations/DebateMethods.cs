@@ -131,7 +131,14 @@ namespace ArgueBot.Core.Database.Implementations
                     // A moderator edit committed while this vote was generating. The answer stays in the transcript, but it never counts toward the replacement proposal.
                     if (votedOn != run.ProposalId) return;
                     AgreementResponse response = Parse<AgreementResponse>(answer.Content);
-                    if (response.ProposalId != run.ProposalId || !new[] { "agree", "disagree", "abstain", "needs_information" }.Contains(response.Position) || response.Rationale.Length > 16000) throw InvalidOutput();
+                    if (!new[] { "agree", "disagree", "abstain", "needs_information" }.Contains(response.Position) || response.Rationale.Length > 16000) throw InvalidOutput();
+                    // The attempt is already bound to its proposal, so the echoed ID only guards against a vote meant for an earlier proposal.
+                    // Models often miscopy long random identifiers; an ID that names no other proposal of this run still counts for the open one.
+                    if (response.ProposalId != run.ProposalId && response.ProposalId.Length > 0)
+                    {
+                        long stale = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM debate_proposals WHERE tenant_id=@tenant AND run_id=@run AND id=@id", token, P("tenant", context.TenantId, "run", run.Id, "id", response.ProposalId)).ConfigureAwait(false), CultureInfo.InvariantCulture);
+                        if (stale != 0) throw InvalidOutput();
+                    }
                     await RecordVoteAsync(connection, transaction, context, run.ProposalId, attempt.ParticipantId, answer.Id, response.Position, response.Rationale, token).ConfigureAwait(false);
                     int next = await NextVoterAsync(connection, transaction, context, run, token).ConfigureAwait(false);
                     if (next >= 0) run.SpeakerIndex = next;
@@ -216,7 +223,32 @@ namespace ArgueBot.Core.Database.Implementations
         {
             string value = content.Trim();
             if (value.StartsWith("```json\n", StringComparison.Ordinal) && value.EndsWith("```", StringComparison.Ordinal)) value = value.Substring(8, value.Length - 11).Trim();
-            return JsonSerializer.Deserialize<T>(value, _Json) ?? throw InvalidOutput();
+            try
+            {
+                return JsonSerializer.Deserialize<T>(value, _Json) ?? throw InvalidOutput();
+            }
+            catch (JsonException)
+            {
+                // Some models add a remark after the object. Accept the leading object when the reply starts with one.
+                string? leading = LeadingObject(value);
+                if (leading == null) throw;
+                return JsonSerializer.Deserialize<T>(leading, _Json) ?? throw InvalidOutput();
+            }
+        }
+        private static string? LeadingObject(string value)
+        {
+            if (!value.StartsWith('{')) return null;
+            byte[] bytes = Encoding.UTF8.GetBytes(value);
+            Utf8JsonReader reader = new Utf8JsonReader(bytes);
+            try
+            {
+                if (!reader.Read() || !reader.TrySkip()) return null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+            return Encoding.UTF8.GetString(bytes, 0, (int)reader.BytesConsumed);
         }
         private static DomainException InvalidOutput() { return new DomainException(502, "invalid_orchestration_output", "The model did not return the required structured decision. Inspect the answer and explicitly retry."); }
         private static string Digest(string text) { return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant(); }
