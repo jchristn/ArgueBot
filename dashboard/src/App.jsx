@@ -108,7 +108,7 @@ function Shell({ theme, toggleTheme, notify, session }) {
         <div className="sidebar-footer">
           <span className="status-dot" />
           <span>{t("common.connected")}</span>
-          <code>2.2.0</code>
+          <code>2.3.0</code>
         </div>
       </aside>
       <div className="app-main">

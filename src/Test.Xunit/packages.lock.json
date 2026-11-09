@@ -208,7 +208,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )"
+          "ArgueBot.Core": "[2.3.0, )"
         }
       },
       "arguebot.core": {
@@ -226,25 +226,25 @@
       "arguebot.runners": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )",
+          "ArgueBot.Core": "[2.3.0, )",
           "PolyPrompt": "[3.4.0, )"
         }
       },
       "arguebot.tui": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[2.2.0, )",
+          "ArgueBot.Client": "[2.3.0, )",
           "TUIKit": "[1.10.0, )"
         }
       },
       "test.shared": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[2.2.0, )",
-          "ArgueBot.Core": "[2.2.0, )",
-          "ArgueBot.Publisher": "[2.2.0, )",
-          "ArgueBot.Runners": "[2.2.0, )",
-          "ArgueBot.Tui": "[2.2.0, )",
+          "ArgueBot.Client": "[2.3.0, )",
+          "ArgueBot.Core": "[2.3.0, )",
+          "ArgueBot.Publisher": "[2.3.0, )",
+          "ArgueBot.Runners": "[2.3.0, )",
+          "ArgueBot.Tui": "[2.3.0, )",
           "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
           "Touchstone.Core": "[0.2.1, )"
         }
@@ -479,7 +479,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )"
+          "ArgueBot.Core": "[2.3.0, )"
         }
       },
       "arguebot.core": {
@@ -497,17 +497,17 @@
       "arguebot.runners": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )",
+          "ArgueBot.Core": "[2.3.0, )",
           "PolyPrompt": "[3.4.0, )"
         }
       },
       "test.shared": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Client": "[2.2.0, )",
-          "ArgueBot.Core": "[2.2.0, )",
-          "ArgueBot.Publisher": "[2.2.0, )",
-          "ArgueBot.Runners": "[2.2.0, )",
+          "ArgueBot.Client": "[2.3.0, )",
+          "ArgueBot.Core": "[2.3.0, )",
+          "ArgueBot.Publisher": "[2.3.0, )",
+          "ArgueBot.Runners": "[2.3.0, )",
           "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
           "Touchstone.Core": "[0.2.1, )"
         }

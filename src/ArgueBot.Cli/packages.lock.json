@@ -76,7 +76,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )"
+          "ArgueBot.Core": "[2.3.0, )"
         }
       },
       "arguebot.core": {
@@ -170,7 +170,7 @@
       "arguebot.client": {
         "type": "Project",
         "dependencies": {
-          "ArgueBot.Core": "[2.2.0, )"
+          "ArgueBot.Core": "[2.3.0, )"
         }
       },
       "arguebot.core": {

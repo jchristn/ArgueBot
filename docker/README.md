@@ -16,7 +16,7 @@ docker compose -f docker/compose.yaml -f docker/compose.build.yaml build
 docker compose -f docker/compose.yaml -f docker/compose.build.yaml up -d
 ```
 
-Maintainers publish a new image with `./build-all.sh v2.2.0` (or `build-all.bat v2.2.0` on Windows). It builds both architectures on the `cloud-jchristn77-jchristn77` buildx builder, pushes `jchristn77/arguebot:<tag>` and `:latest`, then pulls them back. `docker/update.sh` and `docker/update.bat` pull the published image and recreate the stack without deleting volumes.
+Maintainers publish a new image with `./build-all.sh v2.3.0` (or `build-all.bat v2.3.0` on Windows). It builds both architectures on the `cloud-jchristn77-jchristn77` buildx builder, pushes `jchristn77/arguebot:<tag>` and `:latest`, then pulls them back. `docker/update.sh` and `docker/update.bat` pull the published image and recreate the stack without deleting volumes.
 
 Open `http://127.0.0.1:4317/dashboard` and sign in. A new data volume starts with the default administrator **`admin@arguebot`** / **`password`** and the bearer token **`arguebotadmin`**, shown on the sign-in page. Anyone who can reach the port can sign in with them, so change the password before exposing the service. The service listens on the container network and Compose publishes it only on host loopback.
 

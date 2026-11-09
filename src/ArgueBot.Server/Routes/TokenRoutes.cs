@@ -16,7 +16,7 @@ namespace ArgueBot.Server.Routes
         private readonly RequestAuthenticator _Authenticator;
         internal TokenRoutes(DatabaseDriverBase database, RequestAuthenticator authenticator) { _Database = database; _Authenticator = authenticator; }
 
-        internal static string Version() { return typeof(TokenRoutes).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "2.2.0"; }
+        internal static string Version() { return typeof(TokenRoutes).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "2.3.0"; }
 
         internal void Register(Webserver server)
         {

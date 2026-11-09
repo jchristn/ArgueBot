@@ -3,7 +3,7 @@ services:
   arguebot:
     # Published multi-architecture image. To build from this checkout instead, add
     # -f docker/compose.build.yaml (see docker/README.md).
-    image: jchristn77/arguebot:v2.2.0
+    image: jchristn77/arguebot:v2.3.0
     init: true
     ports:
       - "127.0.0.1:${ARGUEBOT_PORT:-4317}:4317"

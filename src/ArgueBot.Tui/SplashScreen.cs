@@ -58,7 +58,7 @@ namespace ArgueBot.Tui
             if (fullLogo) lines.AddRange(_Lines);
             else lines.Add("arguebot");
             lines.Add("");
-            string version = typeof(SplashScreen).Assembly.GetName().Version?.ToString(3) ?? "2.2.0";
+            string version = typeof(SplashScreen).Assembly.GetName().Version?.ToString(3) ?? "2.3.0";
             lines.Add("v" + version + " - (c) 2026 Joel Christner");
             lines.Add("MIT License");
             lines.Add("");

@@ -27,7 +27,7 @@ docker run -d --name arguebot \
   -v arguebot-data:/data \
   -v arguebot-keys:/data/secrets \
   -v arguebot-work:/work \
-  jchristn77/arguebot:v2.2.0
+  jchristn77/arguebot:v2.3.0
 ```
 
 ## First steps

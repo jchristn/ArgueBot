@@ -9,7 +9,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "ArgueBot API",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "Conversations, agents and execution for signed-in users. Data is shared within a tenant. Sign in with POST /v2.0/api/token or use a credential bearer token. The default administrator is admin@arguebot with password password and bearer token arguebotadmin; change them after the first sign-in."
   },
   "servers": [

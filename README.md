@@ -24,7 +24,9 @@ What v2.0.0 does:
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
 - **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
-**v2.2.0 (in development on `feature/v2.2.0`)** adds resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. A role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
+**v2.3.0 (in development on `feature/v2.3.0`)** lets agents stop in the middle of a turn and ask you a question: free text, a single choice, a multi-select or a yes/no confirmation. You answer in a dialog in the dashboard or TUI, or from the CLI or API, and the agent carries on with your answer. New debates can open with an intake step where the orchestrator asks about a vague question before round 1. The older free-text clarification requests are replaced. See [PROMPTING_THE_USER_PLAN.md](PROMPTING_THE_USER_PLAN.md) for the work in progress.
+
+**v2.2.0** added resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. A role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
 
 **v2.1.0** added sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
 
