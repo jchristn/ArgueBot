@@ -10,9 +10,9 @@
       },
       "Touchstone.Core": {
         "type": "Direct",
-        "requested": "[0.2.1, )",
-        "resolved": "0.2.1",
-        "contentHash": "2Dwzfcnji0+S6Kxfz97K597aiS6P8NsI5kKdwBlXuouATk2uuKY3zam7lscSUXDizQYQkOOsSawFEXRBbzZwMQ=="
+        "requested": "[1.0.0, )",
+        "resolved": "1.0.0",
+        "contentHash": "BmB7HR7lOSlLMfln66WGpXzrZ7UrAmCT7jLjAcfb5LhIVQcdfW82CirbtDrZYnhsAL+rfv+dSnxmNq9Rr/KEUg=="
       },
       "Microsoft.Data.Sqlite": {
         "type": "Transitive",
@@ -148,9 +148,9 @@
       },
       "Touchstone.Core": {
         "type": "Direct",
-        "requested": "[0.2.1, )",
-        "resolved": "0.2.1",
-        "contentHash": "2Dwzfcnji0+S6Kxfz97K597aiS6P8NsI5kKdwBlXuouATk2uuKY3zam7lscSUXDizQYQkOOsSawFEXRBbzZwMQ=="
+        "requested": "[1.0.0, )",
+        "resolved": "1.0.0",
+        "contentHash": "BmB7HR7lOSlLMfln66WGpXzrZ7UrAmCT7jLjAcfb5LhIVQcdfW82CirbtDrZYnhsAL+rfv+dSnxmNq9Rr/KEUg=="
       },
       "Microsoft.Data.Sqlite": {
         "type": "Transitive",

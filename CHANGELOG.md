@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased: v2.2.0 (image published November 6, 2026)
+## Unreleased: v2.3.0
+
+v2.3.0 lets agents stop in the middle of a turn and ask you a question, wait for the answer and carry on with it. Questions can be free text, a single choice, a multi-select or a yes/no confirmation, and you answer them in a dialog. The work is tracked in [PROMPTING_THE_USER_PLAN.md](PROMPTING_THE_USER_PLAN.md); entries below are added as each part lands.
+
+### Breaking changes
+
+- Free-text clarification requests are replaced by questions. `request_clarification`, `GET /v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications`, `clarificationId` and `skipClarification` on interjections, the `clarification_required` error and `debate clarifications` are removed. Existing requests migrate into questions.
+
+### Testing
+
+- Tests use Touchstone 1.0.0. `Test.Xunit` is now `Test.Xunit3` (xUnit v3); the xUnit and NUnit hosts run every shared case both in one run-all test and as one native test per case. `Test.Automated` targets .NET 8 and .NET 10 and accepts Touchstone's own options (`--suite`, `--test`, `--tag`, `--results`, `--html`); its JSON results use the versioned Touchstone schema. CI runs the console suite on both frameworks.
+- Requirements review: `docs/requirements-manifest.json` records the Touchstone 1.0.0 revision of BACKEND_TEST_ARCHITECTURE.md.
+
+## v2.2.0 (image published November 6, 2026)
 
 v2.2.0 adds resources: named markdown documents stored in a tenant's workspace that agents can list, search, read and, when a debate allows it, write through tools. A prompt or role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. Work follows [archive/RESOURCES_PLAN.md](archive/RESOURCES_PLAN.md); see [docs/RESOURCES.md](docs/RESOURCES.md).
 

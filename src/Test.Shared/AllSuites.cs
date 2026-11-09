@@ -4,9 +4,12 @@ namespace Test.Shared
     using Touchstone.Core;
 
     /// <summary>One authoritative suite inventory shared by every test adapter.</summary>
-    public static class AllSuites
+    public sealed class AllSuites : ITestSuiteProvider
     {
-        /// <summary>All descriptors, including explicitly skipped optional integrations.</summary>
+        /// <summary>Create the provider. Adapters construct it by type to rebuild cases in the process that runs them.</summary>
+        public AllSuites() { }
+
+        /// <summary>All descriptors, fresh on each access, including explicitly skipped optional integrations.</summary>
         public static IReadOnlyList<TestSuiteDescriptor> All
         {
             get
@@ -24,5 +27,8 @@ namespace Test.Shared
                 suites.AddRange(SecuritySuites.All); suites.AddRange(RunnerSuites.All); suites.AddRange(ProviderSuites.All); return suites;
             }
         }
+
+        /// <inheritdoc />
+        public IReadOnlyList<TestSuiteDescriptor> Suites { get { return All; } }
     }
 }

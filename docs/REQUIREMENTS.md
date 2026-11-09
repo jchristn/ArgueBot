@@ -16,6 +16,27 @@ On October 20, 2026 the user required REST-connected models to execute local too
 
 October 20, 2026 product scope override (superseded for 2.1 on November 4, 2026): remove user accounts, roles, permissions, security audit, login/pairing and identity-dependent controls from every product surface and public API.
 
+## November 9, 2026 v2.3 questions scope
+
+The user asked for agents to be able to stop mid-turn and ask the user structured questions (open text, single choice, multi-select, confirmation) on every product surface, with answers given in modal dialogs rather than inline forms. [PROMPTING_THE_USER_PLAN.md](../PROMPTING_THE_USER_PLAN.md) records the decisions and work; [adr/0007-user-questions.md](adr/0007-user-questions.md) records the hold-then-park design. The user's decisions on November 9, 2026:
+
+- Target version 2.3.0 on `feature/v2.3.0`.
+- Every seat may ask by default (`userQuestions: all`), within per-turn and per-run limits. New debates start with an intake step (`intake: ask_if_needed`); upgraded debates keep intake off.
+- No tray app. Desktop notifications come from the dashboard through browser notifications.
+- `request_clarification`, the clarifications route, `clarificationId`/`skipClarification` on interjections and `debate_clarifications` are removed in 2.3.0 after their rows migrate into question requests. This is a breaking change.
+- Touchstone moves to 1.0.0 before the feature work (see below).
+- Shared transcripts always show questions and answers.
+
+All normative documents were re-read on November 9, 2026. Every hash matched the manifest except BACKEND_TEST_ARCHITECTURE.md. Its reviewed version is requirements commit `6a8d917` (`c081fa99...`); the only later change is commit `11a3982` (`f653dca3...`), which updates the document for Touchstone 1.0.0: separate Core, Cli and per-framework adapter packages (xUnit v3, xUnit v2, NUnit, MSTest), the suites class as an `ITestSuiteProvider` with fresh descriptors, `skipReason` instead of a skip flag, tags, immutable descriptors, `ConsoleRunner.RunMainAsync` with Touchstone's own options, versioned JSON results, defined exit codes, one run per framework in CI and every host in CI. ArgueBot now follows it: `Test.Xunit` became `Test.Xunit3` on `Touchstone.Xunit3Adapter` with xUnit v3 (VSTest mode, so `dotnet test` and TRX logging keep working), `Test.Nunit` uses the 1.0 NUnit adapter, both hosts run a run-all test and one test per case, and CI runs `Test.Automated` on .NET 8 and .NET 10. No MSTest or xUnit v2 host exists because the project uses neither framework. The manifest now records the new hash.
+
+Deviations recorded for this scope, each existing practice or forced by an earlier decision:
+
+- **Live updates use server-sent events**, the product's existing channel for conversation events, rather than the WebSocket endpoint described in BACKEND_ARCHITECTURE.md. Clients fall back to polling the question summary.
+- **IDs use the existing `Ids.New(prefix)` helper** (`qrq_`, `qst_`, `qop_`, `qan_`) rather than a central `Constants.cs` and `IdGenerator`.
+- **Routes stay under `/v2.0/api/...`**, the established prefix.
+- **Access classes replace RBAC operation tuples** (November 4, 2026 scope): reading questions is Member read; answering, skipping and deferring is Member write.
+- **The C# SDK stays at `src/ArgueBot.Client`** without a separate `sdk/csharp` harness (REPOSITORY_REQUIREMENTS.md #7). Client checks in Test.Shared run in every CI host instead.
+
 ## November 5, 2026 v2.2 resources scope
 
 The user asked for a top-level Resource entity in 2.2.0: named markdown documents that agents can list, read, create and edit through tools during a debate, so prompts can point agents at context to pull in when needed and agents can build their own. The decisions are recorded in [RESOURCES_PLAN.md](../archive/RESOURCES_PLAN.md) and summarized here:

@@ -32,12 +32,12 @@
       },
       "Touchstone.NunitAdapter": {
         "type": "Direct",
-        "requested": "[0.2.1, )",
-        "resolved": "0.2.1",
-        "contentHash": "+3I2WFFQ4hkj9T2u2W3gcuWywAvZY5WcYPBy2CAWV7rSDeRwDxmY/GIno8eQDVCQpywQxmICBnPs4YhYB83ijw==",
+        "requested": "[1.0.0, )",
+        "resolved": "1.0.0",
+        "contentHash": "Gy5gbiVdSTU8OOcb6aP8fQelUbj5wqxQE3UnlzMkOwQOghCqVi0iI9c2HgRIB7P8ImsDOoNts/be7MPT6F5u6Q==",
         "dependencies": {
           "NUnit": "5.0.0",
-          "Touchstone.Core": "0.2.1"
+          "Touchstone.Core": "1.0.0"
         }
       },
       "Microsoft.ApplicationInsights": {
@@ -214,8 +214,8 @@
       },
       "Touchstone.Core": {
         "type": "Transitive",
-        "resolved": "0.2.1",
-        "contentHash": "2Dwzfcnji0+S6Kxfz97K597aiS6P8NsI5kKdwBlXuouATk2uuKY3zam7lscSUXDizQYQkOOsSawFEXRBbzZwMQ=="
+        "resolved": "1.0.0",
+        "contentHash": "BmB7HR7lOSlLMfln66WGpXzrZ7UrAmCT7jLjAcfb5LhIVQcdfW82CirbtDrZYnhsAL+rfv+dSnxmNq9Rr/KEUg=="
       },
       "TUIKit": {
         "type": "Transitive",
@@ -263,7 +263,7 @@
           "ArgueBot.Runners": "[2.3.0, )",
           "ArgueBot.Tui": "[2.3.0, )",
           "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
-          "Touchstone.Core": "[0.2.1, )"
+          "Touchstone.Core": "[1.0.0, )"
         }
       }
     },
@@ -298,12 +298,12 @@
       },
       "Touchstone.NunitAdapter": {
         "type": "Direct",
-        "requested": "[0.2.1, )",
-        "resolved": "0.2.1",
-        "contentHash": "+3I2WFFQ4hkj9T2u2W3gcuWywAvZY5WcYPBy2CAWV7rSDeRwDxmY/GIno8eQDVCQpywQxmICBnPs4YhYB83ijw==",
+        "requested": "[1.0.0, )",
+        "resolved": "1.0.0",
+        "contentHash": "Gy5gbiVdSTU8OOcb6aP8fQelUbj5wqxQE3UnlzMkOwQOghCqVi0iI9c2HgRIB7P8ImsDOoNts/be7MPT6F5u6Q==",
         "dependencies": {
           "NUnit": "5.0.0",
-          "Touchstone.Core": "0.2.1"
+          "Touchstone.Core": "1.0.0"
         }
       },
       "Microsoft.ApplicationInsights": {
@@ -507,8 +507,8 @@
       },
       "Touchstone.Core": {
         "type": "Transitive",
-        "resolved": "0.2.1",
-        "contentHash": "2Dwzfcnji0+S6Kxfz97K597aiS6P8NsI5kKdwBlXuouATk2uuKY3zam7lscSUXDizQYQkOOsSawFEXRBbzZwMQ=="
+        "resolved": "1.0.0",
+        "contentHash": "BmB7HR7lOSlLMfln66WGpXzrZ7UrAmCT7jLjAcfb5LhIVQcdfW82CirbtDrZYnhsAL+rfv+dSnxmNq9Rr/KEUg=="
       },
       "arguebot.client": {
         "type": "Project",
@@ -543,7 +543,7 @@
           "ArgueBot.Publisher": "[2.3.0, )",
           "ArgueBot.Runners": "[2.3.0, )",
           "Microsoft.Extensions.TimeProvider.Testing": "[10.0.0, )",
-          "Touchstone.Core": "[0.2.1, )"
+          "Touchstone.Core": "[1.0.0, )"
         }
       }
     }

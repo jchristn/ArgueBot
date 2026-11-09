@@ -21,7 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Shared", "Test.Shared\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Fixtures", "Test.Fixtures\Test.Fixtures.csproj", "{EA9B0544-EAB5-4120-9E8E-F84F9EA16692}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Xunit", "Test.Xunit\Test.Xunit.csproj", "{CD260DC2-B783-408B-A092-6BF7B1278F79}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Xunit3", "Test.Xunit3\Test.Xunit3.csproj", "{CD260DC2-B783-408B-A092-6BF7B1278F79}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Nunit", "Test.Nunit\Test.Nunit.csproj", "{FA748AA5-EF4F-4D79-B013-682445D0927A}"
 EndProject

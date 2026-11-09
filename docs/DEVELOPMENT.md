@@ -16,15 +16,16 @@ npm --prefix dashboard run test:ci
 npm --prefix dashboard run build
 dotnet restore src/ArgueBot.sln --locked-mode
 dotnet build src/ArgueBot.sln -c Release --no-restore
-dotnet run --project src/Test.Automated -c Release --no-build -- --results .run/console-results.json
-dotnet test src/Test.Xunit -c Release --no-build
+dotnet run --project src/Test.Automated -c Release --no-build -f net8.0 -- --results .run/console-net8.0.json
+dotnet run --project src/Test.Automated -c Release --no-build -f net10.0 -- --results .run/console-net10.0.json
+dotnet test src/Test.Xunit3 -c Release --no-build
 dotnet test src/Test.Nunit -c Release --no-build
 node scripts/test-cli-surfaces.mjs
 node scripts/test-stop-web.mjs
 npm --prefix dashboard run test:e2e
 ```
 
-All fixtures use isolated application homes and loopback listeners. Console descriptors are shared with xUnit and NUnit. Optional provider and runner integrations report explicit skips when their fixture variables are absent. For real CLI parsing and process cancellation checks, set `ARGUEBOT_CLI_FIXTURE` to the built `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. These fictional harnesses require no paid provider credentials.
+All fixtures use isolated application homes and loopback listeners. Tests use Touchstone 1.0.0. `Test.Shared` holds every descriptor behind `AllSuites`, an `ITestSuiteProvider`; `Test.Automated` runs them through `ConsoleRunner.RunMainAsync`, which accepts `--suite`, `--test`, `--tag`, `--results` (versioned JSON; read cases from `results`), `--html` and `--help`. The xUnit v3 host (`Test.Xunit3`) and the NUnit host each run the descriptors twice: once in a single run-all test and once as one native test per case. Terminal cases build only for .NET 10, so the .NET 8 console run has 22 fewer cases. Optional provider and runner integrations report explicit skips when their fixture variables are absent. For real CLI parsing and process cancellation checks, set `ARGUEBOT_CLI_FIXTURE` to the built `src/Test.Fixtures/bin/Release/net10.0/Test.Fixtures.dll`. These fictional harnesses require no paid provider credentials.
 
 Container acceptance uses `docker compose -f docker/compose.yaml -f docker/compose.build.yaml build` followed by `node scripts/test-container.mjs`. It creates a unique Compose project, loopback port and disposable data/key/work volumes, runs the committed Postman provider fixture inside the application container, checks packaged executables and four-seat consensus, then replaces the container and verifies encrypted credentials and key recovery. Only that test project's volumes are removed. Set `DOCKER_HOST` to use a separate daemon without changing the active Docker context. Logs are retained in `.run/container-*/container.log`. These checks do not authenticate with live model providers.
 
