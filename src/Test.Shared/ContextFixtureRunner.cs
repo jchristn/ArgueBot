@@ -15,7 +15,7 @@ namespace Test.Shared
         private readonly MultiAgentFixtureRunner _Inner = new MultiAgentFixtureRunner();
         private bool _Asked;
         internal string PrivateRecipientId { get; set; } = "";
-        internal bool SkipClarification { get; set; }
+        internal bool SkipQuestion { get; set; }
         internal bool HoldCompaction { get; set; }
         internal string InvalidSummary { get; set; } = "";
         internal TaskCompletionSource<bool> CompactionStarted { get; } = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -58,17 +58,23 @@ namespace Test.Shared
                 await onText(JsonSerializer.Serialize(new { summary = overview, sections, sourceIds }), token).ConfigureAwait(false);
                 return;
             }
-            if (!SkipClarification && !_Asked && instructions.Contains("Respond to the orchestrator", StringComparison.Ordinal))
+            if (!SkipQuestion && !_Asked && instructions.Contains("Respond to the orchestrator", StringComparison.Ordinal))
             {
                 _Asked = true;
                 string denied = await execute(new ConversationToolCall { Name = "get_turn", CallId = "private", ArgumentsJson = JsonSerializer.Serialize(new { id = PrivateId }) }, token).ConfigureAwait(false);
                 if (!denied.Contains("not_found", StringComparison.Ordinal) || denied.Contains("PRIVATE_FIXTURE_ONLY", StringComparison.Ordinal)) throw new InvalidDataException("Retrieval exposed a private source.");
                 string list = await execute(new ConversationToolCall { Name = "search_context", CallId = "search", ArgumentsJson = "{\"query\":\"PRIVATE_FIXTURE_ONLY\"}" }, token).ConfigureAwait(false);
                 if (list.Contains("PRIVATE_FIXTURE_ONLY", StringComparison.Ordinal)) throw new InvalidDataException("Search exposed private evidence.");
-                string response = await execute(new ConversationToolCall { Name = "request_clarification", CallId = "question", ArgumentsJson = "{\"query\":\"What is the rollout limit?\",\"blocking\":true}" }, token).ConfigureAwait(false);
-                if (!response.Contains("\"success\":true", StringComparison.Ordinal)) throw new InvalidDataException("Clarification failed.");
-                string retried = await execute(new ConversationToolCall { Name = "request_clarification", CallId = "question-retry", ArgumentsJson = "{\"query\":\"What is the rollout limit?\",\"blocking\":true}" }, token).ConfigureAwait(false);
-                if (JsonDocument.Parse(retried).RootElement.GetProperty("result").GetProperty("id").GetString() != JsonDocument.Parse(response).RootElement.GetProperty("result").GetProperty("id").GetString()) throw new InvalidDataException("A harness retry with a new call ID created a second clarification.");
+                string ask = JsonSerializer.Serialize(new { context = "The rollout size decides the rollback design.", questions = new object[] { new { key = "limit", header = "Rollout", prompt = "What is the rollout limit?", kind = "single_choice", options = new object[] { new { id = "five", label = "Five percent", recommended = true }, new { id = "all", label = "Everyone at once" } }, allowOther = true } } });
+                string response = await execute(new ConversationToolCall { Name = "ask_user", CallId = "question", ArgumentsJson = ask }, token).ConfigureAwait(false);
+                if (!response.Contains("\"success\":true", StringComparison.Ordinal) || !response.Contains("\"parked\"", StringComparison.Ordinal)) throw new InvalidDataException("A waiting question with no hold window must park the turn: " + response);
+                string retried = await execute(new ConversationToolCall { Name = "ask_user", CallId = "question-retry", ArgumentsJson = ask }, token).ConfigureAwait(false);
+                if (JsonDocument.Parse(retried).RootElement.GetProperty("result").GetProperty("requestId").GetString() != JsonDocument.Parse(response).RootElement.GetProperty("result").GetProperty("requestId").GetString()) throw new InvalidDataException("A harness retry with a new call ID created a second question request.");
+                string third = await execute(new ConversationToolCall { Name = "ask_user", CallId = "question-other", ArgumentsJson = JsonSerializer.Serialize(new { questions = new object[] { new { prompt = "Another question?", kind = "confirm" } }, wait = false }) }, token).ConfigureAwait(false);
+                string fourth = await execute(new ConversationToolCall { Name = "ask_user", CallId = "question-limit", ArgumentsJson = JsonSerializer.Serialize(new { questions = new object[] { new { prompt = "One too many?", kind = "confirm" } }, wait = false }) }, token).ConfigureAwait(false);
+                if (!third.Contains("\"recorded\"", StringComparison.Ordinal) || !fourth.Contains("question_limit", StringComparison.Ordinal)) throw new InvalidDataException("The per-turn question limit was not enforced: " + third + " " + fourth);
+                await onText("Waiting for the rollout limit before answering.", token).ConfigureAwait(false);
+                return;
             }
             await _Inner.GenerateAsync(profile, instructions, history, onText, token).ConfigureAwait(false);
         }

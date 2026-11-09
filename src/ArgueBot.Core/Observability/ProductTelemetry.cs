@@ -14,6 +14,12 @@ namespace ArgueBot.Core.Observability
         public static readonly Counter<long> StorageWrites = Meter.CreateCounter<long>("arguebot.storage.writes");
         /// <summary>Database write duration in seconds.</summary>
         public static readonly Histogram<double> StorageDuration = Meter.CreateHistogram<double>("arguebot.storage.write.duration", "s");
+        /// <summary>ask_user requests whose turns waited, by asking role.</summary>
+        public static readonly Counter<long> QuestionsAsked = Meter.CreateCounter<long>("arguebot.questions.asked");
+        /// <summary>Resolved questions, by outcome: answered, skipped, expired or cancelled.</summary>
+        public static readonly Counter<long> QuestionsResolved = Meter.CreateCounter<long>("arguebot.questions.resolved");
+        /// <summary>Seconds from asking to resolution.</summary>
+        public static readonly Histogram<double> QuestionWait = Meter.CreateHistogram<double>("arguebot.questions.wait.duration", "s");
         /// <summary>Generation attempts by runner kind and outcome.</summary>
         public static readonly Counter<long> Generations = Meter.CreateCounter<long>("arguebot.runner.generations");
         /// <summary>Full generation duration in seconds.</summary>

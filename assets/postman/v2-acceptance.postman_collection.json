@@ -2112,10 +2112,10 @@
       ]
     },
     {
-      "name": "Inspect clarification requests",
+      "name": "List questions the run asked",
       "request": {
         "method": "GET",
-        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/clarifications",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/questions",
         "header": [
           {
             "key": "Content-Type",

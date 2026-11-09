@@ -37,6 +37,24 @@ namespace ArgueBot.Core.Models
         public int MaxResourcesCreated { get; set; } = 50;
         /// <summary>Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work.</summary>
         public int MaxStepRetries { get; set; } = 3;
+        private string _UserQuestions = "all";
+        /// <summary>Which agents may ask the user questions with ask_user: off, orchestrator (the orchestrator and a follow-up answerer only) or all (every seat). Default all.</summary>
+        public string UserQuestions { get { return _UserQuestions; } set { ArgumentNullException.ThrowIfNull(value); _UserQuestions = value; } }
+        private string _Intake = "ask_if_needed";
+        /// <summary>Whether the debate opens with an intake step in which the orchestrator may ask the user about the question before round 1: off or ask_if_needed. Default ask_if_needed for new debates; debates created before 2.3.0 have off.</summary>
+        public string Intake { get { return _Intake; } set { ArgumentNullException.ThrowIfNull(value); _Intake = value; } }
+        /// <summary>Most questions the intake request may carry, 1 through 4. Default 4.</summary>
+        public int MaxIntakeQuestions { get; set; } = 4;
+        /// <summary>Seconds a waiting ask_user call stays open for the answer before the turn is parked and resumed later, 0 through 1800. Default 300. 0 parks at once.</summary>
+        public int QuestionHoldSeconds { get; set; } = 300;
+        /// <summary>Seconds after which an unanswered question is treated as skipped, 0 through 2592000. Default 0, which never expires.</summary>
+        public int QuestionExpirySeconds { get; set; }
+        /// <summary>Whether the debate continues by itself once every waiting question is resolved. When false it pauses for Resume. Default true.</summary>
+        public bool ResumeOnAnswer { get; set; } = true;
+        /// <summary>Most ask_user requests in one agent turn, 0 through 4. Default 2.</summary>
+        public int MaxQuestionRequestsPerTurn { get; set; } = 2;
+        /// <summary>Most ask_user requests in the whole debate, 0 through 200. Default 20.</summary>
+        public int MaxQuestionRequestsPerRun { get; set; } = 20;
         private string _QuestionInstructions = "";
         /// <summary>Additional neutral question-selection guidance, up to 4000 characters.</summary>
         public string QuestionInstructions { get { return _QuestionInstructions; } set { ArgumentNullException.ThrowIfNull(value); _QuestionInstructions = value; } }

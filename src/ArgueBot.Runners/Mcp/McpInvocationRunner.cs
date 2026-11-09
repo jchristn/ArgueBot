@@ -19,6 +19,7 @@ namespace ArgueBot.Runners.Mcp
             string name = "abm-" + Guid.NewGuid().ToString("N");
             RunnerProfile child = JsonSerializer.Deserialize<RunnerProfile>(JsonSerializer.Serialize(profile))!;
             foreach (KeyValuePair<string, string> variable in profile.RuntimeEnvironment) child.RuntimeEnvironment[variable.Key] = variable.Value;
+            child.RuntimeClock = profile.RuntimeClock;
             List<string> bridgeArguments = profile.RuntimeMcpCommand.Skip(1).Concat(new[] { "--context-mcp", name }).ToList();
             string command = profile.RuntimeMcpCommand[0];
             if (profile.Provider == "claude")

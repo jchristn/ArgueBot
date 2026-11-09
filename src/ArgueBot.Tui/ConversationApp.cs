@@ -30,6 +30,13 @@ namespace ArgueBot.Tui
         private readonly Label _HistoryTitle = new Label(Text.From("Shared debate history"));
         private readonly Label _Feedback = new Label(Text.From("Connecting to the local service..."));
         private int _ActionInProgress;
+        private long _OpenQuestions;
+        private DateTime _NextQuestionCheck = DateTime.MinValue;
+        private readonly HashSet<string> _Prompted = new HashSet<string>(StringComparer.Ordinal);
+        /// <summary>Open the question dialogs by themselves when the open conversation's debate waits for an answer. Default true.</summary>
+        internal bool AutoOpenQuestions { get; set; } = true;
+        /// <summary>Ring the terminal bell when a new question arrives. Default false.</summary>
+        internal bool QuestionBell { get; set; }
         private DateTime _FeedbackUntil;
         private readonly StatusBar _Status = new StatusBar { RightText = "ArgueBot", ReservedHint = KeyHint.For("f1", "Help") };
         /// <summary>The signed-in user, tenant and server, shown in the status bar.</summary>
@@ -55,6 +62,7 @@ namespace ArgueBot.Tui
         internal ConversationApp(ArgueBotClient client, TuiSession? session = null, bool showSplash = true) { _Client = client; _Session = session; _ShowSplash = showSplash; }
         /// <summary>Close the workspace for a reason that returns to the sign-in page.</summary>
         private void EndSession(TuiExit reason) { Exit = reason; _App?.Post(_App.Quit); }
+        private QuestionWorkflow Questions() { return new QuestionWorkflow(_Client, _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
         private ResourceWorkflow Resources() { return new ResourceWorkflow(_Client, _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
         private AccountWorkflow Account() { return new AccountWorkflow(_Client, _Session ?? throw new InvalidOperationException("Sign in first."), _App!, _Dispatcher ?? throw new InvalidOperationException("Terminal dispatcher is unavailable."), _Token); }
         /// <summary>Refresh a session token when it has less than ten minutes left, so a long-running TUI stays signed in.</summary>
@@ -183,12 +191,29 @@ namespace ArgueBot.Tui
         {
             while (!token.IsCancellationRequested)
             {
-                try { await KeepSessionAsync(token).ConfigureAwait(false); await RefreshAsync(token).ConfigureAwait(false); }
+                try { await KeepSessionAsync(token).ConfigureAwait(false); await RefreshAsync(token).ConfigureAwait(false); await WatchQuestionsAsync(token).ConfigureAwait(false); }
                 catch (DomainException ex) when (ex.StatusCode == 401) { EndSession(TuiExit.SessionEnded); return; }
                 catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
                 { _App?.Post(() => _Feedback.Content = Text.From("Connection: " + ex.Message, _App!.Theme.Error)); }
                 await Task.Delay(500, token).ConfigureAwait(false);
             }
+        }
+        /// <summary>Keep the waiting-question count current and open the question dialogs when the open conversation's debate starts waiting for an answer.</summary>
+        private async Task WatchQuestionsAsync(CancellationToken token)
+        {
+            if (DateTime.UtcNow < _NextQuestionCheck) return;
+            _NextQuestionCheck = DateTime.UtcNow.AddSeconds(2);
+            QuestionSummary summary = await _Client.QuestionSummaryAsync(token).ConfigureAwait(false);
+            long previous = Interlocked.Exchange(ref _OpenQuestions, summary.OpenMine);
+            if (summary.OpenMine > previous && QuestionBell) _App?.Post(() => Console.Write('\a'));
+            string? selected = _Selected;
+            if (!AutoOpenQuestions || selected == null || IsBusy || summary.OpenTenant == 0) return;
+            DebateRun? run = (await _Client.RunsAsync(selected, token).ConfigureAwait(false)).LastOrDefault();
+            if (run == null || run.ProtocolVersion != 2 || run.State != "awaiting_input") return;
+            QuestionRequest? open = (await _Client.RunQuestionsAsync(selected, run.Id, token).ConfigureAwait(false)).FirstOrDefault(item => item.Status == "open" && item.Wait && !_Prompted.Contains(item.Id));
+            if (open == null) return;
+            _Prompted.Add(open.Id);
+            Launch(() => Questions().AnswerAsync(open));
         }
         internal async Task RefreshAsync(CancellationToken token)
         {
@@ -652,8 +677,8 @@ namespace ArgueBot.Tui
                 if (choice == 0) await ConfigureDebateAsync(conversationId).ConfigureAwait(false);
                 return;
             }
-            string[] actions = new string[] { "pause", "resume", "interrupt", "continue", "extend", "steer", "stop", "roster", "proposals", "context", "memory", "clarifications", "rebuild_summary", "exclude_summary", "usage", "edit_proposal" };
-            string[] commandLabels = new[] { "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run", "Change agents", "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Answer a clarification", "Rebuild summary (pause first)", "Exclude summary (pause first)", "Inspect execution usage and limits", "Edit the proposal under vote" };
+            string[] actions = new string[] { "pause", "resume", "interrupt", "continue", "extend", "steer", "stop", "roster", "proposals", "context", "memory", "questions", "rebuild_summary", "exclude_summary", "usage", "edit_proposal" };
+            string[] commandLabels = new[] { "Pause after turn", "Resume interrupted run (retry may incur cost)", "Interrupt current generation", "Continue immediately", "Extend by two rounds", "Private directive to a participant", "Stop run", "Change agents", "Inspect proposals and positions", "Inspect context delivery", "Inspect summaries and original sources", "Answer this debate's questions", "Rebuild summary (pause first)", "Exclude summary (pause first)", "Inspect execution usage and limits", "Edit the proposal under vote" };
             string[] groupNames = new[] { "Run", "Steer the debate", "Inspect", "Working memory" };
             int[][] groups = new[] { new[] { 0, 1, 3, 2, 4, 6 }, new[] { 5, 15, 7, 11 }, new[] { 8, 9, 10, 14 }, new[] { 12, 13 }, };
             List<string> display = new List<string>(); List<int> mapping = new List<int>();
@@ -682,7 +707,7 @@ namespace ArgueBot.Tui
                     await ReadPanelAsync("Context delivery", receipts.Count == 0 ? "No context has been submitted yet." : string.Join("\n\n", receipts.Select(receipt => "- Context " + receipt.ContextEpoch + ": " + receipt.DeliveryMode + ", " + receipt.Status + ". Original delivered to " + receipt.DeliveredParticipantIds.Count + " agents; represented by a source-linked summary for " + receipt.SummarizedParticipantIds.Count + " others. Source: " + receipt.MessageId))).ConfigureAwait(false);
                 }
                 else if (selected == 10) await InspectMemoryAsync(conversationId, run).ConfigureAwait(false);
-                else if (selected == 11) await AnswerClarificationAsync(conversationId, run).ConfigureAwait(false);
+                else if (selected == 11) await Questions().RunForRunAsync(conversationId, run.Id).ConfigureAwait(false);
                 else if (selected == 15) await EditProposalAsync(conversationId, run).ConfigureAwait(false);
                 else if (selected == 14) await ReadPanelAsync("Execution usage and limits", "Participant invocations: " + run.Usage.ParticipantTurns + "/" + run.Policy.MaxParticipantTurns + "\n\nOrchestration: " + run.Usage.OrchestrationCalls + "/" + run.Policy.MaxOrchestrationCalls + "\n\nCompaction: " + run.Usage.CompactionCalls + "/" + run.Policy.MaxCompactionCalls + "\n\nTools: " + run.Usage.ToolCalls + "/" + run.Policy.MaxToolCalls + "\n\nEstimated initial-input tokens: " + run.Usage.EstimatedInputTokens + "/" + run.Policy.MaxEstimatedInputTokens + " (0 means no limit).\n\nEstimate is UTF-8 bytes plus framing, not billed tokens; excludes continuations/output. No currency cap.\n\nElapsed deadline includes paused time: " + (run.Policy.MaxWallClockSeconds > 0 ? run.CreatedUtc.AddSeconds(run.Policy.MaxWallClockSeconds).ToString("O") : "Legacy run: no configured deadline")).ConfigureAwait(false);
                 else
@@ -781,23 +806,6 @@ namespace ArgueBot.Tui
         private static string SummaryText(ContextSummary summary)
         {
             return (summary.RecipientId.Length == 0 ? "Shared memory" : "Private to " + summary.RecipientId) + "\n\nSummary: " + summary.Id + "\n\nGeneration attempt: " + summary.AttemptId + "\n\n" + summary.Content + "\n\nSource hashes identify original content; they do not establish summary accuracy. Earlier summaries are available in the source chooser.";
-        }
-        private async Task AnswerClarificationAsync(string conversationId, DebateRun run)
-        {
-            List<ClarificationRequest> requests = (await _Client.ClarificationsAsync(conversationId, run.Id, _Token).ConfigureAwait(false)).Where(item => item.Status == "open").ToList();
-            if (requests.Count == 0) { await ReadPanelAsync("Clarifications", "No open questions from the panel.").ConfigureAwait(false); return; }
-            int selected = await UiAsync(() => _App!.SelectStyledAsync("Choose a question to answer", requests.Select(item => (item.Blocking ? "Required: " : "Optional: ") + item.Question).ToArray())).ConfigureAwait(false);
-            if (selected < 0) return;
-            ClarificationRequest request = requests[selected];
-            await ReadPanelAsync("Question", request.Question).ConfigureAwait(false);
-            int action = await UiAsync(() => _App!.SelectStyledAsync("Respond to the panel", "Answer with supporting context", "Skip: answer is unavailable", "Back")).ConfigureAwait(false);
-            if (action < 0 || action == 2) return;
-            string? text = action == 1 ? "Moderator skipped this question: " + request.Question : await UiAsync(() => _App!.PromptStyledAsync("Supporting context (shared and pinned)")).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(text)) return;
-            int delivery = await UiAsync(() => _App!.SelectStyledAsync("When should this answer take effect?", "Use in next turn", "Interrupt now")).ConfigureAwait(false);
-            if (delivery < 0) return;
-            await SendInterjectionAsync(conversationId, new InterjectionRequest { RunId = run.Id, Text = text, ClarificationId = request.Id, SkipClarification = action == 1, Pinned = true, DeliveryMode = delivery == 0 ? "next_turn" : "interrupt_now", IdempotencyKey = Guid.NewGuid().ToString("N") }, _Token).ConfigureAwait(false);
-            await ReadPanelAsync("Context accepted", "Your response is recorded. If the debate is paused, choose Resume when you are ready.").ConfigureAwait(false);
         }
         private async Task ReadPanelAsync(string title, string content)
         {
@@ -902,6 +910,7 @@ namespace ArgueBot.Tui
                 Add("Delete this conversation  (d in the list)", DeleteConversationAsync);
             }
             Section("Conversations");
+            Add(_OpenQuestions == 0 ? "Questions agents asked you" : "Questions waiting for you (" + _OpenQuestions + ")", () => Questions().RunAsync());
             Add("New debate or conversation  (Ctrl+N)", NewAsync);
             Add("Search conversations, including archived  (Ctrl+F)", SearchAsync);
             if (_Page > 1) Add("Previous page of conversations  (Alt+Left)", () => UiAsync(() => { ChangePage(-1); return Task.FromResult(true); }));

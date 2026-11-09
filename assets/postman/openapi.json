@@ -7901,13 +7901,13 @@
         "x-arguebot-access": "Member"
       }
     },
-    "/v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications": {
+    "/v2.0/api/conversations/{conversationId}/runs/{runId}/questions": {
       "get": {
-        "operationId": "get_v2_0_api_conversations_conversationId_runs_runId_clarifications",
+        "operationId": "get_v2_0_api_conversations_conversationId_runs_runId_questions",
         "tags": [
-          "Context and evidence"
+          "Questions"
         ],
-        "summary": "Read pending and answered moderator questions; paged newest first",
+        "summary": "List the questions a run's agents asked, oldest first",
         "description": "Access: any signed-in user of an active tenant. ",
         "parameters": [
           {
@@ -7927,28 +7927,17 @@
               "type": "string"
             },
             "description": "Run ID (run_...). Copy it from the run bar in the workspace."
-          },
-          {
-            "name": "pageNumber",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
-            },
-            "description": "Page to return, starting at 1."
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful read pending and answered moderator questions; paged newest first",
+            "description": "Successful list the questions a run's agents asked, oldest first",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ClarificationRequest"
+                    "$ref": "#/components/schemas/QuestionRequest"
                   }
                 }
               }
@@ -12140,6 +12129,935 @@
                   "type": "string"
                 },
                 "example": "---\nname: billing\ntitle: \"Billing\"\n---\n\n# Billing\n"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/questions": {
+      "get": {
+        "operationId": "get_v2_0_api_questions",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "List questions agents asked, open first; scope mine or tenant",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "open",
+                "answered",
+                "skipped",
+                "expired",
+                "cancelled",
+                "resolved"
+              ],
+              "default": ""
+            },
+            "description": "open, answered, skipped, expired, cancelled, or resolved for everything but open. Empty lists all."
+          },
+          {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only questions in this conversation (cnv_...)."
+          },
+          {
+            "name": "runId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only questions in this run (run_...)."
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mine",
+                "tenant"
+              ],
+              "default": "mine"
+            },
+            "description": "mine lists conversations you created; tenant lists every conversation in your tenant."
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page to return, starting at 1."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Items per page, 1 through 100 unless noted."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful list questions agents asked, open first; scope mine or tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/questions/summary": {
+      "get": {
+        "operationId": "get_v2_0_api_questions_summary",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Count open questions for badges and notifications",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful count open questions for badges and notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/questions/events": {
+      "get": {
+        "operationId": "get_v2_0_api_questions_events",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Read question changes after a cursor, or stream them with Accept: text/event-stream",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cursor from the previous read (next) or the last event ID. Omit it to get the cursor of the newest change and no items, then read again to receive later changes. Streams also accept Last-Event-ID."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            },
+            "description": "Most changes per read."
+          },
+          {
+            "name": "Accept",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "application/json",
+                "text/event-stream"
+              ]
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "SSE cursor formatted conversationId:sequence; foreign conversation cursors fail."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read question changes after a cursor, or stream them with accept: text/event-stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionEventPage"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "id: cnv_example:1\nevent: change\ndata: {\"sequence\":1,\"kind\":\"message\"}\n\n"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/questions/{questionId}": {
+      "get": {
+        "operationId": "get_v2_0_api_questions_questionId_",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Read a question request with its questions, options and answers",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read a question request with its questions, options and answers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
+      }
+    },
+    "/v2.0/api/questions/{questionId}/answer": {
+      "post": {
+        "operationId": "post_v2_0_api_questions_questionId_answer",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Answer every question of an open request; the first resolution wins",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful answer every question of an open request; the first resolution wins",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswerRequest"
+              },
+              "example": {
+                "answers": [
+                  {
+                    "key": "environment",
+                    "selected": [
+                      "prod"
+                    ]
+                  },
+                  {
+                    "key": "window",
+                    "text": "Fifteen minutes"
+                  }
+                ],
+                "idempotencyKey": "{{commandKey}}"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/questions/{questionId}/skip": {
+      "post": {
+        "operationId": "post_v2_0_api_questions_questionId_skip",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Skip an open request so the agent continues on stated assumptions",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful skip an open request so the agent continues on stated assumptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionSkipRequest"
+              },
+              "example": {
+                "note": "Assume production only.",
+                "idempotencyKey": "{{commandKey}}"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2.0/api/questions/{questionId}/defer": {
+      "post": {
+        "operationId": "post_v2_0_api_questions_questionId_defer",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Answer later: end the waiting turn now; the step resumes after the answer",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful answer later: end the waiting turn now; the step resumes after the answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionRequest"
+                }
               }
             }
           },
@@ -18659,31 +19577,6 @@
           }
         }
       },
-      "ClarificationRequest": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Request ID."
-          },
-          "participantId": {
-            "type": "string",
-            "description": "Originating seat."
-          },
-          "question": {
-            "type": "string",
-            "description": "Question the moderator should answer."
-          },
-          "blocking": {
-            "type": "boolean",
-            "description": "Whether execution pauses for the answer."
-          },
-          "status": {
-            "type": "string",
-            "description": "open, answered or skipped."
-          }
-        }
-      },
       "CommandRequest": {
         "type": "object",
         "properties": {
@@ -19290,6 +20183,43 @@
             "format": "int32",
             "description": "Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work."
           },
+          "userQuestions": {
+            "type": "string",
+            "description": "Which agents may ask the user questions with ask_user: off, orchestrator (the orchestrator and a follow-up answerer only) or all (every seat). Default all."
+          },
+          "intake": {
+            "type": "string",
+            "description": "Whether the debate opens with an intake step in which the orchestrator may ask the user about the question before round 1: off or ask_if_needed. Default ask_if_needed for new debates; debates created before 2.3.0 have off."
+          },
+          "maxIntakeQuestions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most questions the intake request may carry, 1 through 4. Default 4."
+          },
+          "questionHoldSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Seconds a waiting ask_user call stays open for the answer before the turn is parked and resumed later, 0 through 1800. Default 300. 0 parks at once."
+          },
+          "questionExpirySeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Seconds after which an unanswered question is treated as skipped, 0 through 2592000. Default 0, which never expires."
+          },
+          "resumeOnAnswer": {
+            "type": "boolean",
+            "description": "Whether the debate continues by itself once every waiting question is resolved. When false it pauses for Resume. Default true."
+          },
+          "maxQuestionRequestsPerTurn": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most ask_user requests in one agent turn, 0 through 4. Default 2."
+          },
+          "maxQuestionRequestsPerRun": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most ask_user requests in the whole debate, 0 through 200. Default 20."
+          },
           "questionInstructions": {
             "type": "string",
             "description": "Additional neutral question-selection guidance, up to 4000 characters.",
@@ -19492,6 +20422,25 @@
             "type": "boolean",
             "description": "True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates."
           },
+          "waitingSeconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds the run has spent waiting for the user's answers. Excluded from the wall-clock budget."
+          },
+          "awaitingSinceUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the run started waiting for an answer; null while it is not waiting."
+          },
+          "resumeQuestionId": {
+            "type": "string",
+            "description": "Question whose answer the next attempt resumes from, when the previous attempt of this step ended waiting for the user. Derived, not stored."
+          },
+          "resumeAttemptId": {
+            "type": "string",
+            "description": "The attempt that ended waiting for the user and that the next attempt resumes. Derived, not stored."
+          },
           "repairPending": {
             "type": "boolean",
             "description": "True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit."
@@ -19563,6 +20512,11 @@
             "type": "integer",
             "format": "int64",
             "description": "Resources this run's agents created."
+          },
+          "questionRequests": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ask_user requests the debate's agents have made."
           },
           "tokenEstimateMethod": {
             "type": "string",
@@ -20055,14 +21009,6 @@
           "pinned": {
             "type": "boolean",
             "description": "Keep this constraint in subsequent model context."
-          },
-          "clarificationId": {
-            "type": "string",
-            "description": "Optional clarification being answered or explicitly skipped."
-          },
-          "skipClarification": {
-            "type": "boolean",
-            "description": "Record an explicit skip instead of treating the text as a supplied fact."
           }
         },
         "required": [
@@ -20525,6 +21471,408 @@
           "purpose",
           "body"
         ]
+      },
+      "Question": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable question identifier (qst_...)."
+          },
+          "key": {
+            "type": "string",
+            "description": "Identifier chosen by the agent, 1 through 32 characters, unique within the request, so it can match answers to questions."
+          },
+          "header": {
+            "type": "string",
+            "description": "Short label, up to 40 characters, used for chips and lists."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The question, up to 1000 characters. Agent-written text, shown as data."
+          },
+          "kind": {
+            "type": "string",
+            "description": "text, single_choice, multi_choice or confirm."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionOption"
+            },
+            "description": "Choices for single_choice and multi_choice, 2 through 12; empty for other kinds."
+          },
+          "allowOther": {
+            "type": "boolean",
+            "description": "Whether a choice question also accepts free text as Other."
+          },
+          "minSelections": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Fewest options a multi_choice answer selects, 0 through MaxSelections. Default 1 for required questions."
+          },
+          "maxSelections": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most options a multi_choice answer selects, up to the option count. Default the option count."
+          },
+          "maxLength": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Longest text answer in characters, 1 through 8000. Default 8000."
+          },
+          "placeholder": {
+            "type": "string",
+            "description": "Optional hint shown in an empty text answer, up to 120 characters."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether the question must be answered unless the whole request is skipped."
+          },
+          "answer": {
+            "$ref": "#/components/schemas/QuestionAnswer",
+            "nullable": true,
+            "description": "The answer, once the request is answered or skipped."
+          }
+        }
+      },
+      "QuestionAnswer": {
+        "type": "object",
+        "properties": {
+          "skipped": {
+            "type": "boolean",
+            "description": "Whether the user left this optional question unanswered, or skipped the whole request."
+          },
+          "selected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Selected option keys for single-choice and multi-select questions, in the order shown."
+          },
+          "selectedLabels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Labels of the selected options, in the same order as Selected."
+          },
+          "otherText": {
+            "type": "string",
+            "description": "Free text entered for Other, when the question allows it."
+          },
+          "text": {
+            "type": "string",
+            "description": "Answer text for a text question."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Yes (true) or no (false) for a confirm question; null otherwise."
+          },
+          "answeredByUserId": {
+            "type": "string",
+            "description": "User who answered."
+          }
+        }
+      },
+      "QuestionAnswerInput": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string",
+            "description": "Question identifier (qst_...). Either QuestionId or Key is required."
+          },
+          "key": {
+            "type": "string",
+            "description": "Question key chosen by the agent. Either QuestionId or Key is required."
+          },
+          "skip": {
+            "type": "boolean",
+            "description": "Leave this optional question unanswered."
+          },
+          "selected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Selected option keys for single_choice (exactly one, unless Other is used) and multi_choice."
+          },
+          "otherText": {
+            "type": "string",
+            "description": "Free text for Other, when the question allows it, up to 2000 characters."
+          },
+          "text": {
+            "type": "string",
+            "description": "Answer for a text question, up to the question's MaxLength."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Yes or no for a confirm question."
+          }
+        }
+      },
+      "QuestionAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionAnswerInput"
+            },
+            "description": "One entry per question. Required questions need an answer; optional ones may be skipped or omitted."
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Client key, up to 128 characters, so a repeated submit returns the same result instead of a conflict."
+          }
+        }
+      },
+      "QuestionEvent": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor; pass it as after to read later changes."
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Question request that changed."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Conversation of the request."
+          },
+          "status": {
+            "type": "string",
+            "description": "opened, held, parked, answered, skipped, expired or cancelled."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the change happened."
+          }
+        }
+      },
+      "QuestionEventPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionEvent"
+            },
+            "description": "Changes, oldest first."
+          },
+          "next": {
+            "type": "string",
+            "description": "Cursor to pass as after for the next read. Equal to the request's cursor when nothing changed."
+          }
+        }
+      },
+      "QuestionOption": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable option identifier (qop_...)."
+          },
+          "key": {
+            "type": "string",
+            "description": "Option identifier chosen by the agent, 1 through 32 characters, unique within its question. Answers report the selected keys."
+          },
+          "label": {
+            "type": "string",
+            "description": "Option text shown to the user, up to 80 characters."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional explanation shown under the label, up to 300 characters."
+          },
+          "recommended": {
+            "type": "boolean",
+            "description": "Whether the agent recommends this option. At most one option of a single-choice question is recommended."
+          }
+        }
+      },
+      "QuestionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuestionRequest"
+            },
+            "description": "Requests on this page."
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "One-based page number."
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requests per page."
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Requests matching the filter."
+          }
+        }
+      },
+      "QuestionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Request identifier (qrq_...)."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Conversation the request belongs to."
+          },
+          "conversationTitle": {
+            "type": "string",
+            "description": "Conversation title, for inbox lists."
+          },
+          "runId": {
+            "type": "string",
+            "description": "Run whose agent asked."
+          },
+          "attemptId": {
+            "type": "string",
+            "description": "Generation attempt that asked."
+          },
+          "askerId": {
+            "type": "string",
+            "description": "Seat or orchestrator profile that asked."
+          },
+          "askerName": {
+            "type": "string",
+            "description": "Display name of the asking seat."
+          },
+          "askerRole": {
+            "type": "string",
+            "description": "participant, orchestrator or followup."
+          },
+          "phase": {
+            "type": "string",
+            "description": "Debate phase when the agent asked, such as intake, question or response."
+          },
+          "round": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Debate round when the agent asked."
+          },
+          "context": {
+            "type": "string",
+            "description": "Why the agent is asking, up to 2000 characters of markdown. Agent-written text, shown as data."
+          },
+          "wait": {
+            "type": "boolean",
+            "description": "Whether the turn waits for the answer. A request that does not wait delivers its answer to the asking seat's next turn."
+          },
+          "visibility": {
+            "type": "string",
+            "description": "panel (every seat sees the answer) or self (only the asking seat)."
+          },
+          "status": {
+            "type": "string",
+            "description": "open, answered, skipped, expired or cancelled."
+          },
+          "holdState": {
+            "type": "string",
+            "description": "held (a live tool call is waiting), parked (the turn ended; a resume attempt follows the answer) or none."
+          },
+          "resolutionReason": {
+            "type": "string",
+            "description": "For a skipped request: skipped_by_user or expired. For a cancelled request: run_stopped."
+          },
+          "resolutionNote": {
+            "type": "string",
+            "description": "Optional note the user added when skipping."
+          },
+          "resolvedByUserId": {
+            "type": "string",
+            "description": "User who answered or skipped."
+          },
+          "answerMessageId": {
+            "type": "string",
+            "description": "Transcript message that carries the answer to the panel."
+          },
+          "resumeAttemptId": {
+            "type": "string",
+            "description": "Attempt that resumed the parked turn with the answer."
+          },
+          "credentialWarning": {
+            "type": "boolean",
+            "description": "Whether the question text looks like a request for a password, token or key. Interfaces show a stronger warning."
+          },
+          "expiresUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When an unanswered request expires; null when it never expires."
+          },
+          "resolvedUtc": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the request was resolved."
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the agent asked."
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "description": "One through four questions, in order."
+          }
+        }
+      },
+      "QuestionSkipRequest": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "description": "Optional note passed to the agent, up to 2000 characters."
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Client key, up to 128 characters, so a repeated skip returns the same result."
+          }
+        }
+      },
+      "QuestionSummary": {
+        "type": "object",
+        "properties": {
+          "openMine": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open requests in conversations the caller created."
+          },
+          "openTenant": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Open requests in the whole tenant."
+          },
+          "waitingRuns": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Runs in the tenant waiting for an answer."
+          },
+          "newestId": {
+            "type": "string",
+            "description": "Newest open request in the tenant, or empty."
+          }
+        }
       },
       "RequestHistoryEntry": {
         "type": "object",

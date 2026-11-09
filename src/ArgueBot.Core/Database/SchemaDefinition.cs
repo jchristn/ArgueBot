@@ -49,6 +49,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ix_attempts_active_run ON generation_attempts(
 CREATE TABLE IF NOT EXISTS attempt_context(id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, attempt_id TEXT NOT NULL, message_id TEXT NOT NULL, position INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_utc TEXT NOT NULL, updated_utc TEXT NOT NULL, UNIQUE(attempt_id,position), UNIQUE(attempt_id,message_id), FOREIGN KEY(tenant_id,attempt_id) REFERENCES generation_attempts(tenant_id,id) ON DELETE CASCADE, FOREIGN KEY(tenant_id,message_id) REFERENCES messages(tenant_id,id) ON DELETE CASCADE);
 
 """;
-        internal static readonly string Create = Initial + AuthorizationSchema.Create + DebateSchema.Create + MemorySchema.Create + CatalogSchema.Create + PolicySchema.Create + CredentialUsageSchema.Create + AttemptTimingSchema.Create + ModelCheckSchema.Create + SummarySectionSchema.Create + GenerationSettingsSchema.Create + HarnessEnvironmentSchema.Create + AgreementRevisionSchema.Create + PromptSchema.Create + IdentitySchema.Create + ResourceSchema.Create;
+        internal static readonly string Create = Initial + AuthorizationSchema.Create + DebateSchema.Create + MemorySchema.Create + CatalogSchema.Create + PolicySchema.Create + CredentialUsageSchema.Create + AttemptTimingSchema.Create + ModelCheckSchema.Create + SummarySectionSchema.Create + GenerationSettingsSchema.Create + HarnessEnvironmentSchema.Create + AgreementRevisionSchema.Create + PromptSchema.Create + IdentitySchema.Create + ResourceSchema.Create + QuestionSchema.Create;
     }
 }

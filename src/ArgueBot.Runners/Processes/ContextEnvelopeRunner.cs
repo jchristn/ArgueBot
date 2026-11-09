@@ -17,7 +17,7 @@ namespace ArgueBot.Runners.Processes
             List<Message> continuation = new List<Message>(history);
             using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
-                deadline.CancelAfter(TimeSpan.FromSeconds(profile.TimeoutSeconds));
+                using (IDisposable clock = RunnerDeadline.Start(profile, deadline))
                 try
                 {
                     for (int round = 0; round <= 16; round++)

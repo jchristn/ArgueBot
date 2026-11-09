@@ -301,6 +301,9 @@ namespace ArgueBot.Client
         /// <summary>Read all runs in a conversation.</summary>
         public Task<List<DebateRun>> RunsAsync(string id, CancellationToken token = default)
         { return SendAsync<List<DebateRun>>(HttpMethod.Get, Root(id) + "/runs", null, token); }
+        /// <summary>Read one protocol 2 run checkpoint.</summary>
+        public Task<DebateRun> RunAsync(string id, string runId, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(runId); return SendAsync<DebateRun>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId), null, token); }
         /// <summary>Start a debate, freezing participant configuration.</summary>
         public Task<DebateRun> StartAsync(string id, CreateRunRequest request, CancellationToken token = default)
         { return SendAsync<DebateRun>(HttpMethod.Post, (request.ProtocolVersion == 2 ? V2Root(id) : Root(id)) + "/runs", request, token); }
@@ -401,9 +404,37 @@ namespace ArgueBot.Client
         /// <summary>Read a specific summary and a bounded page of its immutable original source identities.</summary>
         public Task<List<ContextSummary>> SummaryAsync(string id, string runId, string summaryId, int sourcePageNumber = 1, CancellationToken token = default)
         { return SendAsync<List<ContextSummary>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/summaries?id=" + Uri.EscapeDataString(summaryId) + "&sourcePageNumber=" + sourcePageNumber, token: token); }
-        /// <summary>Read moderator clarification requests and their status.</summary>
-        public Task<List<ClarificationRequest>> ClarificationsAsync(string id, string runId, CancellationToken token = default)
-        { return ReadListPagesAsync<ClarificationRequest>(V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/clarifications", 100, token); }
+        /// <summary>Read a page of questions agents asked, open questions first. Scope mine lists conversations you created; tenant lists every conversation in your tenant.</summary>
+        public Task<QuestionPage> QuestionsAsync(QuestionFilter filter, CancellationToken token = default)
+        {
+            ArgumentNullException.ThrowIfNull(filter);
+            string query = "?scope=" + Uri.EscapeDataString(filter.Scope) + "&pageNumber=" + filter.PageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + "&pageSize=" + filter.PageSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (filter.Status.Length > 0) query += "&status=" + Uri.EscapeDataString(filter.Status);
+            if (filter.ConversationId.Length > 0) query += "&conversationId=" + Uri.EscapeDataString(filter.ConversationId);
+            if (filter.RunId.Length > 0) query += "&runId=" + Uri.EscapeDataString(filter.RunId);
+            return SendAsync<QuestionPage>(HttpMethod.Get, "v2.0/api/questions" + query, token: token);
+        }
+        /// <summary>Count open questions for you and your tenant.</summary>
+        public Task<QuestionSummary> QuestionSummaryAsync(CancellationToken token = default)
+        { return SendAsync<QuestionSummary>(HttpMethod.Get, "v2.0/api/questions/summary", token: token); }
+        /// <summary>Read one question request with its questions, options and answers.</summary>
+        public Task<QuestionRequest> QuestionAsync(string requestId, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(requestId); return SendAsync<QuestionRequest>(HttpMethod.Get, "v2.0/api/questions/" + Uri.EscapeDataString(requestId), token: token); }
+        /// <summary>Answer every question of an open request. A second answer gets 409 question_already_resolved unless it repeats the same idempotency key.</summary>
+        public Task<QuestionRequest> AnswerQuestionAsync(string requestId, QuestionAnswerRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(requestId); ArgumentNullException.ThrowIfNull(request); return SendAsync<QuestionRequest>(HttpMethod.Post, "v2.0/api/questions/" + Uri.EscapeDataString(requestId) + "/answer", request, token); }
+        /// <summary>Skip a whole open request. The agent continues on stated assumptions.</summary>
+        public Task<QuestionRequest> SkipQuestionAsync(string requestId, QuestionSkipRequest request, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(requestId); ArgumentNullException.ThrowIfNull(request); return SendAsync<QuestionRequest>(HttpMethod.Post, "v2.0/api/questions/" + Uri.EscapeDataString(requestId) + "/skip", request, token); }
+        /// <summary>Answer later: a waiting turn ends now and its step resumes once the question is answered.</summary>
+        public Task<QuestionRequest> DeferQuestionAsync(string requestId, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(requestId); return SendAsync<QuestionRequest>(HttpMethod.Post, "v2.0/api/questions/" + Uri.EscapeDataString(requestId) + "/defer", token: token); }
+        /// <summary>Every question a run's agents asked, oldest first.</summary>
+        public Task<List<QuestionRequest>> RunQuestionsAsync(string id, string runId, CancellationToken token = default)
+        { return SendAsync<List<QuestionRequest>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/questions", token: token); }
+        /// <summary>Read question changes in your tenant after a cursor. An empty cursor returns no changes and the cursor of the newest one, so polling reports only later changes.</summary>
+        public Task<QuestionEventPage> QuestionEventsAsync(string after = "", int limit = 100, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(after); return SendAsync<QuestionEventPage>(HttpMethod.Get, "v2.0/api/questions/events?limit=" + limit.ToString(System.Globalization.CultureInfo.InvariantCulture) + (after.Length == 0 ? "" : "&after=" + Uri.EscapeDataString(after)), token: token); }
         private static string V2Root(string id) { return "v2.0/api/conversations/" + Uri.EscapeDataString(id); }
         private static string Root(string id) { return "v1.0/api/conversations/" + Uri.EscapeDataString(id); }
         /// <summary>Dispose the client pool.</summary>

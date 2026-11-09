@@ -869,17 +869,16 @@ Success: **200**, response: `List<ContextSummary>`.
 | id | query | false | Restrict the result to this identifier. |
 | sourcePageNumber | query | false | Page of original summary sources to return, 100 per page, starting at 1. |
 
-## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications
+## GET /v2.0/api/conversations/{conversationId}/runs/{runId}/questions
 
-Read pending and answered moderator questions; paged newest first. Access: any signed-in user of an active tenant.
+List the questions a run's agents asked, oldest first. Access: any signed-in user of an active tenant.
 
-Success: **200**, response: `List<ClarificationRequest>`.
+Success: **200**, response: `List<QuestionRequest>`.
 
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
 | conversationId | path | true | Conversation ID (cnv_...). Copy it from the workspace heading or a conversation list. |
 | runId | path | true | Run ID (run_...). Copy it from the run bar in the workspace. |
-| pageNumber | query | false | Page to return, starting at 1. |
 
 ## GET /v2.0/api/configuration/endpoints
 
@@ -1387,6 +1386,109 @@ Success: **200**, response: `string`.
 | Parameter | Location | Required | Meaning |
 | --- | --- | --- | --- |
 | resourceId | path | true | Resource ID (res_...). Copy it from the Resources page or GET /v2.0/api/resources. |
+
+## GET /v2.0/api/questions
+
+List questions agents asked, open first; scope mine or tenant. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| status | query | false | open, answered, skipped, expired, cancelled, or resolved for everything but open. Empty lists all. |
+| conversationId | query | false | Only questions in this conversation (cnv_...). |
+| runId | query | false | Only questions in this run (run_...). |
+| scope | query | false | mine lists conversations you created; tenant lists every conversation in your tenant. |
+| pageNumber | query | false | Page to return, starting at 1. |
+| pageSize | query | false | Items per page, 1 through 100 unless noted. |
+
+## GET /v2.0/api/questions/summary
+
+Count open questions for badges and notifications. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionSummary`.
+
+## GET /v2.0/api/questions/events
+
+Read question changes after a cursor, or stream them with Accept: text/event-stream. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionEventPage`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| after | query | false | Cursor from the previous read (next) or the last event ID. Omit it to get the cursor of the newest change and no items, then read again to receive later changes. Streams also accept Last-Event-ID. |
+| limit | query | false | Most changes per read. |
+| Accept | header | false | Protocol control. |
+| Last-Event-ID | header | false | SSE cursor formatted conversationId:sequence; foreign conversation cursors fail. |
+
+## GET /v2.0/api/questions/{questionId}
+
+Read a question request with its questions, options and answers. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
+
+## POST /v2.0/api/questions/{questionId}/answer
+
+Answer every question of an open request; the first resolution wins. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionRequest`. Request: `QuestionAnswerRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
+
+Representative request:
+
+```json
+{
+  "answers": [
+    {
+      "key": "environment",
+      "selected": [
+        "prod"
+      ]
+    },
+    {
+      "key": "window",
+      "text": "Fifteen minutes"
+    }
+  ],
+  "idempotencyKey": "{{commandKey}}"
+}
+```
+
+## POST /v2.0/api/questions/{questionId}/skip
+
+Skip an open request so the agent continues on stated assumptions. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionRequest`. Request: `QuestionSkipRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
+
+Representative request:
+
+```json
+{
+  "note": "Assume production only.",
+  "idempotencyKey": "{{commandKey}}"
+}
+```
+
+## POST /v2.0/api/questions/{questionId}/defer
+
+Answer later: end the waiting turn now; the step resumes after the answer. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `QuestionRequest`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
 
 ## POST /v2.0/api/configuration/endpoints/{id}/discover
 
@@ -2182,18 +2284,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | value | string | Redacted header value. |
 | response | boolean | Whether this is a response header. |
 
-### ClarificationRequest
-
-Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| id | string | Request ID. |
-| participantId | string | Originating seat. |
-| question | string | Question the moderator should answer. |
-| blocking | boolean | Whether execution pauses for the answer. |
-| status | string | open, answered or skipped. |
-
 ### CommandRequest
 
 Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
@@ -2389,6 +2479,14 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | maxResourceWriteBytesPerTurn | integer | Most UTF-8 bytes of resource text written in one agent turn, 0 through 1048576. Default 65536. |
 | maxResourcesCreated | integer | Most resources the debate's agents may create in total, 0 through 1000. Default 50. |
 | maxStepRetries | integer | Automatic retries for one step before the debate pauses, 0 through 10. Default 3. Covers correction requests after an invalid question, proposal, vote or summary, and repeats after a transient failure (rate limit, provider outage, dropped connection, agent exit or turn timeout), with a growing wait between repeats. 0 pauses at the first failure. A repeated turn can repeat external work. |
+| userQuestions | string | Which agents may ask the user questions with ask_user: off, orchestrator (the orchestrator and a follow-up answerer only) or all (every seat). Default all. |
+| intake | string | Whether the debate opens with an intake step in which the orchestrator may ask the user about the question before round 1: off or ask_if_needed. Default ask_if_needed for new debates; debates created before 2.3.0 have off. |
+| maxIntakeQuestions | integer | Most questions the intake request may carry, 1 through 4. Default 4. |
+| questionHoldSeconds | integer | Seconds a waiting ask_user call stays open for the answer before the turn is parked and resumed later, 0 through 1800. Default 300. 0 parks at once. |
+| questionExpirySeconds | integer | Seconds after which an unanswered question is treated as skipped, 0 through 2592000. Default 0, which never expires. |
+| resumeOnAnswer | boolean | Whether the debate continues by itself once every waiting question is resolved. When false it pauses for Resume. Default true. |
+| maxQuestionRequestsPerTurn | integer | Most ask_user requests in one agent turn, 0 through 4. Default 2. |
+| maxQuestionRequestsPerRun | integer | Most ask_user requests in the whole debate, 0 through 200. Default 20. |
 | questionInstructions | string | Additional neutral question-selection guidance, up to 4000 characters. |
 | synthesisInstructions | string | Additional proposal presentation guidance, up to 4000 characters. |
 | summaryInstructions | string | Additional evidence-preservation guidance, up to 4000 characters. |
@@ -2445,6 +2543,10 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | resumePhase | string | Phase resumed after successful context compaction. |
 | compactionRecipientId | string | Private recipient partition for compaction; empty means shared evidence. |
 | rebuildFromOriginals | boolean | True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates. |
+| waitingSeconds | integer | Seconds the run has spent waiting for the user's answers. Excluded from the wall-clock budget. |
+| awaitingSinceUtc | string (nullable) | When the run started waiting for an answer; null while it is not waiting. |
+| resumeQuestionId | string | Question whose answer the next attempt resumes from, when the previous attempt of this step ended waiting for the user. Derived, not stored. |
+| resumeAttemptId | string | The attempt that ended waiting for the user and that the next attempt resumes. Derived, not stored. |
 | repairPending | boolean | True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit. |
 
 ### DebateSeat
@@ -2472,6 +2574,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | toolCalls | integer | Reserved tool calls for this run. |
 | estimatedInputTokens | integer | Reserved estimated input tokens for this run. |
 | resourcesCreated | integer | Resources this run's agents created. |
+| questionRequests | integer | ask_user requests the debate's agents have made. |
 | tokenEstimateMethod | string | Initial prompt UTF-8 bytes plus envelope allowance; not billed provider tokens or continuation accounting. |
 
 ### DeletedCount
@@ -2643,8 +2746,6 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | runId | string | Optional target run; empty adds post-run conversation context. |
 | idempotencyKey | string | Unique command key; exact retries return the same receipt. |
 | pinned | boolean | Keep this constraint in subsequent model context. |
-| clarificationId | string | Optional clarification being answered or explicitly skipped. |
-| skipClarification | boolean | Record an explicit skip instead of treating the text as a supplied fact. |
 
 ### LoginInfo
 
@@ -2805,6 +2906,159 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | warnings | array | Problems that do not block saving, found when the prompt is read or saved: for example a read_resource reference to a resource that does not exist in this tenant. Not stored. |
 | createdUtc | string | Creation time in UTC. |
 | updatedUtc | string | Last change time in UTC. |
+
+### Question
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable question identifier (qst_...). |
+| key | string | Identifier chosen by the agent, 1 through 32 characters, unique within the request, so it can match answers to questions. |
+| header | string | Short label, up to 40 characters, used for chips and lists. |
+| prompt | string | The question, up to 1000 characters. Agent-written text, shown as data. |
+| kind | string | text, single_choice, multi_choice or confirm. |
+| options | array | Choices for single_choice and multi_choice, 2 through 12; empty for other kinds. |
+| allowOther | boolean | Whether a choice question also accepts free text as Other. |
+| minSelections | integer | Fewest options a multi_choice answer selects, 0 through MaxSelections. Default 1 for required questions. |
+| maxSelections | integer | Most options a multi_choice answer selects, up to the option count. Default the option count. |
+| maxLength | integer | Longest text answer in characters, 1 through 8000. Default 8000. |
+| placeholder | string | Optional hint shown in an empty text answer, up to 120 characters. |
+| required | boolean | Whether the question must be answered unless the whole request is skipped. |
+| answer | QuestionAnswer (nullable) | The answer, once the request is answered or skipped. |
+
+### QuestionAnswer
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| skipped | boolean | Whether the user left this optional question unanswered, or skipped the whole request. |
+| selected | array | Selected option keys for single-choice and multi-select questions, in the order shown. |
+| selectedLabels | array | Labels of the selected options, in the same order as Selected. |
+| otherText | string | Free text entered for Other, when the question allows it. |
+| text | string | Answer text for a text question. |
+| confirmed | boolean (nullable) | Yes (true) or no (false) for a confirm question; null otherwise. |
+| answeredByUserId | string | User who answered. |
+
+### QuestionAnswerInput
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| questionId | string | Question identifier (qst_...). Either QuestionId or Key is required. |
+| key | string | Question key chosen by the agent. Either QuestionId or Key is required. |
+| skip | boolean | Leave this optional question unanswered. |
+| selected | array | Selected option keys for single_choice (exactly one, unless Other is used) and multi_choice. |
+| otherText | string | Free text for Other, when the question allows it, up to 2000 characters. |
+| text | string | Answer for a text question, up to the question's MaxLength. |
+| confirmed | boolean (nullable) | Yes or no for a confirm question. |
+
+### QuestionAnswerRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| answers | array | One entry per question. Required questions need an answer; optional ones may be skipped or omitted. |
+| idempotencyKey | string | Client key, up to 128 characters, so a repeated submit returns the same result instead of a conflict. |
+
+### QuestionEvent
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| cursor | string | Opaque cursor; pass it as after to read later changes. |
+| requestId | string | Question request that changed. |
+| conversationId | string | Conversation of the request. |
+| status | string | opened, held, parked, answered, skipped, expired or cancelled. |
+| createdUtc | string | When the change happened. |
+
+### QuestionEventPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Changes, oldest first. |
+| next | string | Cursor to pass as after for the next read. Equal to the request's cursor when nothing changed. |
+
+### QuestionOption
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Stable option identifier (qop_...). |
+| key | string | Option identifier chosen by the agent, 1 through 32 characters, unique within its question. Answers report the selected keys. |
+| label | string | Option text shown to the user, up to 80 characters. |
+| description | string | Optional explanation shown under the label, up to 300 characters. |
+| recommended | boolean | Whether the agent recommends this option. At most one option of a single-choice question is recommended. |
+
+### QuestionPage
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| items | array | Requests on this page. |
+| pageNumber | integer | One-based page number. |
+| pageSize | integer | Requests per page. |
+| totalCount | integer | Requests matching the filter. |
+
+### QuestionRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| id | string | Request identifier (qrq_...). |
+| conversationId | string | Conversation the request belongs to. |
+| conversationTitle | string | Conversation title, for inbox lists. |
+| runId | string | Run whose agent asked. |
+| attemptId | string | Generation attempt that asked. |
+| askerId | string | Seat or orchestrator profile that asked. |
+| askerName | string | Display name of the asking seat. |
+| askerRole | string | participant, orchestrator or followup. |
+| phase | string | Debate phase when the agent asked, such as intake, question or response. |
+| round | integer | Debate round when the agent asked. |
+| context | string | Why the agent is asking, up to 2000 characters of markdown. Agent-written text, shown as data. |
+| wait | boolean | Whether the turn waits for the answer. A request that does not wait delivers its answer to the asking seat's next turn. |
+| visibility | string | panel (every seat sees the answer) or self (only the asking seat). |
+| status | string | open, answered, skipped, expired or cancelled. |
+| holdState | string | held (a live tool call is waiting), parked (the turn ended; a resume attempt follows the answer) or none. |
+| resolutionReason | string | For a skipped request: skipped_by_user or expired. For a cancelled request: run_stopped. |
+| resolutionNote | string | Optional note the user added when skipping. |
+| resolvedByUserId | string | User who answered or skipped. |
+| answerMessageId | string | Transcript message that carries the answer to the panel. |
+| resumeAttemptId | string | Attempt that resumed the parked turn with the answer. |
+| credentialWarning | boolean | Whether the question text looks like a request for a password, token or key. Interfaces show a stronger warning. |
+| expiresUtc | string (nullable) | When an unanswered request expires; null when it never expires. |
+| resolvedUtc | string (nullable) | When the request was resolved. |
+| createdUtc | string | When the agent asked. |
+| questions | array | One through four questions, in order. |
+
+### QuestionSkipRequest
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| note | string | Optional note passed to the agent, up to 2000 characters. |
+| idempotencyKey | string | Client key, up to 128 characters, so a repeated skip returns the same result. |
+
+### QuestionSummary
+
+Named fields shared by the service and its clients. Nullable fields are optional; endpoint-specific requirements above still apply.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| openMine | integer | Open requests in conversations the caller created. |
+| openTenant | integer | Open requests in the whole tenant. |
+| waitingRuns | integer | Runs in the tenant waiting for an answer. |
+| newestId | string | Newest open request in the tenant, or empty. |
 
 ### RequestHistoryEntry
 

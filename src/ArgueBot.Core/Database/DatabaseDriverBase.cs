@@ -64,8 +64,8 @@ namespace ArgueBot.Core.Database
         public IShareMethods Shares { get; }
         /// <summary>Encrypts new credential and share-link tokens so they can be revealed. Without it, new tokens are shown only once.</summary>
         public TokenSealer? Sealer { get; set; }
-        /// <summary>Moderator information requests.</summary>
-        public IClarificationMethods Clarifications { get; }
+        /// <summary>Questions agents ask the user, with their answers.</summary>
+        public IQuestionMethods Questions { get; }
         /// <summary>Tenant-aware HTTP request history and retention.</summary>
         public IHistoryMethods History { get; }
         /// <summary>Service-owned generation checkpoints and exact context provenance.</summary>
@@ -91,7 +91,7 @@ namespace ArgueBot.Core.Database
             Prompts = new PromptMethods(this);
             Resources = new ResourceMethods(this);
             Identity = new IdentityMethods(this); Shares = new ShareMethods(this);
-            Clarifications = new ClarificationMethods(this);
+            Questions = new QuestionMethods(this);
             History = new HistoryMethods(this);
             Attempts = new AttemptMethods(this);
         }
@@ -169,6 +169,9 @@ namespace ArgueBot.Core.Database
                         await ExecuteAsync(connection, transaction, "INSERT OR IGNORE INTO users(id,tenant_id,name,role,is_admin,is_tenant_admin,protected,created_utc,updated_utc) VALUES('usr_local','ten_local','Local owner','admin',1,1,1,@now,@now)", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE messages SET state='interrupted',updated_utc=@now WHERE state='streaming'; UPDATE runs SET state='paused',outcome='interrupted',revision=revision+1,updated_utc=@now WHERE state IN ('agent_turn','window','queued','pausing','interrupting')", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE runs SET state='cancelled',outcome='stopped',revision=revision+1,updated_utc=@now WHERE state='stopping'", token).ConfigureAwait(false);
+                        // A turn that was waiting for the user's answer cannot still be waiting after a restart: park its question so the answer resumes the step.
+                        await ExecuteAsync(connection, transaction, "UPDATE question_requests SET hold_state='parked',updated_utc=@now WHERE status='open' AND wait=1 AND hold_state='held'", token).ConfigureAwait(false);
+                        await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='awaiting_input',updated_utc=@now WHERE state IN ('pending','streaming') AND id IN (SELECT attempt_id FROM question_requests WHERE status='open' AND wait=1)", token).ConfigureAwait(false);
                         await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state='interrupted',error_code='startup_uncertain',updated_utc=@now WHERE state IN ('pending','streaming')", token).ConfigureAwait(false);
                         // A restore target stays empty; the restored rows or the next normal start supply the factory prompts.
                         if (!requireEmpty) { await PromptMethods.EnsureFactoryAsync(connection, transaction, token).ConfigureAwait(false); await IdentitySeed.EnsureAsync(connection, transaction, token).ConfigureAwait(false); }

@@ -13,7 +13,7 @@ namespace ArgueBot.Core.Services
     using System.Threading.Tasks;
     using static ArgueBot.Core.Database.DatabaseDriverBase;
 
-    /// <summary>Invocation-bound evidence retrieval. Caller arguments cannot widen run, time or recipient scope.</summary>
+    /// <summary>Invocation-bound evidence retrieval, resource tools and ask_user. Caller arguments cannot widen run, time or recipient scope.</summary>
     public sealed class ConversationTools
     {
         private readonly DatabaseDriverBase _Database;
@@ -24,13 +24,23 @@ namespace ArgueBot.Core.Services
         private readonly string _AttemptId;
         private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         private readonly ResourceTools _Resources;
-        /// <summary>Create a tool scope for an accepted invocation and source boundary. Resource tools follow the run's policy and attribute writes to the speaking agent.</summary>
-        public ConversationTools(DatabaseDriverBase database, RequestContext context, DebateRun run, string participantId, long through, string attemptId)
+        private readonly QuestionTools _Questions;
+        /// <summary>Create a tool scope for an accepted invocation and source boundary. Resource tools follow the run's policy and attribute writes to the speaking agent. Without a wait callback, ask_user requests that wait are parked at once.</summary>
+        public ConversationTools(DatabaseDriverBase database, RequestContext context, DebateRun run, string participantId, long through, string attemptId, Func<QuestionRequest, CancellationToken, Task<string>>? waitForAnswer = null)
         {
             ArgumentNullException.ThrowIfNull(run);
             _Database = database; _Context = context; _Run = run; _ParticipantId = participantId; _Through = through; _AttemptId = attemptId;
             RunnerProfile? speaker = run.ExecutionProfile ?? run.Participants.FirstOrDefault(seat => seat.Id == participantId) ?? (run.Orchestrator?.Id == participantId ? run.Orchestrator : null);
             _Resources = new ResourceTools(database, context, run, speaker?.Id ?? participantId, speaker?.Name ?? participantId, attemptId);
+            _Questions = new QuestionTools(database, context, run, speaker?.Id ?? participantId, speaker?.Name ?? participantId, attemptId, waitForAnswer);
+        }
+        /// <summary>Evidence tools, the resource tools the run's policy offers, and ask_user when the run's current step may ask the user.</summary>
+        public static List<ConversationToolDefinition> Definitions(DebateRun run)
+        {
+            ArgumentNullException.ThrowIfNull(run);
+            List<ConversationToolDefinition> result = Definitions(run.Policy);
+            result.AddRange(QuestionTools.Definitions(run));
+            return result;
         }
         /// <summary>Evidence tools plus the resource tools the run's policy offers.</summary>
         public static List<ConversationToolDefinition> Definitions(DebatePolicy policy)
@@ -42,7 +52,7 @@ namespace ArgueBot.Core.Services
         /// <summary>Shared typed catalogue for all supported runner transports.</summary>
         public static List<ConversationToolDefinition> Definitions()
         {
-            const string schema = """{"type":"object","properties":{"id":{"type":"string"},"ids":{"type":"array","items":{"type":"string"},"maxItems":20},"query":{"type":"string","maxLength":4000},"after":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":20},"offset":{"type":"integer","minimum":0},"contentOffset":{"type":"integer","minimum":0},"length":{"type":"integer","minimum":1,"maximum":8192,"default":2048},"seatId":{"type":"string"},"phase":{"type":"string","enum":["","question","response","synthesis","ratification","compaction","moderator"]},"blocking":{"type":"boolean"}},"additionalProperties":false}""";
+            const string schema = """{"type":"object","properties":{"id":{"type":"string"},"ids":{"type":"array","items":{"type":"string"},"maxItems":20},"query":{"type":"string","maxLength":4000},"after":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":20},"offset":{"type":"integer","minimum":0},"contentOffset":{"type":"integer","minimum":0},"length":{"type":"integer","minimum":1,"maximum":8192,"default":2048},"seatId":{"type":"string"},"phase":{"type":"string","enum":["","question","response","synthesis","ratification","compaction","moderator"]}},"additionalProperties":false}""";
             return new List<ConversationToolDefinition>
             {
                 new ConversationToolDefinition { Name = "list_turns", Description = "List visible original turns after the after cursor, up to limit (twenty), with IDs and bounded previews. Optional seatId and phase (question, response, synthesis, ratification, compaction or moderator) filters. Pass nextAfter as after for the next page; it is null on the last page.", Schema = schema },
@@ -50,14 +60,14 @@ namespace ArgueBot.Core.Services
                 new ConversationToolDefinition { Name = "search_context", Description = "Case-insensitive literal search of visible evidence for query, with optional seatId, phase and after filters. Returns snippets centered on each match with source IDs, and nextAfter for more.", Schema = schema },
                 new ConversationToolDefinition { Name = "get_supporting_details", Description = "Read supporting evidence for up to twenty turn or summary IDs (ids, or id), with attribution, the original sources a summary links to, and gaps for IDs that are not visible. Or search with query. Missing evidence is reported as a gap, never invented.", Schema = schema },
                 new ConversationToolDefinition { Name = "get_debate_state", Description = "Read the invocation's roster, phase, question, open proposal, pinned moderator constraints, recorded positions on earlier proposals, and context and roster revisions.", Schema = schema },
-                new ConversationToolDefinition { Name = "get_summary", Description = "Read visible memory excerpts and source hashes. Use id and contentOffset with length (default 2048) to follow nextContentOffset. Use offset (0, 100, 200...) for later source pages. Originals remain authoritative.", Schema = schema },
-                new ConversationToolDefinition { Name = "request_clarification", Description = "Ask the moderator a question in query. Set blocking to pause for an answer; this never supplies an answer on their behalf.", Schema = schema }
+                new ConversationToolDefinition { Name = "get_summary", Description = "Read visible memory excerpts and source hashes. Use id and contentOffset with length (default 2048) to follow nextContentOffset. Use offset (0, 100, 200...) for later source pages. Originals remain authoritative.", Schema = schema }
             };
         }
         /// <summary>Validate and execute one bounded tool call, returning safe structured results.</summary>
         public async Task<string> ExecuteAsync(ConversationToolCall call, CancellationToken token = default)
         {
             if (ResourceTools.IsResourceTool(call.Name)) return await _Resources.ExecuteAsync(call, token).ConfigureAwait(false);
+            if (QuestionTools.IsQuestionTool(call.Name)) return await _Questions.ExecuteAsync(call, token).ConfigureAwait(false);
             try
             {
                 if (call.ArgumentsJson.Length > 16384) throw new DomainException(400, "invalid_tool_arguments", "Tool arguments exceed the limit.");
@@ -106,7 +116,6 @@ namespace ArgueBot.Core.Services
                             if (contentEnd == args.ContentOffset && contentEnd < summary.Content.Length) throw new DomainException(400, "invalid_length", "Request at least two UTF-16 characters to read this Unicode character.");
                             return new { summary.Id, summary.MessageId, summary.AttemptId, summary.RunId, summary.ContextEpoch, summary.ThroughSequence, summary.RecipientId, summary.Active, content = summary.Content.Substring(args.ContentOffset, contentEnd - args.ContentOffset), contentOffset = args.ContentOffset, nextContentOffset = contentEnd < summary.Content.Length ? (int?)contentEnd : null, totalContentCharacters = summary.Content.Length, summary.SourceCount, summary.SourcePageNumber, summary.Sources, summary.ParentSummaryIds };
                         }).ToList(); break;
-                    case "request_clarification": result = await ClarifyAsync(call, args, token).ConfigureAwait(false); break;
                     default: throw new DomainException(400, "unknown_tool", "Choose an advertised conversation tool.");
                 }
                 string json = JsonSerializer.Serialize(new { success = true, result }, _Json);
@@ -224,22 +233,6 @@ namespace ArgueBot.Core.Services
                 }
             }
             return new { runId = _Run.Id, _Run.Question, _Run.CurrentQuestion, _Run.Phase, _Run.Round, _Run.MaxRounds, _Run.ContextEpoch, _Run.RosterRevision, _Run.ProposalId, _Run.ProposalText, seats = _Run.Participants.Select(seat => new { seat.Id, seat.Name }), constraints, earlierPositions = positions };
-        }
-        private async Task<ClarificationRequest> ClarifyAsync(ConversationToolCall call, ConversationToolArguments args, CancellationToken token)
-        {
-            if (string.IsNullOrWhiteSpace(args.Query)) throw new DomainException(400, "missing_question", "Provide a question for the moderator.");
-            ClarificationRequest result = new ClarificationRequest { Id = Ids.New("clr_"), ParticipantId = _ParticipantId, Question = args.Query, Blocking = args.Blocking };
-            string callId = _AttemptId + ":" + call.CallId;
-            await _Database.WriteAsync(async (connection, transaction) =>
-            {
-                object? existing = await ScalarAsync(connection, transaction, "SELECT id FROM debate_clarifications WHERE tenant_id=@tenant AND run_id=@run AND call_id=@call", token, P("tenant", _Context.TenantId, "run", _Run.Id, "call", callId)).ConfigureAwait(false);
-                // A harness that retries the same request with a new MCP call ID during one attempt gets the existing request, not a second one.
-                existing ??= await ScalarAsync(connection, transaction, "SELECT id FROM debate_clarifications WHERE tenant_id=@tenant AND run_id=@run AND profile_id=@profile AND substr(call_id,1,length(@prefix))=@prefix AND question=@question AND blocking=@blocking AND status='open' ORDER BY created_utc LIMIT 1", token, P("tenant", _Context.TenantId, "run", _Run.Id, "profile", _ParticipantId, "prefix", _AttemptId + ":", "question", args.Query, "blocking", args.Blocking ? 1 : 0)).ConfigureAwait(false);
-                if (existing != null) { result.Id = Convert.ToString(existing, CultureInfo.InvariantCulture)!; return; }
-                await DatabaseDriverBase.ExecuteAsync(connection, transaction, "INSERT INTO debate_clarifications(id,tenant_id,conversation_id,run_id,profile_id,call_id,question,blocking,created_utc,updated_utc) VALUES(@id,@tenant,@conversation,@run,@profile,@call,@question,@blocking,@now,@now)", token, P("id", result.Id, "tenant", _Context.TenantId, "conversation", _Run.ConversationId, "run", _Run.Id, "profile", _ParticipantId, "call", callId, "question", args.Query, "blocking", args.Blocking ? 1 : 0)).ConfigureAwait(false);
-                await EventAsync(connection, transaction, _Context.TenantId, _Run.ConversationId, "clarification", result.Id, "open", token).ConfigureAwait(false);
-            }, token).ConfigureAwait(false);
-            return result;
         }
     }
 }

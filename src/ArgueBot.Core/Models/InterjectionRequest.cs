@@ -23,10 +23,5 @@ namespace ArgueBot.Core.Models
         public string IdempotencyKey { get { return _IdempotencyKey; } set { ArgumentNullException.ThrowIfNull(value); _IdempotencyKey = value; } }
         /// <summary>Keep this constraint in subsequent model context.</summary>
         public bool Pinned { get; set; } = false;
-        private string _ClarificationId = "";
-        /// <summary>Optional clarification being answered or explicitly skipped.</summary>
-        public string ClarificationId { get { return _ClarificationId; } set { System.ArgumentNullException.ThrowIfNull(value); _ClarificationId = value; } }
-        /// <summary>Record an explicit skip instead of treating the text as a supplied fact.</summary>
-        public bool SkipClarification { get; set; }
     }
 }

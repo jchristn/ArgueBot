@@ -83,6 +83,7 @@ namespace ArgueBot.Cli
                 }
                 string command = words[0]; string operation = words.Count > 1 ? words[1] : "list";
                 if (command == "resources") return await ResourceCommands.RunAsync(client, words, token).ConfigureAwait(false);
+                if (command == "questions") return await QuestionCommands.RunAsync(client, words, token).ConfigureAwait(false);
                 if (command == "service")
                 {
                     if (operation == "status" || operation == "start") Print(await client.SendAsync<HealthResponse>(System.Net.Http.HttpMethod.Get, "health", token: token).ConfigureAwait(false));
@@ -220,7 +221,7 @@ namespace ArgueBot.Cli
                     }
                     else if (operation == "summary") { Require(words, 5); Print(await client.SummaryAsync(words[2], words[3], words[4], words.Count > 5 ? int.Parse(words[5], System.Globalization.CultureInfo.InvariantCulture) : 1, token).ConfigureAwait(false)); }
                     else if (operation == "summaries") { Require(words, 4); Print(await client.SummariesAsync(words[2], words[3], words.Count > 4 ? int.Parse(words[4], System.Globalization.CultureInfo.InvariantCulture) : 1, token: token).ConfigureAwait(false)); }
-                    else if (operation == "clarifications") { Require(words, 4); Print(await client.ClarificationsAsync(words[2], words[3], token).ConfigureAwait(false)); }
+                    else if (operation == "clarifications") throw new ArgumentException("debate clarifications was removed in 2.3.0. Use questions list --conversation CONVERSATION --run RUN.");
                     else if (operation == "roster") { Require(words, 4); Print(await client.RosterAsync(words[2], words[3], token).ConfigureAwait(false)); }
                     else if (operation == "proposals") { Require(words, 4); Print(await client.ProposalsAsync(words[2], words[3], token).ConfigureAwait(false)); }
                     else if (operation == "interjections") Print(await client.InterjectionsAsync(words[2], words.Count > 3 ? int.Parse(words[3], System.Globalization.CultureInfo.InvariantCulture) : 1, token: token).ConfigureAwait(false));
@@ -326,16 +327,31 @@ Debates
   debate status CONVERSATION
   debate pause|resume|interrupt|stop|extend CONVERSATION RUN
   debate change-roster CONVERSATION RUN -|--file PATH   add, remove or replace a seat.
-  debate roster|proposals|clarifications CONVERSATION RUN
+  debate roster|proposals CONVERSATION RUN
   debate edit-proposal CONVERSATION RUN REVISION TEXT|-|--file PATH
                                              Replace the proposal under vote; every seat
                                              votes again. REVISION comes from debate status.
   debate attempts CONVERSATION RUN [PAGE]    Execution and context provenance.
   debate interjections CONVERSATION [PAGE]
   interject CONVERSATION -|--file PATH       Context JSON. deliveryMode is required:
-                                             interrupt_now or next_turn. Optional pinned,
-                                             recipientId, and clarificationId with
-                                             skipClarification to answer or skip a question.
+                                             interrupt_now or next_turn. Optional pinned
+                                             and recipientId.
+
+Questions (agents asking you during a debate)
+  questions list [--status S] [--conversation ID] [--run ID] [--all] [--page N]
+                                            Open first. S is open, answered, skipped, expired,
+                                            cancelled or resolved. --all lists the whole tenant.
+  questions show ID                         One request with its questions, options and answers.
+  questions answer ID                       Asks each question on a terminal. Or give answers:
+      --choice KEY=OPTION[,OPTION] --other KEY=TEXT --text KEY=TEXT --confirm KEY=yes|no
+      --skip-question KEY (optional questions) or --file PATH|- (answer JSON).
+  questions skip ID [--note TEXT]           No answer; the agent continues on assumptions.
+  questions defer ID                        Answer later: the waiting turn ends now.
+  questions watch                           Print question changes as JSON lines.
+  questions wait CONVERSATION RUN [--no-input]
+                                            Follow a run, answering its questions on a terminal.
+                                            Without a terminal or with --no-input, exits 4 while
+                                            the run waits for an answer.
 
 Memory
   debate summaries CONVERSATION RUN [PAGE]

@@ -111,15 +111,20 @@ namespace ArgueBot.Core.Database.Implementations
                     }
                     if (S(reader, "message_state") != "streaming") throw new DomainException(409, "message_finalized", "This answer was already finalized outside its attempt.");
                 }
-                bool awaitingClarification = false;
+                string parkedQuestion = "";
                 if (run.ProtocolVersion == 2 && run.State != "cancelled" && answer.State == "completed" && attempt.Purpose != "compaction")
-                    awaitingClarification = Convert.ToInt64(await ScalarAsync(connection, transaction, "SELECT COUNT(*) FROM debate_clarifications WHERE tenant_id=@tenant AND run_id=@run AND blocking=1 AND status='open'", token, P("tenant", context.TenantId, "run", run.Id)).ConfigureAwait(false), CultureInfo.InvariantCulture) > 0;
-                // A turn that is waiting on a blocking moderator answer does not count: no vote, proposal or speaker advance is recorded until the moderator answers or skips.
-                if (run.ProtocolVersion == 2 && !awaitingClarification) await DebateMethods.AdvanceAsync(connection, transaction, context, run, attempt, answer, token).ConfigureAwait(false);
-                if (awaitingClarification) { run.State = "paused"; run.Outcome = "awaiting_clarification"; }
+                    parkedQuestion = Convert.ToString(await ScalarAsync(connection, transaction, "SELECT id FROM question_requests WHERE tenant_id=@tenant AND run_id=@run AND attempt_id=@attempt AND wait=1 AND status='open' ORDER BY created_utc LIMIT 1", token, P("tenant", context.TenantId, "run", run.Id, "attempt", attempt.Id)).ConfigureAwait(false), CultureInfo.InvariantCulture) ?? "";
+                // A turn that ended while its question waits for the user does not count: no vote, proposal or speaker advance is recorded. The answer resumes the same step.
+                if (run.ProtocolVersion == 2 && parkedQuestion.Length == 0) await DebateMethods.AdvanceAsync(connection, transaction, context, run, attempt, answer, token).ConfigureAwait(false);
+                if (parkedQuestion.Length > 0)
+                {
+                    if (run.State == "window") { run.State = "awaiting_input"; run.Outcome = ""; }
+                    await ExecuteAsync(connection, transaction, "UPDATE question_requests SET hold_state='parked',updated_utc=@now WHERE tenant_id=@tenant AND id=@id AND status='open'", token, P("tenant", context.TenantId, "id", parkedQuestion)).ConfigureAwait(false);
+                    await ExecuteAsync(connection, transaction, "UPDATE debate_attempts SET question_request_id=@question,updated_utc=@now WHERE tenant_id=@tenant AND attempt_id=@attempt", token, P("question", parkedQuestion, "tenant", context.TenantId, "attempt", attempt.Id)).ConfigureAwait(false);
+                }
                 await RunMethods.SaveCheckpointAsync(connection, transaction, context, run, token).ConfigureAwait(false);
                 await ExecuteAsync(connection, transaction, "UPDATE messages SET state=@state,updated_utc=@now WHERE tenant_id=@tenant AND conversation_id=@conversation AND id=@message", token, P("state", answer.State, "tenant", context.TenantId, "conversation", run.ConversationId, "message", answer.Id)).ConfigureAwait(false);
-                await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state=@state,error_code=@error,duration_ms=@duration,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("state", answer.State, "error", attempt.ErrorCode, "duration", attempt.DurationMilliseconds, "tenant", context.TenantId, "id", attempt.Id)).ConfigureAwait(false);
+                await ExecuteAsync(connection, transaction, "UPDATE generation_attempts SET state=@state,error_code=@error,duration_ms=@duration,updated_utc=@now WHERE tenant_id=@tenant AND id=@id", token, P("state", parkedQuestion.Length > 0 ? "awaiting_input" : answer.State, "error", attempt.ErrorCode, "duration", attempt.DurationMilliseconds, "tenant", context.TenantId, "id", attempt.Id)).ConfigureAwait(false);
                 if (answer.State == "completed" && answer.Kind != "compaction")
                 {
                     List<string> directives = new List<string>();

@@ -21,7 +21,6 @@ namespace ArgueBot.Runners.Processes
             using (CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token))
             using (Process process = new Process())
             {
-                timeout.CancelAfter(TimeSpan.FromSeconds(profile.TimeoutSeconds));
                 CancellationToken execution = timeout.Token;
                 ProcessStartInfo start = new ProcessStartInfo(profile.Executable) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, CreateNoWindow = true };
                 if (profile.WorkingDirectory.Length > 0) start.WorkingDirectory = profile.WorkingDirectory;
@@ -30,6 +29,7 @@ namespace ArgueBot.Runners.Processes
                 HarnessEnvironment.Apply(start, profile);
                 process.StartInfo = start;
                 if (!process.Start()) throw new IOException("Agent process could not start.");
+                using (IDisposable clock = RunnerDeadline.Start(profile, timeout))
                 using (CancellationTokenRegistration registration = execution.Register(() => Kill(process)))
                 {
                     StringBuilder prompt = new StringBuilder(instructions);

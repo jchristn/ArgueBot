@@ -45,10 +45,10 @@ namespace Test.Shared
             ContextFixtureRunner runner = new ContextFixtureRunner { PrivateId = privateTurn.Id };
             await using (ConversationEngine engine = new ConversationEngine(database, runner, contextMaxCharacters: 12000, contextMaxMessages: 20))
             {
-                DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "start" }, token).ConfigureAwait(false);
+                DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, Policy = new DebatePolicy { QuestionHoldSeconds = 0, Intake = "off" }, IdempotencyKey = "start" }, token).ConfigureAwait(false);
                 run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
-                Require(run.Outcome == "awaiting_clarification", "A blocking question must pause: " + run.Outcome);
-                Require(run.Phase == "response" && run.SpeakerIndex == 0, "The turn that asked a blocking question must not advance before the moderator answers: " + run.Phase + "/" + run.SpeakerIndex);
+                Require(run.State == "awaiting_input" && run.Outcome.Length == 0, "A turn whose question parked must wait for the answer: " + run.State + "/" + run.Outcome);
+                Require(run.Phase == "response" && run.SpeakerIndex == 0, "The turn that asked a waiting question must not advance before the user answers: " + run.Phase + "/" + run.SpeakerIndex);
                 Require(runner.Compactions >= 2, "Large history must compact in bounded chunks.");
                 List<ContextSummary> summaries = await database.Memory.EnumerateAsync(context, conversation.Id, run.Id, token: token).ConfigureAwait(false);
                 ContextSummary current = summaries.Single(item => item.Active);
@@ -61,9 +61,14 @@ namespace Test.Shared
                 await VerifyHashesAsync(database, context, conversation.Id, current, token).ConfigureAwait(false);
                 Require(!current.SourceIds.Contains(privateTurn.Id), "Private turns must not enter public summary sources.");
                 foreach (string id in originals) Require((await database.ReadMessageAsync(context, conversation.Id, id, token).ConfigureAwait(false)).Content.Length > 1500, "Original sources must remain intact.");
-                try { await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "premature" }, "fixture", token).ConfigureAwait(false); throw new InvalidDataException("An unanswered blocking question was ignored."); }
-                catch (DomainException error) when (error.Code == "clarification_required") { }
-                ClarificationRequest question = (await database.Clarifications.EnumerateAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false)).Single();
+                try { await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "premature" }, "fixture", token).ConfigureAwait(false); throw new InvalidDataException("A run waiting for an answer was resumed."); }
+                catch (DomainException error) when (error.Code == "invalid_state") { }
+                List<QuestionRequest> asked = await database.Questions.RunRequestsAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false);
+                Require(asked.Count == 2 && asked[0].Wait && asked[0].HoldState == "parked" && !asked[1].Wait, "The parked request and the non-waiting request must both be stored: " + string.Join(",", asked.Select(item => item.HoldState)));
+                QuestionRequest question = asked[0];
+                Require(await database.Questions.HasOpenWaitingAsync(context, run.Id, token).ConfigureAwait(false), "The parked question must keep the run waiting.");
+                GenerationAttempt parked = (await database.Attempts.EnumerateAsync(context, conversation.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false)).Items.Single(item => item.Id == question.AttemptId);
+                Require(parked.State == "awaiting_input", "The parked attempt must be marked as waiting for input: " + parked.State);
                 ConversationTools pagingTools = new ConversationTools(database, context, run, run.Participants[0].Id, long.MaxValue, "pagination-fixture");
                 Message unicode = await database.AppendMessageAsync(context, new Message { ConversationId = conversation.Id, Content = "🧪 Retain complete Unicode evidence." }, token: token).ConfigureAwait(false);
                 string listed = await pagingTools.ExecuteAsync(new ConversationToolCall { Name = "list_turns", CallId = "list-private", ArgumentsJson = "{\"after\":0,\"limit\":20}" }, token).ConfigureAwait(false);
@@ -78,19 +83,22 @@ namespace Test.Shared
                 Require(split.Contains("invalid_length", StringComparison.Ordinal), "A one-unit Unicode excerpt returned a nonadvancing cursor.");
                 string whole = await pagingTools.ExecuteAsync(new ConversationToolCall { Name = "get_turn", CallId = "whole-unicode", ArgumentsJson = JsonSerializer.Serialize(new { id = unicode.Id, length = 2 }) }, token).ConfigureAwait(false);
                 using (JsonDocument document = JsonDocument.Parse(whole)) Require(document.RootElement.GetProperty("result").GetProperty("nextOffset").GetInt32() == 2, "A complete Unicode excerpt did not advance correctly.");
-                for (int index = 0; index < 101; index++) await pagingTools.ExecuteAsync(new ConversationToolCall { Name = "request_clarification", CallId = "optional-" + index, ArgumentsJson = "{\"query\":\"Optional historical question " + index + "\",\"blocking\":false}" }, token).ConfigureAwait(false);
-                List<ClarificationRequest> firstPage = await database.Clarifications.EnumerateAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false);
-                List<ClarificationRequest> secondPage = await database.Clarifications.EnumerateAsync(context, conversation.Id, run.Id, token, pageNumber: 2).ConfigureAwait(false);
-                Require(firstPage.Count == 100 && secondPage.Count == 2 && secondPage.Any(item => item.Id == question.Id), "Clarification history must retain older questions beyond the first page.");
-                Require(await database.Clarifications.HasBlockingAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false), "Display paging must not hide a blocking clarification from resume validation.");
-                await engine.InterjectAsync(context, conversation.Id, new InterjectionRequest { RunId = run.Id, Text = "Roll out to five percent first.", ClarificationId = question.Id, Pinned = true, DeliveryMode = "next_turn", IdempotencyKey = "answer" }, token).ConfigureAwait(false);
-                await engine.ApplyAsync(context, conversation.Id, run.Id, new CommandRequest { Action = "resume", IdempotencyKey = "resume" }, "fixture", token).ConfigureAwait(false);
+                try { await engine.AnswerQuestionAsync(context, question.Id, new QuestionAnswerRequest { Answers = new List<QuestionAnswerInput> { new QuestionAnswerInput { Key = "limit", Selected = new List<string> { "missing" } } } }, token).ConfigureAwait(false); throw new InvalidDataException("An answer naming an unknown option was accepted."); }
+                catch (DomainException error) when (error.Code == "invalid_answer") { }
+                QuestionRequest answered = await engine.AnswerQuestionAsync(context, question.Id, new QuestionAnswerRequest { Answers = new List<QuestionAnswerInput> { new QuestionAnswerInput { Key = "limit", Selected = new List<string> { "five" } } }, IdempotencyKey = "answer" }, token).ConfigureAwait(false);
+                Require(answered.Status == "answered" && answered.Questions[0].Answer!.SelectedLabels.Single() == "Five percent" && answered.AnswerMessageId.Length > 0, "The answer was not stored with its option and transcript message.");
+                Require((await engine.AnswerQuestionAsync(context, question.Id, new QuestionAnswerRequest { Answers = new List<QuestionAnswerInput> { new QuestionAnswerInput { Key = "limit", Selected = new List<string> { "five" } } }, IdempotencyKey = "answer" }, token).ConfigureAwait(false)).Id == question.Id, "Repeating an answer with the same key must return the stored result.");
+                try { await engine.SkipQuestionAsync(context, question.Id, new QuestionSkipRequest(), token).ConfigureAwait(false); throw new InvalidDataException("A resolved question was skipped."); }
+                catch (DomainException error) when (error.Code == "question_already_resolved") { }
                 run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
-                Require(run.Outcome == "consensus", "Answered clarification must permit fresh unanimous ratification: " + run.Outcome);
+                Require(run.Outcome == "consensus", "An answered question must resume the step and permit fresh unanimous ratification: " + run.State + "/" + run.Outcome);
+                QuestionRequest resumed = await database.Questions.ReadAsync(context, question.Id, token).ConfigureAwait(false);
+                Require(resumed.ResumeAttemptId.Length > 0 && resumed.HoldState == "none", "The resume attempt was not linked to the answered question.");
+                AttemptPage afterAnswer = await database.Attempts.EnumerateAsync(context, conversation.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
+                Require(afterAnswer.Items.Where(item => item.Purpose == "ratification").Select(item => item.ParticipantId).Distinct().Count() == 2 && afterAnswer.Items.Where(item => item.Purpose == "ratification").All(item => item.ContextMessageIds.Contains(answered.AnswerMessageId)), "Every seat must see a panel-visible answer.");
                 List<InterjectionReceipt> delivered = await database.Interjections.EnumerateAsync(context, conversation.Id, token: token).ConfigureAwait(false);
                 InterjectionReceipt summarized = delivered.Single(receipt => receipt.Id == early.Id);
                 Require(summarized.DeliveredParticipantIds.Count == 0 && summarized.SummarizedParticipantIds.Count == 2 && summarized.Status == "summarized", "Derived memory must not be reported as direct delivery of original context.");
-                Require(delivered.Single(receipt => receipt.Pinned).DeliveredParticipantIds.Count == 2, "Pinned original context must remain directly selected despite compaction.");
             }
         }
         private static async Task PrivatePartitionAsync(DatabaseDriverBase database, RequestContext context, CancellationToken token)
@@ -103,7 +111,7 @@ namespace Test.Shared
             string recipient = run.Participants[0].Id;
             List<string> originals = new List<string>();
             for (int index = 0; index < 125; index++) originals.Add((await database.AppendMessageAsync(context, new Message { ConversationId = conversation.Id, RunId = run.Id, RecipientId = recipient, Kind = "tool", Content = "PRIVATE_FIXTURE_ONLY evidence " + index + new string('x', 150) }, token: token).ConfigureAwait(false)).Id);
-            ContextFixtureRunner runner = new ContextFixtureRunner { PrivateRecipientId = recipient, SkipClarification = true };
+            ContextFixtureRunner runner = new ContextFixtureRunner { PrivateRecipientId = recipient, SkipQuestion = true };
             await using (ConversationEngine engine = new ConversationEngine(database, runner, contextMaxCharacters: 12000, contextMaxMessages: 20))
             {
                 await engine.StartAsync(context, conversation.Id, request, token).ConfigureAwait(false);
@@ -152,7 +160,7 @@ namespace Test.Shared
                 Conversation pinned = await database.CreateConversationAsync(context, "Pinned context exceeds capacity", token).ConfigureAwait(false);
                 List<InterjectionReceipt> originals = new List<InterjectionReceipt>();
                 for (int index = 0; index < sourceCount; index++) originals.Add(await database.Interjections.CreateAsync(context, pinned.Id, new InterjectionRequest { Text = "Pinned original " + index + ": " + new string('x', sourceCount == 1 ? 18000 : 5000), Pinned = true, DeliveryMode = "next_turn", IdempotencyKey = "pin-" + index }, token).ConfigureAwait(false));
-                ContextFixtureRunner runner = new ContextFixtureRunner { SkipClarification = true };
+                ContextFixtureRunner runner = new ContextFixtureRunner { SkipQuestion = true };
                 await using (ConversationEngine engine = new ConversationEngine(database, runner, contextMaxCharacters: 12000, contextMaxMessages: 20))
                 {
                     DebateRun run = await engine.StartAsync(context, pinned.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "pinned-overflow" }, token).ConfigureAwait(false);
@@ -165,7 +173,7 @@ namespace Test.Shared
             {
                 Conversation conversation = await database.CreateConversationAsync(context, "Reject " + failure, token).ConfigureAwait(false);
                 for (int index = 0; index < 12; index++) await database.AppendMessageAsync(context, new Message { ConversationId = conversation.Id, Content = "Original disputed evidence " + index + new string('x', 1500) }, token: token).ConfigureAwait(false);
-                ContextFixtureRunner runner = new ContextFixtureRunner { SkipClarification = true, InvalidSummary = failure };
+                ContextFixtureRunner runner = new ContextFixtureRunner { SkipQuestion = true, InvalidSummary = failure };
                 await using (ConversationEngine engine = new ConversationEngine(database, runner, contextMaxCharacters: 12000, contextMaxMessages: 20))
                 {
                     DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "summary-validation" }, token).ConfigureAwait(false);
@@ -193,7 +201,7 @@ namespace Test.Shared
                 }
             }
             Conversation constrained = await database.CreateConversationAsync(context, "Pinned constraint attribution", token).ConfigureAwait(false);
-            ContextFixtureRunner attributing = new ContextFixtureRunner { SkipClarification = true, InvalidSummary = "unattributed_constraint" };
+            ContextFixtureRunner attributing = new ContextFixtureRunner { SkipQuestion = true, InvalidSummary = "unattributed_constraint" };
             await using (ConversationEngine engine = new ConversationEngine(database, attributing, contextMaxCharacters: 12000, contextMaxMessages: 20))
             {
                 InterjectionReceipt constraint = await engine.InterjectAsync(context, constrained.Id, new InterjectionRequest { Text = "Pinned: never exceed five percent of traffic.", Pinned = true, DeliveryMode = "next_turn", IdempotencyKey = "pinned-attribution" }, token).ConfigureAwait(false);
@@ -241,7 +249,7 @@ namespace Test.Shared
                         ContextFixtureRunner runner = new ContextFixtureRunner { HoldCompaction = true, PrivateId = "msg_unavailable" };
                         await using (ConversationEngine engine = new ConversationEngine(database, runner, contextMaxCharacters: 12000, contextMaxMessages: 20))
                         {
-                            DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = "start" }, token).ConfigureAwait(false);
+                            DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[2], ParticipantIds = profiles.Take(2).ToList(), MaxRounds = 1, InterventionSeconds = 0, Policy = new DebatePolicy { QuestionHoldSeconds = 0, Intake = "off" }, IdempotencyKey = "start" }, token).ConfigureAwait(false);
                             await runner.CompactionStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
                             await engine.InterjectAsync(context, conversation.Id, new InterjectionRequest { Text = "A new mandatory rollback threshold.", DeliveryMode = mode, Pinned = true, IdempotencyKey = "compaction-context" }, token).ConfigureAwait(false);
                             if (mode == "interrupt_now")
@@ -253,7 +261,7 @@ namespace Test.Shared
                             }
                             else runner.ReleaseCompaction.TrySetResult(true);
                             run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
-                            Require(run.Outcome == "awaiting_clarification", "Fresh compaction could not continue after new context: " + run.Outcome);
+                            Require(run.State == "awaiting_input", "Fresh compaction could not continue after new context: " + run.State + "/" + run.Outcome);
                             List<ContextSummary> summaries = await database.Memory.EnumerateAsync(context, conversation.Id, run.Id, token: token).ConfigureAwait(false);
                             Require(summaries.Count > 0 && summaries.All(summary => summary.ContextEpoch == 1), "An old-epoch summary became authoritative.");
                         }
@@ -267,7 +275,7 @@ namespace Test.Shared
             for (int index = 0; index < 500; index++)
             {
                 run = await database.Runs.ReadAsync(context, run.ConversationId, run.Id, token).ConfigureAwait(false);
-                if (new[] { "paused", "completed", "failed", "cancelled" }.Contains(run.State)) return run;
+                if (new[] { "paused", "completed", "failed", "cancelled", "awaiting_input" }.Contains(run.State)) return run;
                 await Task.Delay(20, token).ConfigureAwait(false);
             }
             throw new InvalidDataException("Context fixture did not reach a boundary.");

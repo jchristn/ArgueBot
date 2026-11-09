@@ -43,7 +43,7 @@ namespace ArgueBot.Runners
             {
                 logging.Settings.EnableConsole = false;
                 client.MaxCallDetails = 0; client.Model = profile.Model;
-                timeout.CancelAfter(TimeSpan.FromSeconds(profile.TimeoutSeconds));
+                using (IDisposable clock = RunnerDeadline.Start(profile, timeout))
                 try
                 {
                     string directory = profile.WorkingDirectory.Length == 0 ? Environment.CurrentDirectory : Path.GetFullPath(profile.WorkingDirectory);

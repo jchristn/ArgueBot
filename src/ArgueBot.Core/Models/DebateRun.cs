@@ -90,6 +90,16 @@ namespace ArgueBot.Core.Models
         public string CompactionRecipientId { get { return _CompactionRecipientId; } set { System.ArgumentNullException.ThrowIfNull(value); _CompactionRecipientId = value; } }
         /// <summary>True while a moderator-requested rebuild compacts original evidence; the prior shared summary stays active until the replacement validates.</summary>
         public bool RebuildFromOriginals { get; set; }
+        /// <summary>Seconds the run has spent waiting for the user's answers. Excluded from the wall-clock budget.</summary>
+        public long WaitingSeconds { get; set; }
+        /// <summary>When the run started waiting for an answer; null while it is not waiting.</summary>
+        public DateTime? AwaitingSinceUtc { get; set; }
+        private string _ResumeQuestionId = "";
+        /// <summary>Question whose answer the next attempt resumes from, when the previous attempt of this step ended waiting for the user. Derived, not stored.</summary>
+        public string ResumeQuestionId { get { return _ResumeQuestionId; } set { System.ArgumentNullException.ThrowIfNull(value); _ResumeQuestionId = value; } }
+        private string _ResumeAttemptId = "";
+        /// <summary>The attempt that ended waiting for the user and that the next attempt resumes. Derived, not stored.</summary>
+        public string ResumeAttemptId { get { return _ResumeAttemptId; } set { System.ArgumentNullException.ThrowIfNull(value); _ResumeAttemptId = value; } }
 
         /// <summary>True when the previous step returned invalid structured output and the next attempt is a correction request within the step retry limit.</summary>
         public bool RepairPending { get; set; }

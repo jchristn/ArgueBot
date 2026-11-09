@@ -45,10 +45,11 @@ namespace ArgueBot.Core.Database.Implementations
                 run.ProtocolVersion = 2; run.ExplicitMode = S(reader, "mode"); run.Phase = S(reader, "phase");
                 run.ContextEpoch = Convert.ToInt64(reader["context_epoch"], CultureInfo.InvariantCulture); run.RosterRevision = Convert.ToInt64(reader["roster_revision"], CultureInfo.InvariantCulture);
                 run.ResumePhase = S(reader, "resume_phase"); run.CompactionRecipientId = S(reader, "compaction_recipient_id"); run.RebuildFromOriginals = Convert.ToInt64(reader["rebuild_from_originals"], CultureInfo.InvariantCulture) != 0; run.CurrentQuestion = S(reader, "question"); run.ProposalId = S(reader, "proposal_id"); orchestratorId = S(reader, "orchestrator_id");
+                run.WaitingSeconds = Convert.ToInt64(reader["waiting_seconds"], CultureInfo.InvariantCulture); string since = S(reader, "awaiting_since_utc"); run.AwaitingSinceUtc = since.Length == 0 ? null : DateTime.Parse(since, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
             }
             await BudgetMethods.LoadAsync(connection, context, run, token).ConfigureAwait(false);
             await PromptMethods.LoadRunAsync(connection, context, run, token).ConfigureAwait(false);
-            using (DbCommand command = Command(connection, null, "SELECT d.purpose,d.repair,a.error_code FROM debate_attempts d JOIN generation_attempts a ON a.tenant_id=d.tenant_id AND a.id=d.attempt_id WHERE a.tenant_id=@tenant AND a.run_id=@run ORDER BY a.number DESC LIMIT 1", P("tenant", context.TenantId, "run", run.Id)))
+            using (DbCommand command = Command(connection, null, "SELECT d.purpose,d.repair,d.question_request_id,a.id,a.state,a.error_code FROM debate_attempts d JOIN generation_attempts a ON a.tenant_id=d.tenant_id AND a.id=d.attempt_id WHERE a.tenant_id=@tenant AND a.run_id=@run ORDER BY a.number DESC LIMIT 1", P("tenant", context.TenantId, "run", run.Id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 // The latest attempt for this step returned invalid structured output: the next attempt asks for a corrected reply until the step retry limit is used.
@@ -57,6 +58,8 @@ namespace ArgueBot.Core.Database.Implementations
                     run.RepairNumber = Convert.ToInt32(reader["repair"], CultureInfo.InvariantCulture) + 1;
                     run.RepairPending = run.RepairNumber <= run.Policy.MaxStepRetries;
                 }
+                // The latest attempt ended waiting for the user: the next attempt of the same step resumes with the answer.
+                else if (reader.HasRows && S(reader, "state") == "awaiting_input" && S(reader, "purpose") == run.Phase) { run.ResumeQuestionId = S(reader, "question_request_id"); run.ResumeAttemptId = S(reader, "id"); }
             }
             run.Participants.Clear();
             using (DbCommand command = Command(connection, null, "SELECT p.* FROM profiles p JOIN debate_members m ON p.tenant_id=m.tenant_id AND p.id=m.profile_id WHERE m.tenant_id=@tenant AND m.run_id=@run AND m.active=1 ORDER BY m.position,m.id", P("tenant", context.TenantId, "run", run.Id)))
@@ -70,7 +73,7 @@ namespace ArgueBot.Core.Database.Implementations
         }
 
         internal static Task<int> SaveAsync(DbConnection connection, DbTransaction transaction, RequestContext context, DebateRun run, CancellationToken token)
-        { return ExecuteAsync(connection, transaction, "UPDATE debate_state SET phase=@phase,context_epoch=@epoch,roster_revision=@roster,question=@question,proposal_id=@proposal,resume_phase=@resume,compaction_recipient_id=@recipient,rebuild_from_originals=@rebuild,updated_utc=@now WHERE tenant_id=@tenant AND run_id=@run", token, P("recipient", run.CompactionRecipientId, "rebuild", run.RebuildFromOriginals ? 1 : 0, "resume", run.ResumePhase, "phase", run.Phase, "epoch", run.ContextEpoch, "roster", run.RosterRevision, "question", run.CurrentQuestion, "proposal", run.ProposalId, "tenant", context.TenantId, "run", run.Id)); }
+        { return ExecuteAsync(connection, transaction, "UPDATE debate_state SET phase=@phase,context_epoch=@epoch,roster_revision=@roster,question=@question,proposal_id=@proposal,resume_phase=@resume,compaction_recipient_id=@recipient,rebuild_from_originals=@rebuild,waiting_seconds=@waiting,awaiting_since_utc=@since,updated_utc=@now WHERE tenant_id=@tenant AND run_id=@run", token, P("waiting", run.WaitingSeconds, "since", run.AwaitingSinceUtc.HasValue ? run.AwaitingSinceUtc.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) : "", "recipient", run.CompactionRecipientId, "rebuild", run.RebuildFromOriginals ? 1 : 0, "resume", run.ResumePhase, "phase", run.Phase, "epoch", run.ContextEpoch, "roster", run.RosterRevision, "question", run.CurrentQuestion, "proposal", run.ProposalId, "tenant", context.TenantId, "run", run.Id)); }
 
         internal static async Task BeginAsync(DbConnection connection, DbTransaction transaction, RequestContext context, DebateRun run, GenerationAttempt attempt, CancellationToken token)
         {

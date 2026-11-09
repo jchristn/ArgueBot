@@ -2521,9 +2521,15 @@
               }
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "Questions",
+      "description": "Lifecycle operations for questions. Variables, ownership and validation requirements are described by each request.",
+      "item": [
         {
-          "name": "Read pending and answered moderator questions; paged newest first",
+          "name": "List the questions a run's agents asked, oldest first",
           "request": {
             "method": "GET",
             "header": [
@@ -2532,8 +2538,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/clarifications",
-            "description": "Access: any signed-in user of an active tenant.  Read pending and answered moderator questions; paged newest first"
+            "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/questions",
+            "description": "Access: any signed-in user of an active tenant.  List the questions a run's agents asked, oldest first"
           },
           "event": [
             {
@@ -2543,6 +2549,237 @@
                 "exec": [
                   "if (!pm.variables.get('conversationId')) pm.execution.skipRequest();",
                   "if (!pm.variables.get('runId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List questions agents asked, open first; scope mine or tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions",
+            "description": "Access: any signed-in user of an active tenant.  List questions agents asked, open first; scope mine or tenant"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Count open questions for badges and notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/summary?fromUtc={{fromUtc}}&toUtc={{toUtc}}&bucketMinutes={{bucketMinutes}}",
+            "description": "Access: any signed-in user of an active tenant.  Count open questions for badges and notifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read question changes after a cursor, or stream them with Accept: text/event-stream",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/events",
+            "description": "Access: any signed-in user of an active tenant.  Read question changes after a cursor, or stream them with Accept: text/event-stream"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read a question request with its questions, options and answers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}",
+            "description": "Access: any signed-in user of an active tenant.  Read a question request with its questions, options and answers"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('questionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Answer every question of an open request; the first resolution wins",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/answer",
+            "description": "Access: any signed-in user of an active tenant.  Answer every question of an open request; the first resolution wins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    {\n      \"key\": \"environment\",\n      \"selected\": [\n        \"prod\"\n      ]\n    },\n    {\n      \"key\": \"window\",\n      \"text\": \"Fifteen minutes\"\n    }\n  ],\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('questionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Skip an open request so the agent continues on stated assumptions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/skip",
+            "description": "Access: any signed-in user of an active tenant.  Skip an open request so the agent continues on stated assumptions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Assume production only.\",\n  \"idempotencyKey\": \"{{commandKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('commandKey')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('questionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Answer later: end the waiting turn now; the step resumes after the answer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/defer",
+            "description": "Access: any signed-in user of an active tenant.  Answer later: end the waiting turn now; the step resumes after the answer"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('questionId')) pm.execution.skipRequest();"
                 ]
               }
             },

@@ -53,6 +53,9 @@ namespace ArgueBot.Core.Models
         [System.Text.Json.Serialization.JsonIgnore]
         public string RuntimeTenantId { get { return _RuntimeTenantId; } set { ArgumentNullException.ThrowIfNull(value); _RuntimeTenantId = value; } }
         private string _RuntimeTenantId = "";
+        /// <summary>Service-only pausable deadline for this invocation. Runners attach their timeouts so time spent waiting for the user's answer is not counted.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public ArgueBot.Core.Services.InvocationClock? RuntimeClock { get; set; }
         /// <summary>Invocation-only MCP bridge process. Never persisted or accepted from a transport document.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public List<string> RuntimeMcpCommand { get; } = new List<string>();

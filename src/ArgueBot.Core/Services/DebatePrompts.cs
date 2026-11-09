@@ -9,6 +9,9 @@ namespace ArgueBot.Core.Services
 
     internal static class DebatePrompts
     {
+        /// <summary>Appended to the prompt of an attempt that resumes a step after the user answered the question that ended the previous attempt.</summary>
+        public const string ResumeAfterQuestion = "You paused this step to ask the user a question. Their answer is now in the conversation as a message from the user beginning \"The user answered\" (or \"The user skipped\" if they gave none). Continue the same step from where you left off, using the answer.";
+
         internal static RunnerProfile Profile(DebateRun run)
         {
             if (run.Phase == "question" || run.Phase == "synthesis" || run.Phase == "compaction") return run.Orchestrator ?? throw new DomainException(409, "missing_orchestrator", "Select an orchestrator before starting this debate.");

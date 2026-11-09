@@ -15,6 +15,8 @@ namespace ArgueBot.Core.Models
         public long EstimatedInputTokens { get; set; }
         /// <summary>Resources this run's agents created.</summary>
         public long ResourcesCreated { get; set; }
+        /// <summary>ask_user requests the debate's agents have made.</summary>
+        public long QuestionRequests { get; set; }
         /// <summary>Initial prompt UTF-8 bytes plus envelope allowance; not billed provider tokens or continuation accounting.</summary>
         public string TokenEstimateMethod { get; set; } = "initial-input-utf8-bytes-plus-envelope";
     }

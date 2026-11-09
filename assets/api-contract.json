@@ -1104,21 +1104,19 @@
       "access": "Member"
     },
     {
-      "method": "GET",
-      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/clarifications",
-      "group": "Context and evidence",
-      "summary": "Read pending and answered moderator questions; paged newest first",
-      "response": "List<ClarificationRequest>",
-      "request": null,
-      "status": 200,
       "public": false,
       "example": null,
-      "query": [
-        "pageNumber"
-      ],
+      "query": [],
       "execute": false,
       "save": null,
-      "access": "Member"
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "GET",
+      "path": "/v2.0/api/conversations/{conversationId}/runs/{runId}/questions",
+      "group": "Questions",
+      "summary": "List the questions a run's agents asked, oldest first",
+      "response": "List<QuestionRequest>"
     },
     {
       "method": "GET",
@@ -1764,6 +1762,138 @@
       "execute": false,
       "save": null,
       "access": "Member"
+    },
+    {
+      "public": false,
+      "example": null,
+      "query": [
+        "status",
+        "conversationId",
+        "runId",
+        "scope",
+        "pageNumber",
+        "pageSize"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "GET",
+      "path": "/v2.0/api/questions",
+      "group": "Questions",
+      "summary": "List questions agents asked, open first; scope mine or tenant",
+      "response": "QuestionPage"
+    },
+    {
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "GET",
+      "path": "/v2.0/api/questions/summary",
+      "group": "Questions",
+      "summary": "Count open questions for badges and notifications",
+      "response": "QuestionSummary"
+    },
+    {
+      "public": false,
+      "example": null,
+      "query": [
+        "after",
+        "limit"
+      ],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "GET",
+      "path": "/v2.0/api/questions/events",
+      "group": "Questions",
+      "summary": "Read question changes after a cursor, or stream them with Accept: text/event-stream",
+      "response": "QuestionEventPage"
+    },
+    {
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "GET",
+      "path": "/v2.0/api/questions/{questionId}",
+      "group": "Questions",
+      "summary": "Read a question request with its questions, options and answers",
+      "response": "QuestionRequest"
+    },
+    {
+      "public": false,
+      "example": {
+        "answers": [
+          {
+            "key": "environment",
+            "selected": [
+              "prod"
+            ]
+          },
+          {
+            "key": "window",
+            "text": "Fifteen minutes"
+          }
+        ],
+        "idempotencyKey": "{{commandKey}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": "QuestionAnswerRequest",
+      "status": 200,
+      "method": "POST",
+      "path": "/v2.0/api/questions/{questionId}/answer",
+      "group": "Questions",
+      "summary": "Answer every question of an open request; the first resolution wins",
+      "response": "QuestionRequest"
+    },
+    {
+      "public": false,
+      "example": {
+        "note": "Assume production only.",
+        "idempotencyKey": "{{commandKey}}"
+      },
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": "QuestionSkipRequest",
+      "status": 200,
+      "method": "POST",
+      "path": "/v2.0/api/questions/{questionId}/skip",
+      "group": "Questions",
+      "summary": "Skip an open request so the agent continues on stated assumptions",
+      "response": "QuestionRequest"
+    },
+    {
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "POST",
+      "path": "/v2.0/api/questions/{questionId}/defer",
+      "group": "Questions",
+      "summary": "Answer later: end the waiting turn now; the step resumes after the answer",
+      "response": "QuestionRequest"
     },
     {
       "method": "POST",
