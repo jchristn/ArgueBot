@@ -3,6 +3,7 @@ import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom
 import { useTranslation } from "react-i18next";
 import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import { describe } from "../components/QuestionModal.jsx";
 import { useQuestions } from "../components/QuestionHost.jsx";
 import { useData } from "../components/useData.js";
@@ -10,6 +11,8 @@ import { Button, ErrorPanel, Field, Modal, Pagination } from "../components/ui.j
 import { formatDate } from "../i18n/index.js";
 import { savedPageSize } from "../utils/page-size.js";
 
+/** Why a question cannot be deleted yet, or "" when it can: it must be resolved and its debate finished. */
+const blocked = item => item.status === "open" ? "bulk.blocked.questionOpen" : item.deletable ? "" : "bulk.blocked.questionRunning";
 const statuses = ["open", "resolved", "answered", "skipped", "expired", "cancelled", ""];
 
 /** Relative age with the exact time on hover. */
@@ -35,6 +38,7 @@ export default function Questions() {
   const [pageSize, setPageSize] = useState(() => savedPageSize("questions", 25));
   const [json, setJson] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const { data, error, reload } = useData(`questions:${status}:${scope}:${page}:${pageSize}:${revision}`, () => api.questions({ status, scope, pageNumber: page, pageSize }));
   // A deep link opens that question in the modal.
   useEffect(() => {
@@ -43,6 +47,7 @@ export default function Questions() {
     navigate("/dashboard/questions", { replace: true });
   }, [navigate, open, params.id]);
   const items = data?.items || [];
+  const selection = useSelection(data?.items, blocked);
   const filter = setter => value => { setter(value); setPage(1); };
   const show = item => item.status === "open" ? open(item) : setViewing(item);
   return <>
@@ -56,18 +61,20 @@ export default function Questions() {
     <div className="tab-toolbar">
       <Field label="questions.statusFilter">{props => <select {...props} value={status} onChange={event => filter(setStatus)(event.target.value)}>{statuses.map(value => <option key={value || "all"} value={value}>{t("questions.filter." + (value || "all"))}</option>)}</select>}</Field>
       <Field label="questions.scope">{props => <select {...props} value={scope} onChange={event => filter(setScope)(event.target.value)}><option value="mine">{t("questions.scope.mine")}</option><option value="tenant">{t("questions.scope.tenant")}</option></select>}</Field>
-      <div className="toolbar-actions"><Button label="common.refresh" icon="refresh" iconOnly onClick={reload} /></div>
+      <div className="toolbar-actions"><BulkDeleteButton selection={selection} onClick={() => setDeleting(selection.items())} /><Button label="common.refresh" icon="refresh" iconOnly onClick={reload} /></div>
     </div>
     {error && <ErrorPanel error={error} retry={reload} />}
     {!data && !error && <p className="muted" role="status">{t("common.loading")}</p>}
     {data && <p className="muted table-summary">{t("questions.showing", { from: data.totalCount === 0 ? 0 : (data.pageNumber - 1) * data.pageSize + 1, to: (data.pageNumber - 1) * data.pageSize + items.length, total: data.totalCount, page: data.pageNumber, pages: Math.max(1, Math.ceil(data.totalCount / data.pageSize)) })}</p>}
     {data && items.length > 0 && <div className="table-scroll"><table>
       <thead><tr>
+        <SelectHeader selection={selection} />
         <th scope="col">{t("questions.column.question")}</th><th scope="col">{t("questions.column.asker")}</th><th scope="col">{t("questions.column.conversation")}</th>
         <th scope="col">{t("questions.column.status")}</th><th scope="col">{t("questions.column.age")}</th>
         <th scope="col" className="actions-cell">{t("common.actions")}</th>
       </tr></thead>
       <tbody>{items.map(item => <ObjectRow key={item.id} onOpen={() => show(item)}>
+        <SelectCell selection={selection} item={item} name={item.questions.map(question => question.header).join(", ")} />
         <td>{item.questions.map(question => <span key={question.id} className="badge tag" title={question.prompt}>{question.header}</span>)}<div className="muted prompt-description" dir="auto">{item.questions[0]?.prompt}</div></td>
         <td>{item.askerName || item.askerId}</td>
         <td><Link to={"/dashboard/conversations/" + encodeURIComponent(item.conversationId)} onClick={event => event.stopPropagation()}>{item.conversationTitle || item.conversationId}</Link></td>
@@ -77,6 +84,7 @@ export default function Questions() {
           ...(item.status === "open" ? [{ label: "questions.answer", onClick: () => open(item) }] : []),
           { label: "questions.view", help: "questions.view.help", onClick: () => setViewing(item) },
           { label: "common.inspect", onClick: () => setJson(item) },
+          { label: "common.delete", help: blocked(item) || "questions.delete.help", danger: true, disabled: Boolean(blocked(item)), onClick: () => setDeleting([item]) },
         ]} /></td>
       </ObjectRow>)}</tbody>
     </table></div>}
@@ -91,6 +99,9 @@ export default function Questions() {
         <Button label="common.close" onClick={() => setViewing(null)} />
       </footer>
     </Modal>}
+    {deleting && <BulkDeleteDialog items={deleting} nameOf={item => `${item.questions.map(question => question.header).join(", ")} (${item.askerName || item.askerId}, ${item.conversationTitle || item.conversationId})`}
+      remove={item => api.deleteQuestion(item.id)} onClose={() => setDeleting(null)}
+      onDone={failed => { setDeleting(null); selection.keep(failed); reload(); }} />}
     {json && <Modal title="common.inspect" onClose={() => setJson(null)} wide><pre className="json-view">{JSON.stringify(json, null, 2)}</pre><footer className="dialog-actions"><Button label="common.close" onClick={() => setJson(null)} /></footer></Modal>}
   </>;
 }

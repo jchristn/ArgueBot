@@ -29,7 +29,7 @@ test('conversation rows open the conversation, agent rows open edit forms, witho
  await agent.focus();await agent.press('Space');await expect(page.getByRole('dialog',{name:'Edit agent'})).toBeVisible();await page.keyboard.press('Escape');
 });
 test('request rows inspect operational data',async({page})=>{
- await page.goto('/dashboard/history');await page.getByRole('row').filter({has:page.getByRole('button',{name:/^Actions for /})}).first().getByRole('cell').first().click();
+ await page.goto('/dashboard/history');await page.getByRole('row').filter({has:page.getByRole('button',{name:/^Actions for /})}).first().getByRole('cell').nth(1).click();
  const dialog=page.getByRole('dialog',{name:'Inspect request'});await expect(dialog).toBeVisible();
  await expect(dialog.getByText('Request ID',{exact:true})).toBeVisible();
 });

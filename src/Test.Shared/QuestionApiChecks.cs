@@ -30,6 +30,8 @@ namespace Test.Shared
                 await Expect(() => admin.AnswerQuestionAsync("qrq_missing", new QuestionAnswerRequest(), token), 404, "not_found").ConfigureAwait(false);
                 await Expect(() => admin.SkipQuestionAsync("qrq_missing", new QuestionSkipRequest(), token), 404, "not_found").ConfigureAwait(false);
                 await Expect(() => admin.DeferQuestionAsync("qrq_missing", token), 404, "not_found").ConfigureAwait(false);
+                await Status(http, HttpMethod.Delete, "v2.0/api/questions/qrq_missing", 401, token).ConfigureAwait(false);
+                await Expect(() => admin.DeleteQuestionAsync("qrq_missing", token), 404, "not_found").ConfigureAwait(false);
                 await Expect(() => admin.QuestionsAsync(new QuestionFilter { Scope = "everyone" }, token), 400, "invalid_filter").ConfigureAwait(false);
                 await Expect(() => admin.QuestionsAsync(new QuestionFilter { Status = "pending" }, token), 400, "invalid_filter").ConfigureAwait(false);
                 await Expect(() => admin.QuestionsAsync(new QuestionFilter { PageSize = 101 }, token), 400, "invalid_page").ConfigureAwait(false);
@@ -73,6 +75,8 @@ namespace Test.Shared
                 outsider.Token = credential.Token;
                 await Expect(() => outsider.QuestionAsync(open.Id, token), 404, "not_found").ConfigureAwait(false);
                 await Expect(() => outsider.AnswerQuestionAsync(open.Id, Choose("prod", "outsider"), token), 404, "not_found").ConfigureAwait(false);
+                await Expect(() => outsider.DeleteQuestionAsync(open.Id, token), 404, "not_found").ConfigureAwait(false);
+                await Expect(() => admin.DeleteQuestionAsync(open.Id, token), 409, "question_open").ConfigureAwait(false);
                 Require((await outsider.QuestionsAsync(new QuestionFilter { Scope = "tenant" }, token).ConfigureAwait(false)).TotalCount == 0 && (await outsider.QuestionSummaryAsync(token).ConfigureAwait(false)).OpenTenant == 0, "Another tenant must see no questions.");
 
                 await Expect(() => admin.AnswerQuestionAsync(open.Id, Choose("missing", "bad"), token), 400, "invalid_answer").ConfigureAwait(false);
@@ -88,7 +92,12 @@ namespace Test.Shared
                     await Task.Delay(50, token).ConfigureAwait(false);
                 }
                 Require(run.State == "completed", "The debate must finish after the answer: " + run.State + "/" + run.Outcome);
-                Require((await admin.QuestionsAsync(new QuestionFilter { Status = "resolved", ConversationId = conversation.Id }, token).ConfigureAwait(false)).TotalCount == 1, "The resolved filter must list the answered question.");
+                QuestionPage resolved = await admin.QuestionsAsync(new QuestionFilter { Status = "resolved", ConversationId = conversation.Id }, token).ConfigureAwait(false);
+                Require(resolved.TotalCount == 1 && resolved.Items[0].Deletable && resolved.Items[0].RunState == "completed", "The resolved filter must list the answered question, deletable once its debate completed.");
+                await admin.DeleteQuestionAsync(open.Id, token).ConfigureAwait(false);
+                await Expect(() => admin.QuestionAsync(open.Id, token), 404, "not_found").ConfigureAwait(false);
+                Require((await admin.QuestionsAsync(new QuestionFilter { Status = "", ConversationId = conversation.Id }, token).ConfigureAwait(false)).TotalCount == 0, "DELETE must remove the question from the inbox.");
+                Require((await admin.MessagesAsync(conversation.Id, token).ConfigureAwait(false)).Any(message => message.Id == answered.AnswerMessageId), "DELETE must keep the answer message in the conversation.");
             }
         }
 

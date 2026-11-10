@@ -1490,6 +1490,16 @@ Success: **200**, response: `QuestionRequest`.
 | --- | --- | --- | --- |
 | questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
 
+## DELETE /v2.0/api/questions/{questionId}
+
+Delete a resolved question whose debate has finished; the answer message stays in the conversation. Access: any signed-in user of an active tenant.
+
+Success: **200**, response: `Acknowledgement`.
+
+| Parameter | Location | Required | Meaning |
+| --- | --- | --- | --- |
+| questionId | path | true | Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list. |
+
 ## POST /v2.0/api/configuration/endpoints/{id}/discover
 
 Check endpoint reachability and list advertised models without invoking a completion; sends configured credentials. Access: any signed-in user of an active tenant. May execute work or change service state; do not blindly replay requests.
@@ -3038,6 +3048,8 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | expiresUtc | string (nullable) | When an unanswered request expires; null when it never expires. |
 | resolvedUtc | string (nullable) | When the request was resolved. |
 | createdUtc | string | When the agent asked. |
+| runState | string | State of the debate run that asked, such as awaiting_input or completed. |
+| deletable | boolean | Whether the request can be deleted: it is resolved and its debate has finished, so no turn or later prompt still depends on it. |
 | questions | array | One through four questions, in order. |
 
 ### QuestionSkipRequest

@@ -9,7 +9,7 @@ import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
 import { formatDate } from "../i18n/index.js";
 
-const deletable = prompt => !prompt.factory;
+const deletable = prompt => prompt.factory ? "bulk.blocked.factory" : "";
 export const promptPurposes = ["question", "response", "synthesis", "ratification", "compaction"];
 
 /** Prompt library: factory defaults (read-only) and workspace prompts, with duplicate, edit and delete. */

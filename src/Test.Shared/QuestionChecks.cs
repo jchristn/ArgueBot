@@ -407,10 +407,29 @@ namespace Test.Shared
             Require(start.Items.Count == 0 && start.Next.Length > 0, "An empty cursor must return the newest cursor and no changes.");
             QuestionEventPage replay = await database.Questions.ReadEventsAsync(context, "0|", 100, token).ConfigureAwait(false);
             Require(replay.Items.Any(item => item.RequestId == request.Id && item.Status == "opened") && replay.Items.Any(item => item.RequestId == request.Id && item.Status == "answered"), "The change feed must report opened and answered.");
+            // Deleting: never an open question, never while the debate runs, never across tenants; the answer message stays.
+            string openId = inbox.Items[0].Id;
+            Require(!answered.Deletable && answered.RunState == run.State, "A resolved question of a running debate must not be deletable: " + answered.RunState);
+            try { await database.Questions.DeleteAsync(context, openId, token).ConfigureAwait(false); throw new InvalidDataException("An open question was deleted."); }
+            catch (DomainException error) when (error.StatusCode == 409 && error.Code == "question_open") { }
+            try { await database.Questions.DeleteAsync(context, request.Id, token).ConfigureAwait(false); throw new InvalidDataException("A question of a running debate was deleted."); }
+            catch (DomainException error) when (error.StatusCode == 409 && error.Code == "active_run") { }
             Require((await database.Questions.CancelOpenAsync(context, run.Id, token).ConfigureAwait(false)) == 2, "Stopping must cancel the run's open requests.");
             run = await database.Runs.ReadAsync(context, conversation.Id, run.Id, token).ConfigureAwait(false);
             run.State = "cancelled"; run.Outcome = "stopped";
             await database.Runs.SaveAsync(context, run, token).ConfigureAwait(false);
+            QuestionRequest finished = await database.Questions.ReadAsync(context, request.Id, token).ConfigureAwait(false);
+            Require(finished.Deletable && finished.RunState == "cancelled" && (await database.Questions.ReadAsync(context, openId, token).ConfigureAwait(false)).Deletable, "Resolved questions of a finished debate, including cancelled ones, must be deletable.");
+            try { await database.Questions.DeleteAsync(other, request.Id, token).ConfigureAwait(false); throw new InvalidDataException("Another tenant deleted a question."); }
+            catch (DomainException error) when (error.StatusCode == 404) { }
+            await database.Questions.DeleteAsync(context, request.Id, token).ConfigureAwait(false);
+            try { await database.Questions.ReadAsync(context, request.Id, token).ConfigureAwait(false); throw new InvalidDataException("A deleted question can still be read."); }
+            catch (DomainException error) when (error.StatusCode == 404) { }
+            Require((await database.ReadMessageAsync(context, conversation.Id, answered.AnswerMessageId, token).ConfigureAwait(false)).Content == message.Content, "Deleting a question must keep its answer message in the conversation.");
+            Require((await database.Questions.EnumerateAsync(context, new QuestionFilter { Scope = "mine", Status = "", PageSize = 10 }, token).ConfigureAwait(false)).TotalCount == 2, "A deleted question must leave the inbox.");
+            Require((await database.Questions.ReadEventsAsync(context, "0|", 100, token).ConfigureAwait(false)).Items.Any(item => item.RequestId == request.Id && item.Status == "deleted"), "The change feed must report deleted.");
+            try { await database.Questions.DeleteAsync(context, request.Id, token).ConfigureAwait(false); throw new InvalidDataException("Deleting twice succeeded."); }
+            catch (DomainException error) when (error.StatusCode == 404) { }
             await database.DeleteConversationAsync(context, conversation.Id, token).ConfigureAwait(false);
             try { await database.Questions.ReadAsync(context, request.Id, token).ConfigureAwait(false); throw new InvalidDataException("A question outlived its conversation."); }
             catch (DomainException error) when (error.StatusCode == 404) { }

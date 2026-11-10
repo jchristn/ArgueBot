@@ -48,3 +48,23 @@ it("explains an empty inbox", async () => {
   renderPage(baseApi([]));
   expect(await screen.findByText(i18n.t("questions.emptyOpen"))).toBeInTheDocument();
 });
+
+it("selects resolved questions of finished debates and deletes them; open ones and ones from running debates say why they cannot be deleted", async () => {
+  const rows = [item("qrq_open", "open"), item("qrq_running", "answered", { deletable: false, runState: "agent_turn", conversationTitle: "Running" }), item("qrq_done", "answered", { deletable: true, runState: "completed", conversationTitle: "Finished" })];
+  const api = { ...baseApi(rows), deleteQuestion: vi.fn().mockResolvedValue({ accepted: true }) };
+  renderPage(api);
+  fireEvent.change(await screen.findByLabelText(i18n.t("questions.statusFilter")), { target: { value: "" } });
+  await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(4));
+  const [, open, running, done] = screen.getAllByRole("checkbox");
+  expect(open).toBeDisabled();
+  expect(open.closest("td")).toHaveAttribute("title", i18n.t("bulk.blocked.questionOpen"));
+  expect(running).toBeDisabled();
+  expect(running.closest("td")).toHaveAttribute("title", i18n.t("bulk.blocked.questionRunning"));
+  fireEvent.click(done);
+  fireEvent.click(screen.getByRole("button", { name: /Delete multiple \(1\)/ }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Finished");
+  fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("bulk.deleteCount", { count: 1 }) }));
+  await waitFor(() => expect(api.deleteQuestion).toHaveBeenCalledWith("qrq_done"));
+  expect(api.deleteQuestion).toHaveBeenCalledTimes(1);
+});

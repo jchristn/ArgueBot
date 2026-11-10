@@ -19,7 +19,7 @@ export default function Tenants() {
   const [deleting, setDeleting] = useState(null);
   const [failure, setFailure] = useState(null);
   const [bulk, setBulk] = useState(false);
-  const deletable = useCallback(tenant => !tenant.protected && tenant.id !== session?.tenant?.id, [session?.tenant?.id]);
+  const deletable = useCallback(tenant => tenant.protected ? "bulk.blocked.protected" : tenant.id === session?.tenant?.id ? "bulk.blocked.ownTenant" : "", [session?.tenant?.id]);
   const selection = useSelection(data, deletable);
   return <>
     <div className="page-heading"><div><h1>{t("tenants.title")}</h1><p>{t("tenants.description")}</p></div></div>

@@ -429,6 +429,9 @@ namespace ArgueBot.Client
         /// <summary>Answer later: a waiting turn ends now and its step resumes once the question is answered.</summary>
         public Task<QuestionRequest> DeferQuestionAsync(string requestId, CancellationToken token = default)
         { ArgumentNullException.ThrowIfNull(requestId); return SendAsync<QuestionRequest>(HttpMethod.Post, "v2.0/api/questions/" + Uri.EscapeDataString(requestId) + "/defer", token: token); }
+        /// <summary>Delete a resolved question whose debate has finished. The answer stays in the conversation as a message.</summary>
+        public Task<Acknowledgement> DeleteQuestionAsync(string requestId, CancellationToken token = default)
+        { ArgumentNullException.ThrowIfNull(requestId); return SendAsync<Acknowledgement>(HttpMethod.Delete, "v2.0/api/questions/" + Uri.EscapeDataString(requestId), token: token); }
         /// <summary>Every question a run's agents asked, oldest first.</summary>
         public Task<List<QuestionRequest>> RunQuestionsAsync(string id, string runId, CancellationToken token = default)
         { return SendAsync<List<QuestionRequest>>(HttpMethod.Get, V2Root(id) + "/runs/" + Uri.EscapeDataString(runId) + "/questions", token: token); }

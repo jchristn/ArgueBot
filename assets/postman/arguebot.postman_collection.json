@@ -2793,6 +2793,40 @@
               }
             }
           ]
+        },
+        {
+          "name": "Delete a resolved question whose debate has finished; the answer message stays in the conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}",
+            "description": "Access: any signed-in user of an active tenant.  Delete a resolved question whose debate has finished; the answer message stays in the conversation"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('questionId')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 expected', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

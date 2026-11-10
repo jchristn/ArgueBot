@@ -26,6 +26,7 @@ namespace ArgueBot.Core.Models
         private string _ResolvedByUserId = "";
         private string _AnswerMessageId = "";
         private string _ResumeAttemptId = "";
+        private string _RunState = "";
         private List<Question> _Questions = new List<Question>();
 
         /// <summary>Tenant of the request. Service-only; not part of API responses.</summary>
@@ -107,6 +108,12 @@ namespace ArgueBot.Core.Models
 
         /// <summary>When the agent asked.</summary>
         public DateTime CreatedUtc { get; set; }
+
+        /// <summary>State of the debate run that asked, such as awaiting_input or completed.</summary>
+        public string RunState { get { return _RunState; } set { ArgumentNullException.ThrowIfNull(value); _RunState = value; } }
+
+        /// <summary>Whether the request can be deleted: it is resolved and its debate has finished, so no turn or later prompt still depends on it.</summary>
+        public bool Deletable { get { return _Status != "open" && (_RunState == "completed" || _RunState == "cancelled" || _RunState == "failed"); } }
 
         /// <summary>One through four questions, in order.</summary>
         public List<Question> Questions { get { return _Questions; } set { ArgumentNullException.ThrowIfNull(value); _Questions = value; } }

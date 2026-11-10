@@ -347,6 +347,7 @@ Questions (agents asking you during a debate)
       --skip-question KEY (optional questions) or --file PATH|- (answer JSON).
   questions skip ID [--note TEXT]           No answer; the agent continues on assumptions.
   questions defer ID                        Answer later: the waiting turn ends now.
+  questions delete ID [ID...]               Delete resolved questions of finished debates.
   questions watch                           Print question changes as JSON lines.
   questions wait CONVERSATION RUN [--no-input]
                                             Follow a run, answering its questions on a terminal.

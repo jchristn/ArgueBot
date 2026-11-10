@@ -34,7 +34,7 @@ Deviations recorded for this scope, each existing practice or forced by an earli
 - **Live updates use server-sent events**, the product's existing channel for conversation events, rather than the WebSocket endpoint described in BACKEND_ARCHITECTURE.md. Clients fall back to polling the question summary.
 - **IDs use the existing `Ids.New(prefix)` helper** (`qrq_`, `qst_`, `qop_`, `qan_`) rather than a central `Constants.cs` and `IdGenerator`.
 - **Routes stay under `/v2.0/api/...`**, the established prefix.
-- **Access classes replace RBAC operation tuples** (November 4, 2026 scope): reading questions is Member read; answering, skipping and deferring is Member write.
+- **Access classes replace RBAC operation tuples** (November 4, 2026 scope): reading questions is Member read; answering, skipping, deferring and deleting is Member write.
 - **The C# SDK stays at `src/ArgueBot.Client`** without a separate `sdk/csharp` harness (REPOSITORY_REQUIREMENTS.md #7). Client checks in Test.Shared run in every CI host instead.
 
 ## November 5, 2026 v2.2 resources scope

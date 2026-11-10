@@ -50,6 +50,26 @@ test("questions: the dialog opens on the waiting conversation and the answer fin
     const questions = await (await request.get(`/v2.0/api/conversations/${conversation.id}/runs/${run.id}/questions`)).json();
     expect(questions).toHaveLength(1);
     expect(questions[0].status).toBe("answered");
+    expect(questions[0].deletable).toBe(true);
+
+    // The finished debate's answered question can be selected on the Questions page and deleted; the answer stays in the transcript.
+    await page.goto("/dashboard/questions");
+    await page.getByLabel("Status", { exact: true }).selectOption("resolved");
+    const row = page.getByRole("row").filter({ hasText: "Question walkthrough " + suffix });
+    await expect(row).toHaveCount(1);
+    const box = row.getByRole("checkbox");
+    await expect(box).toBeEnabled();
+    expect((await row.locator("td.select-cell").boundingBox()).width).toBeLessThan(48);
+    await box.check();
+    await page.getByRole("button", { name: "Delete multiple (1)", exact: true }).click();
+    const confirm = page.getByRole("dialog", { name: "Delete", exact: true });
+    await expect(confirm).toContainText("Question walkthrough " + suffix);
+    await confirm.getByRole("button", { name: "Delete 1 item", exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(row).toHaveCount(0);
+    expect((await request.get(`/v2.0/api/questions/${questions[0].id}`)).status()).toBe(404);
+    await page.goto(`/dashboard/conversations/${conversation.id}`);
+    await expect(page.locator("main")).toContainText("Production only", { timeout: 15000 });
   } finally {
     await fixture.stop();
   }

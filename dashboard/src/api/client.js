@@ -190,6 +190,7 @@ export class ApiClient {
   question(id) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id)); }
   answerQuestion(id, body) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/answer", { method: "POST", body }); }
   skipQuestion(id, body) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/skip", { method: "POST", body }); }
+  deleteQuestion(id) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id), { method: "DELETE" }); }
   deferQuestion(id) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/defer", { method: "POST" }); }
   runQuestions(id, runId) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/questions"); }
   /** Question changes after a cursor. With no cursor the service returns the newest cursor and no changes. */

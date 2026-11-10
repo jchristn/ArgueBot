@@ -17,7 +17,7 @@ namespace ArgueBot.Cli
         /// <summary>Exit code when a run is waiting for an answer and no answer can be given here (no terminal, or --no-input).</summary>
         internal const int WaitingForInput = 4;
 
-        internal const string Usage = "Use questions list [--status S] [--conversation ID] [--run ID] [--all] [--page N], show ID, answer ID [--choice KEY=OPTION[,OPTION]] [--other KEY=TEXT] [--text KEY=TEXT] [--confirm KEY=yes|no] [--skip-question KEY] [--file PATH|-], skip ID [--note TEXT], defer ID, watch, or wait CONVERSATION RUN [--no-input].";
+        internal const string Usage = "Use questions list [--status S] [--conversation ID] [--run ID] [--all] [--page N], show ID, answer ID [--choice KEY=OPTION[,OPTION]] [--other KEY=TEXT] [--text KEY=TEXT] [--confirm KEY=yes|no] [--skip-question KEY] [--file PATH|-], skip ID [--note TEXT], defer ID, delete ID [ID...], watch, or wait CONVERSATION RUN [--no-input].";
 
         private static readonly JsonSerializerOptions _Json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
@@ -72,6 +72,13 @@ namespace ArgueBot.Cli
                     {
                         string note = Option(rest, "--note") ?? "";
                         Program.Print(await client.SkipQuestionAsync(Target(rest), new QuestionSkipRequest { Note = note, IdempotencyKey = Guid.NewGuid().ToString("N") }, token).ConfigureAwait(false));
+                        return 0;
+                    }
+                case "delete":
+                    {
+                        if (rest.Count == 0) throw new ArgumentException("Use questions delete ID [ID...].");
+                        foreach (string id in rest) await client.DeleteQuestionAsync(id, token).ConfigureAwait(false);
+                        Program.Print(new Acknowledgement());
                         return 0;
                     }
                 case "defer":

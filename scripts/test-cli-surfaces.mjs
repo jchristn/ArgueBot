@@ -220,6 +220,9 @@ try {
     check(again.status !== 0 && again.stderr.includes('already answered'), `A second answer must be refused: ${again.stderr}`);
     const finished = spawnSync('dotnet', [cli, '--home', home + path.sep, 'questions','wait',asking.id,questionRun.id,'--no-input'], {cwd:root, encoding:'utf8', timeout:60000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
     check(finished.status === 0 && JSON.parse(finished.stdout).state === 'completed', `questions wait must exit 0 once the debate finishes: ${finished.status} ${finished.stdout} ${finished.stderr}`);
+    check(command(['questions','delete',question.id]).accepted === true, 'questions delete must delete a resolved question of a finished debate.');
+    const gone = tried(['questions','show',question.id]);
+    check(gone.status !== 0, 'A deleted question must no longer be shown.');
     check(command(['debate','interjections',debate.id]).some(value=>value.id===receipt.id), 'CLI context history lost its receipt.');
   } else console.log('SKIP: Set ARGUEBOT_SIMULATION_URL for the four-agent CLI provider journey.');
 

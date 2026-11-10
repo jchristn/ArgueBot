@@ -1,11 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Field, Modal } from "./ui.jsx";
 
-/** Row selection for a table whose rows can be deleted. Rows that cannot be deleted are never selectable, and selections drop rows that leave the page. */
-export function useSelection(items, selectable = () => true) {
+const deletable = () => "";
+
+/**
+ * Row selection for a table whose rows can be deleted. `blocked(item)` returns "" for a row that can be deleted, or the
+ * translation key that explains why it cannot; such rows show a disabled checkbox. Selections drop rows that leave the page,
+ * and Shift+click selects the range from the last row clicked.
+ */
+export function useSelection(items, blocked = deletable) {
   const [selected, setSelected] = useState(() => new Set());
-  const eligible = useMemo(() => (items || []).filter(selectable).map(item => item.id), [items, selectable]);
+  const anchor = useRef(null);
+  const rows = useMemo(() => items || [], [items]);
+  const reasons = useMemo(() => new Map(rows.map(item => [item.id, blocked(item) || ""])), [rows, blocked]);
+  const eligible = useMemo(() => rows.filter(item => !reasons.get(item.id)).map(item => item.id), [rows, reasons]);
   const key = eligible.join(",");
   useEffect(() => {
     setSelected(current => {
@@ -14,37 +23,56 @@ export function useSelection(items, selectable = () => true) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const toggle = id => setSelected(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggle = (id, range = false) => setSelected(current => {
+    const next = new Set(current);
+    const order = rows.map(item => item.id);
+    const from = order.indexOf(anchor.current);
+    const to = order.indexOf(id);
+    if (range && from >= 0 && to >= 0) {
+      const select = !current.has(id);
+      for (const target of order.slice(Math.min(from, to), Math.max(from, to) + 1)) if (eligible.includes(target)) { if (select) next.add(target); else next.delete(target); }
+    } else if (next.has(id)) next.delete(id);
+    else next.add(id);
+    anchor.current = id;
+    return next;
+  });
   const allSelected = eligible.length > 0 && eligible.every(id => selected.has(id));
   return {
-    selected,
     count: selected.size,
+    available: eligible.length,
     allSelected,
     someSelected: selected.size > 0 && !allSelected,
-    eligible: id => eligible.includes(id),
+    reason: id => reasons.get(id) || "",
     has: id => selected.has(id),
     toggle,
     toggleAll: () => setSelected(allSelected ? new Set() : new Set(eligible)),
     keep: ids => setSelected(new Set(ids)),
     clear: () => setSelected(new Set()),
-    items: () => (items || []).filter(item => selected.has(item.id)),
+    items: () => rows.filter(item => selected.has(item.id)),
   };
 }
 
-/** The header cell that selects or clears every selectable row on the page. */
+/** The header cell that selects or clears every row on the page that can be deleted. */
 export function SelectHeader({ selection }) {
   const { t } = useTranslation();
+  const label = t(selection.available ? "bulk.selectAll" : "bulk.selectAll.none");
   return <th scope="col" className="select-cell">
-    <input type="checkbox" aria-label={t("bulk.selectAll")} title={t("bulk.selectAll")} checked={selection.allSelected}
+    <input type="checkbox" aria-label={label} title={label} checked={selection.allSelected} disabled={!selection.available}
       ref={element => { if (element) element.indeterminate = selection.someSelected; }} onChange={selection.toggleAll} />
   </th>;
 }
 
-/** The cell that selects one row. It stays empty for a row that cannot be deleted. */
+/** The cell that selects one row. Clicking anywhere in the cell toggles it; a row that cannot be deleted shows a disabled box that says why. */
 export function SelectCell({ selection, item, name }) {
   const { t } = useTranslation();
-  return <td className="select-cell">
-    {selection.eligible(item.id) && <input type="checkbox" aria-label={t("bulk.select", { name })} title={t("bulk.select", { name })} checked={selection.has(item.id)} onChange={() => selection.toggle(item.id)} />}
+  const reason = selection.reason(item.id);
+  const label = reason ? t(reason) : t("bulk.select", { name });
+  return <td className="select-cell" title={label} onClick={event => {
+    event.stopPropagation();
+    if (!reason && event.target === event.currentTarget) selection.toggle(item.id, event.shiftKey);
+  }}>
+    <input type="checkbox" aria-label={reason ? t("bulk.select", { name }) + ". " + label : label} disabled={Boolean(reason)} checked={selection.has(item.id)}
+      onClick={event => event.stopPropagation()} onChange={event => selection.toggle(item.id, Boolean(event.nativeEvent?.shiftKey))} />
   </td>;
 }
 
@@ -80,7 +108,7 @@ export function BulkDeleteDialog({ items, nameOf, remove, describe, confirmWord 
   };
   const finished = failures.length > 0;
   const close = () => { if (busy) return; if (finished) onDone(failures.map(entry => entry.item.id)); else onClose(); };
-  return <Modal title="bulk.title" onClose={close}>
+  return <Modal title={items.length === 1 ? "common.delete" : "bulk.title"} onClose={close}>
     {!finished && <>
       <p>{t("bulk.confirm", { count: items.length })}</p>
       <ul className="bulk-list">{shown.map(item => <li key={item.id}>{nameOf(item)}</li>)}</ul>

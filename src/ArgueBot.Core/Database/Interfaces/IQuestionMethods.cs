@@ -36,6 +36,10 @@ namespace ArgueBot.Core.Database.Interfaces
         /// <exception cref="ArgueBot.Core.Services.DomainException">404 not_found; 409 question_already_resolved.</exception>
         Task<QuestionRequest> SkipAsync(RequestContext context, string id, QuestionSkipRequest request, CancellationToken token = default);
 
+        /// <summary>Delete a resolved request whose debate has finished, with its questions, options and answers. The answer message stays in the conversation.</summary>
+        /// <exception cref="ArgueBot.Core.Services.DomainException">404 not_found; 409 question_open while it is unanswered; 409 active_run while its debate is still running.</exception>
+        Task DeleteAsync(RequestContext context, string id, CancellationToken token = default);
+
         /// <summary>Record whether a live tool call is waiting (held), the turn has ended (parked) or neither (none).</summary>
         Task SetHoldStateAsync(RequestContext context, string id, string holdState, CancellationToken token = default);
 

@@ -12762,6 +12762,118 @@
           }
         },
         "x-arguebot-access": "Member"
+      },
+      "delete": {
+        "operationId": "delete_v2_0_api_questions_questionId_",
+        "tags": [
+          "Questions"
+        ],
+        "summary": "Delete a resolved question whose debate has finished; the answer message stays in the conversation",
+        "description": "Access: any signed-in user of an active tenant. ",
+        "parameters": [
+          {
+            "name": "questionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Question request ID (qrq_...). Copy it from the Questions page, the question dialog or questions list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful delete a resolved question whose debate has finished; the answer message stays in the conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host, origin, tenant or execution policy denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found in scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, revision or command conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "x-arguebot-access": "Member"
       }
     },
     "/v2.0/api/questions/{questionId}/answer": {
@@ -21827,6 +21939,14 @@
             "type": "string",
             "format": "date-time",
             "description": "When the agent asked."
+          },
+          "runState": {
+            "type": "string",
+            "description": "State of the debate run that asked, such as awaiting_input or completed."
+          },
+          "deletable": {
+            "type": "boolean",
+            "description": "Whether the request can be deleted: it is resolved and its debate has finished, so no turn or later prompt still depends on it."
           },
           "questions": {
             "type": "array",

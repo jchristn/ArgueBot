@@ -6,29 +6,52 @@ afterEach(cleanup);
 HTMLDialogElement.prototype.showModal ||= function showModal() { this.setAttribute("open", ""); };
 HTMLDialogElement.prototype.close ||= function close() { this.removeAttribute("open"); };
 
-const rows = [{ id: "a", name: "Alpha" }, { id: "b", name: "Bravo" }, { id: "c", name: "Charlie", locked: true }];
-const unlocked = row => !row.locked;
+const rows = [{ id: "a", name: "Alpha" }, { id: "b", name: "Bravo" }, { id: "c", name: "Charlie", locked: true }, { id: "d", name: "Delta" }, { id: "e", name: "Echo" }];
+const locked = row => row.locked ? "bulk.blocked.protected" : "";
 
-function Table() {
-  const selection = useSelection(rows, unlocked);
+function Table({ items = rows }) {
+  const selection = useSelection(items, locked);
   return <>
     <BulkDeleteButton selection={selection} onClick={() => {}} />
     <table><thead><tr><SelectHeader selection={selection} /><th>Name</th></tr></thead>
-      <tbody>{rows.map(row => <tr key={row.id}><SelectCell selection={selection} item={row} name={row.name} /><td>{row.name}</td></tr>)}</tbody></table>
+      <tbody>{items.map(row => <tr key={row.id}><SelectCell selection={selection} item={row} name={row.name} /><td>{row.name}</td></tr>)}</tbody></table>
     <output data-testid="count">{selection.count}</output>
   </>;
 }
+const box = name => screen.getByRole("checkbox", { name: new RegExp("^" + i18n.t("bulk.select", { name })) });
 
-it("selects deletable rows only and shows Delete multiple once one is selected", () => {
+it("gives every row a checkbox, disables the ones that cannot be deleted with the reason, and shows Delete multiple once one is selected", () => {
   render(<Table />);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(rows.length + 1);
   expect(screen.queryByRole("button", { name: /Delete multiple/ })).toBeNull();
-  expect(screen.queryByRole("checkbox", { name: i18n.t("bulk.select", { name: "Charlie" }) })).toBeNull();
-  fireEvent.click(screen.getByRole("checkbox", { name: i18n.t("bulk.select", { name: "Alpha" }) }));
+  expect(box("Charlie")).toBeDisabled();
+  expect(box("Charlie").closest("td")).toHaveAttribute("title", i18n.t("bulk.blocked.protected"));
+  fireEvent.click(box("Alpha"));
   expect(screen.getByRole("button", { name: /Delete multiple/ })).toHaveTextContent("Delete multiple (1)");
   fireEvent.click(screen.getByRole("checkbox", { name: i18n.t("bulk.selectAll") }));
-  expect(screen.getByTestId("count")).toHaveTextContent("2");
+  expect(screen.getByTestId("count")).toHaveTextContent("4");
+  expect(box("Charlie")).not.toBeChecked();
   fireEvent.click(screen.getByRole("checkbox", { name: i18n.t("bulk.selectAll") }));
   expect(screen.getByTestId("count")).toHaveTextContent("0");
+});
+
+it("toggles a row from anywhere in its checkbox cell and selects a range with Shift, skipping rows that cannot be deleted", () => {
+  render(<Table />);
+  fireEvent.click(box("Bravo").closest("td"));
+  expect(box("Bravo")).toBeChecked();
+  fireEvent.click(box("Bravo").closest("td"));
+  expect(box("Bravo")).not.toBeChecked();
+  fireEvent.click(box("Alpha"));
+  fireEvent.click(box("Echo"), { shiftKey: true });
+  expect(screen.getByTestId("count")).toHaveTextContent("4");
+  expect(box("Charlie")).not.toBeChecked();
+  expect(box("Delta")).toBeChecked();
+});
+
+it("disables select-all and says why when nothing on the page can be deleted", () => {
+  render(<Table items={[rows[2]]} />);
+  const all = screen.getByRole("checkbox", { name: i18n.t("bulk.selectAll.none") });
+  expect(all).toBeDisabled();
 });
 
 it("deletes each selected record and keeps the ones that failed selected with the reason", async () => {

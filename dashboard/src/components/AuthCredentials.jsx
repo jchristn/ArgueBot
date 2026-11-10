@@ -8,7 +8,7 @@ import { useData } from "./useData.js";
 import { Button, ErrorPanel, Field, Modal } from "./ui.jsx";
 import { formatDate } from "../i18n/index.js";
 
-const deletable = credential => !credential.protected;
+const deletable = credential => credential.protected ? "bulk.blocked.protected" : "";
 export const expiryChoices = [["never", 0], ["days30", 30], ["days90", 90], ["year", 365]];
 
 /** Expiry time for a choice of days from now, or null for a credential that never expires. */

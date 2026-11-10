@@ -208,6 +208,21 @@ namespace ArgueBot.Core.Database.Implementations
         }
 
         /// <inheritdoc />
+        public async Task DeleteAsync(RequestContext context, string id, CancellationToken token = default)
+        {
+            RequireWrite(context); ArgumentNullException.ThrowIfNull(id);
+            await _Database.WriteAsync(async (connection, transaction) =>
+            {
+                QuestionRequest current = await LoadAsync(connection, transaction, context.TenantId, id, token).ConfigureAwait(false) ?? throw NotFound();
+                if (current.Status == "open") throw new DomainException(409, "question_open", "Answer or skip this question before deleting it. An agent may still be waiting for it.", "questionId");
+                if (!current.Deletable) throw new DomainException(409, "active_run", "This question's debate is still running and may use the answer in later turns. Delete it after the debate finishes.", "questionId");
+                await ExecuteAsync(connection, transaction, "DELETE FROM question_requests WHERE tenant_id=@tenant AND id=@id", token, P("tenant", context.TenantId, "id", id)).ConfigureAwait(false);
+                await AuditAsync(connection, transaction, context, "question_deleted", current, token).ConfigureAwait(false);
+                await EventAsync(connection, transaction, context.TenantId, current.ConversationId, "question", id, "deleted", token).ConfigureAwait(false);
+            }, token).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
         public async Task SetHoldStateAsync(RequestContext context, string id, string holdState, CancellationToken token = default)
         {
             RequireAuthenticated(context); ArgumentNullException.ThrowIfNull(id); ArgumentNullException.ThrowIfNull(holdState);
@@ -367,7 +382,7 @@ namespace ArgueBot.Core.Database.Implementations
         internal static async Task<QuestionRequest?> LoadAsync(DbConnection connection, DbTransaction? transaction, string tenantId, string id, CancellationToken token)
         {
             QuestionRequest? request = null;
-            using (DbCommand command = Command(connection, transaction, "SELECT r.*,c.title AS conversation_title,c.user_id AS owner_user_id FROM question_requests r JOIN conversations c ON c.tenant_id=r.tenant_id AND c.id=r.conversation_id WHERE r.tenant_id=@tenant AND r.id=@id", P("tenant", tenantId, "id", id)))
+            using (DbCommand command = Command(connection, transaction, "SELECT r.*,c.title AS conversation_title,c.user_id AS owner_user_id,COALESCE(u.state,'') AS run_state FROM question_requests r JOIN conversations c ON c.tenant_id=r.tenant_id AND c.id=r.conversation_id LEFT JOIN runs u ON u.tenant_id=r.tenant_id AND u.id=r.run_id WHERE r.tenant_id=@tenant AND r.id=@id", P("tenant", tenantId, "id", id)))
             using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
             {
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)) return null;
@@ -376,7 +391,7 @@ namespace ArgueBot.Core.Database.Implementations
                     TenantId = S(reader, "tenant_id"), OwnerUserId = S(reader, "owner_user_id"), Id = S(reader, "id"), ConversationId = S(reader, "conversation_id"), ConversationTitle = S(reader, "conversation_title"), RunId = S(reader, "run_id"), AttemptId = S(reader, "attempt_id"),
                     AskerId = S(reader, "asker_profile_id"), AskerName = S(reader, "asker_name"), AskerRole = S(reader, "asker_role"), Phase = S(reader, "phase"), Round = Convert.ToInt64(reader["round"], CultureInfo.InvariantCulture),
                     Context = S(reader, "context"), Wait = Convert.ToInt64(reader["wait"], CultureInfo.InvariantCulture) != 0, Visibility = S(reader, "visibility"), Status = S(reader, "status"), HoldState = S(reader, "hold_state"),
-                    ResolutionReason = S(reader, "resolution_reason"), ResolutionNote = S(reader, "resolution_note"), ResolvedByUserId = S(reader, "resolved_by_user_id"), AnswerMessageId = S(reader, "answer_message_id"), ResumeAttemptId = S(reader, "resume_attempt_id"),
+                    ResolutionReason = S(reader, "resolution_reason"), ResolutionNote = S(reader, "resolution_note"), ResolvedByUserId = S(reader, "resolved_by_user_id"), AnswerMessageId = S(reader, "answer_message_id"), ResumeAttemptId = S(reader, "resume_attempt_id"), RunState = S(reader, "run_state"),
                     CredentialWarning = Convert.ToInt64(reader["credential_warning"], CultureInfo.InvariantCulture) != 0, ExpiresUtc = Time(S(reader, "expires_utc")), ResolvedUtc = Time(S(reader, "resolved_utc")), CreatedUtc = Time(S(reader, "created_utc")) ?? DateTime.MinValue
                 };
             }

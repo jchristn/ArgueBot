@@ -47,6 +47,11 @@ namespace ArgueBot.Server.Routes
             }), openApiMetadata: OpenApiRouteMetadata.Create("Read or stream question changes in the tenant", "Questions"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.GET, Root + "/{questionId}", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Database.Questions.ReadAsync(Api.Context(http), Api.Parameter(http, "questionId"), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Read a question request with its answers", "Questions"));
+            server.Routes.PostAuthentication.Parameter.Add(HttpMethod.DELETE, Root + "/{questionId}", http => Api.GuardAsync(http, async () =>
+            {
+                await _Database.Questions.DeleteAsync(Api.Context(http), Api.Parameter(http, "questionId"), http.Token).ConfigureAwait(false);
+                await Api.SendAsync(http, new Acknowledgement()).ConfigureAwait(false);
+            }), openApiMetadata: OpenApiRouteMetadata.Create("Delete a resolved question whose debate has finished", "Questions"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, Root + "/{questionId}/answer", http => Api.GuardAsync(http, async () =>
             { await Api.SendAsync(http, await _Engine.AnswerQuestionAsync(Api.Context(http), Api.Parameter(http, "questionId"), Api.Body<QuestionAnswerRequest>(http), http.Token).ConfigureAwait(false)).ConfigureAwait(false); }), openApiMetadata: OpenApiRouteMetadata.Create("Answer every question of a request", "Questions"));
             server.Routes.PostAuthentication.Parameter.Add(HttpMethod.POST, Root + "/{questionId}/skip", http => Api.GuardAsync(http, async () =>

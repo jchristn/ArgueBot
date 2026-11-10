@@ -1896,6 +1896,21 @@
       "response": "QuestionRequest"
     },
     {
+      "public": false,
+      "example": null,
+      "query": [],
+      "execute": false,
+      "save": null,
+      "access": "Member",
+      "request": null,
+      "status": 200,
+      "method": "DELETE",
+      "path": "/v2.0/api/questions/{questionId}",
+      "group": "Questions",
+      "summary": "Delete a resolved question whose debate has finished; the answer message stays in the conversation",
+      "response": "Acknowledgement"
+    },
+    {
       "method": "POST",
       "path": "/v2.0/api/configuration/endpoints/{id}/discover",
       "group": "Configuration",

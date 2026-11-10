@@ -31,7 +31,7 @@ export default function Users() {
   const [deleting, setDeleting] = useState(null);
   const [failure, setFailure] = useState(null);
   const [bulk, setBulk] = useState(false);
-  const deletable = useCallback(user => !user.protected && user.id !== session?.user?.id, [session?.user?.id]);
+  const deletable = useCallback(user => user.protected ? "bulk.blocked.protected" : user.id === session?.user?.id ? "bulk.blocked.self" : "", [session?.user?.id]);
   const selection = useSelection(data, deletable);
   const tenantName = tenantId ? tenants.data?.find(item => item.id === tenantId)?.name || tenantId : session?.tenant?.name;
   const save = async event => {
