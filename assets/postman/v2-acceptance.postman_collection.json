@@ -1624,7 +1624,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{claude}}\",\n    \"{{codex}}\",\n    \"{{gemini}}\",\n    \"{{deepseek}}\"\n  ],\n  \"maxRounds\": 2,\n  \"interventionSeconds\": 0,\n  \"policy\": {\n    \"maxParticipantTurns\": 40,\n    \"maxOrchestrationCalls\": 20,\n    \"maxCompactionCalls\": 10,\n    \"maxToolCalls\": 100,\n    \"maxWallClockSeconds\": 120,\n    \"maxContextCharacters\": 16384,\n    \"questionInstructions\": \"Probe rollout evidence.\"\n  },\n  \"idempotencyKey\": \"workflow-start\"\n}",
+          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{claude}}\",\n    \"{{codex}}\",\n    \"{{gemini}}\",\n    \"{{deepseek}}\"\n  ],\n  \"maxRounds\": 2,\n  \"interventionSeconds\": 0,\n  \"policy\": {\n    \"maxParticipantTurns\": 40,\n    \"maxOrchestrationCalls\": 20,\n    \"maxCompactionCalls\": 10,\n    \"maxToolCalls\": 100,\n    \"maxWallClockSeconds\": 120,\n    \"maxContextCharacters\": 16384,\n    \"questionInstructions\": \"Probe rollout evidence.\",\n    \"intake\": \"off\"\n  },\n  \"idempotencyKey\": \"workflow-start\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -2116,6 +2116,643 @@
       "request": {
         "method": "GET",
         "url": "{{baseUrl}}/v2.0/api/conversations/{{conversationId}}/runs/{{runId}}/questions",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create asking model",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/configuration/models",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman asking model\",\n  \"endpointId\": \"{{endpointId}}\",\n  \"model\": \"multi-agent-questions\",\n  \"supportsTools\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('askingModelId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create asking agent",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/participants",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman asker\",\n  \"modelProfileId\": \"{{askingModelId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('asker',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create answer question conversation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Postman question answer fixture\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('questionConversationId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start answer question run",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{questionConversationId}}/runs",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{asker}}\",\n    \"{{claude}}\"\n  ],\n  \"maxRounds\": 1,\n  \"interventionSeconds\": 0,\n  \"policy\": {\n    \"intake\": \"off\",\n    \"questionHoldSeconds\": 120\n  },\n  \"idempotencyKey\": \"workflow-question-answer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202',()=>pm.response.to.have.status(202));",
+              "if(pm.response.code<300)pm.collectionVariables.set('questionRunId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wait for the answer question",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions?status=open&scope=tenant&conversationId={{questionConversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "const v=pm.response.json();const count=Number(pm.collectionVariables.get('questionPoll')||0)+1;pm.collectionVariables.set('questionPoll',count);if(v.items.length===0 && count<200){setTimeout(()=>{},100);pm.execution.setNextRequest('Wait for the answer question');}else{pm.collectionVariables.set('questionPoll',0);pm.collectionVariables.set('questionId',v.items[0].id);pm.test('The agent asked one structured question',()=>{pm.expect(v.items).to.have.length(1);const q=v.items[0];pm.expect(q.status).to.equal('open');pm.expect(q.askerName).to.equal('Postman asker');pm.expect(q.questions[0].kind).to.equal('single_choice');pm.expect(q.questions[0].options.map(o=>o.key)).to.deep.equal(['prod','all']);});}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create skip question conversation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Postman question skip fixture\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+              "if(pm.response.code<300)pm.collectionVariables.set('skipConversationId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Start skip question run",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{skipConversationId}}/runs",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"protocolVersion\": 2,\n  \"orchestratorId\": \"{{orchestrator}}\",\n  \"participantIds\": [\n    \"{{asker}}\",\n    \"{{claude}}\"\n  ],\n  \"maxRounds\": 1,\n  \"interventionSeconds\": 0,\n  \"policy\": {\n    \"intake\": \"off\",\n    \"questionHoldSeconds\": 120\n  },\n  \"idempotencyKey\": \"workflow-question-skip\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202',()=>pm.response.to.have.status(202));",
+              "if(pm.response.code<300)pm.collectionVariables.set('skipRunId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wait for the skip question",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions?status=open&scope=tenant&conversationId={{skipConversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "const v=pm.response.json();const count=Number(pm.collectionVariables.get('questionPoll')||0)+1;pm.collectionVariables.set('questionPoll',count);if(v.items.length===0 && count<200){setTimeout(()=>{},100);pm.execution.setNextRequest('Wait for the skip question');}else{pm.collectionVariables.set('questionPoll',0);pm.collectionVariables.set('questionId',v.items[0].id);pm.test('The agent asked one structured question',()=>{pm.expect(v.items).to.have.length(1);const q=v.items[0];pm.expect(q.status).to.equal('open');pm.expect(q.askerName).to.equal('Postman asker');pm.expect(q.questions[0].kind).to.equal('single_choice');pm.expect(q.questions[0].options.map(o=>o.key)).to.deep.equal(['prod','all']);});}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Count open questions",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions/summary",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Both questions are open in the tenant',()=>pm.expect(pm.response.json().openTenant).to.be.at.least(2));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read the skip question",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('The run waits for input',()=>pm.expect(pm.response.json().wait).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Skip the question",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/skip",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"note\": \"Assume production only.\",\n  \"idempotencyKey\": \"workflow-skip\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Skipped with the note',()=>{const v=pm.response.json();pm.expect(v.status).to.equal('skipped');pm.expect(v.resolutionNote).to.equal('Assume production only.');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Find the answer question",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions?status=open&scope=tenant&conversationId={{questionConversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('questionId',pm.response.json().items[0].id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject an unknown option",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/answer",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"key\": \"scope\",\n      \"selected\": [\n        \"nowhere\"\n      ]\n    }\n  ],\n  \"idempotencyKey\": \"workflow-bad-answer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400',()=>pm.response.to.have.status(400));",
+              "pm.test('Answers must use listed options',()=>pm.expect(pm.response.json().code).to.equal('invalid_answer'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Answer the question",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/answer",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"key\": \"scope\",\n      \"selected\": [\n        \"prod\"\n      ]\n    }\n  ],\n  \"idempotencyKey\": \"workflow-answer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('Answered with the chosen label',()=>{const v=pm.response.json();pm.expect(v.status).to.equal('answered');pm.expect(v.questions[0].answer.selectedLabels).to.deep.equal(['Production only']);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a second answer",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/v2.0/api/questions/{{questionId}}/answer",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"key\": \"scope\",\n      \"selected\": [\n        \"all\"\n      ]\n    }\n  ],\n  \"idempotencyKey\": \"workflow-second-answer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409',()=>pm.response.to.have.status(409));",
+              "pm.test('The first answer wins',()=>pm.expect(pm.response.json().code).to.equal('question_already_resolved'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wait for the answer debate",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{questionConversationId}}/runs/{{questionRunId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "const v=pm.response.json();const count=Number(pm.collectionVariables.get('questionPoll')||0)+1;pm.collectionVariables.set('questionPoll',count);if(v.state!=='completed' && count<200){setTimeout(()=>{},100);pm.execution.setNextRequest('Wait for the answer debate');}else{pm.collectionVariables.set('questionPoll',0);pm.test('The debate finished after the answer',()=>pm.expect(v.state).to.equal('completed'));}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wait for the skip debate",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{skipConversationId}}/runs/{{skipRunId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "const v=pm.response.json();const count=Number(pm.collectionVariables.get('questionPoll')||0)+1;pm.collectionVariables.set('questionPoll',count);if(v.state!=='completed' && count<200){setTimeout(()=>{},100);pm.execution.setNextRequest('Wait for the skip debate');}else{pm.collectionVariables.set('questionPoll',0);pm.test('The debate finished after the skip',()=>pm.expect(v.state).to.equal('completed'));}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List the answered run questions",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{questionConversationId}}/runs/{{questionRunId}}/questions",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('The run lists its answered question',()=>{const rows=pm.response.json();pm.expect(rows).to.have.length(1);pm.expect(rows[0].status).to.equal('answered');pm.expect(rows[0].answerMessageId).to.not.equal('');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read question changes",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/v2.0/api/questions/events?after=0%7C&limit=200",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+              "pm.test('The change feed reports opened, answered and skipped',()=>{const s=pm.response.json().items.map(x=>x.status);['opened','answered','skipped'].forEach(x=>pm.expect(s).to.include(x));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete answer question conversation",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{questionConversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete skip question conversation",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/conversations/{{skipConversationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete asker",
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/v2.0/api/participants/{{asker}}",
         "header": [
           {
             "key": "Content-Type",

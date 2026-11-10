@@ -94,7 +94,7 @@ namespace ArgueBot.Core.Database.Implementations
         }
         internal static async Task ReserveAsync(DbConnection connection, DbTransaction transaction, RequestContext context, DebateRun run, GenerationAttempt attempt, CancellationToken token)
         {
-            string used = run.Phase == "compaction" ? "compaction_calls" : run.Phase == "question" || run.Phase == "synthesis" ? "orchestration_calls" : "participant_turns";
+            string used = run.Phase == "compaction" ? "compaction_calls" : run.Phase == "intake" || run.Phase == "question" || run.Phase == "synthesis" ? "orchestration_calls" : "participant_turns";
             int changed = await ExecuteAsync(connection, transaction, "UPDATE debate_policies SET " + used + "=" + used + "+1,estimated_input_tokens=estimated_input_tokens+@estimate,updated_utc=@now WHERE tenant_id=@tenant AND id=@run AND " + used + "<max_" + used + " AND (max_estimated_input_tokens=0 OR estimated_input_tokens+@estimate<=max_estimated_input_tokens)", token, P("tenant", context.TenantId, "run", run.Id, "estimate", attempt.EstimatedInputTokens)).ConfigureAwait(false);
             if (changed != 1) throw new DomainException(409, "debate_budget_exhausted", "This phase or estimated input budget is exhausted. Review usage and start a continuation with new limits; retry does not reset reservations.");
             await ExecuteAsync(connection, transaction, "INSERT INTO debate_attempt_usage(id,tenant_id,estimated_input_tokens,created_utc,updated_utc) VALUES(@id,@tenant,@estimate,@now,@now)", token, P("id", attempt.Id, "tenant", context.TenantId, "estimate", attempt.EstimatedInputTokens)).ConfigureAwait(false);

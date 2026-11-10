@@ -168,9 +168,9 @@ namespace ArgueBot.Core.Services
         {
             ArgumentNullException.ThrowIfNull(request);
             StringBuilder text = new StringBuilder();
-            if (request.Status == "skipped")
+            if (request.Status == "skipped" || request.Status == "expired")
             {
-                text.Append(request.ResolutionReason == "expired" ? "The user did not answer in time" : "The user skipped");
+                text.Append(request.Status == "expired" ? "The user did not answer in time" : "The user skipped");
                 text.Append(" the question").Append(request.Questions.Count == 1 ? "" : "s").Append(" from ").Append(request.AskerName.Length == 0 ? request.AskerId : request.AskerName).Append(". Continue on stated assumptions.");
                 if (request.ResolutionNote.Length > 0) text.Append("\nNote from the user: ").Append(request.ResolutionNote);
                 foreach (Question question in request.Questions) text.Append("\n- ").Append(question.Header).Append(": ").Append(question.Prompt);

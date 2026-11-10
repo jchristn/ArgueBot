@@ -32,6 +32,7 @@ namespace Test.Shared
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlEvidenceTools", "PostgreSQL evidence tools match SQLite paging, filters, literal case-insensitive search and gaps", cancellation => FreshAsync(variable, cancellation, () => EvidenceAsync(variable, cancellation)), skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlOwnership", "PostgreSQL rejects a second writer and never reconnects a lost owner", cancellation => FreshAsync(variable, cancellation, () => OwnershipAsync(variable, cancellation)), skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlResources", "PostgreSQL resource storage matches SQLite: names, revisions, history cap, import, search, tenant isolation and cascading deletes", cancellation => FreshAsync(variable, cancellation, () => ResourcesAsync(variable, cancellation)), skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
+                    cases.Add(new TestCaseDescriptor("Providers", "PostgresqlQuestions", "PostgreSQL question storage matches SQLite: validation, options and selections, tenant isolation, concurrent answers, the inbox, the change feed and cascading deletes", cancellation => FreshAsync(variable, cancellation, () => QuestionsAsync(variable, cancellation)), skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                     cases.Add(new TestCaseDescriptor("Providers", "PostgresqlIdentity", "PostgreSQL identity seeding, tenant isolation, credentials and cascading deletes match SQLite", cancellation => FreshAsync(variable, cancellation, () => IdentityAsync(variable, cancellation)), skipReason: missing ? "Set " + variable + " for a disposable test database." : null));
                 }
                 return new List<TestSuiteDescriptor> { new TestSuiteDescriptor("Providers", "Database provider contracts", cases) };
@@ -81,6 +82,20 @@ namespace Test.Shared
                 {
                     await database.InitializeAsync(token).ConfigureAwait(false);
                     await ResourceChecks.RunAsync(database, token).ConfigureAwait(false);
+                }
+            }
+            finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
+        }
+        private static async Task QuestionsAsync(string variable, CancellationToken token)
+        {
+            string home = Path.Combine(Path.GetTempPath(), "arguebot-provider-questions-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(home); HomePermissions.Directory(home);
+            try
+            {
+                using (DatabaseDriverBase database = DatabaseDriverFactory.Create(new DatabaseSettings { Type = DatabaseTypeEnum.Postgresql, ConnectionEnvironmentVariable = variable }, home))
+                {
+                    await database.InitializeAsync(token).ConfigureAwait(false);
+                    await QuestionChecks.StorageInDatabaseAsync(database, new RequestContext { TenantId = "ten_local", UserId = "usr_local", IsAuthenticated = true, IsAdmin = true, IsTenantAdmin = true, Role = "admin" }, home, token).ConfigureAwait(false);
                 }
             }
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }

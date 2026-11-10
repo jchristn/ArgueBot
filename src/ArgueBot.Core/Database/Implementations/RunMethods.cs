@@ -105,7 +105,7 @@ namespace ArgueBot.Core.Database.Implementations
                 }
                 if (orchestrator != null)
                 {
-                    await DebateMethods.CreateAsync(connection, transaction, context, runId, request.Mode, orchestrator, participants, token).ConfigureAwait(false);
+                    await DebateMethods.CreateAsync(connection, transaction, context, runId, request.Mode, orchestrator, participants, request.Mode != "followup" && request.Policy.Intake == "ask_if_needed" ? "intake" : "question", token).ConfigureAwait(false);
                     await BudgetMethods.CreateAsync(connection, transaction, context, runId, request.Policy, token).ConfigureAwait(false);
                     await PromptMethods.FreezeAsync(connection, transaction, context, conversationId, runId, request.PromptIds, token).ConfigureAwait(false);
                 }

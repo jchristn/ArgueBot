@@ -6,6 +6,7 @@ Each protocol 2 debate step sends an instruction prompt to one model. The conver
 
 | Step (`purpose`) | Sent to | Reply the protocol expects |
 | --- | --- | --- |
+| `intake` | Orchestrator | Free text restating the question with any constraints you gave. Before round 1, when the debate's `intake` is `ask_if_needed` (the default for new debates), the orchestrator may first call `ask_user`. This step's prompt is built in and is not in the prompt library. |
 | `question` | Orchestrator | JSON with `question` and `rationale` |
 | `response` | Each agent | Free text: the agent's position and evidence |
 | `synthesis` | Orchestrator | JSON with `proposal` |
@@ -46,6 +47,10 @@ ArgueBot appends one line to every vote prompt, after your text: "Proposal IDs i
 A prompt can tell agents where to find more context instead of including it, for example "if you need to know more about billing, call `read_resource` with name `billing`". The agent reads the [resource](RESOURCES.md) only when it needs it, provided the debate's resource access is Read or Read and write. Agents' role instructions work the same way. Add `{resources}` to list every resource the debate can see.
 
 When a prompt names a resource with `read_resource` (for example `read_resource("billing")` or "call read_resource with name billing") and no resource has that name in your tenant, reading or saving the prompt returns a warning in `warnings`, and the dashboard editor shows it. The prompt still saves, so you can write the prompt before the resource.
+
+## Asking you questions
+
+When a debate lets a step ask you questions (`userQuestions`, see [QUESTIONS.md](QUESTIONS.md)), the agent gets the `ask_user` tool, whose description tells it when to ask and how. Prompts do not need to mention it. To encourage or discourage questions for a step, say so in that step's prompt, for example "Ask the user before assuming a target environment." When an attempt resumes a step after you answered, ArgueBot adds a sentence telling the agent to continue from where it left off with your answer, which is in the conversation as a message beginning "The user answered".
 
 ## Choosing prompts
 

@@ -179,7 +179,21 @@ export class ApiClient {
   retireCredentialKeys(expectedKeyId) { return this.request("/v2.0/api/configuration/secret-keys/retire", { method: "POST", body: { expectedKeyId } }); }
   summaries(id, runId, pageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?pageNumber=" + pageNumber); }
   summary(id, runId, summaryId, sourcePageNumber = 1) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/summaries?id=" + encodeURIComponent(summaryId) + "&sourcePageNumber=" + sourcePageNumber); }
-  clarifications(id, runId) { return this.readListPages(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/clarifications", 100); }
+  questions({ status = "", scope = "mine", conversationId = "", runId = "", pageNumber = 1, pageSize = 25 } = {}) {
+    const query = new URLSearchParams({ scope, pageNumber: String(pageNumber), pageSize: String(pageSize) });
+    if (status) query.set("status", status);
+    if (conversationId) query.set("conversationId", conversationId);
+    if (runId) query.set("runId", runId);
+    return this.request("/v2.0/api/questions?" + query);
+  }
+  questionSummary() { return this.request("/v2.0/api/questions/summary"); }
+  question(id) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id)); }
+  answerQuestion(id, body) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/answer", { method: "POST", body }); }
+  skipQuestion(id, body) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/skip", { method: "POST", body }); }
+  deferQuestion(id) { return this.request("/v2.0/api/questions/" + encodeURIComponent(id) + "/defer", { method: "POST" }); }
+  runQuestions(id, runId) { return this.request(this.v2root(id) + "/runs/" + encodeURIComponent(runId) + "/questions"); }
+  /** Question changes after a cursor. With no cursor the service returns the newest cursor and no changes. */
+  questionEvents(after = "", limit = 100, signal) { return this.request("/v2.0/api/questions/events?limit=" + limit + (after ? "&after=" + encodeURIComponent(after) : ""), { signal }); }
   previewEndpoint(id) { return this.request("/v2.0/api/configuration/endpoints/" + encodeURIComponent(id) + "/preview"); }
   discoverEndpoint(id) { return this.request("/v2.0/api/configuration/endpoints/" + encodeURIComponent(id) + "/discover", { method: "POST" }); }
   async readListPages(route, size) {

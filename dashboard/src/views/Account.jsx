@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { updateSessionUser } from "../api/session.js";
 import AuthCredentials from "../components/AuthCredentials.jsx";
 import AuthSessions from "../components/AuthSessions.jsx";
+import QuestionNotifications from "../components/QuestionNotifications.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field } from "../components/ui.jsx";
 
@@ -39,6 +40,7 @@ export default function Account() {
         <footer className="dialog-actions"><Button label="common.save" type="submit" className="primary" disabled={!profile} /></footer>
       </form>
     </section>}
+    <QuestionNotifications />
     <section className="page-section">
       <header><h2>{t("account.password")}</h2></header>
       <form className="account-form" onSubmit={async event => {

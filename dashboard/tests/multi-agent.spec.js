@@ -340,6 +340,9 @@ test("post-implementation review covers every web route and new configuration fo
     for (const kind of ["agents", "endpoints", "models", "credentials"]) {
       await page.getByRole("tab", { name: new RegExp("^" + tabNames[kind][0]) }).click();
       const toolbar = page.locator(".tab-toolbar");
+      // Measure only after the chosen tab's toolbar has rendered.
+      await expect(toolbar.getByRole("button", { name: tabNames[kind][1], exact: true })).toBeVisible();
+      await expect(toolbar.locator("p")).toBeVisible();
       const [left, right] = await Promise.all([toolbar.locator("p").boundingBox(), toolbar.getByRole("button", { name: tabNames[kind][1], exact: true }).boundingBox()]);
       if (width > 767) expect(Math.abs((left.y + left.height / 2) - (right.y + right.height / 2))).toBeLessThan(24);
       const bar = await toolbar.boundingBox();

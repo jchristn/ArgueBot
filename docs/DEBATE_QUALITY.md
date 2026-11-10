@@ -1,6 +1,6 @@
 # Reviewing debate quality
 
-The [synthetic corpus](../assets/fixtures/debate-quality.json) covers contradictory evidence, a late correction, changed assumptions and persistent minority dissent. It is separate from deterministic transport fixtures: those fixtures prove execution, persistence and boundaries, but their canned responses cannot establish model judgment or summary fidelity.
+The [synthetic corpus](../assets/fixtures/debate-quality.json) covers contradictory evidence, a late correction, changed assumptions, persistent minority dissent and a vague question that the orchestrator should ask about before round 1 (see [QUESTIONS.md](QUESTIONS.md)). It is separate from deterministic transport fixtures: those fixtures prove execution, persistence and boundaries, but their canned responses cannot establish model judgment or summary fidelity.
 
 Use an isolated workspace with the intended model profiles. Explicitly running these cases may consume provider quota. Record the exact harness versions, provider model IDs, endpoint protocol, model-check observations, generation settings, run policy, database provider and source revision. Keep credential values out of the report.
 

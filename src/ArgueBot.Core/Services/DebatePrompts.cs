@@ -14,12 +14,12 @@ namespace ArgueBot.Core.Services
 
         internal static RunnerProfile Profile(DebateRun run)
         {
-            if (run.Phase == "question" || run.Phase == "synthesis" || run.Phase == "compaction") return run.Orchestrator ?? throw new DomainException(409, "missing_orchestrator", "Select an orchestrator before starting this debate.");
+            if (run.Phase == "intake" || run.Phase == "question" || run.Phase == "synthesis" || run.Phase == "compaction") return run.Orchestrator ?? throw new DomainException(409, "missing_orchestrator", "Select an orchestrator before starting this debate.");
             return run.Participants[(run.SpeakerIndex + run.Round - 1) % run.Participants.Count];
         }
         internal static string Build(DebateRun run, RunnerProfile profile)
         {
-            string prompt = BuildPhase(run, profile);
+            string prompt = run.Phase == "intake" ? Intake(run, profile) : BuildPhase(run, profile);
             // Seats see their own earlier votes, each naming that round's proposal, and sometimes copy the newest ID they can see. Restate the open one last.
             if (run.Phase == "ratification" && !run.RepairPending) prompt += "\nProposal IDs in earlier messages belong to closed proposals. This vote's proposalId is " + JsonSerializer.Serialize(run.ProposalId) + ".";
             if (run.RepairPending && run.Phase == "compaction") prompt += "\nYour previous summary was rejected by validation. Reply again with only the JSON object: every supplied source ID exactly once, all seven sections, each pinned constraint's source ID named in the constraints section, and the size limits. " + RepairLimit(run, "summary pauses the debate and keeps the previous memory.");
@@ -31,6 +31,11 @@ namespace ArgueBot.Core.Services
                 prompt += " " + RepairLimit(run, "reply pauses the debate for the moderator.");
             }
             return prompt;
+        }
+        /// <summary>The intake step: before round 1 the orchestrator decides whether the question is too vague and may ask the person running the debate about it.</summary>
+        private static string Intake(DebateRun run, RunnerProfile profile)
+        {
+            return "You are " + profile.Name + ", the orchestrator of a debate. The question is: " + run.Question + "\nBefore the panel starts, decide whether the question is too vague for the panel to give a useful answer. If answers from the person who asked would change the panel's work, call ask_user once with up to " + run.Policy.MaxIntakeQuestions.ToString(CultureInfo.InvariantCulture) + " questions, preferring choices with a recommended option. If the question is clear, do not call it. Then reply in two or three sentences that restate the question with any constraints the person gave, for the panel to use. Do not answer the question yourself.";
         }
         private static string RepairLimit(DebateRun run, string consequence)
         {
@@ -62,6 +67,7 @@ namespace ArgueBot.Core.Services
                 ["proposal"] = JsonSerializer.Serialize(run.ProposalText),
                 ["proposal_id"] = JsonSerializer.Serialize(run.ProposalId),
                 ["resources"] = run.ResourceCatalog,
+                ["answered_questions"] = run.AnsweredQuestions,
             };
         }
     }

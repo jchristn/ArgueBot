@@ -33,7 +33,7 @@ namespace ArgueBot.Server
                 if (update.TlsEnabled.HasValue) settings.TlsEnabled = update.TlsEnabled.Value;
                 if (update.TlsPasswordEnvironmentVariable != null) settings.TlsPasswordEnvironmentVariable = update.TlsPasswordEnvironmentVariable;
                 if (settings.TlsEnabled && !File.Exists(Path.Combine(_Paths.Home, "keys", "listener.pfx"))) throw new DomainException(400, "tls_certificate_missing", "Provision keys/listener.pfx before enabling HTTPS.");
-                settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.MaxParticipants = update.MaxParticipants ?? settings.MaxParticipants; settings.ListenAddress = update.ListenAddress ?? settings.ListenAddress; settings.AllowCli = update.AllowCli;
+                settings.Port = update.Port; settings.MaxConcurrentRuns = update.MaxConcurrentRuns; settings.MaxParticipants = update.MaxParticipants ?? settings.MaxParticipants; settings.MaxLiveQuestionHolds = update.MaxLiveQuestionHolds ?? settings.MaxLiveQuestionHolds; settings.ListenAddress = update.ListenAddress ?? settings.ListenAddress; settings.AllowCli = update.AllowCli;
                 if (update.StreamBatchCharacters.HasValue) settings.StreamBatchCharacters = update.StreamBatchCharacters.Value;
                 if (update.StreamCommitMilliseconds.HasValue) settings.StreamCommitMilliseconds = update.StreamCommitMilliseconds.Value;
                 if (update.EventRetentionEnabled.HasValue) settings.EventRetentionEnabled = update.EventRetentionEnabled.Value;

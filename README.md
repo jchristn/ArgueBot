@@ -18,7 +18,7 @@ What v2.0.0 does:
 
 - **Multi-agent debates.** A panel of 2 to 16 agents (configurable up to 64): Claude Code, Codex, Gemini CLI, Mux, a generic CLI, or REST models served through Ollama or an OpenAI-compatible endpoint. An orchestrator asks one focused question per round, the agents respond, the orchestrator proposes an answer and every agent votes. Agreement requires an explicit "agree" from every active agent on the same proposal; disagreement stays visible.
 - **You moderate.** Add context for everyone or privately for one agent, either immediately or at the next turn; pin constraints; edit the proposal under vote; add, remove or replace agents between turns; pause, resume, interrupt, extend or stop.
-- **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, check evidence and ask you for clarification. Original turns are never discarded.
+- **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, check evidence and stop to ask you questions. Original turns are never discarded.
 - **Editable prompts.** Each debate step's instructions come from a prompt library. Factory defaults are read-only; duplicate one to change it, using `{parameters}` such as `{question}`, and choose prompts per conversation.
 - **Reusable configuration.** Agents, models, HTTP endpoints and encrypted secrets (Claude Code tokens, Codex logins, bearer, header and query API keys) are defined once and reused. Execution budgets, timeouts and output limits are set per run.
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
@@ -124,6 +124,17 @@ The agent reads the resource only when it needs it. Agents can list and search r
 
 Manage resources on the dashboard's **Resources** page, in the TUI under Menu > **Resources**, with the CLI's `resources` commands or through `/v2.0/api/resources`. Import and export use `.md` files with front matter. See [resources](docs/RESOURCES.md) and the [tool reference](MCP_API.md#resource-tools).
 
+## Questions for you
+
+Agents can stop in the middle of a turn and ask you one to four questions when your answer would change their work: free text, a single choice, a multi-select or yes and no, with a recommended option and an Other answer where it helps. You answer in a dialog. In the dashboard it opens by itself on the waiting conversation, a notice offers it elsewhere, and the **Questions** page lists every question with a badge in the sidebar. The TUI opens its question dialogs the same way and lists them under Menu > **Questions waiting for you**. The CLI has `questions list|show|answer|skip|defer|watch|wait`, and the API has `/v2.0/api/questions`.
+
+- **Answer, skip or answer later.** Skipping tells the agent to continue on stated assumptions. Answer later ends the agent's waiting turn; the debate repeats that step once you answer. Closing the dialog never skips a question.
+- **Waiting is free.** While an agent waits, its turn timeout and the debate's wall-clock budget stop and the run frees its capacity slot. After `questionHoldSeconds` (default 300) the turn parks, and your answer resumes it, even after a service restart.
+- **Opening questions.** New debates start with an intake step in which the orchestrator may ask about a vague question before round 1. Turn it off per debate.
+- **Never secrets.** ArgueBot never needs a password, token or key in an answer, and questions that look like they ask for one are flagged.
+
+See [docs/QUESTIONS.md](docs/QUESTIONS.md). Version 2.3.0 replaced the older free-text clarification requests with questions.
+
 ## Terminal interface
 
 Use **Start debate** to enter a question, choose speakers and an orchestrator, set debate options and review before submission. The service runs the debate while the TUI displays committed history and current state.
@@ -175,6 +186,8 @@ dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-work
 dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations list
 dotnet src/ArgueBot.Cli/bin/Release/net10.0/ArgueBot.Cli.dll --home .run/my-workspace conversations create "Design choice" --question "Which design should we choose?"
 ```
+
+Answer an agent's question from a script with `questions answer ID --choice scope=prod`, or follow a debate with `questions wait CONVERSATION RUN`, which asks on a terminal and exits with code 4 when it cannot.
 
 `login` asks for the password without echoing it and remembers the session for that home and server (in an owner-only `client-session.json`, never the password); `logout` forgets it. Scripts can pass `--token` or set `ARGUEBOT_TOKEN` instead. Commands support sign-in, bearer tokens, users, tenants, the audit log, share links, participant management, prompts, resources (`resources list`, `show`, `add`, `update`, `rename`, `lock`, `history`, `revert`, `import`, `export` and `delete`), notes, debate controls, generation-attempt inspection and transcript export. JSON inputs can come from stdin or `--file PATH`. Conversation export writes complete Markdown; `conversations show ID --jsonl` streams full message records. See [REST_API.md](REST_API.md) for the service contract and generated API artifacts.
 

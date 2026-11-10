@@ -20,9 +20,8 @@ All inputs are JSON objects. Unknown tools fail with a recoverable error. Result
 | `get_turn` | `id`, `offset` (UTF-16 offset, default 0), `length` (1 through 8192, default 2048) | Original content chunk, source ID, sequence and nullable `nextOffset` |
 | `get_debate_state` | `{}` | Accepted question, current question, phase, round and round limit, seats, the open proposal, pinned moderator `constraints` visible to this seat, `earlierPositions` (votes on the most recent earlier proposal), context epoch and roster revision. Votes on the open proposal are omitted so each seat evaluates it independently |
 | `get_summary` | Optional `id`; `offset` 0, 100, 200... for source pages | Current shared and recipient-visible summaries, or an exact named summary; exact source count and a page of 100 original IDs |
-| `request_clarification` | `query`, `blocking` (default false) | Durable moderator information request. Repeating the same open question during one invocation, including a harness retry with a new MCP call ID, returns the existing request |
 
-Original text chunks default to 2,048 and are at most 8,192 UTF-16 characters and never split a surrogate pair. Arguments are bounded to 16 KiB; serialized results to 64 KiB. List previews are not full source text: follow an ID with `get_turn`, then follow `nextOffset`. Tools see the same turns as the invocation's prompt context: completed public turns in this conversation, including earlier runs, and turns addressed to this seat, up to the invocation's source boundary. They cannot retrieve future, partial or another seat's private messages. Shared summaries contain public sources only. Private compaction runs receive only the selected recipient partition; ordinary orchestration and other seats cannot retrieve that private memory. A blocking clarification pauses at the boundary; the moderator must answer or explicitly skip it before resuming.
+Original text chunks default to 2,048 and are at most 8,192 UTF-16 characters and never split a surrogate pair. Arguments are bounded to 16 KiB; serialized results to 64 KiB. List previews are not full source text: follow an ID with `get_turn`, then follow `nextOffset`. Tools see the same turns as the invocation's prompt context: completed public turns in this conversation, including earlier runs, and turns addressed to this seat, up to the invocation's source boundary. They cannot retrieve future, partial or another seat's private messages. Shared summaries contain public sources only. Private compaction runs receive only the selected recipient partition; ordinary orchestration and other seats cannot retrieve that private memory. A waiting `ask_user` question holds or parks the turn until the person answers or skips it (see below).
 
 Example native call:
 
@@ -30,10 +29,54 @@ Example native call:
 {"name":"get_turn","arguments":{"id":"msg_example","offset":0}}
 ```
 
-Example clarification:
+## Asking the user: `ask_user`
+
+`ask_user` lets an agent stop in the middle of its turn and ask the person running the debate one to four questions. The person answers in a dialog in the dashboard or TUI, or through the CLI, REST API or C# client. `request_clarification` was removed in 2.3.0; a call to it returns `unknown_tool`.
+
+The tool is offered according to the debate policy. `userQuestions` is `all` (every seat, the default), `orchestrator` (the orchestrator's intake, question and synthesis steps, and a follow-up answerer) or `off`. Summary (compaction) steps never offer it. With `intake: ask_if_needed`, the default for new debates, the orchestrator runs an intake step before round 1 in which it may ask about a vague question.
+
+Arguments:
+
+| Field | Rules |
+| --- | --- |
+| `questions` | Required, 1 to 4 items (at most `maxIntakeQuestions` during intake). |
+| `questions[].prompt` | Required, 1 to 1,000 characters. |
+| `questions[].kind` | Required: `text`, `single_choice`, `multi_choice` or `confirm`. |
+| `questions[].key` | Optional identifier, 1 to 32 letters, digits, `.`, `_` or `-`, unique in the call; defaults to `q1`, `q2`... Answers report it. |
+| `questions[].header` | Optional short label, up to 40 characters; defaults to the start of the prompt. |
+| `questions[].options` | Choice kinds only: 2 to 12 items with `id` (as `key`), `label` (up to 80), optional `description` (up to 300) and `recommended` (at most one for `single_choice`). |
+| `questions[].allowOther` | Choice kinds: also accept a free-text answer. |
+| `questions[].minSelections`, `maxSelections` | `multi_choice` bounds; defaults 1 (0 when Other is allowed) and the option count. |
+| `questions[].maxLength`, `placeholder` | `text` answers: 1 to 8,000 characters (default 8,000) and an optional hint up to 120. |
+| `questions[].required` | Default true. Optional questions may be left unanswered. |
+| `context` | Optional markdown, up to 2,000 characters, explaining why the agent asks. |
+| `wait` | Default true: the call returns the answer. False records the question and returns at once; the answer reaches the asking seat's next turn. |
+| `visibility` | `panel` (default; every seat sees the answer) or `self` (only the asking seat). |
+
+Results, inside the usual `{ "success": true, "result": ... }`:
+
+| `status` | Meaning and fields |
+| --- | --- |
+| `answered` | `requestId`, `answeredUtc` and `answers[]` with `key`, `kind`, `skipped`, `selected` (option IDs), `selectedLabels`, `otherText`, `text` and `confirmed`. |
+| `skipped` | The person skipped the request (`reason: skipped_by_user`, with an optional `note`) or it expired (`reason: expired`). Continue on stated assumptions. |
+| `parked` | The person has not answered within the hold window (`questionHoldSeconds`, default 300), chose Answer later, paused the debate, or the service is stopping. End the turn in one short sentence without conclusions that depend on the answer. The service resumes the same step once the question is answered, and that attempt's prompt says so; the answer appears in the conversation as a message from the user beginning "The user answered". |
+| `recorded` | `wait: false`. |
+| `cancelled` | The debate was stopped. |
+
+Errors are tool errors, not transport failures: `invalid_question` (with a `field` path such as `questions[0].options`), `intake_question_limit`, `question_limit` (per turn, `maxQuestionRequestsPerTurn`, default 2; per debate, `maxQuestionRequestsPerRun`, default 20), `user_questions_disabled` and `tool_budget_exhausted`. A harness that repeats the same call within one attempt, including with a new MCP call ID, gets the existing request.
+
+While a call is held, the service stops the agent's turn timeout and the debate's wall-clock budget and releases the run's capacity slot. Never ask for passwords, tokens or keys; questions that look like it are flagged and the person is warned.
+
+Example:
 
 ```json
-{"name":"request_clarification","arguments":{"query":"What rollback threshold is acceptable?","blocking":true}}
+{"name":"ask_user","arguments":{"context":"The scope decides the rollback design.","questions":[{"key":"scope","header":"Scope","prompt":"Which environments should the rollout cover?","kind":"single_choice","options":[{"id":"prod","label":"Production only","recommended":true},{"id":"all","label":"Every environment"}],"allowOther":true}]}}
+```
+
+Answered result:
+
+```json
+{"success":true,"result":{"status":"answered","requestId":"qrq_example","answers":[{"key":"scope","kind":"single_choice","skipped":false,"selected":["prod"],"selectedLabels":["Production only"],"otherText":"","text":"","confirmed":null}]}}
 ```
 
 ## Resource tools
@@ -94,7 +137,7 @@ The service creates an owner-only named pipe for one invocation and launches its
 
 Supported methods are `initialize`, `ping`, `tools/list` and `tools/call`. Initialization negotiates the supported 2024-11-05, 2025-03-26, 2025-06-18 or 2025-11-25 protocol revision. The server advertises only the supplied conversation and resource tools. Duplicate request IDs are rejected before executing a tool. Each connection is bounded to 256 frames, 32 tool executions and 1 MiB per frame. Cancellation closes the pipe and terminates the harness process tree through the existing CLI runner.
 
-Claude Code uses `--strict-mcp-config --mcp-config` with the generated server definition. Codex uses `--config mcp_servers.arguebot.command=...` and `--config mcp_servers.arguebot.args=...`. No pasted token appears in these arguments. Local fixture child processes exercise both configuration shapes, protocol negotiation, original evidence retrieval, resource reads, appends and stale-revision conflicts, and rejection of duplicate/unknown calls. Live provider compatibility remains a separate acceptance gate, including the pinned Docker CLI versions.
+Claude Code uses `--strict-mcp-config --mcp-config` with the generated server definition. Codex uses `--config mcp_servers.arguebot.command=...` and `--config mcp_servers.arguebot.args=...`. So that a held `ask_user` call is not cut off by the harness, Claude Code gets `MCP_TOOL_TIMEOUT` and Codex gets `mcp_servers.arguebot.tool_timeout_sec`, both set above the longest hold window (1,800 seconds plus a minute). Claude Code also gets `--disallowedTools AskUserQuestion`, because its built-in question tool cannot reach a person in a headless invocation. No pasted token appears in these arguments. Local fixture child processes exercise both configuration shapes, protocol negotiation, original evidence retrieval, resource reads, appends and stale-revision conflicts, and rejection of duplicate/unknown calls. Live provider compatibility remains a separate acceptance gate, including the pinned Docker CLI versions.
 
 References: [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) and [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 

@@ -27,6 +27,16 @@ export default function DebatePolicyEditor({ value, maximum, onChange }) {
       </div>
       {value.resourceAccess === "read_write" && <div className="form-grid">{["maxResourceWritesPerTurn", "maxResourceWriteBytesPerTurn", "maxResourcesCreated"].map(key => <Field key={key} label={`policy.${key}`}>{props => <input {...props} type="number" required min={0} max={maximum[key]} value={value[key]} onChange={event => change(key, Number(event.target.value))} />}</Field>)}</div>}
     </fieldset>
+    <fieldset className="question-policy">
+      <legend>{t("policy.questions")}</legend>
+      <p className="muted">{t("policy.questions.help")}</p>
+      <div className="form-grid">
+        <Field label="policy.userQuestions">{props => <select {...props} value={value.userQuestions || "all"} onChange={event => change("userQuestions", event.target.value)}>{["off", "orchestrator", "all"].map(mode => <option key={mode} value={mode}>{t("policy.userQuestions." + mode)}</option>)}</select>}</Field>
+        <Field label="policy.intake">{props => <select {...props} value={value.intake || "off"} onChange={event => change("intake", event.target.value)}>{["off", "ask_if_needed"].map(mode => <option key={mode} value={mode}>{t("policy.intake." + mode)}</option>)}</select>}</Field>
+        <Field label="policy.resumeOnAnswer">{props => <select {...props} value={value.resumeOnAnswer === false ? "pause" : "resume"} onChange={event => change("resumeOnAnswer", event.target.value === "resume")}><option value="resume">{t("policy.resumeOnAnswer.resume")}</option><option value="pause">{t("policy.resumeOnAnswer.pause")}</option></select>}</Field>
+      </div>
+      {value.userQuestions !== "off" && <div className="form-grid">{[["questionHoldSeconds", 0], ["questionExpirySeconds", 0], ["maxQuestionRequestsPerTurn", 0], ["maxQuestionRequestsPerRun", 0], ["maxIntakeQuestions", 1]].map(([key, minimum]) => <Field key={key} label={`policy.${key}`}>{props => <input {...props} type="number" required min={minimum} max={maximum[key]} value={value[key]} onChange={event => change(key, Number(event.target.value))} />}</Field>)}</div>}
+    </fieldset>
     {["questionInstructions", "synthesisInstructions", "summaryInstructions"].map(key => <Field key={key} label={`policy.${key}`}>{props => <textarea {...props} rows={3} maxLength={4000} value={value[key]} onChange={event => change(key, event.target.value)} />}</Field>)}
   </details>;
 }

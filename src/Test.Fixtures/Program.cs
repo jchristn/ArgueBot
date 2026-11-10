@@ -28,6 +28,15 @@ namespace ArgueBot.Tests.Fixtures
             }
             if (mode == "mcp-claude" || mode == "mcp-codex") return await McpClientFixture.RunAsync(args).ConfigureAwait(false);
             if (mode == "mcp-resources-claude" || mode == "mcp-resources-codex") return await McpClientFixture.ResourcesAsync(args).ConfigureAwait(false);
+            if (mode == "mcp-questions-claude" || mode == "mcp-questions-codex") return await McpClientFixture.QuestionsAsync(args).ConfigureAwait(false);
+            if (mode == "envelope-questions")
+            {
+                // A generic CLI that asks the user through the JSON tool envelope and answers with the reply.
+                if (input.Contains("ask_user: {", StringComparison.Ordinal)) Console.WriteLine(input.Contains("\"answered\"", StringComparison.Ordinal) && input.Contains("Every environment", StringComparison.Ordinal) ? "Envelope question answered: Every environment." : input.Contains("\"parked\"", StringComparison.Ordinal) ? "Envelope question parked." : "Envelope question failed.");
+                else if (input.Contains("\"ask_user\"", StringComparison.Ordinal)) Console.WriteLine("{\"contextTool\":{\"name\":\"ask_user\",\"argumentsJson\":\"{\\\"questions\\\":[{\\\"key\\\":\\\"scope\\\",\\\"header\\\":\\\"Scope\\\",\\\"prompt\\\":\\\"Which environments?\\\",\\\"kind\\\":\\\"single_choice\\\",\\\"options\\\":[{\\\"id\\\":\\\"prod\\\",\\\"label\\\":\\\"Production only\\\"},{\\\"id\\\":\\\"all\\\",\\\"label\\\":\\\"Every environment\\\"}]}]}\"}}");
+                else Console.WriteLine("No question tool offered.");
+                return 0;
+            }
             if (mode == "envelope-resources")
             {
                 // A generic CLI that uses the JSON tool envelope: read a resource, append a note, then answer with what it read.

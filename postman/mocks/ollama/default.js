@@ -121,6 +121,20 @@ const server = http.createServer((req, res) => {
         if (offered('append_resource') && results.length === 1) return emit('', [{ id: 'resource_note', name: 'append_resource', args: { name: noteName, text: 'REST note.' } }]);
         return emit(results.some(result => result.includes('Invoices go out on the 1st')) ? 'Billing context read: invoices go out on the 1st.' : 'Billing context unavailable.');
       }
+      if (model === 'multi-agent-questions') {
+        // Ask the user about the rollout scope once, then answer from the reply. A parked call ends the turn; the resumed step reads the answer from history.
+        const offered = body.tools?.some(tool => tool.function?.name === 'ask_user');
+        const results = messages.filter(message => message.role === 'tool').map(message => String(message.content));
+        const history = messages.map(message => String(message.content)).join('\n');
+        const answered = history.match(/The user answered[^\n]*\n- Scope \([^)]*\): ([^\n]+)/)?.[1];
+        if (answered) return emit('Using your answer (' + answered + '): roll out to that scope with a rollback threshold.');
+        if (history.includes('The user skipped')) return emit('No scope was given, so I assume production only with a rollback threshold.');
+        const reply = results.find(result => result.includes('ask_user') || result.includes('requestId')) || '';
+        if (reply.includes('"answered"')) return emit('Using your answer (' + (reply.match(/"selectedLabels":\["([^"]+)"/)?.[1] || reply.match(/"otherText":"([^"]+)"/)?.[1] || 'given') + '): roll out to that scope with a rollback threshold.');
+        if (reply.includes('"parked"')) return emit('Waiting for the rollout scope before answering.');
+        if (reply.includes('"skipped"')) return emit('No scope was given, so I assume production only with a rollback threshold.');
+        if (offered && results.length === 0) return emit('', [{ id: 'ask_scope', name: 'ask_user', args: { context: 'The rollout scope decides the rollback design.', questions: [{ key: 'scope', header: 'Scope', prompt: 'Which environments should the rollout cover?', kind: 'single_choice', options: [{ id: 'prod', label: 'Production only', recommended: true }, { id: 'all', label: 'Every environment' }], allowOther: true }] } }]);
+      }
       if (body.tools?.some(tool => tool.function?.name === 'get_debate_state') && !messages.some(message => message.role === 'tool')) return emit('', [{ id: 'context_state', name: 'get_debate_state', args: {} }]);
       return emit('Use a measured rollout with a clear rollback threshold. WE HAVE CONSENSUS is only prose here.');
     }

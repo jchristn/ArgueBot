@@ -191,12 +191,18 @@ namespace ArgueBot.Tui
         {
             while (!token.IsCancellationRequested)
             {
-                try { await KeepSessionAsync(token).ConfigureAwait(false); await RefreshAsync(token).ConfigureAwait(false); await WatchQuestionsAsync(token).ConfigureAwait(false); }
+                try { await KeepSessionAsync(token).ConfigureAwait(false); await PollOnceAsync(token).ConfigureAwait(false); }
                 catch (DomainException ex) when (ex.StatusCode == 401) { EndSession(TuiExit.SessionEnded); return; }
                 catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
                 { _App?.Post(() => _Feedback.Content = Text.From("Connection: " + ex.Message, _App!.Theme.Error)); }
                 await Task.Delay(500, token).ConfigureAwait(false);
             }
+        }
+        /// <summary>One poll: refresh the conversation list and transcript, then check for questions waiting for the user.</summary>
+        internal async Task PollOnceAsync(CancellationToken token)
+        {
+            await RefreshAsync(token).ConfigureAwait(false);
+            await WatchQuestionsAsync(token).ConfigureAwait(false);
         }
         /// <summary>Keep the waiting-question count current and open the question dialogs when the open conversation's debate starts waiting for an answer.</summary>
         private async Task WatchQuestionsAsync(CancellationToken token)
@@ -938,6 +944,8 @@ namespace ArgueBot.Tui
                 }
             }
             Section("View and help");
+            Add(AutoOpenQuestions ? "Stop opening question dialogs by themselves" : "Open question dialogs by themselves", () => { AutoOpenQuestions = !AutoOpenQuestions; return Task.CompletedTask; });
+            Add(QuestionBell ? "Turn off the bell for new questions" : "Ring the bell for new questions", () => { QuestionBell = !QuestionBell; return Task.CompletedTask; });
             Add((_App.Theme.Name == "Dark" ? "Switch to the light theme" : "Switch to the dark theme") + "  (Ctrl+T)", () => { _App.Post(ToggleTheme); return Task.CompletedTask; });
             Add("Help  (F1)", HelpAsync);
             Add("Detach: close the TUI; debates keep running  (Ctrl+Q)", () => { _App.Post(_App.Quit); return Task.CompletedTask; });

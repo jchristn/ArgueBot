@@ -43,6 +43,7 @@ namespace Test.Shared
                 service = Process.GetProcessById(descriptor.ProcessId);
                 await AuthenticationChecks.RunAsync(endpoint, home, token).ConfigureAwait(false);
                 await ResourceApiChecks.RunAsync(endpoint, home, token).ConfigureAwait(false);
+                await QuestionApiChecks.RunAsync(endpoint, home, token).ConfigureAwait(false);
                 using (ArgueBotClient client = LocalServiceConnector.CreateClient(endpoint, home, IdentitySeed.Token))
                 {
                     foreach (string route in new[] { "auth/me", "auth/pair", "auth/login", "auth/logout", "roles", "permissions" })

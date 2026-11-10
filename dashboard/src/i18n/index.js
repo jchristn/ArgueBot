@@ -38,4 +38,7 @@ export const formatDate = (value) =>
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+/** Join display values as a localized list, for example "A, B and C". */
+export const formatList = (values) =>
+  new Intl.ListFormat(i18n.language.includes("-X") ? "en" : i18n.language, { style: "long", type: "conjunction" }).format(values);
 export default i18n;

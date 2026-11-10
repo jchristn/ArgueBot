@@ -3546,6 +3546,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | contextMaxCharacters | integer | Maximum exact UTF-16 characters in the system prompt plus selected message content. Default 262144, range 1024 through 16777216. Oversized context pauses without invoking a model or truncating history. |
 | contextMaxMessages | integer | Maximum selected messages per generation attempt. Default 1000, range one through 10000. |
 | maxConcurrentRuns | integer | Default maximum concurrent conversations. |
+| maxLiveQuestionHolds | integer | Most ask_user calls held open for an answer at once across the service, 0 through 64. Default 4. Above it, waiting questions park at once and their turns resume after the answer. Requires restart. |
 | maxParticipants | integer | Maximum active participants per debate, 2 through 64. Requires restart. |
 | allowedHosts | array | Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name. |
 | listenAddress | string | Listener address: 127.0.0.1 for native use, 0.0.0.0 inside a container with a loopback-published port. |
@@ -3573,6 +3574,7 @@ Named fields shared by the service and its clients. Nullable fields are optional
 | port | integer | Configured port, from 1 to 65535. Explicit launch flags still win. |
 | maxConcurrentRuns | integer | Concurrent conversations, 1 to 64. |
 | maxParticipants | integer (nullable) | Maximum active seats per debate. |
+| maxLiveQuestionHolds | integer (nullable) | Optional limit on ask_user calls held open at once, 0 through 64. Requires restart. Omission preserves the configured value. |
 | listenAddress | string (nullable) | Optional native or container listener address. Requires restart. |
 | streamBatchCharacters | integer (nullable) | Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value. |
 | streamCommitMilliseconds | integer (nullable) | Optional stream flush interval, ten through 5000 milliseconds. Omission preserves the configured value. |

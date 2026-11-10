@@ -76,9 +76,13 @@ Every authenticated route has one access class, checked before its handler runs 
 
 A system administrator may send `x-tenant-id` on TenantAdmin routes to act in another tenant. That bypass is recorded as `AuthorizationBypass`.
 
+## Questions
+
+Any member of a tenant can answer or skip a question in any conversation of that tenant, as with interjections; the service records who resolved it. The Questions page and `GET /v2.0/api/questions?scope=mine` list conversations you created; `scope=tenant` lists the whole tenant. Another tenant's question returns 404.
+
 ## Audit log
 
-`audit_events` records sign-in successes and failures (never the password), session issue, refresh and revocation, first daily use of each credential, credential, user, tenant, password and share changes, every 401 and 403, and administrator bypasses. Each record has the request ID, principal, session or credential, method, path, source address, authentication and authorization results, reason and status code. Tenant administrators search their tenant's records at `GET /v2.0/api/audit`; system administrators see every tenant and unauthenticated requests. `DELETE /v2.0/api/audit?beforeUtc=...` removes old records and records that it did.
+`audit_events` records sign-in successes and failures (never the password), session issue, refresh and revocation, first daily use of each credential, credential, user, tenant, password and share changes, answered and skipped questions (IDs only, never the answer text), every 401 and 403, and administrator bypasses. Each record has the request ID, principal, session or credential, method, path, source address, authentication and authorization results, reason and status code. Tenant administrators search their tenant's records at `GET /v2.0/api/audit`; system administrators see every tenant and unauthenticated requests. `DELETE /v2.0/api/audit?beforeUtc=...` removes old records and records that it did.
 
 ## Hosts and transport
 

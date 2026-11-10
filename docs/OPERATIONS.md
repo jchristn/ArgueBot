@@ -80,3 +80,8 @@ CLI tool calls, nested auditor progress, successful process exit metadata and pr
 After rebuilding runtime binaries, shut down and start the service process to load the new assemblies. The Settings restart action drains workers and reloads configuration inside the existing process; it does not reload .NET assemblies. A refreshed dashboard can therefore display new frontend assets while still calling an older loaded runtime. Check the attempts response for the documented fields when verifying a runtime upgrade.
 
 Credential master-key rotation is available through the web/TUI credential configuration and `credential-keys rotate EXPECTED_KEY_ID`. Preserve the entire protected secrets directory, including `credential.keys.json` after rotation, separately from database backups. Previous keys are retained for recovery and old backups; key rotation does not change credential values or their revisions. See [the multi-agent guide](MULTIPLE_AGENTS.md).
+
+## Waiting questions
+
+Runs whose agents wait for an answer show `awaiting_input`; `GET /v2.0/api/questions/summary` counts open questions and waiting runs. Held calls keep a CLI process or a REST tool loop alive for up to the debate's `questionHoldSeconds`; `maxLiveQuestionHolds` (service settings, default 4, 0 to 64, applied at the next start) caps how many are held at once, and further questions park at once. Stopping or restarting the service parks held questions and keeps their runs waiting, so nothing is lost: answering after the restart resumes the step. Expired questions are swept every 15 seconds. Interfaces poll `GET /v2.0/api/questions/summary` and `GET /v2.0/api/questions/events` every few seconds, so those two reads are not recorded in request history.
+

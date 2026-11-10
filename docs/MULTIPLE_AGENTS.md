@@ -43,7 +43,7 @@ Use **Change agents** to add, remove or replace a seat at a safe boundary. Histo
 
 In the web workspace, the debate panel (proposals, votes, roster, context delivery and memory) sits beside the transcript on wide screens. **Hide debate panel** and **Show debate panel** in the run bar toggle it, and the choice is remembered in the browser. On narrower screens the open panel appears above the transcript, and on phones it replaces the transcript until you hide it. A tool call appears as one card that shows its final result; the separate start record is kept in history and shown only while the call is still running or if it never finished.
 
-The completed workspace exposes proposals and votes, context delivery receipts, source-linked summaries and clarification requests. Delivery means an original was included in a successful participant invocation; it does not prove the model understood it. After completion, further context is retained for a continuation and cannot retroactively change the recorded outcome.
+The completed workspace exposes proposals and votes, context delivery receipts, source-linked summaries and the questions agents asked you. Delivery means an original was included in a successful participant invocation; it does not prove the model understood it. After completion, further context is retained for a continuation and cannot retroactively change the recorded outcome.
 
 ## Memory and recovery
 
@@ -53,11 +53,11 @@ When compaction covers a pinned constraint, the summary's moderator constraints 
 
 Agents can page through turns, filtered by seat or phase; search literally and case-insensitively, with snippets around each match; ask for supporting details, which report anything they cannot see as a gap; and read the debate state, including pinned constraints and positions on earlier proposals. These tools see exactly the turns the agent's own prompt context can see. See [conversation tools](../MCP_API.md).
 
-A participant that asks a blocking clarification does not complete its turn. Its answer stays visible, but no vote or speaker advance is recorded until the moderator answers or skips the question.
+An agent can stop in the middle of its turn to ask you questions with `ask_user` (see [QUESTIONS.md](QUESTIONS.md)). The run shows **Waiting for you** (`awaiting_input`). If you answer while the agent waits, it continues in the same turn. If the turn parks (the hold window ends, you choose Answer later, pause, or the service stops), no vote or speaker advance is recorded, and your answer resumes the same step. New debates open with an intake step (`intake: ask_if_needed`) in which the orchestrator may ask about a vague question before round 1; it counts as an orchestration call.
 
 Source coverage is checked mechanically. Semantic fidelity is model-dependent: a cited source can still be summarized poorly. Private history or one oversized original can exceed the configured budget; the run pauses rather than silently dropping it. Adjust the panel or source material in a new run when frozen settings cannot accommodate it.
 
-A blocking request for clarification appears in the workspace. Answer it with an explicit delivery choice or mark it skipped, then resume. Provider failures, question/proposal/vote JSON that is still malformed after its one correction request, invalid summaries and uncertain execution also pause visibly. Resume may repeat external side effects. Correct configuration and start a new run when the accepted endpoint, harness arguments or timeout need to change.
+A waiting question opens in a dialog in the workspace and is listed on the Questions page. Answer it, skip it or choose Answer later; the debate continues by itself unless its policy sets `resumeOnAnswer` to false. A paused debate cannot resume while a question is open. Provider failures, question/proposal/vote JSON that is still malformed after its one correction request, invalid summaries and uncertain execution also pause visibly. Resume may repeat external side effects. Correct configuration and start a new run when the accepted endpoint, harness arguments or timeout need to change.
 
 ## Scriptable interface
 
@@ -72,7 +72,8 @@ secrets disable ID REVISION
 capabilities
 debate start CONVERSATION -
 interject CONVERSATION -
-debate roster|proposals|summaries|clarifications CONVERSATION RUN
+debate roster|proposals|summaries CONVERSATION RUN
+questions list --conversation CONVERSATION --run RUN
 debate interjections CONVERSATION
 debate change-roster CONVERSATION RUN -
 debate resume|rebuild_summary|exclude_summary CONVERSATION RUN
@@ -120,7 +121,7 @@ Ollama discovery uses [its model-list contract](https://github.com/ollama/ollama
 
 Catalog GET routes accept `pageNumber` and `pageSize` (1 through 100, default 100). Shipped clients load subsequent pages. Saving configuration does not initiate discovery. A successful check identifies the checked configuration revision and time; it is not a persistent health guarantee.
 
-Proposal and clarification history accept `pageNumber` (50 and 100 items per page respectively). The web and native clients retrieve subsequent pages so older decisions and unresolved questions remain reachable. CLI `debate summaries CONVERSATION RUN [PAGE]` and `debate interjections CONVERSATION [PAGE]` expose their bounded history pages directly.
+Proposal history accepts `pageNumber` (50 items per page), and `GET /v2.0/api/questions` pages questions with `pageNumber` and `pageSize`. The web and native clients retrieve subsequent pages so older decisions and unresolved questions remain reachable. CLI `debate summaries CONVERSATION RUN [PAGE]` and `debate interjections CONVERSATION [PAGE]` expose their bounded history pages directly.
 
 ## Execution budgets and orchestration guidance
 
@@ -200,3 +201,7 @@ Reusable models set a service capture limit (`maxOutputBytes`, 1024 through 6710
 Web and TUI model editors expose these settings; CLI configuration JSON, native-client DTOs and API Explorer use the same contract. Accepted runs freeze them with the model revision, so later edits only affect new snapshots. Configure CLI-specific sampling or reasoning flags as literal harness arguments; HTTP overrides are rejected for CLI models instead of being silently ignored. Output capture bytes, provider-generated tokens and the run input estimate are different limits.
 
 For a saved HTTP endpoint, **Preview requests** shows the normalized POST generation and GET model-list destinations and the configured header/query names with every value redacted. It reads configuration only and does not resolve secrets or contact the endpoint. Web, TUI, API Explorer, native client and `configuration endpoints preview ID` expose the same preview. Saving remains local validation; discovery and model checks are separate explicit actions.
+
+## Questions policy
+
+Debate policies in 2.3.0 add `userQuestions` (`all`, `orchestrator` or `off`; default `all`), `intake` (`ask_if_needed` for new debates, `off` for earlier ones), `maxIntakeQuestions` (4), `questionHoldSeconds` (300), `questionExpirySeconds` (0, never), `resumeOnAnswer` (true), `maxQuestionRequestsPerTurn` (2) and `maxQuestionRequestsPerRun` (20). In the dashboard they are under **Questions for you** in the execution settings; in the TUI wizard they are on the settings step. [QUESTIONS.md](QUESTIONS.md) describes each one.

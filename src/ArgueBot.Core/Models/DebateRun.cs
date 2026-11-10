@@ -84,6 +84,8 @@ namespace ArgueBot.Core.Models
         public string ResumePhase { get; set; } = "";
         internal RunnerProfile? ExecutionProfile { get; set; }
         internal string ResourceCatalog { get; set; } = "";
+        /// <summary>Answered questions rendered for the opt-in {answered_questions} placeholder. Derived per invocation.</summary>
+        internal string AnsweredQuestions { get; set; } = "";
 
         private string _CompactionRecipientId = "";
         /// <summary>Private recipient partition for compaction; empty means shared evidence.</summary>

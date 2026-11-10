@@ -19,6 +19,7 @@ import { expireSession, signOut, subscribe } from "./api/session.js";
 import ActionMenu from "./components/ActionMenu.jsx";
 import { Language, ThemeControl } from "./components/Chrome.jsx";
 import { Button, ErrorPanel, Icon } from "./components/ui.jsx";
+import QuestionHost, { useQuestions } from "./components/QuestionHost.jsx";
 import Toast from "./components/Toast.jsx";
 import Login, { returnPath } from "./views/Login.jsx";
 const Home = lazy(() => import("./views/Home.jsx"));
@@ -27,6 +28,7 @@ const Workspace = lazy(() => import("./views/Workspace.jsx"));
 const Participants = lazy(() => import("./views/Participants.jsx"));
 const Prompts = lazy(() => import("./views/Prompts.jsx"));
 const Resources = lazy(() => import("./views/Resources.jsx"));
+const Questions = lazy(() => import("./views/Questions.jsx"));
 const TranscriptReader = lazy(() => import("./views/TranscriptReader.jsx"));
 const RequestHistory = lazy(() => import("./views/RequestHistory.jsx"));
 const ApiExplorer = lazy(() => import("./views/ApiExplorer.jsx"));
@@ -43,7 +45,7 @@ export function displayName(user) {
 export function navigationGroups(user) {
   const tenantAdmin = !!(user?.isAdmin || user?.isTenantAdmin);
   return [
-    { title: "nav.operate", links: [["home", "nav.home", "grid"], ["conversations", "nav.conversations", "chat"]] },
+    { title: "nav.operate", links: [["home", "nav.home", "grid"], ["conversations", "nav.conversations", "chat"], ["questions", "nav.questions", "help"]] },
     { title: "nav.configure", links: [["participants", "nav.participants", "users"], ["prompts", "nav.prompts", "prompt"], ["resources", "nav.resources", "book"]] },
     { title: "nav.system", links: [...(tenantAdmin ? [["history", "history.title", "chat"]] : []), ["explorer", "explorer.title", "grid"], ...(user?.isAdmin ? [["settings", "nav.settings", "settings"]] : [])] },
     ...(tenantAdmin ? [{ title: "nav.administration", links: [["users", "nav.users", "users"], ...(user?.isAdmin ? [["tenants", "nav.tenants", "grid"]] : []), ["audit", "nav.audit", "prompt"]] }] : []),
@@ -72,7 +74,28 @@ function AccountMenu({ session }) {
     <Icon name="users" /><span className="account-name">{name}</span><span className="badge tenant-badge" title={t("account.tenant.help")}>{session.tenant?.name}</span>
   </ActionMenu>;
 }
-function Shell({ theme, toggleTheme, notify, session }) {
+/** The open-question count beside the Questions link, and in the header. Text, not color, carries the count. */
+function QuestionBadge() {
+  const { t } = useTranslation();
+  const { summary } = useQuestions();
+  const count = summary?.openMine || 0;
+  if (!count) return null;
+  return <span className="badge count-badge" aria-label={t("questions.badge", { count })}>{count}</span>;
+}
+/** Header shortcut to the next waiting question. */
+function QuestionIndicator() {
+  const { t } = useTranslation();
+  const { summary, open } = useQuestions();
+  if (!summary?.openMine || !summary.newestId) return null;
+  // Same footprint as the other header icon buttons, so the header never grows on narrow screens.
+  return <button type="button" className="button icon-button question-indicator" aria-label={t("questions.indicator.help", { count: summary.openMine })} title={t("questions.indicator.help", { count: summary.openMine })} onClick={() => open(summary.newestId)}>
+    <Icon name="help" /><span className="indicator-count" aria-hidden="true">{summary.openMine}</span>
+  </button>;
+}
+function Shell(props) {
+  return <QuestionHost api={api}><ShellLayout {...props} /></QuestionHost>;
+}
+function ShellLayout({ theme, toggleTheme, notify, session }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const groups = navigationGroups(session.user);
@@ -100,6 +123,7 @@ function Shell({ theme, toggleTheme, notify, session }) {
                 >
                   <Icon name={icon} />
                   {t(label)}
+                  {path === "questions" && <QuestionBadge />}
                 </NavLink>
               ))}
             </section>
@@ -125,6 +149,7 @@ function Shell({ theme, toggleTheme, notify, session }) {
             <span className="badge address-badge" title={t("service.address.help")}><code>{location.host}</code></span>
           </div>
           <div className="utilities">
+            <QuestionIndicator />
             <a
               className="button icon-button"
               href="https://github.com/jchristn/ArgueBot"
@@ -203,6 +228,8 @@ export default function App() {
                 <Route path="/dashboard/participants" element={<Participants />} />
                 <Route path="/dashboard/prompts" element={<Prompts />} />
                 <Route path="/dashboard/resources" element={<Resources />} />
+                <Route path="/dashboard/questions" element={<Questions />} />
+                <Route path="/dashboard/questions/:id" element={<Questions />} />
                 <Route path="/dashboard/explorer" element={<ApiExplorer />} />
                 <Route path="/dashboard/account" element={<Account />} />
                 <Route element={<RequireRole session={session} role="tenant" />}>

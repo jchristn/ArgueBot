@@ -49,6 +49,8 @@ test("resource walkthrough: create, agents read and write, review history and re
     await expect(start.getByRole("combobox", { name: "Resource access", exact: true })).toHaveValue("read");
     await start.getByRole("combobox", { name: "Resource access", exact: true }).selectOption("read_write");
     await start.getByRole("textbox", { name: "Only these resources", exact: true }).fill(`${billing}, ${notes}`);
+    // This walkthrough is about resources; start the panel without the orchestrator's opening questions.
+    await start.getByRole("combobox", { name: "Opening questions", exact: true }).selectOption("off");
     await expect(start.getByRole("spinbutton", { name: "Resource writes per turn", exact: true })).toHaveValue("8");
     await start.getByRole("button", { name: "Start debate", exact: true }).click();
     await expect(start).toHaveCount(0);

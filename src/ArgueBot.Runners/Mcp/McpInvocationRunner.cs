@@ -14,6 +14,8 @@ namespace ArgueBot.Runners.Mcp
 
     internal static class McpInvocationRunner
     {
+        /// <summary>Longest hold window a debate may set for ask_user (questionHoldSeconds).</summary>
+        private const int QuestionHoldLimitSeconds = 1800;
         internal static async Task GenerateAsync(RunnerProfile profile, string instructions, IReadOnlyList<Message> history, IReadOnlyList<ConversationToolDefinition> tools, Func<ConversationToolCall, CancellationToken, Task<string>> execute, Func<string, CancellationToken, Task> onText, Func<ToolActivity, CancellationToken, Task> onTool, CancellationToken token)
         {
             string name = "abm-" + Guid.NewGuid().ToString("N");
@@ -22,8 +24,13 @@ namespace ArgueBot.Runners.Mcp
             child.RuntimeClock = profile.RuntimeClock;
             List<string> bridgeArguments = profile.RuntimeMcpCommand.Skip(1).Concat(new[] { "--context-mcp", name }).ToList();
             string command = profile.RuntimeMcpCommand[0];
+            // A held ask_user call waits for the user's answer; the harness must not time the tool call out before the service parks it.
+            string toolTimeoutSeconds = (QuestionHoldLimitSeconds + 60).ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (profile.Provider == "claude")
             {
+                child.RuntimeEnvironment["MCP_TOOL_TIMEOUT"] = (long.Parse(toolTimeoutSeconds, System.Globalization.CultureInfo.InvariantCulture) * 1000).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                // Claude Code's built-in question tool cannot reach a person in a headless invocation; agents use ask_user instead.
+                child.Arguments.Add("--disallowedTools"); child.Arguments.Add("AskUserQuestion");
                 child.Arguments.Add("--strict-mcp-config"); child.Arguments.Add("--mcp-config");
                 child.Arguments.Add(JsonSerializer.Serialize(new { mcpServers = new { arguebot = new { command, args = bridgeArguments } } }));
             }
@@ -31,6 +38,7 @@ namespace ArgueBot.Runners.Mcp
             {
                 child.Arguments.Add("--config"); child.Arguments.Add("mcp_servers.arguebot.command=" + JsonSerializer.Serialize(command));
                 child.Arguments.Add("--config"); child.Arguments.Add("mcp_servers.arguebot.args=" + JsonSerializer.Serialize(bridgeArguments));
+                child.Arguments.Add("--config"); child.Arguments.Add("mcp_servers.arguebot.tool_timeout_sec=" + toolTimeoutSeconds);
             }
             using (CancellationTokenSource lifetime = CancellationTokenSource.CreateLinkedTokenSource(token))
             using (NamedPipeServerStream pipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly))
@@ -38,7 +46,7 @@ namespace ArgueBot.Runners.Mcp
                 long remaining = (long)profile.ContextMaxCharacters - instructions.Length - history.Sum(message => (long)message.Content.Length + message.Speaker.Length + 32) - tools.Sum(tool => (long)tool.Schema.Length + tool.Description.Length + tool.Name.Length) - 1024;
                 if (remaining < 0) throw new DomainException(409, "context_budget_exceeded", "The MCP prompt and tool definitions exceed the model context budget.");
                 Task host = ServeAsync(pipe, tools, execute, onTool, (int)remaining, lifetime);
-                try { await new CliRunner().GenerateAsync(child, instructions + "\nUse the arguebot MCP conversation tools for original evidence or moderator clarification. They are scoped to this invocation.", history, onText, lifetime.Token).ConfigureAwait(false); }
+                try { await new CliRunner().GenerateAsync(child, instructions + "\nUse the arguebot MCP conversation tools for original evidence and, when offered, ask_user to ask the person running the debate. They are scoped to this invocation.", history, onText, lifetime.Token).ConfigureAwait(false); }
                 finally
                 {
                     lifetime.Cancel(); pipe.Close();

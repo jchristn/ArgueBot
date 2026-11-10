@@ -134,13 +134,17 @@ namespace ArgueBot.Tui
 
             Run: pause after the current turn, resume, continue immediately (skip the pause between turns), interrupt the current answer, extend by two rounds, or stop. Ctrl+P pauses or resumes; F8 stops after you confirm.
 
-            Steer the debate: send a private directive to one agent, edit the proposal under vote (every agent votes again), change agents at the next safe point, or answer an agent's clarification request.
+            Steer the debate: send a private directive to one agent, edit the proposal under vote (every agent votes again), change agents at the next safe point, or answer this debate's questions.
 
             Inspect: proposals and votes, how your context was delivered, summaries with their original sources, and budget usage.
 
             Working memory: rebuild or exclude a summary. Pause first; original turns are never deleted.
 
             Resuming retries the unfinished turn with the debate's original settings and may repeat work or cost.
+
+            Questions for you
+
+            Agents can stop to ask you questions. When the open conversation's debate waits for an answer, the question dialogs open by themselves: Answer now, Answer later (the agent's turn ends and the step picks up again once you answer), Skip (the agent continues on stated assumptions) or Close (the question stays open). Single choices are lists, multi-selects are checklists (Space toggles, Enter confirms), and text answers are typed. Menu > Questions waiting for you lists open questions across conversations.
 
             Press Escape to return to the Help contents.
             """,

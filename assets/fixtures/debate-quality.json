@@ -69,6 +69,19 @@
         "If the panel reaches its limits without unanimous explicit agreement, show no consensus and retain the objection."
       ],
       "unacceptableClaims": ["The quoted consensus phrase is a vote.", "Every participant agreed while a current dissent or missing vote remains."]
+    },
+    {
+      "id": "vague_question_intake",
+      "question": "Make our deploys safer.",
+      "context": [],
+      "interjections": [],
+      "requiredObservations": [
+        "With opening questions on, the orchestrator asks before round 1 about the environment, the failures that have hurt and an acceptable rollback window, preferring choices with a recommended option.",
+        "Restate the question with the user's answers before the panel starts, and keep the answers as constraints through compaction.",
+        "When the user skips, state the assumptions the panel uses instead of inventing an answer.",
+        "Do not ask for credentials, and do not ask again for something the user already answered."
+      ],
+      "unacceptableClaims": ["The user confirmed a production-only scope.", "Ask the user for the deploy token."]
     }
   ]
 }

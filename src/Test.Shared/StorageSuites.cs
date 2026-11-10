@@ -34,7 +34,8 @@ namespace Test.Shared
                     new TestCaseDescriptor("Storage", "CommandReceipts", "Moderator retries do not extend twice; immediate pause/resume retires the old worker", CommandReceiptsAsync),
                     new TestCaseDescriptor("Storage", "StreamCommits", "Burst streaming batches writes and a stalled runner still checkpoints text", StreamCommitsAsync),
                     new TestCaseDescriptor("Storage", "Engine", "Service-owned execution, interruption and resumption", EngineAsync),
-                    new TestCaseDescriptor("Storage", "SchemaUpgrade", "Historical schema upgrade creates backup and rejects future schemas", SchemaUpgradeAsync)
+                    new TestCaseDescriptor("Storage", "SchemaUpgrade", "Historical schema upgrade creates backup and rejects future schemas", SchemaUpgradeAsync),
+                    new TestCaseDescriptor("Storage", "QuestionMigration", "Schema 35 moves clarification requests into questions with their status and answer, parks waiting runs and drops the old table", QuestionChecks.MigrationAsync)
                 }) };
             }
         }

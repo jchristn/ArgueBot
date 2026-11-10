@@ -393,6 +393,9 @@ test("run a real PolyPrompt fixture debate and inspect durable attempt context",
     await start
       .getByRole("spinbutton", { name: "Pause between turns (seconds)" })
       .fill("0");
+    // Inspect the attempts of the debate itself, without the orchestrator's opening questions.
+    await start.locator(".debate-policy summary").click();
+    await start.getByRole("combobox", { name: "Opening questions", exact: true }).selectOption("off");
     await start
       .getByRole("button", { name: "Start debate", exact: true })
       .click();

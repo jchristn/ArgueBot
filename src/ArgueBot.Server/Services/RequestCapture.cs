@@ -27,6 +27,8 @@ namespace ArgueBot.Server.Services
                 if (!_Settings.RequestHistoryEnabled) return;
                 int limit = Math.Clamp(_Settings.RequestHistoryBodyBytes, 0, 1048576);
                 string capturedPath = http.Request.Url.RawWithoutQuery;
+                // Interfaces poll the question summary and change feed every few seconds; recording each read would bury real requests.
+                if (http.Request.Method == HttpMethod.GET && (capturedPath == "/v2.0/api/questions/events" || capturedPath == "/v2.0/api/questions/summary")) return;
                 // Secrets, sign-in, session tokens, bearer-token credentials and share links never reach request history, even redacted.
                 bool credentialBody = capturedPath.StartsWith("/v2.0/api/configuration/credentials", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/configuration/secrets", StringComparison.Ordinal) || capturedPath == "/v2.0/api/token" || capturedPath.StartsWith("/v2.0/api/token/", StringComparison.Ordinal) || capturedPath.Contains("/credentials", StringComparison.Ordinal) || capturedPath.Contains("/shares", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/users", StringComparison.Ordinal) || capturedPath.StartsWith("/v2.0/api/me/password", StringComparison.Ordinal);
                 string request = credentialBody ? "[credential body excluded]" : CaptureRedactor.Body(http.Request.DataAsString ?? "", http.Request.ContentType ?? "");

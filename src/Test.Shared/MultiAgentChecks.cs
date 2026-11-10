@@ -234,7 +234,7 @@ namespace Test.Shared
             finally { if (Directory.Exists(home)) Directory.Delete(home, true); }
         }
         private static CreateRunRequest Request(List<string> profiles, int count)
-        { return new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[0], ParticipantIds = profiles.Take(count).ToList(), Question = "Which design?", MaxRounds = 1, InterventionSeconds = 0, IdempotencyKey = Guid.NewGuid().ToString("N") }; }
+        { return new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = profiles[0], ParticipantIds = profiles.Take(count).ToList(), Question = "Which design?", MaxRounds = 1, InterventionSeconds = 0, Policy = new DebatePolicy { Intake = "off" }, IdempotencyKey = Guid.NewGuid().ToString("N") }; }
         private static async Task<DebateRun> WaitAsync(SqliteDatabaseDriver database, RequestContext context, DebateRun run, CancellationToken token)
         {
             using (CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token))

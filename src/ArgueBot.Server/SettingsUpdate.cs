@@ -17,6 +17,8 @@ namespace ArgueBot.Server
         public int MaxConcurrentRuns { get; set; }
         /// <summary>Maximum active seats per debate.</summary>
         public int? MaxParticipants { get; set; }
+        /// <summary>Optional limit on ask_user calls held open at once, 0 through 64. Requires restart. Omission preserves the configured value.</summary>
+        public int? MaxLiveQuestionHolds { get; set; }
         /// <summary>Optional native or container listener address. Requires restart.</summary>
         public string? ListenAddress { get; set; }
         /// <summary>Optional stream batch threshold, one through 65536 characters. Omission preserves the configured value.</summary>

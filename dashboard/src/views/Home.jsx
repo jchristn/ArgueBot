@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Icon } from "../components/ui.jsx";
 import ConversationForm from "../components/ConversationForm.jsx";
+import { useQuestions } from "../components/QuestionHost.jsx";
 import { formatDate } from "../i18n/index.js";
 export default function Home() {
   const { api, notify } = useOutletContext();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { open, revision } = useQuestions();
   const [creating, setCreating] = useState(false);
+  const { data: waiting } = useData("home-questions:" + revision, () => api.questions({ status: "open", scope: "mine", pageSize: 5 }));
   const { data, error, reload } = useData("home", async () => {
     const [conversations, participants] = await Promise.all([
       api.conversations(),
@@ -27,6 +30,7 @@ export default function Home() {
   });
   const status = (run) => {
     if (!run) return null;
+    if (run.state === "awaiting_input") return { tone: "attention", label: t("state.awaiting_input") };
     if (["paused", "failed"].includes(run.state)) return { tone: "attention", label: t("home.run.attention") };
     if (!["completed", "cancelled"].includes(run.state)) return { tone: "active", label: t("home.run.active", { count: run.participants?.length ?? 0 }) };
     if (run.outcome === "consensus" && run.protocolVersion === 2) return { tone: "done", label: t("home.run.unanimous") };
@@ -70,6 +74,19 @@ export default function Home() {
           </strong>
         </article>
       </div>
+      {waiting?.items.length > 0 && <section className="page-section waiting-questions">
+        <header>
+          <h2>{t("home.waiting", { count: waiting.totalCount })}</h2>
+          <Link to="/dashboard/questions">{t("home.waiting.all")} <Icon name="arrow" /></Link>
+        </header>
+        <div className="recent-list">
+          {waiting.items.map(item => <div key={item.id} className="recent-row">
+            <span>{t("questions.askedBy", { name: item.askerName || item.askerId })}: <span dir="auto">{item.questions.map(question => question.header).join(", ")}</span></span>
+            <span className="muted">{item.conversationTitle}</span>
+            <Button label="questions.answer" className="primary" onClick={() => open(item)} />
+          </div>)}
+        </div>
+      </section>}
       <section className="page-section">
         <header>
           <h2>{t("home.recent")}</h2>

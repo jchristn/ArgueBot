@@ -58,6 +58,8 @@ namespace ArgueBot.Core.Configuration
         public int ContextMaxMessages { get; set; } = 1000;
         /// <summary>Default maximum concurrent conversations.</summary>
         public int MaxConcurrentRuns { get; set; } = 4;
+        /// <summary>Most ask_user calls held open for an answer at once across the service, 0 through 64. Default 4. Above it, waiting questions park at once and their turns resume after the answer. Requires restart.</summary>
+        public int MaxLiveQuestionHolds { get; set; } = 4;
         /// <summary>Maximum active participants per debate, 2 through 64. Requires restart.</summary>
         public int MaxParticipants { get; set; } = 16;
         /// <summary>Host names, besides 127.0.0.1 and localhost, that browsers and clients may use to reach the service, for example a reverse proxy name. ARGUEBOT_ALLOWED_HOSTS adds more at startup. * allows any host name.</summary>
@@ -116,6 +118,7 @@ namespace ArgueBot.Core.Configuration
             if (ListenAddress != "127.0.0.1" && ListenAddress != "0.0.0.0") throw new InvalidDataException("ListenAddress must be 127.0.0.1 or 0.0.0.0.");
             if (AllowedHosts.Count > 64 || AllowedHosts.Any(host => host == null || (host != "*" && !System.Text.RegularExpressions.Regex.IsMatch(host, @"\A(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\z")))) throw new InvalidDataException("AllowedHosts must contain up to 64 host names without schemes, ports or paths, or * for any name.");
             if (MaxParticipants < 2 || MaxParticipants > 64) throw new InvalidDataException("MaxParticipants must be 2 through 64.");
+            if (MaxLiveQuestionHolds < 0 || MaxLiveQuestionHolds > 64) throw new InvalidDataException("MaxLiveQuestionHolds must be 0 through 64.");
             if (TlsPasswordEnvironmentVariable == null || (TlsPasswordEnvironmentVariable.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(TlsPasswordEnvironmentVariable, "^[A-Za-z_][A-Za-z0-9_]{0,127}$"))) throw new ArgumentException("Use a TLS password environment variable name.");
             if (EventRetentionDays < 1 || EventRetentionDays > 3650) throw new ArgumentOutOfRangeException(nameof(EventRetentionDays));
             if (EventMaxPerConversation < 1 || EventMaxPerConversation > 1000000) throw new ArgumentOutOfRangeException(nameof(EventMaxPerConversation));

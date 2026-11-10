@@ -34,7 +34,7 @@ namespace Test.Shared
             for (int index = 0; index < 3; index++) ids.Add((await database.Profiles.CreateAsync(context, new RunnerProfile { Name = "Budget agent " + index, Executable = "fictional" }, token).ConfigureAwait(false)).Id);
             foreach (string scenario in new[] { "participant", "orchestrator", "estimate", "deadline", "success" })
             {
-                DebatePolicy policy = new DebatePolicy { QuestionInstructions = "Compare the rollback evidence.", MaxToolCalls = 1 };
+                DebatePolicy policy = new DebatePolicy { QuestionInstructions = "Compare the rollback evidence.", MaxToolCalls = 1, Intake = "off" };
                 if (scenario == "participant") policy.MaxParticipantTurns = 1;
                 if (scenario == "orchestrator") policy.MaxOrchestrationCalls = 1;
                 if (scenario == "estimate") policy.MaxEstimatedInputTokens = 1;

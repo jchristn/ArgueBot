@@ -217,7 +217,7 @@ namespace Test.Shared
                     using (ArgueBot.Core.Services.CredentialVault vault = await ArgueBot.Core.Services.CredentialVault.OpenAsync(database, Path.Combine(home, "secrets"), context, token).ConfigureAwait(false))
                     await using (ConversationEngine engine = new ConversationEngine(database, new CredentialRunner(false, vault, database, context, Path.Combine(home, "runtime"))))
                     {
-                        DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = seats[0], ParticipantIds = seats, MaxRounds = 1, InterventionSeconds = 0, Policy = new DebatePolicy { ResourceAccess = "read_write" }, IdempotencyKey = "rest-resources" }, token).ConfigureAwait(false);
+                        DebateRun run = await engine.StartAsync(context, conversation.Id, new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = seats[0], ParticipantIds = seats, MaxRounds = 1, InterventionSeconds = 0, Policy = new DebatePolicy { ResourceAccess = "read_write", Intake = "off" }, IdempotencyKey = "rest-resources" }, token).ConfigureAwait(false);
                         run = await WaitAsync(database, context, run, token).ConfigureAwait(false);
                         Require(run.State == "completed", "The REST resource debate must finish: " + run.State + "/" + run.Outcome);
                         AttemptPage attempts = await database.Attempts.EnumerateAsync(context, conversation.Id, run.Id, pageSize: 100, token: token).ConfigureAwait(false);
@@ -242,6 +242,7 @@ namespace Test.Shared
 
         private static async Task<DebateRun> DebateAsync(ConversationEngine engine, DatabaseDriverBase database, RequestContext context, List<string> seats, string responsePrompt, DebatePolicy policy, string key, CancellationToken token)
         {
+            policy.Intake = "off";
             Conversation conversation = await database.CreateConversationAsync(context, "Resource tools " + key, token).ConfigureAwait(false);
             CreateRunRequest request = new CreateRunRequest { ProtocolVersion = 2, OrchestratorId = seats[0], ParticipantIds = seats.Skip(1).ToList(), Question = "When do invoices go out?", MaxRounds = 1, InterventionSeconds = 0, Policy = policy, PromptIds = new Dictionary<string, string> { ["response"] = responsePrompt }, IdempotencyKey = "resource-" + key };
             DebateRun run = await engine.StartAsync(context, conversation.Id, request, token).ConfigureAwait(false);

@@ -23,6 +23,8 @@ import MessageBody from "../components/MessageBody.jsx";
 import AttemptDialog from "../components/AttemptDialog.jsx";
 import { formatDate } from "../i18n/index.js";
 import ResourceToolLink from "../components/ResourceToolLink.jsx";
+import QuestionToolLink from "../components/QuestionToolLink.jsx";
+import WaitingBanner from "../components/WaitingBanner.jsx";
 import { savedPageSize } from "../utils/page-size.js";
 function StartDialog({ api, profiles, maximum, capabilities, defaultQuestion = "", defaultPrompts = {}, onStart, onClose, notify, onRefresh }) {
   const { t } = useTranslation();
@@ -485,6 +487,7 @@ function WorkspaceContent({ id }) {
           <span>{t("debate.noRuns")}</span>
         )}
       </div>
+      <WaitingBanner api={api} conversationId={id} run={run} />
       <RunActivity run={run} messages={data.messages} connection={connection} />
       <div className="history-navigation">
         <Pagination page={data.messagePage} table="messages" onChange={(changes) => {
@@ -554,7 +557,7 @@ function WorkspaceContent({ id }) {
               <Button label="messages.window" icon="external" iconOnly onClick={() => setFullMessage(message.id)} />
             </header>
             {folded ? <p className="message-preview" onClick={() => toggleMessage(message.id)}>{previewText(messageContent(message))}</p> : <div id={"message-body-" + message.id}>
-            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><ResourceToolLink content={message.content} /><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
+            {message.kind === "tool" ? <details className="tool-evidence"><summary>{message.content.split("\n").slice(0, 2).join(" · ")}</summary><ResourceToolLink content={message.content} /><QuestionToolLink content={message.content} /><pre>{message.content}</pre></details> : <MessageBody api={api} conversationId={id} message={message} />}
             {["failed", "interrupted"].includes(message.state) && <FailedTurn api={api} conversationId={id} message={message} onInspect={() => setAttemptsRunId(message.runId)} />}
             </div>}
           </article>;

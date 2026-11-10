@@ -23264,6 +23264,11 @@
             "format": "int32",
             "description": "Default maximum concurrent conversations."
           },
+          "maxLiveQuestionHolds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Most ask_user calls held open for an answer at once across the service, 0 through 64. Default 4. Above it, waiting questions park at once and their turns resume after the answer. Requires restart."
+          },
           "maxParticipants": {
             "type": "integer",
             "format": "int32",
@@ -23340,6 +23345,12 @@
             "description": "Maximum active seats per debate.",
             "minimum": 2,
             "maximum": 64
+          },
+          "maxLiveQuestionHolds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Optional limit on ask_user calls held open at once, 0 through 64. Requires restart. Omission preserves the configured value."
           },
           "listenAddress": {
             "type": "string",

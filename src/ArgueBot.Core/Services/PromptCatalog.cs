@@ -36,6 +36,7 @@ namespace ArgueBot.Core.Services
             Parameter("proposal", "The exact proposal under vote, as a JSON string.", new[] { "ratification" }, new[] { "ratification" }),
             Parameter("proposal_id", "The proposal identifier the vote must name, as a JSON string.", new[] { "ratification" }, new[] { "ratification" }),
             Parameter("resources", "Names, titles and descriptions of the resources this debate's agents can read with read_resource, one per line (at most 100). Empty when the debate's resource access is off.", Everyone),
+            Parameter("answered_questions", "Questions agents asked the user in this debate and the user's answers, one per line, including skipped ones. Answers an agent asked to see alone appear only in its own prompts. Empty when none were asked.", Everyone),
         };
 
         /// <summary>Factory defaults. Their text reproduces the built-in protocol 2 prompts exactly.</summary>

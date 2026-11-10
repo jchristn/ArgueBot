@@ -15,6 +15,8 @@ namespace ArgueBot.Core.Services
         internal bool SkipWindow { get; set; }
         /// <summary>Whether this worker holds a service run-capacity slot. A turn waiting for the user releases it.</summary>
         internal bool CapacityHeld { get; set; }
+        /// <summary>Question this turn is waiting on, or empty.</summary>
+        internal string WaitingQuestionId { get; set; } = "";
         internal ConcurrentDictionary<string, long> Holds { get; } = new ConcurrentDictionary<string, long>();
     }
 }

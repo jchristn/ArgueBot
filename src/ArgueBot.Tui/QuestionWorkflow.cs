@@ -59,11 +59,12 @@ namespace ArgueBot.Tui
             request = await _Client.QuestionAsync(request.Id, _Token).ConfigureAwait(false);
             if (request.Status != "open") { await SelectAsync(Resolved(request), new[] { "Close" }).ConfigureAwait(false); return true; }
             string counter = count > 1 ? " (" + position + " of " + count + ")" : "";
+            // The dialog wraps its description as one paragraph, so the parts are joined as sentences.
             StringBuilder intro = new StringBuilder();
-            intro.Append(Asker(request)).Append(" asks").Append(request.ConversationTitle.Length == 0 ? "" : " in \"" + request.ConversationTitle + "\"").Append(counter).Append('.');
-            if (request.Context.Length > 0) intro.Append("\n\n").Append(request.Context);
-            intro.Append("\n\n").Append(string.Join("\n", request.Questions.Select(question => "- " + question.Header + ": " + question.Prompt)));
-            intro.Append(request.CredentialWarning ? "\n\nWarning: this looks like a request for a password, token or key. ArgueBot never needs secrets in answers." : "\n\nDo not paste passwords, tokens or keys into answers.");
+            intro.Append(Asker(request)).Append(" asks").Append(request.ConversationTitle.Length == 0 ? "" : " in \"" + request.ConversationTitle + "\"").Append(counter).Append(':');
+            foreach (Question question in request.Questions) intro.Append(' ').Append(question.Header).Append(": ").Append(question.Prompt.TrimEnd()).Append(question.Prompt.TrimEnd().EndsWith('?') || question.Prompt.TrimEnd().EndsWith('.') ? "" : ".");
+            if (request.Context.Length > 0) intro.Append(" Why: ").Append(request.Context.Replace('\n', ' ').Trim());
+            intro.Append(request.CredentialWarning ? " Warning: this looks like a request for a password, token or key. ArgueBot never needs secrets in answers." : " Do not paste passwords, tokens or keys into answers.");
             int start = await SelectAsync(intro.ToString(), new[] { "Answer now", "Answer later (the waiting turn ends; the debate resumes after you answer)", "Skip (the agent continues on assumptions)", "Close" }).ConfigureAwait(false);
             if (start == 1) { await Guard(() => _Client.DeferQuestionAsync(request.Id, _Token)).ConfigureAwait(false); return false; }
             if (start == 2) return await SkipAsync(request).ConfigureAwait(false);
@@ -75,8 +76,8 @@ namespace ArgueBot.Tui
                 if (input == null) return false;
                 answers.Answers.Add(input);
             }
-            string summary = string.Join("\n", request.Questions.Select((question, index) => "- " + question.Header + ": " + Describe(question, answers.Answers[index])));
-            int submit = await SelectAsync("Send these answers?\n\n" + summary, new[] { "Submit", "Start over", "Close without answering" }).ConfigureAwait(false);
+            string summary = string.Join(" ", request.Questions.Select((question, index) => question.Header + ": " + Describe(question, answers.Answers[index]) + "."));
+            int submit = await SelectAsync("Send these answers? " + summary, new[] { "Submit", "Start over", "Close without answering" }).ConfigureAwait(false);
             if (submit == 1) return await AnswerAsync(request, position, count).ConfigureAwait(false);
             if (submit != 0) return false;
             return await Guard(() => _Client.AnswerQuestionAsync(request.Id, answers, _Token)).ConfigureAwait(false);
@@ -84,7 +85,7 @@ namespace ArgueBot.Tui
 
         private async Task<QuestionAnswerInput?> AskAsync(Question question, int number, int total)
         {
-            string title = question.Header + (total > 1 ? " (" + number + " of " + total + ")" : "") + "\n\n" + question.Prompt + (question.Required ? "" : "\n\nOptional.");
+            string title = question.Header + (total > 1 ? " (" + number + " of " + total + ")" : "") + ": " + question.Prompt + (question.Required ? "" : " Optional.");
             QuestionAnswerInput input = new QuestionAnswerInput { QuestionId = question.Id };
             switch (question.Kind)
             {
@@ -99,7 +100,7 @@ namespace ArgueBot.Tui
                     }
                 case "text":
                     {
-                        string? text = await PromptAsync(title + "\n\nUp to " + question.MaxLength + " characters.", "").ConfigureAwait(false);
+                        string? text = await PromptAsync(title + " Up to " + question.MaxLength + " characters.", "").ConfigureAwait(false);
                         if (text == null) return null;
                         text = text.Trim();
                         if (text.Length == 0 && question.Required) return await AskAsync(question, number, total).ConfigureAwait(false);
@@ -122,7 +123,7 @@ namespace ArgueBot.Tui
                         List<string> choices = question.Options.Select(OptionLabel).ToList();
                         if (question.AllowOther) choices.Add("Other...");
                         int minimum = question.Required && !question.AllowOther ? Math.Max(1, question.MinSelections) : question.MinSelections;
-                        string description = question.Prompt + "\n\nChoose " + (question.MinSelections == question.MaxSelections ? question.MaxSelections.ToString() : Math.Max(minimum, 0) + " to " + question.MaxSelections) + ".";
+                        string description = question.Prompt + " Choose " + (question.MinSelections == question.MaxSelections ? question.MaxSelections.ToString() : Math.Max(minimum, 0) + " to " + question.MaxSelections) + ".";
                         int[]? picked = await Ui(async () =>
                         {
                             ChecklistDialog dialog = new ChecklistDialog(question.Header, description, choices.ToArray(), minimum, question.MaxSelections + (question.AllowOther ? 1 : 0));
@@ -141,7 +142,7 @@ namespace ArgueBot.Tui
 
         private async Task<QuestionAnswerInput?> OtherAsync(Question question, QuestionAnswerInput input, int number, int total)
         {
-            string? other = await PromptAsync(question.Header + ": Other\n\n" + question.Prompt, "").ConfigureAwait(false);
+            string? other = await PromptAsync(question.Header + ", Other: " + question.Prompt, "").ConfigureAwait(false);
             if (other == null) return null;
             if (other.Trim().Length == 0) return await AskAsync(question, number, total).ConfigureAwait(false);
             input.OtherText = other.Trim();

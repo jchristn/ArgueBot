@@ -26,6 +26,12 @@ function invoke(words, body) {
   return result.stdout;
 }
 function command(words, body) { return JSON.parse(invoke(words, body)); }
+/** Run the CLI with the admin token and return the raw result, for commands expected to fail. */
+function tried(words) {
+  const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
+  if (result.error) throw result.error;
+  return result;
+}
 /** Run the CLI without ARGUEBOT_TOKEN, so it relies on --token or the remembered session. */
 function bare(words, body) {
   const result = spawnSync('dotnet', [cli, '--home', home + path.sep, ...words], {cwd:root, input: body, encoding:'utf8', timeout:30000, env: {...process.env, ARGUEBOT_TOKEN:''}});
@@ -193,7 +199,27 @@ try {
     check(status.state==='completed' && status.outcome==='consensus', 'CLI four-agent debate failed to reach unanimous consensus.');
     check(command(['debate','roster',debate.id,live.id]).filter(value=>value.active).length===4, 'CLI roster omitted a seat.');
     check(command(['debate','proposals',debate.id,live.id])[0].agreements.filter(value=>value.position==='agree').length===4, 'CLI outcome lacked four explicit votes.');
-    check(Array.isArray(command(['debate','summaries',debate.id,live.id])) && Array.isArray(command(['debate','clarifications',debate.id,live.id])), 'CLI memory views failed.');
+    check(Array.isArray(command(['debate','summaries',debate.id,live.id])) && Array.isArray(command(['questions','list','--conversation',debate.id,'--run',live.id,'--status','resolved']).items), 'CLI memory and question views failed.');
+    const removed = tried(['debate','clarifications',debate.id,live.id]);
+    check(removed.status !== 0 && removed.stderr.includes('questions list'), `The removed clarifications command must point to questions list: ${removed.stderr}`);
+    // An agent asks the user mid-turn: wait reports it without a terminal, answer resolves it, and the debate finishes.
+    const askingModel = command(['configuration','models','add','-'], {name:'CLI asking model',endpointId:endpoint.id,model:'multi-agent-questions',maxOutputBytes:1048576});
+    const asker = command(['participants','add','-'], {name:'CLI asker',modelProfileId:askingModel.id});
+    const asking = command(['conversations','create','CLI question journey']);
+    const questionRun = command(['debate','start',asking.id,'-'], {protocolVersion:2,participantIds:[asker.id,panel[0].id],orchestratorId:moderator.id,maxRounds:1,interventionSeconds:0,policy:{intake:'off',questionHoldSeconds:60},idempotencyKey:'cli-question'});
+    let waiting;
+    for (let attempt=0;attempt<200;attempt++) { waiting = spawnSync('dotnet', [cli, '--home', home + path.sep, 'questions','wait',asking.id,questionRun.id,'--no-input'], {cwd:root, encoding:'utf8', timeout:30000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}}); if (waiting.status === 4) break; await delay(50); }
+    check(waiting.status === 4 && waiting.stderr.includes('questions answer qrq_'), `questions wait must exit 4 while the run waits for input: ${waiting.status} ${waiting.stderr}`);
+    const question = JSON.parse(waiting.stdout);
+    check(question.status === 'open' && question.questions[0].key === 'scope', 'questions wait must print the open question as JSON.');
+    check(command(['questions','list']).items.some(value=>value.id===question.id), 'questions list must include the open question.');
+    check(command(['questions','show',question.id]).askerName === 'CLI asker', 'questions show must name the asking seat.');
+    const answered = command(['questions','answer',question.id,'--choice','scope=prod']);
+    check(answered.status === 'answered' && answered.questions[0].answer.selectedLabels[0] === 'Production only', 'questions answer must store the choice.');
+    const again = tried(['questions','answer',question.id,'--choice','scope=all']);
+    check(again.status !== 0 && again.stderr.includes('already answered'), `A second answer must be refused: ${again.stderr}`);
+    const finished = spawnSync('dotnet', [cli, '--home', home + path.sep, 'questions','wait',asking.id,questionRun.id,'--no-input'], {cwd:root, encoding:'utf8', timeout:60000, env:{...process.env, ARGUEBOT_TOKEN:'arguebotadmin'}});
+    check(finished.status === 0 && JSON.parse(finished.stdout).state === 'completed', `questions wait must exit 0 once the debate finishes: ${finished.status} ${finished.stdout} ${finished.stderr}`);
     check(command(['debate','interjections',debate.id]).some(value=>value.id===receipt.id), 'CLI context history lost its receipt.');
   } else console.log('SKIP: Set ARGUEBOT_SIMULATION_URL for the four-agent CLI provider journey.');
 

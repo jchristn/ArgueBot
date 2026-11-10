@@ -25,10 +25,10 @@ namespace ArgueBot.Core.Database.Implementations
         public int MaximumParticipants { get; set; } = 16;
         internal DebateMethods(DatabaseDriverBase database) { _Database = database; }
 
-        internal static async Task CreateAsync(DbConnection connection, DbTransaction transaction, RequestContext context, string runId, string mode, RunnerProfile orchestrator, List<RunnerProfile> seats, CancellationToken token)
+        internal static async Task CreateAsync(DbConnection connection, DbTransaction transaction, RequestContext context, string runId, string mode, RunnerProfile orchestrator, List<RunnerProfile> seats, string phase, CancellationToken token)
         {
             await ProfileMethods.InsertAsync(connection, transaction, context, orchestrator, true, token).ConfigureAwait(false);
-            await ExecuteAsync(connection, transaction, "INSERT INTO debate_state(id,run_id,tenant_id,mode,orchestrator_id,created_utc,updated_utc) VALUES(@run,@run,@tenant,@mode,@profile,@now,@now)", token, P("run", runId, "tenant", context.TenantId, "mode", mode, "profile", orchestrator.Id)).ConfigureAwait(false);
+            await ExecuteAsync(connection, transaction, "INSERT INTO debate_state(id,run_id,tenant_id,mode,orchestrator_id,phase,created_utc,updated_utc) VALUES(@run,@run,@tenant,@mode,@profile,@phase,@now,@now)", token, P("run", runId, "tenant", context.TenantId, "mode", mode, "profile", orchestrator.Id, "phase", phase)).ConfigureAwait(false);
             for (int index = 0; index < seats.Count; index++) await InsertSeatAsync(connection, transaction, context, runId, seats[index].Id, index, 1, token).ConfigureAwait(false);
         }
 
@@ -107,6 +107,11 @@ namespace ArgueBot.Core.Database.Implementations
                 if (attempt.Purpose == "compaction")
                 {
                     await MemoryMethods.CompleteAsync(connection, transaction, context, run, attempt, answer, token).ConfigureAwait(false);
+                }
+                else if (attempt.Purpose == "intake")
+                {
+                    // The orchestrator asked about a vague question, or decided it was clear; the answers are now pinned context for the panel.
+                    run.Phase = "question"; run.SpeakerIndex = 0;
                 }
                 else if (attempt.Purpose == "question")
                 {

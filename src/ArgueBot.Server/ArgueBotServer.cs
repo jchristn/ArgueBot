@@ -65,6 +65,7 @@ namespace ArgueBot.Server
                         await using (ModelCheckService checks = new ModelCheckService(database, runner))
                         {
                         ConversationEngine engine = new ConversationEngine(database, runner, settings.MaxConcurrentRuns, logger.CreateLogger("ArgueBot.Execution"), streamBatchCharacters: settings.StreamBatchCharacters, streamCommitMilliseconds: settings.StreamCommitMilliseconds, contextMaxCharacters: settings.ContextMaxCharacters, contextMaxMessages: settings.ContextMaxMessages, diagnosticDirectory: Path.Combine(paths.Home, "logs", "runner-failures"));
+                        engine.MaxLiveQuestionHolds = settings.MaxLiveQuestionHolds;
                         try
                         {
                             using (Webserver server = new Webserver(new WebserverSettings(settings.ListenAddress, settings.Port, settings.TlsEnabled), http => Api.SendAsync(http, new ApiError { Code = "not_found", Message = "Route not found." }, 404)))

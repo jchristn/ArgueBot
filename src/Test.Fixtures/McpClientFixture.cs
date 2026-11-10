@@ -90,6 +90,48 @@ namespace ArgueBot.Tests.Fixtures
                 finally { bridge.StandardInput.Close(); if (!bridge.HasExited) bridge.Kill(true); await bridge.WaitForExitAsync().ConfigureAwait(false); }
             }
         }
+        /// <summary>Ask the user over the MCP bridge and finish with the answer the held call returned.</summary>
+        internal static async Task<int> QuestionsAsync(string[] args)
+        {
+            int config = Array.IndexOf(args, "--mcp-config");
+            string command; List<string> arguments;
+            if (config >= 0)
+            {
+                if (Environment.GetEnvironmentVariable("MCP_TOOL_TIMEOUT") is not string timeout || long.Parse(timeout, System.Globalization.CultureInfo.InvariantCulture) < 1800000) return 50;
+                if (Array.IndexOf(args, "--disallowedTools") < 0 || args[Array.IndexOf(args, "--disallowedTools") + 1] != "AskUserQuestion") return 51;
+                using (JsonDocument document = JsonDocument.Parse(args[config + 1]))
+                {
+                    JsonElement server = document.RootElement.GetProperty("mcpServers").GetProperty("arguebot");
+                    command = server.GetProperty("command").GetString()!;
+                    arguments = server.GetProperty("args").EnumerateArray().Select(value => value.GetString()!).ToList();
+                }
+            }
+            else
+            {
+                if (!args.Any(value => value.StartsWith("mcp_servers.arguebot.tool_timeout_sec=", StringComparison.Ordinal) && int.Parse(value.Split('=', 2)[1], System.Globalization.CultureInfo.InvariantCulture) >= 1800)) return 52;
+                command = JsonSerializer.Deserialize<string>(args.First(value => value.StartsWith("mcp_servers.arguebot.command=", StringComparison.Ordinal)).Split('=', 2)[1])!;
+                arguments = JsonSerializer.Deserialize<List<string>>(args.First(value => value.StartsWith("mcp_servers.arguebot.args=", StringComparison.Ordinal)).Split('=', 2)[1])!;
+            }
+            ProcessStartInfo start = new ProcessStartInfo(command) { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (string argument in arguments) start.ArgumentList.Add(argument);
+            using (Process bridge = Process.Start(start)!)
+            {
+                try
+                {
+                    await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 1, method = "initialize", @params = new { protocolVersion = "2025-03-26", capabilities = new { }, clientInfo = new { name = "fixture", version = "1" } } }).ConfigureAwait(false);
+                    string list = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 2, method = "tools/list" }).ConfigureAwait(false);
+                    if (!list.Contains("\"ask_user\"", StringComparison.Ordinal) || list.Contains("request_clarification", StringComparison.Ordinal)) return 53;
+                    string invalid = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 3, method = "tools/call", @params = new { name = "ask_user", arguments = new { questions = new object[] { new { prompt = "Pick", kind = "single_choice", options = new object[] { new { id = "only", label = "Only one" } } } } } } }).ConfigureAwait(false);
+                    if (!ToolText(invalid).Contains("invalid_question", StringComparison.Ordinal)) return 54;
+                    string asked = await ExchangeAsync(bridge, new { jsonrpc = "2.0", id = 4, method = "tools/call", @params = new { name = "ask_user", arguments = new { context = "Scope decides the design.", questions = new object[] { new { key = "scope", header = "Scope", prompt = "Which environments?", kind = "single_choice", options = new object[] { new { id = "prod", label = "Production only", recommended = true }, new { id = "all", label = "Every environment" } } } } } } }).ConfigureAwait(false);
+                    string text = ToolText(asked);
+                    if (!text.Contains("\"answered\"", StringComparison.Ordinal) || !text.Contains("Production only", StringComparison.Ordinal)) return 55;
+                    Console.WriteLine(args[0] == "mcp-questions-claude" ? "{\"type\":\"result\",\"result\":\"MCP question answered: Production only.\"}" : "{\"type\":\"item.completed\",\"item\":{\"id\":\"final\",\"type\":\"agent_message\",\"text\":\"MCP question answered: Production only.\"}}");
+                    return 0;
+                }
+                finally { bridge.StandardInput.Close(); if (!bridge.HasExited) bridge.Kill(true); await bridge.WaitForExitAsync().ConfigureAwait(false); }
+            }
+        }
         private static string ToolText(string response)
         {
             using (JsonDocument document = JsonDocument.Parse(response))

@@ -67,7 +67,7 @@ namespace ArgueBot.Core.Services
             if (run.Phase == "compaction" || run.Policy.UserQuestions == "off" || run.Policy.MaxQuestionRequestsPerTurn == 0 || run.Policy.MaxQuestionRequestsPerRun == 0) return result;
             string role = Role(run);
             if (run.Policy.UserQuestions == "orchestrator" && role == "participant") return result;
-            result.Add(new ConversationToolDefinition { Name = AskUser, Description = "Ask the person running the debate 1 to 4 questions when their answer would change your work and is not in the conversation or resources. Prefer single_choice or multi_choice with a recommended option; text for open answers; confirm for yes or no. Never ask for secrets. Returns the answer. If status is parked, end your turn in one sentence and you will continue after they answer; if skipped, state your assumptions.", Schema = Schema });
+            result.Add(new ConversationToolDefinition { Name = AskUser, Description = "Ask the person running the debate 1 to 4 questions when their answer would change your work and is not in the conversation. Prefer choices with a recommended option. Never ask for secrets. Returns the answer; if status is parked, end your turn in one sentence; if skipped, state your assumptions.", Schema = Schema });
             return result;
         }
 
