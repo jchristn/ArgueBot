@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased: v2.3.0
+## v2.3.0 (image published November 9, 2026)
 
-v2.3.0 lets agents stop in the middle of a turn and ask you a question, wait for the answer and carry on with it. Questions can be free text, a single choice, a multi-select or a yes/no confirmation, and you answer them in a dialog. The work is tracked in [PROMPTING_THE_USER_PLAN.md](PROMPTING_THE_USER_PLAN.md); entries below are added as each part lands.
+v2.3.0 lets agents stop in the middle of a turn and ask you a question, wait for the answer and carry on with it. Questions can be free text, a single choice, a multi-select or a yes/no confirmation, and you answer them in a dialog. The design and its remaining open items are in [PROMPTING_THE_USER_PLAN.md](PROMPTING_THE_USER_PLAN.md). Not yet done: a resumed turn gets the transcript and your answer rather than an exact replay or the CLI's native session resume, and the hold timeouts have not been checked against live Claude Code and Codex sessions.
 
 ### Questions for you
 
@@ -16,6 +16,11 @@ v2.3.0 lets agents stop in the middle of a turn and ask you a question, wait for
 - CLI: `questions list|show|answer|skip|defer|watch|wait`. `questions answer` asks on a terminal or takes `--choice`, `--text`, `--other`, `--confirm`, `--skip-question` or `--file`. `questions wait CONVERSATION RUN` follows a debate and exits with code 4 when it waits for an answer without a terminal.
 - API: `GET /v2.0/api/questions` (filters `status`, `scope`, `conversationId`, `runId`, paging), `GET /v2.0/api/questions/summary`, `GET /v2.0/api/questions/events` (cursor feed, or a server-sent event stream; the dashboard and TUI poll the feed, and these polls are not kept in request history), `GET /v2.0/api/questions/{questionId}`, `POST .../answer`, `POST .../skip`, `POST .../defer` and `GET /v2.0/api/conversations/{conversationId}/runs/{runId}/questions`. The conversation event stream carries `question` changes. Runs report `waitingSeconds`. The C# client has a method for each.
 - Schema 35 adds question requests, questions, options, answers, selected options and the per-debate question policy, and migrates clarification requests.
+
+### Dashboard
+
+- Tables with a Delete action (conversations, agents, resources, prompts, request history, users, tenants and access credentials) have a checkbox column and a select-all box. Selecting one or more rows shows **Delete multiple**, which lists what will be deleted, deletes each record in turn and keeps any that could not be deleted selected with the reason. Rows that cannot be deleted, such as factory prompts, protected accounts or your own user, have no checkbox. Deleting several users or tenants asks you to type `delete` first.
+- The Questions page action menu showed the untranslated key `common.view`; it now reads **View the question**. The i18n check now also covers labels in action menus.
 
 ### Breaking changes
 
