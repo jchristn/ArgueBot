@@ -2,6 +2,7 @@ import ActionMenu from "../components/ActionMenu.jsx";
 import CatalogTab, { catalogKinds } from "../components/CatalogTab.jsx";
 import Tabs from "../components/Tabs.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import ModelChecksDialog from "../components/ModelChecksDialog.jsx";
 import harnesses from "../../../assets/harness-defaults.json";
@@ -241,6 +242,7 @@ export default function Participants() {
   );
   const catalog = useData("catalog", async () => Object.fromEntries(await Promise.all(catalogKinds.map(async key => [key, await api.configuration(key)]))));
   const [modal, setModal] = useState(null);
+  const selection = useSelection(data);
   const secretName = id => catalog.data?.credentials?.find(item => item.id === id)?.name || id;
   const modelName = id => catalog.data?.models?.find(item => item.id === id)?.name;
   const agents = () => (
@@ -248,6 +250,7 @@ export default function Participants() {
       <div className="tab-toolbar">
         <p className="muted">{t("participants.description")}</p>
         <div className="toolbar-actions">
+          <BulkDeleteButton selection={selection} onClick={() => setModal({ kind: "bulk" })} />
           <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
           <Button label="participants.add" icon="plus" className="primary" onClick={() => setModal({ kind: "form" })} />
         </div>
@@ -257,6 +260,7 @@ export default function Participants() {
         <table>
           <thead>
             <tr>
+              <SelectHeader selection={selection} />
               <th scope="col">{t("profile.nameColumn")}</th>
               <th scope="col">{t("common.identifier")}</th>
               <th scope="col">{t("profile.typeColumn")}</th>
@@ -269,6 +273,7 @@ export default function Participants() {
           <tbody>
             {data?.map((profile) => (
               <ObjectRow key={profile.id} onOpen={() => setModal({ kind: "form", profile })}>
+                <SelectCell selection={selection} item={profile} name={profile.name} />
                 <td>
                   <strong>{profile.name}</strong>
                 </td>
@@ -341,6 +346,8 @@ export default function Participants() {
           <pre>{JSON.stringify(modal.profile, null, 2)}</pre>
         </Modal>
       )}{" "}
+      {modal?.kind === "bulk" && <BulkDeleteDialog items={selection.items()} nameOf={profile => profile.name} remove={profile => api.deleteParticipant(profile.id)}
+        onClose={() => setModal(null)} onDone={failed => { setModal(null); selection.keep(failed); reload(); }} />}
       {modal?.kind === "delete" && (
         <Modal title="common.delete" onClose={() => setModal(null)}>
           <p>{t("profile.delete.confirm")}</p>

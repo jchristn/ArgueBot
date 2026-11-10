@@ -10,7 +10,7 @@ function inspect(directory) {
     if (entry.isDirectory()) inspect(full);
     else if (/\.[jt]sx?$/.test(entry.name)) {
       const source = fs.readFileSync(full,'utf8');
-      for (const match of source.matchAll(/(?:\bt\(\s*['"]([^'"]+)['"]|\b(?:label|help|title)=['"]([a-z][a-zA-Z0-9]+\.[^'"]+)['"])/g)) {
+      for (const match of source.matchAll(/(?:\bt\(\s*['"]([^'"]+)['"]|\b(?:label|help|title)(?:=|:\s*)['"]([a-z][a-zA-Z0-9]+\.[^'"]+)['"])/g)) {
         const key = match[1] || match[2];
         if (key.endsWith('.') || key.includes(' ')) continue;
         if (!(key in en)) missing.push(`${full}: ${key}`);

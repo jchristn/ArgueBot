@@ -1631,3 +1631,9 @@ dialog.message-reader { width: min(1100px, calc(100vw - 32px)); }
   .question-actions, .question-actions .button-group { flex-direction: column; align-items: stretch; }
   .waiting-banner, .recent-row { flex-wrap: wrap; }
 }
+
+/* Row selection for Delete multiple */
+th.select-cell, td.select-cell { width: 1%; padding-inline-end: 0; }
+.select-cell input[type="checkbox"] { inline-size: 16px; block-size: 16px; margin: 0; cursor: pointer; vertical-align: middle; }
+.bulk-list { margin: 8px 0; padding-inline-start: 20px; max-block-size: 240px; overflow: auto; overflow-wrap: anywhere; }
+.bulk-list li + li { margin-block-start: 2px; }

@@ -75,7 +75,7 @@ export default function Questions() {
         <td><Age value={item.createdUtc} /></td>
         <td className="actions-cell"><ActionMenu context={item.id} items={[
           ...(item.status === "open" ? [{ label: "questions.answer", onClick: () => open(item) }] : []),
-          { label: "common.view", onClick: () => setViewing(item) },
+          { label: "questions.view", help: "questions.view.help", onClick: () => setViewing(item) },
           { label: "common.inspect", onClick: () => setJson(item) },
         ]} /></td>
       </ObjectRow>)}</tbody>

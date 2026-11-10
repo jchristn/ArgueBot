@@ -24,7 +24,7 @@ test("new conversation asks for a title and an opening question, and the debate 
   await page.goto("/dashboard/conversations");
   await page.getByRole("searchbox").fill(title);
   const row = page.getByRole("row").filter({ hasText: id });
-  await expect(row.getByRole("cell").first()).toHaveText(title);
+  await expect(row.getByRole("cell").nth(1)).toHaveText(title);
   await expect(row).not.toContainText(question);
   await request.delete(`/v1.0/api/conversations/${id}`);
 });

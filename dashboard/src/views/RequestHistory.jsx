@@ -1,5 +1,6 @@
 import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import RequestInspector from "../components/RequestInspector.jsx";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -21,9 +22,11 @@ export default function RequestHistory() {
   }));
   const [detail, setDetail] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [bulk, setBulk] = useState(false);
   const { data, error, reload } = useData(JSON.stringify(filter), () =>
     api.history(filter),
   );
+  const selection = useSelection(data?.items);
   const [period, setPeriod] = useState({ name: "day", end: Date.now() });
   const periods = {
     hour: { minutes: 1, count: 60 },
@@ -115,6 +118,7 @@ export default function RequestHistory() {
             update({ status: event.target.value, pageNumber: 1 })
           }
         />
+        <BulkDeleteButton selection={selection} onClick={() => setBulk(true)} />
       </div>
       {error && <ErrorPanel error={error} retry={reload} />}{" "}
       {data && (
@@ -124,6 +128,7 @@ export default function RequestHistory() {
             <table>
               <thead>
                 <tr>
+                  <SelectHeader selection={selection} />
                   {[
                     "history.time",
                     "history.method",
@@ -141,6 +146,7 @@ export default function RequestHistory() {
               <tbody>
                 {data.items.map((record) => (
                   <ObjectRow key={record.id} inspect onOpen={() => setDetail(record)}>
+                    <SelectCell selection={selection} item={record} name={`${record.method} ${record.path}`} />
                     <td>
                       <time>{formatDate(record.createdUtc)}</time>
                     </td>
@@ -177,6 +183,8 @@ export default function RequestHistory() {
         </>
       )}
       {detail && <RequestInspector record={detail} onClose={() => setDetail(null)} />}{" "}
+      {bulk && <BulkDeleteDialog items={selection.items()} nameOf={record => `${formatDate(record.createdUtc)} ${record.method} ${record.path}`} remove={record => api.deleteHistory(record.id)}
+        onClose={() => setBulk(false)} onDone={failed => { setBulk(false); selection.keep(failed); reload(); }} />}
       {deleting && (
         <Modal title="common.delete" onClose={() => setDeleting(null)}>
           <p>{t("history.delete.confirm")}</p>

@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import ResourceEditor from "../components/ResourceEditor.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
@@ -20,12 +21,14 @@ export default function Resources() {
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [importing, setImporting] = useState(null);
+  const [bulk, setBulk] = useState(false);
   const picker = useRef();
   const { data, error, reload } = useData("resources", () => api.resources());
   const items = data?.items || [];
   const tags = [...new Set(items.flatMap(item => item.tags))].sort();
   const needle = search.trim().toLowerCase();
   const rows = items.filter(item => (!tag || item.tags.includes(tag)) && (!needle || [item.name, item.title, item.description].some(text => text.toLowerCase().includes(needle))));
+  const selection = useSelection(rows);
   // Links from transcript tool activity open a resource by name, optionally at a revision.
   const linkedName = params.get("name") || "";
   const linkedRevision = Number(params.get("revision") || 0);
@@ -56,6 +59,7 @@ export default function Resources() {
       <Field label="resources.search">{props => <input {...props} type="search" value={search} onChange={event => setSearch(event.target.value)} />}</Field>
       <Field label="resources.tagFilter">{props => <select {...props} value={tag} onChange={event => setTag(event.target.value)}><option value="">{t("resources.allTags")}</option>{tags.map(item => <option key={item} value={item}>{item}</option>)}</select>}</Field>
       <div className="toolbar-actions">
+        <BulkDeleteButton selection={selection} onClick={() => setBulk(true)} />
         <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
         <input ref={picker} type="file" accept=".md,.markdown,text/markdown" multiple hidden data-testid="resource-import" onChange={event => importFiles(event.target.files)} />
         <Button label="resources.import" icon="download" onClick={() => picker.current?.click()} />
@@ -65,11 +69,13 @@ export default function Resources() {
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && rows.length > 0 && <div className="table-scroll"><table>
       <thead><tr>
+        <SelectHeader selection={selection} />
         <th scope="col">{t("resources.name")}</th><th scope="col">{t("resources.titleField")}</th><th scope="col">{t("resources.tagsColumn")}</th>
         <th scope="col">{t("resources.sizeColumn")}</th><th scope="col">{t("resources.updated")}</th><th scope="col">{t("resources.updatedBy")}</th>
         <th scope="col" className="actions-cell">{t("common.actions")}</th>
       </tr></thead>
       <tbody>{rows.map(item => <ObjectRow key={item.id} onOpen={() => setEditing({ resource: item, revision: 0 })}>
+        <SelectCell selection={selection} item={item} name={item.name} />
         <td><code>{item.name}</code>{item.locked && <> <span className="badge" title={t("resources.locked.help")}>{t("resources.lockedBadge")}</span></>}{item.description && <div className="muted prompt-description">{item.description}</div>}</td>
         <td>{item.title}</td>
         <td>{item.tags.map(value => <span key={value} className="badge tag">{value}</span>)}</td>
@@ -93,6 +99,8 @@ export default function Resources() {
         <Button label="resources.importOverwrite" className="danger" onClick={() => importFiles(importing.files, true)} />
       </footer>
     </Modal>}
+    {bulk && <BulkDeleteDialog items={selection.items()} nameOf={item => item.name} remove={item => api.deleteResource(item.id, item.revision)}
+      onClose={() => setBulk(false)} onDone={failed => { setBulk(false); selection.keep(failed); reload(); }} />}
     {deleting && <Modal title="resources.delete.title" onClose={() => setDeleting(null)}>
       <p>{t("resources.delete.confirm", { name: deleting.name })}</p>
       {deleteError && <ErrorPanel error={deleteError} />}

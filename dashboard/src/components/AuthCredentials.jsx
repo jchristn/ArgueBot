@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu.jsx";
 import CopyButton from "./CopyButton.jsx";
 import ObjectRow from "./ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "./BulkDelete.jsx";
 import { useData } from "./useData.js";
 import { Button, ErrorPanel, Field, Modal } from "./ui.jsx";
 import { formatDate } from "../i18n/index.js";
 
+const deletable = credential => !credential.protected;
 export const expiryChoices = [["never", 0], ["days30", 30], ["days90", 90], ["year", 365]];
 
 /** Expiry time for a choice of days from now, or null for a credential that never expires. */
@@ -25,18 +27,21 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
   const [revealing, setRevealing] = useState(null);
   const [revealed, setRevealed] = useState(null);
   const [failure, setFailure] = useState(null);
+  const [bulk, setBulk] = useState(false);
+  const selection = useSelection(data, deletable);
   const save = async (credential, changes) => {
     try { await api.updateCredential(credential.id, { name: credential.name, expiresUtc: credential.expiresUtc, active: credential.active, revision: credential.revision, ...changes }, userId, tenantId); await reload(); }
     catch (problem) { notify(problem); }
   };
   return <section className="page-section">
-    <header><h2>{t("authCredentials.title")}</h2><Button label="authCredentials.add" icon="plus" className="primary" onClick={() => { setFailure(null); setCreating({ name: "", days: 0 }); }} /></header>
+    <header><h2>{t("authCredentials.title")}</h2><div className="toolbar-actions"><BulkDeleteButton selection={selection} onClick={() => setBulk(true)} /><Button label="authCredentials.add" icon="plus" className="primary" onClick={() => { setFailure(null); setCreating({ name: "", days: 0 }); }} /></div></header>
     <p className="muted">{t("authCredentials.description")}</p>
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && data.length === 0 && <div className="empty-state">{t("authCredentials.empty")}</div>}
     {data && data.length > 0 && <div className="table-scroll"><table>
-      <thead><tr><th scope="col">{t("authCredentials.name")}</th><th scope="col">{t("authCredentials.token")}</th><th scope="col">{t("authCredentials.status")}</th><th scope="col">{t("authCredentials.expires")}</th><th scope="col">{t("authCredentials.lastUsed")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
+      <thead><tr><SelectHeader selection={selection} /><th scope="col">{t("authCredentials.name")}</th><th scope="col">{t("authCredentials.token")}</th><th scope="col">{t("authCredentials.status")}</th><th scope="col">{t("authCredentials.expires")}</th><th scope="col">{t("authCredentials.lastUsed")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
       <tbody>{data.map(credential => <ObjectRow key={credential.id} onOpen={() => setRenaming({ ...credential })}>
+        <SelectCell selection={selection} item={credential} name={credential.name} />
         <td><strong>{credential.name}</strong>{credential.protected && <> <span className="badge" title={t("authCredentials.protected.help")}>{t("authCredentials.protected")}</span></>}</td>
         <td><code>{"••••" + credential.tokenLast4}</code></td>
         <td><span className={credential.active ? "badge success" : "badge"}>{t(credential.active ? "authCredentials.active" : "authCredentials.disabled")}</span></td>
@@ -84,6 +89,8 @@ export default function AuthCredentials({ api, notify, userId = "", tenantId = "
         <footer className="dialog-actions"><Button label="common.cancel" type="button" onClick={() => setRenaming(null)} /><Button label="common.save" type="submit" className="primary" disabled={!renaming.name.trim()} /></footer>
       </form>
     </Modal>}
+    {bulk && <BulkDeleteDialog items={selection.items()} nameOf={credential => credential.name} remove={credential => api.deleteCredential(credential.id, userId, tenantId)}
+      onClose={() => setBulk(false)} onDone={failed => { setBulk(false); selection.keep(failed); reload(); }} />}
     {deleting && <Modal title="authCredentials.delete.title" onClose={() => setDeleting(null)}>
       <p>{t("authCredentials.delete.confirm", { name: deleting.name })}</p>
       {failure && <ErrorPanel error={failure} />}

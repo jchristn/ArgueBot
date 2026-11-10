@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "../components/ActionMenu.jsx";
 import CopyableId from "../components/CopyableId.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -17,16 +18,21 @@ export default function Tenants() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [failure, setFailure] = useState(null);
+  const [bulk, setBulk] = useState(false);
+  const deletable = useCallback(tenant => !tenant.protected && tenant.id !== session?.tenant?.id, [session?.tenant?.id]);
+  const selection = useSelection(data, deletable);
   return <>
     <div className="page-heading"><div><h1>{t("tenants.title")}</h1><p>{t("tenants.description")}</p></div></div>
     <div className="tab-toolbar"><div className="toolbar-actions">
+      <BulkDeleteButton selection={selection} onClick={() => setBulk(true)} />
       <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
       <Button label="tenants.add" icon="plus" className="primary" onClick={() => { setFailure(null); setEditing({ name: "", active: true }); }} />
     </div></div>
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && <div className="table-scroll"><table>
-      <thead><tr><th scope="col">{t("tenants.name")}</th><th scope="col">{t("tenants.id")}</th><th scope="col">{t("tenants.status")}</th><th scope="col">{t("tenants.updated")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
+      <thead><tr><SelectHeader selection={selection} /><th scope="col">{t("tenants.name")}</th><th scope="col">{t("tenants.id")}</th><th scope="col">{t("tenants.status")}</th><th scope="col">{t("tenants.updated")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
       <tbody>{data.map(tenant => <ObjectRow key={tenant.id} onOpen={() => { setFailure(null); setEditing({ ...tenant }); }}>
+        <SelectCell selection={selection} item={tenant} name={tenant.name} />
         <td><strong>{tenant.name}</strong>{tenant.id === session.tenant.id && <> <span className="badge">{t("tenants.yours")}</span></>}{tenant.protected && <> <span className="badge" title={t("tenants.protected.help")}>{t("tenants.protected")}</span></>}</td>
         <td><CopyableId value={tenant.id} /></td>
         <td><span className={tenant.active ? "badge success" : "badge"}>{t(tenant.active ? "tenants.active" : "tenants.disabled")}</span></td>
@@ -47,6 +53,8 @@ export default function Tenants() {
         <footer className="dialog-actions"><Button label="common.cancel" type="button" onClick={() => setEditing(null)} /><Button label={editing.id ? "common.save" : "common.create"} type="submit" className="primary" disabled={!editing.name.trim()} /></footer>
       </form>
     </Modal>}
+    {bulk && <BulkDeleteDialog items={selection.items()} nameOf={tenant => tenant.name} remove={tenant => api.deleteTenant(tenant.id, tenant.name)} confirmWord
+      onClose={() => setBulk(false)} onDone={failed => { setBulk(false); selection.keep(failed); reload(); }} />}
     {deleting && <Modal title="tenants.delete.title" onClose={() => setDeleting(null)}>
       <p>{t("tenants.delete.confirm", { name: deleting.tenant.name })}</p>
       <Field label="tenants.delete.type">{props => <input {...props} data-autofocus autoComplete="off" value={deleting.confirm} onChange={event => setDeleting({ ...deleting, confirm: event.target.value })} />}</Field>

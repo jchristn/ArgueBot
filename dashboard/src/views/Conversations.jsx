@@ -3,6 +3,7 @@ import { randomId } from "../utils/random-id.js";
 import ActionMenu from "../components/ActionMenu.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
 import CopyableId from "../components/CopyableId.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -101,6 +102,7 @@ export default function Conversations() {
     api.conversations(filter),
   );
   const ids = (data?.items || []).map(record => record.id);
+  const selection = useSelection(data?.items);
   // Latest run per visible row, loaded separately so the list does not wait on it.
   const { data: runs, reload: reloadRuns } = useData("conversation-runs:" + ids.join(","), async () => {
     const entries = await Promise.all(ids.map(async conversationId => { try { return [conversationId, (await api.runs(conversationId)).at(-1) || null]; } catch { return [conversationId, null]; } }));
@@ -158,6 +160,7 @@ export default function Conversations() {
           iconOnly
           onClick={reload}
         />
+        <BulkDeleteButton selection={selection} onClick={() => setModal({ kind: "bulk" })} />
       </div>
       {error && <ErrorPanel error={error} retry={reload} />}{" "}
       {data && (
@@ -167,6 +170,7 @@ export default function Conversations() {
             <table>
               <thead>
                 <tr>
+                  <SelectHeader selection={selection} />
                   <th scope="col">{t("conversations.titleColumn")}</th>
                   <th scope="col">{t("common.identifier")}</th>
                   <th scope="col">{t("conversations.updated")}</th>
@@ -176,6 +180,7 @@ export default function Conversations() {
               <tbody>
                 {data.items.map((record) => (
                   <ObjectRow key={record.id} open onOpen={() => navigate("/dashboard/conversations/" + record.id)}>
+                    <SelectCell selection={selection} item={record} name={record.title} />
                     <td>
                       <strong>{record.pinned && "★ "}{record.title}</strong>
                     </td>
@@ -238,6 +243,10 @@ export default function Conversations() {
       )}{" "}
       {modal?.kind === "share" && <ShareDialog api={api} conversation={modal.record} onClose={() => setModal(null)} />}
       {modal?.kind === "delete" && <DeleteDialog api={api} record={modal.record} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
+      {modal?.kind === "bulk" && <BulkDeleteDialog items={selection.items()} nameOf={record => record.title}
+        remove={record => api.deleteConversation(record.id)}
+        describe={failure => failure.code === "active_run" ? t("bulk.activeRun") : undefined}
+        onClose={() => setModal(null)} onDone={failed => { setModal(null); selection.keep(failed); reload(); }} />}
       {modal?.kind === "stop" && <StopDialog api={api} record={modal.record} run={modal.run} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
     </>
   );

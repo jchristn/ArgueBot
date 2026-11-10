@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "../components/ActionMenu.jsx";
 import AuthCredentials from "../components/AuthCredentials.jsx";
 import AuthSessions from "../components/AuthSessions.jsx";
 import ObjectRow from "../components/ObjectRow.jsx";
+import { BulkDeleteButton, BulkDeleteDialog, SelectCell, SelectHeader, useSelection } from "../components/BulkDelete.jsx";
 import { useData } from "../components/useData.js";
 import { Button, ErrorPanel, Field, Modal } from "../components/ui.jsx";
 import { formatDate } from "../i18n/index.js";
@@ -29,6 +30,9 @@ export default function Users() {
   const [managing, setManaging] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [failure, setFailure] = useState(null);
+  const [bulk, setBulk] = useState(false);
+  const deletable = useCallback(user => !user.protected && user.id !== session?.user?.id, [session?.user?.id]);
+  const selection = useSelection(data, deletable);
   const tenantName = tenantId ? tenants.data?.find(item => item.id === tenantId)?.name || tenantId : session?.tenant?.name;
   const save = async event => {
     event.preventDefault(); setEditError(null);
@@ -40,14 +44,16 @@ export default function Users() {
     <div className="tab-toolbar">
       {systemAdmin && tenants.data && <Field label="users.tenant">{props => <select {...props} value={tenantId || session.tenant.id} onChange={event => setParams(event.target.value === session.tenant.id ? {} : { tenant: event.target.value })}>{tenants.data.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}</Field>}
       <div className="toolbar-actions">
+        <BulkDeleteButton selection={selection} onClick={() => setBulk(true)} />
         <Button label="common.refresh" icon="refresh" iconOnly onClick={reload} />
         <Button label="users.add" icon="plus" className="primary" onClick={() => { setEditError(null); setEditing({ firstName: "", lastName: "", email: "", password: "", isTenantAdmin: false, isAdmin: false, active: true }); }} />
       </div>
     </div>
     {error && <ErrorPanel error={error} retry={reload} />}
     {data && <div className="table-scroll"><table>
-      <thead><tr><th scope="col">{t("users.name")}</th><th scope="col">{t("users.email")}</th><th scope="col">{t("users.role")}</th><th scope="col">{t("users.status")}</th><th scope="col">{t("users.updated")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
+      <thead><tr><SelectHeader selection={selection} /><th scope="col">{t("users.name")}</th><th scope="col">{t("users.email")}</th><th scope="col">{t("users.role")}</th><th scope="col">{t("users.status")}</th><th scope="col">{t("users.updated")}</th><th scope="col" className="actions-cell">{t("common.actions")}</th></tr></thead>
       <tbody>{data.map(user => <ObjectRow key={user.id} onOpen={() => { setEditError(null); setEditing({ ...user }); }}>
+        <SelectCell selection={selection} item={user} name={user.email} />
         <td><strong>{[user.firstName, user.lastName].filter(Boolean).join(" ") || user.email}</strong>{user.id === session.user.id && !tenantId && <> <span className="badge">{t("users.you")}</span></>}{user.protected && <> <span className="badge" title={t("users.protected.help")}>{t("users.protected")}</span></>}</td>
         <td>{user.email}</td>
         <td>{t(roleKey(user))}</td>
@@ -89,6 +95,8 @@ export default function Users() {
       <AuthCredentials api={api} notify={notify} userId={managing.id} tenantId={tenantId} />
       <AuthSessions api={api} notify={notify} userId={managing.id} tenantId={tenantId} />
     </Modal>}
+    {bulk && <BulkDeleteDialog items={selection.items()} nameOf={user => user.email} remove={user => api.deleteUser(user.id, tenantId)} confirmWord
+      onClose={() => setBulk(false)} onDone={failed => { setBulk(false); selection.keep(failed); reload(); }} />}
     {deleting && <Modal title="users.delete.title" onClose={() => setDeleting(null)}>
       <p>{t("users.delete.confirm", { email: deleting.email })}</p>
       {failure && <ErrorPanel error={failure} />}
