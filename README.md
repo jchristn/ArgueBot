@@ -10,27 +10,29 @@ ArgueBot runs structured debates between a configurable panel of agents and supp
 
 Agents can run Claude Code, Codex, Gemini CLI, Mux, another CLI program, or REST models through PolyPrompt. REST participants can execute local file and process tools on the service machine. Agent-declared consensus is recorded as an outcome, not treated as proof that the answer is correct.
 
-## About v2.0.0
+## About v2.x
 
-**v2.0.0 is a complete rewrite of ArgueBot.** The original Node.js prototype (version 0.1.0, run through npm) let two or three CLI agents debate and detected agreement from keywords. Version 2.0.0 replaces it with a C# service, a terminal interface (TUI), a React web dashboard and a scriptable CLI that all share one persistent workspace. The npm commands are retired.
+**The current release is v2.3.0.** In v2.3.0, agents can stop in the middle of a turn and ask you a question: free text, a single choice, a multi-select or a yes/no confirmation. You answer in a dialog in the dashboard or TUI, or from the CLI or API, and the agent carries on with your answer. New debates can open with an intake step where the orchestrator asks about a vague question before round 1. Dashboard tables with a Delete action can now delete several selected rows at once. See [Questions for you](docs/QUESTIONS.md) and the [CHANGELOG](CHANGELOG.md).
 
-What v2.0.0 does:
+What ArgueBot does:
 
 - **Multi-agent debates.** A panel of 2 to 16 agents (configurable up to 64): Claude Code, Codex, Gemini CLI, Mux, a generic CLI, or REST models served through Ollama or an OpenAI-compatible endpoint. An orchestrator asks one focused question per round, the agents respond, the orchestrator proposes an answer and every agent votes. Agreement requires an explicit "agree" from every active agent on the same proposal; disagreement stays visible.
+- **Agents ask you when it matters.** An agent can pause its turn to ask you one to four structured questions and continue with your answers, in the same turn if you answer within the hold time.
 - **You moderate.** Add context for everyone or privately for one agent, either immediately or at the next turn; pin constraints; edit the proposal under vote; add, remove or replace agents between turns; pause, resume, interrupt, extend or stop.
-- **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, check evidence and stop to ask you questions. Original turns are never discarded.
+- **Long debates stay grounded.** The orchestrator keeps a source-linked working memory, and agents use built-in tools to page through turns, search the conversation, read workspace resources and check evidence. Original turns are never discarded.
 - **Editable prompts.** Each debate step's instructions come from a prompt library. Factory defaults are read-only; duplicate one to change it, using `{parameters}` such as `{question}`, and choose prompts per conversation.
 - **Reusable configuration.** Agents, models, HTTP endpoints and encrypted secrets (Claude Code tokens, Codex logins, bearer, header and query API keys) are defined once and reused. Execution budgets, timeouts and output limits are set per run.
 - **Readable results.** Watch a debate live in a compact timeline, then read it as a full-page transcript with rounds, the final proposal and each agent's vote. Export as Markdown or print to PDF.
+- **Users and sharing.** Sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links.
 - **One service, many interfaces.** The service owns the database (SQLite by default, PostgreSQL optional) and keeps running when you close an interface. The TUI, dashboard, CLI, REST API and Docker image all use it.
 
-**v2.3.0** lets agents stop in the middle of a turn and ask you a question: free text, a single choice, a multi-select or a yes/no confirmation. You answer in a dialog in the dashboard or TUI, or from the CLI or API, and the agent carries on with your answer. New debates can open with an intake step where the orchestrator asks about a vague question before round 1. The older free-text clarification requests are replaced. See [Questions for you](docs/QUESTIONS.md).
+Earlier releases:
 
-**v2.2.0** added resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. A role instruction can say "if you need to know more about billing, call `read_resource` with name `billing`", and the agent pulls that context in only when it needs it. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
+- **v2.2.0** added resources: named markdown documents in your workspace that agents can list, search, read and, when you allow it, write during a debate. See [Resources](#resources) and the [resources guide](docs/RESOURCES.md).
+- **v2.1.0** added sign-in, users, tenants, bearer-token credentials, an audit log and share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
+- **v2.0.0** was a complete rewrite. The original Node.js prototype (version 0.1.0, run through npm) let two or three CLI agents debate and detected agreement from keywords. Version 2 replaced it with a C# service, a TUI, a React dashboard and a scriptable CLI sharing one persistent workspace. The npm commands are retired.
 
-**v2.1.0** added sign-in, users, tenants, bearer-token credentials, an audit log and time-limited public share links. See [Sign-in, users and tenants](#sign-in-users-and-tenants).
-
-**Status:** v2.0.0 is an implementation preview on `main` and has not been published as a release. Distribution builds are local artifacts: Windows packages are unsigned and macOS bundles are ad-hoc signed and not notarized. Databases from earlier v2 previews upgrade automatically on startup, with a backup first. See the [CHANGELOG](CHANGELOG.md) for details, the [debate guide](docs/MULTIPLE_AGENTS.md), [prompts](docs/PROMPTS.md), the [model tools](MCP_API.md), the [Docker guide](docker/README.md) and [packaging](packaging/README.md).
+**Status:** v2.3.0 is published as the Docker image `jchristn77/arguebot:v2.3.0` (also `latest`). Native installers are local builds: Windows packages are unsigned and macOS bundles are ad-hoc signed and not notarized. Databases from earlier v2 versions upgrade automatically on startup, with a backup first. See the [CHANGELOG](CHANGELOG.md), the [debate guide](docs/MULTIPLE_AGENTS.md), [prompts](docs/PROMPTS.md), the [model tools](MCP_API.md), the [Docker guide](docker/README.md) and [packaging](packaging/README.md).
 
 If the operating system blocks a downloaded build, review the source and checksum first. Then on Windows choose **More info > Run anyway**, and on macOS choose **Privacy & Security > Open Anyway**.
 
